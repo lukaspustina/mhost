@@ -1,0 +1,29 @@
+[package]
+name = "mhost"
+version = "0.0.1"
+authors = ["Lukas Pustina <lukas@pustina.net>"]
+description = "Like `host`, but uses multiple DNS server massively parallel and compares results"
+repository = "https://github.com/lukaspustina/mhost.git"
+documentation = "http://lukaspustina.github.io/mhost"
+readme = "README.md"
+license = "MIT"
+keywords = ["network", "dns", "host", "dig", "cli"]
+include = [
+  "README.md",
+  "LICENSE",
+  "**/*.rs",
+  "Cargo.toml",
+]
+
+[badges]
+travis-ci = { repository = "lukaspustina/", branch = "master" }
+
+[[bin]]
+name = "mhost"
+path = "src/main.rs"
+doc = false
+
+[dependencies]
+
+[dev-dependencies]
+
