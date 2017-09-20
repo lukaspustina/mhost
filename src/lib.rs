@@ -19,8 +19,8 @@ use trust_dns::udp::UdpClientStream;
 
 #[derive(Debug)]
 pub struct DnsResponse {
-    server: IpAddr,
-    answers: Vec<Record>,
+    pub server: IpAddr,
+    pub answers: Vec<Record>,
 }
 
 pub type Result = std::result::Result<DnsResponse, Box<std::error::Error>>;

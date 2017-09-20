@@ -7,13 +7,14 @@ extern crate structopt_derive;
 extern crate tokio_core;
 extern crate trust_dns;
 
-use mhost::multiple_lookup;
+use mhost::{multiple_lookup};
 
+use std::fmt;
 use std::net::Ipv4Addr;
 use std::str::FromStr;
 use structopt::StructOpt;
 use tokio_core::reactor::Core;
-use trust_dns::rr::RecordType;
+use trust_dns::rr::{RData, RecordType};
 
 // Arbitrary list of public DNS servers
 static DEFAULT_DNS_SERVERS: &'static [&str] = &[
@@ -75,6 +76,26 @@ struct CliArgs {
     domain_name: String,
 }
 
+struct DnsResponse(pub mhost::DnsResponse);
+
+impl fmt::Display for DnsResponse {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let DnsResponse(ref dns_response) = *self;
+        let _ = write!(f, "DNS server {} responded with ", dns_response.server);
+        let mut answers: Vec<String> = dns_response.answers
+            .iter()
+            .map(|answer| {
+                match *answer.rdata() {
+                    RData::A(ip) => format!("{}", ip),
+                    _ => format!("unclassified answer")
+                }
+            })
+            .collect();
+        answers.sort();
+        write!(f, "{}.", answers.join(", "))
+    }
+}
+
 fn main() {
     let args = CliArgs::from_args();
 
@@ -95,7 +116,16 @@ fn main() {
 
     let mut io_loop = Core::new().unwrap();
     let lookup = multiple_lookup(&io_loop.handle(), &domain_name, servers, record_type);
-    let results = io_loop.run(lookup);
+    let results = io_loop.run(lookup).unwrap();
 
-    eprintln!("results = {:?}", results);
+    for result in results {
+        match result {
+            Ok(response) => {
+                println!("{}", DnsResponse(response))
+            }
+            Err(_) => {
+
+            }
+        }
+    }
 }
