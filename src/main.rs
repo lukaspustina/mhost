@@ -83,7 +83,7 @@ struct DnsResponse<'a>(pub &'a mhost::DnsResponse);
 // Display impl for plain, basic output
 impl<'a> fmt::Display for DnsResponse<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let DnsResponse(ref dns_response) = *self;
+        let DnsResponse(dns_response) = *self;
         if dns_response.answers.is_empty() {
             return write!(f, "DNS server {} has not records.", dns_response.server);
         }
@@ -131,13 +131,13 @@ fn main() {
     let lookup = multiple_lookup(&io_loop.handle(), &domain_name, servers, record_type);
     let mut results = io_loop.run(lookup).unwrap();
 
-    for result in results.iter() {
+    for result in &results {
         match *result {
             Ok(ref response) => {
                 println!("{}", DnsResponse(response))
             }
-            Err(_) => {
-
+            Err(ref e) => {
+                println!("Error: {}", e)
             }
         }
     }

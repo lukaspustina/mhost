@@ -9,12 +9,12 @@ extern crate trust_dns;
 
 use futures::Future;
 use futures::future::join_all;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use tokio_core::reactor::Handle;
 use trust_dns::client::{ClientFuture, ClientHandle};
 use trust_dns::rr::domain;
-use trust_dns::rr::{DNSClass, RData, Record, RecordType};
+use trust_dns::rr::{DNSClass, Record, RecordType};
 use trust_dns::udp::UdpClientStream;
 
 #[derive(Debug)]
@@ -54,7 +54,7 @@ pub fn multiple_lookup<T: Into<SocketAddr>>(
 ) -> Box<Future<Item=Vec<Result>, Error=()>> {
     let futures: Vec<_> = servers
         .into_iter()
-        .map(|server| lookup(loop_handle, domain_name, server, record_type.clone()))
+        .map(|server| lookup(loop_handle, domain_name, server, record_type))
         .collect();
 
     Box::new(join_all(futures))
