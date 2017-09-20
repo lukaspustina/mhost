@@ -1,5 +1,6 @@
 #![feature(attr_literals)]
 
+extern crate difference;
 extern crate mhost;
 extern crate structopt;
 #[macro_use]
@@ -77,10 +78,10 @@ struct CliArgs {
 }
 
 // Newtype pattern for Display implementation
-struct DnsResponse(pub mhost::DnsResponse);
+struct DnsResponse<'a>(pub &'a mhost::DnsResponse);
 
 // Display impl for plain, basic output
-impl fmt::Display for DnsResponse {
+impl<'a> fmt::Display for DnsResponse<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let DnsResponse(ref dns_response) = *self;
         if dns_response.answers.is_empty() {
@@ -128,16 +129,23 @@ fn main() {
 
     let mut io_loop = Core::new().unwrap();
     let lookup = multiple_lookup(&io_loop.handle(), &domain_name, servers, record_type);
-    let results = io_loop.run(lookup).unwrap();
+    let mut results = io_loop.run(lookup).unwrap();
 
-    for result in results {
-        match result {
-            Ok(response) => {
+    for result in results.iter() {
+        match *result {
+            Ok(ref response) => {
                 println!("{}", DnsResponse(response))
             }
             Err(_) => {
 
             }
         }
+    }
+
+    if results.len() == 2 {
+        let one = format!("{}", DnsResponse(&results.pop().unwrap().unwrap()));
+        let two = format!("{}", DnsResponse(&results.pop().unwrap().unwrap()));
+        let changeset = difference::Changeset::new(&one, &two, " ");
+        println!("{}", changeset);
     }
 }

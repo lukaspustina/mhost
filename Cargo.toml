@@ -24,6 +24,7 @@ path = "src/main.rs"
 doc = false
 
 [dependencies]
+difference = "^1.0"
 futures = "^0.1.14"
 tokio-core = "^0.1.9"
 trust-dns = "^0.11"
