@@ -2,7 +2,7 @@
 name = "mhost"
 version = "0.0.1"
 authors = ["Lukas Pustina <lukas@pustina.net>"]
-description = "Like `host`, but uses multiple DNS server massively parallel and compares results"
+description = "Like `host`, but uses multiple DNS servers massively parallel and compares results"
 repository = "https://github.com/lukaspustina/mhost.git"
 documentation = "http://lukaspustina.github.io/mhost"
 readme = "README.md"
@@ -27,6 +27,8 @@ doc = false
 futures = "^0.1.14"
 tokio-core = "^0.1.9"
 trust-dns = "^0.11"
+structopt = "^0.1"
+structopt-derive = "^0.1"
 
 [dev-dependencies]
 
