@@ -76,23 +76,35 @@ struct CliArgs {
     domain_name: String,
 }
 
+// Newtype pattern for Display implementation
 struct DnsResponse(pub mhost::DnsResponse);
 
+// Display impl for plain, basic output
 impl fmt::Display for DnsResponse {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let DnsResponse(ref dns_response) = *self;
-        let _ = write!(f, "DNS server {} responded with ", dns_response.server);
+        if dns_response.answers.is_empty() {
+            return write!(f, "DNS server {} has not records.", dns_response.server);
+        }
+        let _ = write!(f, "DNS server {} responded with\n", dns_response.server);
         let mut answers: Vec<String> = dns_response.answers
             .iter()
             .map(|answer| {
                 match *answer.rdata() {
-                    RData::A(ip) => format!("{}", ip),
-                    _ => format!("unclassified answer")
+                    RData::A(ip)  => format!(" * IPv4: {}", ip),
+                    RData::AAAA(ip)  => format!(" * IPv6: {}", ip),
+                    RData::CNAME(ref name)  => format!(" * CNAME: {}", name),
+                    RData::MX(ref mx)  => format!(" * MX: {} with preference {}", mx.exchange(), mx.preference()),
+                    RData::NS(ref name)  => format!(" * NS: {}", name),
+                    RData::SOA(ref soa)  => format!(" * SOA: {} {} {} {} {} {} {}",
+                        soa.mname(), soa.rname(), soa.serial(), soa.refresh(), soa.retry(), soa.expire(), soa.minimum()),
+                    RData::TXT(ref txt)  => format!(" * TXT: {}", txt.txt_data().join(" ")),
+                    ref x => format!(" * unclassified answer: {:?}", x)
                 }
             })
             .collect();
         answers.sort();
-        write!(f, "{}.", answers.join(", "))
+        write!(f, "{}", answers.join("\n"))
     }
 }
 
