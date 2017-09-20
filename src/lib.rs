@@ -22,7 +22,7 @@ pub fn lookup<T: Into<SocketAddr>>(
 ) -> Box<Future<Item = Option<Ipv4Addr>, Error = ()>> {
     let socket_address = server.into();
     let (stream, sender) = UdpClientStream::new(socket_address, loop_handle);
-    let mut client = ClientFuture::new(stream, sender, &loop_handle, None);
+    let mut client = ClientFuture::new(stream, sender, loop_handle, None);
     let domain_name = domain::Name::from_str(domain_name).unwrap();
 
     Box::new(
@@ -30,7 +30,7 @@ pub fn lookup<T: Into<SocketAddr>>(
             .query(domain_name, DNSClass::IN, RecordType::A)
             .map(move |response| {
                 let record = &response.answers()[0];
-                if let &RData::A(address) = record.rdata() {
+                if let RData::A(address) = *record.rdata() {
                     Some(address)
                 } else {
                     None
