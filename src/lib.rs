@@ -1,5 +1,7 @@
 // TODO: deny missing docs
 #![allow(missing_docs)]
+// for mem::discriminant_value
+#![feature(discriminant_value)]
 
 extern crate futures;
 extern crate tokio_core;
@@ -7,19 +9,27 @@ extern crate trust_dns;
 
 use futures::Future;
 use futures::future::join_all;
-use std::net::{Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::FromStr;
 use tokio_core::reactor::Handle;
 use trust_dns::client::{ClientFuture, ClientHandle};
 use trust_dns::rr::domain;
-use trust_dns::rr::{DNSClass, RData, RecordType};
+use trust_dns::rr::{DNSClass, RData, Record, RecordType};
 use trust_dns::udp::UdpClientStream;
+
+#[derive(Debug)]
+pub struct DnsResponse {
+    server: IpAddr,
+    answers: Vec<Record>,
+}
+
+pub type Result = std::result::Result<DnsResponse, Box<std::error::Error>>;
 
 pub fn lookup<T: Into<SocketAddr>>(
     loop_handle: &Handle,
     domain_name: &str,
     server: T,
-) -> Box<Future<Item = Option<Ipv4Addr>, Error = ()>> {
+) -> Box<Future<Item=Result, Error=()>> {
     let socket_address = server.into();
     let (stream, sender) = UdpClientStream::new(socket_address, loop_handle);
     let mut client = ClientFuture::new(stream, sender, loop_handle, None);
@@ -28,13 +38,8 @@ pub fn lookup<T: Into<SocketAddr>>(
     Box::new(
         client
             .query(domain_name, DNSClass::IN, RecordType::A)
-            .map(move |response| {
-                let record = &response.answers()[0];
-                if let RData::A(address) = *record.rdata() {
-                    Some(address)
-                } else {
-                    None
-                }
+            .map(move |mut response| {
+                Ok(DnsResponse { server: socket_address.ip(), answers: response.take_answers() })
             })
             .map_err(move |_| ()),
     )
@@ -44,7 +49,7 @@ pub fn multiple_lookup<T: Into<SocketAddr>>(
     loop_handle: &Handle,
     domain_name: &str,
     servers: Vec<T>,
-) -> Box<Future<Item = Vec<Option<Ipv4Addr>>, Error = ()>> {
+) -> Box<Future<Item=Vec<Result>, Error=()>> {
     let futures: Vec<_> = servers
         .into_iter()
         .map(|server| lookup(loop_handle, domain_name, server))
@@ -57,6 +62,7 @@ pub fn multiple_lookup<T: Into<SocketAddr>>(
 mod test {
     use super::*;
     use tokio_core::reactor::Core;
+    use std::mem;
 
     #[test]
     fn lookup_with_google() {
@@ -65,9 +71,15 @@ mod test {
         let server = (Ipv4Addr::from_str("8.8.8.8").unwrap(), 53);
 
         let lookup = lookup(&io_loop.handle(), host, server);
-        let results = io_loop.run(lookup);
+        let result = io_loop.run(lookup).unwrap();
+        let response: DnsResponse = result.unwrap();
 
-        assert_eq!(results.unwrap(), Some(Ipv4Addr::new(93, 184, 216, 34)));
+        assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
+        assert_eq!(response.answers.len(), 1);
+        assert!(is_A_record(response.answers[0].rdata()));
+        if let RData::A(ip) = *response.answers[0].rdata() {
+            assert_eq!(ip, Ipv4Addr::new(93, 184, 216, 34));
+        }
     }
 
     #[test]
@@ -80,11 +92,28 @@ mod test {
         ];
 
         let lookup = multiple_lookup(&io_loop.handle(), host, servers);
-        let results = io_loop.run(lookup);
+        let mut responses: Vec<_> = io_loop.run(lookup).unwrap();
+        assert_eq!(responses.len(), 2);
 
-        assert!(results.is_ok());
-        let addresses = results.unwrap();
-        assert_eq!(addresses[0], Some(Ipv4Addr::new(93, 184, 216, 34)));
-        assert_eq!(addresses[1], Some(Ipv4Addr::new(93, 184, 216, 34)));
+        let response = responses.pop().unwrap().unwrap();
+        assert_eq!(response.server, Ipv4Addr::from_str("8.8.4.4").unwrap());
+        assert_eq!(response.answers.len(), 1);
+        assert!(is_A_record(response.answers[0].rdata()));
+        if let RData::A(ip) = *response.answers[0].rdata() {
+            assert_eq!(ip, Ipv4Addr::new(93, 184, 216, 34));
+        }
+
+        let response = responses.pop().unwrap().unwrap();
+        assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
+        assert_eq!(response.answers.len(), 1);
+        assert!(is_A_record(response.answers[0].rdata()));
+        if let RData::A(ip) = *response.answers[0].rdata() {
+            assert_eq!(ip, Ipv4Addr::new(93, 184, 216, 34));
+        }
+    }
+
+    #[allow(non_snake_case)]
+    fn is_A_record(rdata: &RData) -> bool {
+        mem::discriminant(rdata) == mem::discriminant(&RData::A(Ipv4Addr::new(127, 0, 0, 1)))
     }
 }
