@@ -29,6 +29,7 @@ pub fn lookup<T: Into<SocketAddr>>(
     loop_handle: &Handle,
     domain_name: &str,
     server: T,
+    record_type: RecordType
 ) -> Box<Future<Item=Result, Error=()>> {
     let socket_address = server.into();
     let (stream, sender) = UdpClientStream::new(socket_address, loop_handle);
@@ -37,7 +38,7 @@ pub fn lookup<T: Into<SocketAddr>>(
 
     Box::new(
         client
-            .query(domain_name, DNSClass::IN, RecordType::A)
+            .query(domain_name, DNSClass::IN, record_type)
             .map(move |mut response| {
                 Ok(DnsResponse { server: socket_address.ip(), answers: response.take_answers() })
             })
@@ -49,10 +50,11 @@ pub fn multiple_lookup<T: Into<SocketAddr>>(
     loop_handle: &Handle,
     domain_name: &str,
     servers: Vec<T>,
+    record_type: RecordType ,
 ) -> Box<Future<Item=Vec<Result>, Error=()>> {
     let futures: Vec<_> = servers
         .into_iter()
-        .map(|server| lookup(loop_handle, domain_name, server))
+        .map(|server| lookup(loop_handle, domain_name, server, record_type.clone()))
         .collect();
 
     Box::new(join_all(futures))
@@ -70,7 +72,7 @@ mod test {
         let host = "example.com";
         let server = (Ipv4Addr::from_str("8.8.8.8").unwrap(), 53);
 
-        let lookup = lookup(&io_loop.handle(), host, server);
+        let lookup = lookup(&io_loop.handle(), host, server, RecordType::A);
         let result = io_loop.run(lookup).unwrap();
         let response: DnsResponse = result.unwrap();
 
@@ -91,7 +93,7 @@ mod test {
             (Ipv4Addr::from_str("8.8.4.4").unwrap(), 53),
         ];
 
-        let lookup = multiple_lookup(&io_loop.handle(), host, servers);
+        let lookup = multiple_lookup(&io_loop.handle(), host, servers, RecordType::A);
         let mut responses: Vec<_> = io_loop.run(lookup).unwrap();
         assert_eq!(responses.len(), 2);
 

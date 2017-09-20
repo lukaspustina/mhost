@@ -5,6 +5,7 @@ extern crate structopt;
 #[macro_use]
 extern crate structopt_derive;
 extern crate tokio_core;
+extern crate trust_dns;
 
 use mhost::multiple_lookup;
 
@@ -12,6 +13,7 @@ use std::net::Ipv4Addr;
 use std::str::FromStr;
 use structopt::StructOpt;
 use tokio_core::reactor::Core;
+use trust_dns::rr::RecordType;
 
 // Arbitrary list of public DNS servers
 static DEFAULT_DNS_SERVERS: &'static [&str] = &[
@@ -51,6 +53,23 @@ struct CliArgs {
     #[structopt(name = "DNS server", long = "server", short = "s", number_of_values = 1)]
     dns_servers: Vec<String>,
 
+    /// Select resource record type
+    #[structopt(name = "record type", long = "type", short = "t", default_value = "a",
+        possible_value = "a",
+        possible_value = "aaaa",
+        possible_value = "any",
+        possible_value = "cname",
+        possible_value = "dnskey",
+        possible_value = "mx",
+        possible_value = "ns",
+        possible_value = "opt",
+        possible_value = "ptr",
+        possible_value = "soa",
+        possible_value = "srv",
+        possible_value = "txt",
+    )]
+    record_type: String,
+
     /// domain name to lookup
     #[structopt(name = "domain name")]
     domain_name: String,
@@ -59,6 +78,7 @@ struct CliArgs {
 fn main() {
     let args = CliArgs::from_args();
 
+    let record_type = RecordType::from_str(&args.record_type.to_uppercase()).unwrap();
     let domain_name = args.domain_name;
     let servers = if !args.dns_servers.is_empty() {
         args.dns_servers
@@ -74,7 +94,7 @@ fn main() {
     };
 
     let mut io_loop = Core::new().unwrap();
-    let lookup = multiple_lookup(&io_loop.handle(), &domain_name, servers);
+    let lookup = multiple_lookup(&io_loop.handle(), &domain_name, servers, record_type);
     let results = io_loop.run(lookup);
 
     eprintln!("results = {:?}", results);
