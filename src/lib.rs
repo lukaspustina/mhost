@@ -63,8 +63,10 @@ pub fn multiple_lookup<T: Into<SocketAddr>>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use tokio_core::reactor::Core;
     use std::mem;
+    use std::net::Ipv4Addr;
+    use tokio_core::reactor::Core;
+    use trust_dns::rr::{RData, RecordType};
 
     #[test]
     fn lookup_with_google() {
