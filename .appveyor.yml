@@ -3,7 +3,7 @@ version: build-{build}
 environment:
   global:
     CRATE_NAME: mhost
-    RUST_VERSION: stable
+    RUST_VERSION: nightly
   matrix:
   # MinGW
   - TARGET: i686-pc-windows-gnu

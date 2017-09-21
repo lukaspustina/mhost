@@ -16,7 +16,8 @@ include = [
 ]
 
 [badges]
-travis-ci = { repository = "lukaspustina/", branch = "master" }
+travis-ci = { repository = "lukaspustina/mhost", branch = "master" }
+appveyor = { repository = "lukaspustina/mhost", branch = "master" }
 
 [[bin]]
 name = "mhost"
