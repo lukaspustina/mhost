@@ -1,0 +1,64 @@
+dist: trusty
+language: rust
+services: docker
+sudo: required
+env:
+  global:
+  - CRATE_NAME=mhost
+  - secure: NZN0ztv4oAEO+VFOhllRztAE4mVpG0NlGOK2wYWaQveN9cuiI60X6g7AVfmZki0cjjRL9ZkZfSE4ILK7P8TquiCYrkHy7wLXzIKxJwm2BojloWjLlGwX45FrMFWH1pC5IWlzNgmBy1Czc23dset6EFv5gHeI1Lt9gHwHMhmLQ3xJWHfakVH1h4P+pcmB73M9i7ZzlWURac1hBmJUnIZpGq5WkYIp2iT/8JQk2ZVdtNQT180M0RjSUC5WS7ZbHipLdc0PaqbTSCn4OcwkdLv95BjNqF0/2c+agbyeihfX5lhNm9fScHblB+OaXCP8C6brqLsKw7M8kGf5Ll4xCUIShgg0xvyd6Dh0zIYWQRJ7aIOI56zHajodS5UrlHOMbRVSsZ50+VWtylZOKgJ8CIwSxf+L6GZVfOCi1nVx1ebpeFdcj3rjP8aLhf6FaZ6jwfTIHe9FEq6lfTk9Y7N+pM88oZxwPOQkrD/pliZUFpBbjKYaBIgER2BabheV3p3+rNRdaO4HBm4c0epJ5bq9Uw6P6hasuu6OA2SEKeHbpKhgVTAnQAMqG8EpSNyM6Fc6+7lZ1mErtwLTgLMT6CgU38EeY+ceSChWJVgsA1W4uS/qgRkTDwm83FXKSMKoh2omYjjr4TiA3QndV7/ZWQ6P8ccwZGe64ggX19g7o3QRQELUV/g=
+matrix:
+  include:
+  - env: TARGET=x86_64-unknown-linux-gnu DEPLOY_ARCH=amd64
+  - env: TARGET=x86_64-unknown-linux-musl
+  - env: TARGET=x86_64-apple-darwin
+    os: osx
+  - env: TARGET=armv7-unknown-linux-gnueabihf DEPLOY_ARCH=armhf
+  - env: TARGET=x86_64-unknown-linux-gnu
+    rust: beta
+  - env: TARGET=x86_64-unknown-linux-gnu
+    rust: nightly
+  allow_failures:
+  - rust: beta
+  - rust: nightly
+branches:
+  only:
+  - master
+  - travis-ci
+  - "/^v.*$/"
+before_install: set -e
+install:
+- sh .ci/install.sh
+- source ~/.cargo/env || true
+script:
+- bash .ci/script.sh
+after_script: set +e
+before_deploy:
+- sh .ci/before_deploy.sh
+deploy:
+  matrix:
+  - provider: packagecloud
+    username: lukaspustina
+    token:
+      secure: oeSEwy72KiouYz6DkaPxVojmtmotOMHzuHPJc7srW7uig+iRtK7bgBDF5uW3r9g+hQKJzYr20q8BCfx/GX5fWVlJSZLyaiu2OLFSm4N9GHFSEbXluVXRrQdCVdg3FUXKJxvbRDxANIsM0qe9s1pAHcYrrarhmkFTbd5DPpLjCQe08QMmNmhx4VF+nmvfkRQx4L4VUmPWSRIZUJGaGd7NbpVjnVXkK3oQGp2VEuAwtKnfJo7kDou+q+ZBXZ7Hv5S9ZzBYiB4DEUH+SwMG4VUoIk70NjDhnrp1YNH6lojHPzgFu4Cf2f2BZoMcWleVHOXXT53sYbs9E2gBxKQwGXvJqXtKOinbHROVagOpqmTLeW4/3OGjwDJLownsOf/71h6nEQrllO0sEc1UKeqNoxXAm/of9DN8ZHlaTdlQig60nTOm3qgBTt+/qJos0TT30X2q9d7/hmDQV5T6hOoG6DB0GtGWY3Q49Bnzxu1jmyO+p7fNneFfUglFe4fyRQlNpH4jT7SELoT8iyAhRzFJlj6KqKUHI/TfZZ5t9m5LMUkB1t3EmXQlLMcXxjpxnPWveGN0405lZzxEfrM1lBKnSnAQqkpYTAHOiVHAi60ds6o9SMyAkd3SEfg40QBx8DOsLZAn7iDACsyiiAp9mLOJtkuccc54P5lGszPAk12cQt5Pz2k=
+    repository: opensource
+    dist: ubuntu/trusty
+    package_glob: "**/*.deb"
+    skip_cleanup: true
+    on:
+      tags: true
+      condition:
+      - "$TRAVIS_OS_NAME == linux"
+      - "$DEPLOY_ARCH"
+  - provider: releases
+    api_key:
+      secure: OmsdcscHM46e8ZnOET3fURlMPMTLHXXcmdyT3POACZiy5u0UxCnh5OCNWA585LK4SUIGhKxfjsO8LFdnwPZtUawJGJf3GBFMiLLxMUfEBgacL9D6iAOBMtu0AKGkcwo5jktsRzRZVPqkVuBsoWdaT72ARktcF/XFJ5/7IdG6haAxN2+YPqW5RndanaoGPRHK4/Y5m4UcPTfqYsdAY7ohUqIlSZOsrnPUXGSTmjx9m2NvqSlYltNoB3IV6yoJmmVeWXQuSHaxg/mwhSbkpGAeBbch9O2FxTkWlCr9ESHdA8fTo1GOpXRJeI1L6qW5tI/cdxuRrWIr2zeZWV83f6dm7ezwKAo958GXzJoa6aw1A8+hAo+y/wWLmUUDxotZhNZghBYORCMP9BSM3oBajWEL/4nCUMemQiDe8o/ejiUKMWRDGkS3Wu8BaXbZhzmDkSbNLjwcBMdn7HZbnoqe6kwDcZOE0fxvyAlbupoSWGa/BrJsClznuOVU2quG9FuBjpArJA6kdQLftj0hm1LfXgv0vrRuJ8gYGjmOP4rptIBL7neot+QmfnICeg9U5eeMBwrMmiNndqcbo7tI75luVsmdON0JsGTBxRzKKvjHjdMPzMiOrBun4vdCNgyuTMYx26wYqhBGMhMjj6PIqonyoHxdIwLPHbr2nXox5bnp0tp1qow=
+    file_glob: true
+    file: "$CRATE_NAME-$TRAVIS_TAG-$TARGET.*"
+    skip_cleanup: true
+    on:
+      tags: true
+      condition:
+      - "$TRAVIS_OS_NAME == linux"
+      - "$DEPLOY_ARCH"
+after_deploy:
+- cd /home/travis/build/lukaspustina/mhost; cargo publish --token ${CRATES_IO_TOKEN}
