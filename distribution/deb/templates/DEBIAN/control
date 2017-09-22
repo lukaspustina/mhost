@@ -1,0 +1,9 @@
+Package: @@PACKAGE_NAME@@
+Version: @@VERSION@@
+Section: admin
+Priority: optional
+Architecture: @@ARCH@@
+Installed-Size: @@SIZE@@
+Maintainer: lukas@pustina.net
+Description: Like `host`, but uses multiple DNS servers massively parallel and compares results
+
