@@ -4,21 +4,27 @@ environment:
   global:
     CRATE_NAME: mhost
     RUST_VERSION: nightly
-  matrix:
-  # MinGW
-  - TARGET: i686-pc-windows-gnu
-    BITS: 32
-  - TARGET: x86_64-pc-windows-gnu
-    BITS: 64
 
-  # Test future Rust versions
-  allow_failures:
+
+  matrix:
+    # MinGW
+    - TARGET: i686-pc-windows-gnu
+      BITS: 32
+    - TARGET: x86_64-pc-windows-gnu
+      BITS: 64
+
+    # Test future Rust versions
     - TARGET: x86_64-pc-windows-gnu
       BITS: 64
       RUST_VERSION: beta
     - TARGET: x86_64-pc-windows-gnu
       BITS: 64
       RUST_VERSION: stable
+
+matrix:
+  allow_failures:
+    - RUST_VERSION: stable
+    - RUST_VERSION: beta
 
 install:
     # Install OpenSSL
