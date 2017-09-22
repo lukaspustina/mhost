@@ -12,12 +12,13 @@ environment:
     BITS: 64
 
   # Test future Rust versions
-  - TARGET: x86_64-pc-windows-gnu
-    BITS: 64
-    RUST_VERSION: beta
-  - TARGET: x86_64-pc-windows-gnu
-    BITS: 64
-    RUST_VERSION: nightly
+  allow_failures:
+    - TARGET: x86_64-pc-windows-gnu
+      BITS: 64
+      RUST_VERSION: beta
+    - TARGET: x86_64-pc-windows-gnu
+      BITS: 64
+      RUST_VERSION: stable
 
 install:
     # Install OpenSSL
