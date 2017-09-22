@@ -47,13 +47,13 @@ install:
 
 test_script:
   - if [%APPVEYOR_REPO_TAG%]==[false] (
-      cargo build --target %TARGET% --release &&
-      cargo test  --target %TARGET% --release &&
-      cargo run   --target %TARGET% --release -- --help
+      cargo build --target %TARGET% --release --features bin &&
+      cargo test  --target %TARGET% --release --features bin &&
+      cargo run   --target %TARGET% --release --features bin -- --help
     )
 
 before_deploy:
-  - cargo rustc --target %TARGET% --release --bin mhost -- -C lto
+  - cargo rustc --target %TARGET% --release --bin mhost --features bin -- -C lto
   - ps: .ci\before_deploy.ps1
 
 deploy:

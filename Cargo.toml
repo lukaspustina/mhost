@@ -19,10 +19,18 @@ include = [
 travis-ci = { repository = "lukaspustina/mhost", branch = "master" }
 appveyor = { repository = "lukaspustina/mhost", branch = "master" }
 
+[features]
+bin = []
+
 [[bin]]
 name = "mhost"
 path = "src/main.rs"
 doc = false
+required-features = ["bin"]
+
+[lib]
+name = "mhost"
+path = "src/lib.rs"
 
 [dependencies]
 difference = "^1.0"
