@@ -25,12 +25,20 @@ pub struct DnsResponse {
     pub answers: Vec<Record>,
 }
 
+/// Lookup a domain name against a single DNS server
+///
+/// The return type is special here. `Future<Item=Result<DnsResponse>, Error=()`. This Future is not supposed to fail
+/// in future::futures::Err way, but rather propagate errors as part of the Future's successful execution.
+/// In this way, `multiple_lookup` does not abort when lookups fail, but wait for all queries / Futures to finish.
+/// The library user than can distinguish between successful and failed lookups.
+///
+/// See also `multiple_lookup`.
 pub fn lookup<T: Into<SocketAddr>>(
     loop_handle: &Handle,
     domain_name: &str,
     server: T,
     record_type: RecordType
-) -> Box<Future<Item=DnsResponse, Error=Error>> {
+) -> Box<Future<Item=Result<DnsResponse>, Error=()>> {
     let socket_address = server.into();
     let (stream, sender) = UdpClientStream::new(socket_address, loop_handle);
     let mut client = ClientFuture::new(stream, sender, loop_handle, None);
@@ -40,10 +48,10 @@ pub fn lookup<T: Into<SocketAddr>>(
         client
             .query(domain_name, DNSClass::IN, record_type)
             .map(move |mut response| {
-                DnsResponse { server: socket_address.ip(), answers: response.take_answers() }
+                Ok(DnsResponse { server: socket_address.ip(), answers: response.take_answers() })
             })
-            .map_err(move |e| {
-                Error::with_chain(e, ErrorKind::QueryError)
+            .or_else(move |e| {
+                Ok(Err(Error::with_chain(e, ErrorKind::QueryError)))
             })
     )
 }
@@ -52,8 +60,8 @@ pub fn multiple_lookup<T: Into<SocketAddr>>(
     loop_handle: &Handle,
     domain_name: &str,
     servers: Vec<T>,
-    record_type: RecordType ,
-) -> Box<Future<Item=Vec<DnsResponse>, Error=Error>> {
+    record_type: RecordType,
+) -> Box<Future<Item=Vec<Result<DnsResponse>>, Error=()>> {
     let futures: Vec<_> = servers
         .into_iter()
         .map(|server| lookup(loop_handle, domain_name, server, record_type))
@@ -91,7 +99,7 @@ mod test {
 
         let lookup = lookup(&io_loop.handle(), host, server, RecordType::A);
         let result = io_loop.run(lookup).unwrap();
-        let response: DnsResponse = result;
+        let response: DnsResponse = result.unwrap();
 
         assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
         assert_eq!(response.answers.len(), 1);
@@ -114,7 +122,7 @@ mod test {
         let mut responses: Vec<_> = io_loop.run(lookup).unwrap();
         assert_eq!(responses.len(), 2);
 
-        let response = responses.pop().unwrap();
+        let response = responses.pop().unwrap().unwrap();
         assert_eq!(response.server, Ipv4Addr::from_str("8.8.4.4").unwrap());
         assert_eq!(response.answers.len(), 1);
         assert!(is_A_record(response.answers[0].rdata()));
@@ -122,7 +130,7 @@ mod test {
             assert_eq!(ip, Ipv4Addr::new(93, 184, 216, 34));
         }
 
-        let response = responses.pop().unwrap();
+        let response = responses.pop().unwrap().unwrap();
         assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
         assert_eq!(response.answers.len(), 1);
         assert!(is_A_record(response.answers[0].rdata()));
