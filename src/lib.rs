@@ -13,6 +13,7 @@ use futures::Future;
 use futures::future::join_all;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
+use std::time::Duration;
 use tokio_core::reactor::Handle;
 use trust_dns::client::{ClientFuture, ClientHandle};
 use trust_dns::rr::domain;
@@ -37,11 +38,12 @@ pub fn lookup<T: Into<SocketAddr>>(
     loop_handle: &Handle,
     domain_name: &str,
     server: T,
-    record_type: RecordType
+    record_type: RecordType,
+    timeout: Duration
 ) -> Box<Future<Item=Result<DnsResponse>, Error=()>> {
     let socket_address = server.into();
     let (stream, sender) = UdpClientStream::new(socket_address, loop_handle);
-    let mut client = ClientFuture::new(stream, sender, loop_handle, None);
+    let mut client = ClientFuture::with_timeout(stream, sender, loop_handle, timeout, None);
     let domain_name = domain::Name::from_str(domain_name).unwrap();
 
     Box::new(
@@ -61,10 +63,11 @@ pub fn multiple_lookup<T: Into<SocketAddr>>(
     domain_name: &str,
     servers: Vec<T>,
     record_type: RecordType,
+    timeout: Duration
 ) -> Box<Future<Item=Vec<Result<DnsResponse>>, Error=()>> {
     let futures: Vec<_> = servers
         .into_iter()
-        .map(|server| lookup(loop_handle, domain_name, server, record_type))
+        .map(|server| lookup(loop_handle, domain_name, server, record_type, timeout))
         .collect();
 
     Box::new(join_all(futures))
@@ -97,7 +100,7 @@ mod test {
         let host = "example.com";
         let server = (Ipv4Addr::from_str("8.8.8.8").unwrap(), 53);
 
-        let lookup = lookup(&io_loop.handle(), host, server, RecordType::A);
+        let lookup = lookup(&io_loop.handle(), host, server, RecordType::A, Duration::from_secs(5));
         let result = io_loop.run(lookup).unwrap();
         let response: DnsResponse = result.unwrap();
 
@@ -118,7 +121,7 @@ mod test {
             (Ipv4Addr::from_str("8.8.4.4").unwrap(), 53),
         ];
 
-        let lookup = multiple_lookup(&io_loop.handle(), host, servers, RecordType::A);
+        let lookup = multiple_lookup(&io_loop.handle(), host, servers, RecordType::A, Duration::from_secs(5));
         let mut responses: Vec<_> = io_loop.run(lookup).unwrap();
         assert_eq!(responses.len(), 2);
 

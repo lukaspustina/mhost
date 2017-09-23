@@ -14,6 +14,7 @@ use mhost::{multiple_lookup};
 use std::fmt;
 use std::net::Ipv4Addr;
 use std::str::FromStr;
+use std::time::Duration;
 use structopt::StructOpt;
 use tokio_core::reactor::Core;
 use trust_dns::rr::{RData, RecordType};
@@ -73,6 +74,10 @@ struct CliArgs {
     )]
     record_type: String,
 
+    /// Timeout for server responses in sec
+    #[structopt(name = "time out", long = "timeout", default_value = "5")]
+    timeout: u32,
+
     /// domain name to lookup
     #[structopt(name = "domain name")]
     domain_name: String,
@@ -127,9 +132,12 @@ fn run() -> Result<()> {
             .map(|server| (Ipv4Addr::from_str(server).unwrap(), 53))
             .collect()
     };
+    // args.timeout: u32 is a workaround for structopt -- cf.
+    let timeout = Duration::from_secs(args.timeout as u64);
+    eprintln!("timeout = {:?}", timeout);
 
     let mut io_loop = Core::new().unwrap();
-    let lookup = multiple_lookup(&io_loop.handle(), &domain_name, servers, record_type);
+    let lookup = multiple_lookup(&io_loop.handle(), &domain_name, servers, record_type, timeout);
     let result = io_loop.run(lookup);
 
     match result {
