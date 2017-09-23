@@ -1,6 +1,5 @@
 #![feature(attr_literals)]
 
-extern crate difference;
 extern crate mhost;
 extern crate structopt;
 #[macro_use]
@@ -129,7 +128,7 @@ fn main() {
 
     let mut io_loop = Core::new().unwrap();
     let lookup = multiple_lookup(&io_loop.handle(), &domain_name, servers, record_type);
-    let mut results = io_loop.run(lookup).unwrap();
+    let results = io_loop.run(lookup).unwrap();
 
     for result in &results {
         match *result {
@@ -140,12 +139,5 @@ fn main() {
                 println!("Error: {}", e)
             }
         }
-    }
-
-    if results.len() == 2 {
-        let one = format!("{}", DnsResponse(&results.pop().unwrap().unwrap()));
-        let two = format!("{}", DnsResponse(&results.pop().unwrap().unwrap()));
-        let changeset = difference::Changeset::new(&one, &two, " ");
-        println!("{}", changeset);
     }
 }
