@@ -9,7 +9,7 @@ extern crate structopt_derive;
 extern crate tokio_core;
 extern crate trust_dns;
 
-use mhost::{multiple_lookup};
+use mhost::{multiple_lookup, DnsQuery};
 
 use std::fmt;
 use std::net::Ipv4Addr;
@@ -137,7 +137,8 @@ fn run() -> Result<()> {
     eprintln!("timeout = {:?}", timeout);
 
     let mut io_loop = Core::new().unwrap();
-    let lookup = multiple_lookup(&io_loop.handle(), &domain_name, servers, record_type, timeout);
+    let query = DnsQuery::new(&domain_name, record_type, timeout);
+    let lookup = multiple_lookup(&io_loop.handle(), query, servers);
     let result = io_loop.run(lookup);
 
     match result {
