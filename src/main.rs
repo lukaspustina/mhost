@@ -134,7 +134,6 @@ fn run() -> Result<()> {
     };
     // args.timeout: u32 is a workaround for structopt -- cf.
     let timeout = Duration::from_secs(args.timeout as u64);
-    eprintln!("timeout = {:?}", timeout);
 
     let mut io_loop = Core::new().unwrap();
     let query = DnsQuery::new(&domain_name, record_type, timeout);
