@@ -113,7 +113,7 @@ mod test {
     }
 
     #[test]
-    fn multiple_lookup_with_google() {
+    fn multiple_lookup_with_google_ok() {
         let mut io_loop = Core::new().unwrap();
         let host = "example.com";
         let servers = vec![
@@ -132,6 +132,33 @@ mod test {
         if let RData::A(ip) = *response.answers[0].rdata() {
             assert_eq!(ip, Ipv4Addr::new(93, 184, 216, 34));
         }
+
+        let response = responses.pop().unwrap().unwrap();
+        assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
+        assert_eq!(response.answers.len(), 1);
+        assert!(is_A_record(response.answers[0].rdata()));
+        if let RData::A(ip) = *response.answers[0].rdata() {
+            assert_eq!(ip, Ipv4Addr::new(93, 184, 216, 34));
+        }
+    }
+
+    #[test]
+    fn multiple_lookup_with_google_fail_1() {
+        let mut io_loop = Core::new().unwrap();
+        let host = "example.com";
+        let servers = vec![
+            (Ipv4Addr::from_str("8.8.8.8").unwrap(), 53),
+            // This one does not exists and should lead to a timeout
+            (Ipv4Addr::from_str("8.8.5.5").unwrap(), 53),
+        ];
+
+        // short timeout, because we won't the test to take too long, Google is fast enough to answer in time
+        let lookup = multiple_lookup(&io_loop.handle(), host, servers, RecordType::A, Duration::from_millis(500));
+        let mut responses: Vec<_> = io_loop.run(lookup).unwrap();
+        assert_eq!(responses.len(), 2);
+
+        let response = responses.pop().unwrap();
+        assert!(response.is_err());
 
         let response = responses.pop().unwrap().unwrap();
         assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
