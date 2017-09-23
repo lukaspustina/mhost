@@ -1,5 +1,7 @@
 #![feature(attr_literals)]
 
+#[macro_use]
+extern crate error_chain;
 extern crate mhost;
 extern crate structopt;
 #[macro_use]
@@ -108,7 +110,7 @@ impl<'a> fmt::Display for DnsResponse<'a> {
     }
 }
 
-fn main() {
+fn run() -> Result<()> {
     let args = CliArgs::from_args();
 
     let record_type = RecordType::from_str(&args.record_type.to_uppercase()).unwrap();
@@ -128,16 +130,22 @@ fn main() {
 
     let mut io_loop = Core::new().unwrap();
     let lookup = multiple_lookup(&io_loop.handle(), &domain_name, servers, record_type);
-    let results = io_loop.run(lookup).unwrap();
+    let result = io_loop.run(lookup);
 
-    for result in &results {
-        match *result {
-            Ok(ref response) => {
+    match result {
+        Ok(ref responses) => {
+            for response in responses {
                 println!("{}", DnsResponse(response))
             }
-            Err(ref e) => {
-                println!("Error: {}", e)
-            }
+        },
+        Err(e) => {
+            println!("Error: {}", e)
         }
     }
+
+    Ok(())
 }
+
+error_chain! {}
+
+quick_main!(run);

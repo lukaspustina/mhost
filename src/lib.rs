@@ -3,6 +3,8 @@
 // for mem::discriminant_value
 #![feature(discriminant_value)]
 
+#[macro_use]
+extern crate error_chain;
 extern crate futures;
 extern crate tokio_core;
 extern crate trust_dns;
@@ -23,14 +25,12 @@ pub struct DnsResponse {
     pub answers: Vec<Record>,
 }
 
-pub type Result = std::result::Result<DnsResponse, Box<std::error::Error>>;
-
 pub fn lookup<T: Into<SocketAddr>>(
     loop_handle: &Handle,
     domain_name: &str,
     server: T,
     record_type: RecordType
-) -> Box<Future<Item=Result, Error=()>> {
+) -> Box<Future<Item=DnsResponse, Error=Error>> {
     let socket_address = server.into();
     let (stream, sender) = UdpClientStream::new(socket_address, loop_handle);
     let mut client = ClientFuture::new(stream, sender, loop_handle, None);
@@ -40,9 +40,11 @@ pub fn lookup<T: Into<SocketAddr>>(
         client
             .query(domain_name, DNSClass::IN, record_type)
             .map(move |mut response| {
-                Ok(DnsResponse { server: socket_address.ip(), answers: response.take_answers() })
+                DnsResponse { server: socket_address.ip(), answers: response.take_answers() }
             })
-            .map_err(move |_| ()),
+            .map_err(move |e| {
+                Error::with_chain(e, ErrorKind::QueryError)
+            })
     )
 }
 
@@ -51,13 +53,26 @@ pub fn multiple_lookup<T: Into<SocketAddr>>(
     domain_name: &str,
     servers: Vec<T>,
     record_type: RecordType ,
-) -> Box<Future<Item=Vec<Result>, Error=()>> {
+) -> Box<Future<Item=Vec<DnsResponse>, Error=Error>> {
     let futures: Vec<_> = servers
         .into_iter()
         .map(|server| lookup(loop_handle, domain_name, server, record_type))
         .collect();
 
     Box::new(join_all(futures))
+}
+
+error_chain! {
+    types {
+        Error, ErrorKind, ResultExt, Result;
+    }
+
+    errors {
+        QueryError {
+            description("Query failed")
+            display("Query failed")
+        }
+    }
 }
 
 #[cfg(test)]
@@ -76,7 +91,7 @@ mod test {
 
         let lookup = lookup(&io_loop.handle(), host, server, RecordType::A);
         let result = io_loop.run(lookup).unwrap();
-        let response: DnsResponse = result.unwrap();
+        let response: DnsResponse = result;
 
         assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
         assert_eq!(response.answers.len(), 1);
@@ -99,7 +114,7 @@ mod test {
         let mut responses: Vec<_> = io_loop.run(lookup).unwrap();
         assert_eq!(responses.len(), 2);
 
-        let response = responses.pop().unwrap().unwrap();
+        let response = responses.pop().unwrap();
         assert_eq!(response.server, Ipv4Addr::from_str("8.8.4.4").unwrap());
         assert_eq!(response.answers.len(), 1);
         assert!(is_A_record(response.answers[0].rdata()));
@@ -107,7 +122,7 @@ mod test {
             assert_eq!(ip, Ipv4Addr::new(93, 184, 216, 34));
         }
 
-        let response = responses.pop().unwrap().unwrap();
+        let response = responses.pop().unwrap();
         assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
         assert_eq!(response.answers.len(), 1);
         assert!(is_A_record(response.answers[0].rdata()));
