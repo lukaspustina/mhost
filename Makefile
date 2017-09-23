@@ -1,4 +1,4 @@
-all: check test
+all: check test build
 
 build-lib:
 	cargo build
