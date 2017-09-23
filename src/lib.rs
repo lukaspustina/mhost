@@ -9,9 +9,8 @@ extern crate futures;
 extern crate tokio_core;
 extern crate trust_dns;
 
-mod future;
-
 use futures::Future;
+use futures::future::join_all;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use tokio_core::reactor::Handle;
@@ -53,14 +52,14 @@ pub fn multiple_lookup<T: Into<SocketAddr>>(
     loop_handle: &Handle,
     domain_name: &str,
     servers: Vec<T>,
-    record_type: RecordType,
-) -> Box<Future<Item=Vec<std::result::Result<DnsResponse, Box<std::error::Error>>>, Error=()>> {
+    record_type: RecordType ,
+) -> Box<Future<Item=Vec<DnsResponse>, Error=Error>> {
     let futures: Vec<_> = servers
         .into_iter()
         .map(|server| lookup(loop_handle, domain_name, server, record_type))
         .collect();
 
-    Box::new(future::wait_all(futures))
+    Box::new(join_all(futures))
 }
 
 error_chain! {
@@ -103,7 +102,7 @@ mod test {
     }
 
     #[test]
-    fn multiple_lookup_with_google_ok() {
+    fn multiple_lookup_with_google() {
         let mut io_loop = Core::new().unwrap();
         let host = "example.com";
         let servers = vec![
@@ -115,7 +114,7 @@ mod test {
         let mut responses: Vec<_> = io_loop.run(lookup).unwrap();
         assert_eq!(responses.len(), 2);
 
-        let response = responses.pop().unwrap().unwrap();
+        let response = responses.pop().unwrap();
         assert_eq!(response.server, Ipv4Addr::from_str("8.8.4.4").unwrap());
         assert_eq!(response.answers.len(), 1);
         assert!(is_A_record(response.answers[0].rdata()));
@@ -123,32 +122,7 @@ mod test {
             assert_eq!(ip, Ipv4Addr::new(93, 184, 216, 34));
         }
 
-        let response = responses.pop().unwrap().unwrap();
-        assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
-        assert_eq!(response.answers.len(), 1);
-        assert!(is_A_record(response.answers[0].rdata()));
-        if let RData::A(ip) = *response.answers[0].rdata() {
-            assert_eq!(ip, Ipv4Addr::new(93, 184, 216, 34));
-        }
-    }
-
-    #[test]
-    fn multiple_lookup_with_google_fail1() {
-        let mut io_loop = Core::new().unwrap();
-        let host = "example.com";
-        let servers = vec![
-            (Ipv4Addr::from_str("8.8.8.8").unwrap(), 53),
-            (Ipv4Addr::from_str("8.8.5.5").unwrap(), 53),
-        ];
-
-        let lookup = multiple_lookup(&io_loop.handle(), host, servers, RecordType::A);
-        let mut responses: Vec<_> = io_loop.run(lookup).unwrap();
-        assert_eq!(responses.len(), 2);
-
         let response = responses.pop().unwrap();
-        assert!(response.is_err());
-
-        let response = responses.pop().unwrap().unwrap();
         assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
         assert_eq!(response.answers.len(), 1);
         assert!(is_A_record(response.answers[0].rdata()));
