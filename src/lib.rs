@@ -9,8 +9,6 @@ extern crate futures;
 extern crate tokio_core;
 extern crate trust_dns;
 
-use futures::Future;
-use futures::future::join_all;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use tokio_core::reactor::Handle;
@@ -23,6 +21,156 @@ use trust_dns::udp::UdpClientStream;
 pub struct DnsResponse {
     pub server: IpAddr,
     pub answers: Vec<Record>,
+}
+
+/// Definition of the `WaitAll` combinator, waiting for all of a list of futures
+/// to finish.
+
+use std::prelude::v1::*;
+
+use std::fmt;
+use std::mem;
+
+use futures::{Future, IntoFuture, Poll, Async};
+
+#[derive(Debug)]
+enum ElemState<T> where T: Future {
+    Pending(T),
+    Done(T::Item),
+    Failed,
+}
+
+/// A future which takes a list of futures and resolves with a vector of the
+/// completed values.
+///
+/// This future is created with the `wait_all` method.
+#[must_use = "futures do nothing unless polled"]
+pub struct WaitAll<I>
+    where I: IntoIterator,
+          I::Item: IntoFuture,
+{
+    elems: Vec<ElemState<<I::Item as IntoFuture>::Future>>,
+    errors: Vec<<I::Item as IntoFuture>::Error>,
+}
+
+impl<I> fmt::Debug for WaitAll<I>
+    where I: IntoIterator,
+          I::Item: IntoFuture,
+          <<I as IntoIterator>::Item as IntoFuture>::Future: fmt::Debug,
+          <<I as IntoIterator>::Item as IntoFuture>::Item: fmt::Debug,
+          <<I as IntoIterator>::Item as IntoFuture>::Error: fmt::Debug,
+{
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("WaitAll")
+            .field("elems", &self.elems)
+            .field("errors", &self.errors)
+            .finish()
+    }
+}
+
+/// Creates a future which represents a collection of the results of the futures
+/// given.
+///
+/// The returned future will drive execution for all of its underlying futures,
+/// collecting the results into a destination `Vec<T>` in the same order as they
+/// were provided. If any future returns an error then all other futures will be
+/// canceled and an error will be returned immediately. If all futures complete
+/// successfully, however, then the returned future will succeed with a `Vec` of
+/// all the successful results.
+///
+/// # Examples
+///
+/// ```
+/// use mhost::*;
+/// use futures::future::*;
+///
+/// let f = wait_all(vec![
+///     ok::<u32, u32>(1),
+///     ok::<u32, u32>(2),
+///     ok::<u32, u32>(3),
+/// ]);
+/// let f = f.map(|x| {
+///     assert_eq!(x, [1, 2, 3]);
+/// });
+///
+/// let f = wait_all(vec![
+///     ok::<u32, u32>(1).boxed(),
+///     err::<u32, u32>(2).boxed(),
+///     ok::<u32, u32>(3).boxed(),
+/// ]);
+/// let f = f.then(|x| {
+///     assert_eq!(x, Err(2));
+///     x
+/// });
+/// ```
+pub fn wait_all<I>(i: I) -> WaitAll<I>
+    where I: IntoIterator,
+          I::Item: IntoFuture,
+{
+    let elems = i.into_iter().map(|f| {
+        ElemState::Pending(f.into_future())
+    }).collect();
+    WaitAll { elems: elems, errors: Vec::new() }
+}
+
+impl<I> Future for WaitAll<I>
+    where I: IntoIterator,
+          I::Item: IntoFuture,
+{
+    type Item = Vec<<I::Item as IntoFuture>::Item>;
+    type Error = Vec<<I::Item as IntoFuture>::Error>;
+
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        let mut all_done = true;
+
+        for idx in 0 .. self.elems.len() {
+            let done_val = match self.elems[idx] {
+                ElemState::Pending(ref mut t) => {
+                    match t.poll() {
+                        Ok(Async::Ready(v)) => Ok(v),
+                        Ok(Async::NotReady) => {
+                            all_done = false;
+                            continue
+                        }
+                        Err(e) => Err(e),
+                    }
+                }
+                ElemState::Done(ref mut _v) => continue,
+                ElemState::Failed => continue,
+            };
+
+            match done_val {
+                Ok(v) => self.elems[idx] = ElemState::Done(v),
+                Err(err) => {
+                    self.elems[idx] = ElemState::Failed;
+                    self.errors.push(err);
+                }
+            }
+        }
+
+        if all_done {
+            let elems = mem::replace(&mut self.elems, Vec::new());
+            let result = elems
+                .into_iter()
+                .filter(|e| {
+                    match *e {
+                        ElemState::Failed => false,
+                        _ => true,
+                    }
+                })
+                .map(|e| {
+                    match e {
+                        ElemState::Done(t) => t,
+                        _ => unreachable!(),
+                    }
+                })
+                .collect();
+            Ok(Async::Ready(result))
+        } else {
+            Ok(Async::NotReady)
+        }
+    }
 }
 
 pub fn lookup<T: Into<SocketAddr>>(
@@ -53,13 +201,13 @@ pub fn multiple_lookup<T: Into<SocketAddr>>(
     domain_name: &str,
     servers: Vec<T>,
     record_type: RecordType ,
-) -> Box<Future<Item=Vec<DnsResponse>, Error=Error>> {
+) -> Box<Future<Item=Vec<DnsResponse>, Error=Vec<Error>>> {
     let futures: Vec<_> = servers
         .into_iter()
         .map(|server| lookup(loop_handle, domain_name, server, record_type))
         .collect();
 
-    Box::new(join_all(futures))
+    Box::new(wait_all(futures))
 }
 
 error_chain! {
