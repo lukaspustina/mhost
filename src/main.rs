@@ -134,16 +134,15 @@ fn run() -> Result<()> {
 
     match result {
         Ok(ref responses) => {
-            println!("Successes:");
             for response in responses {
-                println!("{}", DnsResponse(response))
+                match *response {
+                    Ok(ref r) => println!("{}", DnsResponse(r)),
+                    Err(ref e) => println!("Error: {}", e),
+                }
             }
         },
-        Err(errors) => {
-            println!("Errors:");
-            for err in errors {
-                println!("Error: {}", err)
-            }
+        Err(_) => {
+            println!("Error!")
         },
     }
 
