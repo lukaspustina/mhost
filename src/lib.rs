@@ -51,7 +51,7 @@ pub fn lookup<T: Into<SocketAddr>>(
     loop_handle: &Handle,
     query: DnsQuery,
     server: T
-) -> Box<Future<Item=Result<DnsResponse>, Error=()>> {
+) -> Box<Future<Item=DnsResponse, Error=Error>> {
     let socket_addr = server.into();
     let domain_name = domain::Name::from_str(query.domain_name).unwrap();
 
@@ -61,12 +61,10 @@ pub fn lookup<T: Into<SocketAddr>>(
     Box::new(
         client
             .query(domain_name, DNSClass::IN, query.record_type)
-            .map(move |mut response| {
-                Ok(DnsResponse { server: socket_addr.ip(), answers: response.take_answers() })
-            })
-            .or_else(move |e| {
-                Ok(Err(Error::with_chain(e, ErrorKind::QueryError)))
-            })
+            .map(move |mut response|
+                DnsResponse { server: socket_addr.ip(), answers: response.take_answers() }
+            )
+            .map_err(move |e| Error::with_chain(e, ErrorKind::QueryError) )
     )
 }
 
@@ -77,7 +75,11 @@ pub fn multiple_lookup<T: Into<SocketAddr>>(
 ) -> Box<Future<Item=Vec<Result<DnsResponse>>, Error=()>> {
     let futures: Vec<_> = servers
         .into_iter()
-        .map(|server| lookup(loop_handle, query, server))
+        .map(|server| {
+            lookup(loop_handle, query, server)
+                .map(|response| Ok(response) )
+                .or_else(|e| Ok(Err(e)) )
+        })
         .collect();
 
     Box::new(join_all(futures))
@@ -105,6 +107,37 @@ mod test {
     use trust_dns::rr::{RData, RecordType};
 
     #[test]
+    fn multi_record_type_lookup() {
+        let mut io_loop = Core::new().unwrap();
+        let server = (Ipv4Addr::from_str("8.8.8.7").unwrap(), 53);
+
+        let record_types = vec![RecordType::A, RecordType::AAAA, RecordType::MX];
+
+        let lookups: Vec<_> = record_types
+            .into_iter()
+            .map(|rt| {
+                let query = DnsQuery::new("example.com", rt, Duration::from_secs(5));
+                lookup(&io_loop.handle(), query, server)
+            })
+            .collect();
+        let all = join_all(lookups)
+            .and_then(|lookups| {
+                let res = lookups
+                    .into_iter()
+                    .fold(Vec::new(), |mut acc, mut lookup: DnsResponse| {
+                        acc.append(&mut lookup.answers);
+                        acc
+                    });
+                futures::future::ok(res)
+            });
+
+        let result = io_loop.run(all);
+
+        eprintln!("result = {:?}", result);
+    }
+
+
+    #[test]
     fn lookup_with_google() {
         let mut io_loop = Core::new().unwrap();
         let query = DnsQuery::new("example.com", RecordType::A, Duration::from_secs(5));
@@ -112,7 +145,7 @@ mod test {
 
         let lookup = lookup(&io_loop.handle(), query, server);
         let result = io_loop.run(lookup).unwrap();
-        let response: DnsResponse = result.unwrap();
+        let response: DnsResponse = result;
 
         assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
         assert_eq!(response.answers.len(), 1);
