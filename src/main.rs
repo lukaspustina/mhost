@@ -19,6 +19,8 @@ use structopt::StructOpt;
 use tokio_core::reactor::Core;
 use trust_dns::rr::{RData, RecordType};
 
+static DEFAULT_RECORD_TYPES: &'static [&str] = &[ "a", "aaaa", "mx" ];
+
 // Arbitrary list of public DNS servers
 static DEFAULT_DNS_SERVERS: &'static [&str] = &[
     // "Level3",
@@ -57,8 +59,8 @@ struct CliArgs {
     #[structopt(name = "DNS server", long = "server", short = "s", number_of_values = 1)]
     dns_servers: Vec<String>,
 
-    /// Select resource record type
-    #[structopt(name = "record type", long = "type", short = "t", default_value = "a",
+    /// Select resource record type [default: a, aaaa, mx]
+    #[structopt(name = "record type", long = "type", short = "t", number_of_values = 1,
         possible_value = "a",
         possible_value = "aaaa",
         possible_value = "any",
@@ -72,7 +74,7 @@ struct CliArgs {
         possible_value = "srv",
         possible_value = "txt",
     )]
-    record_type: String,
+    record_types: Vec<String>,
 
     /// Timeout for server responses in sec
     #[structopt(name = "time out", long = "timeout", default_value = "5")]
@@ -118,8 +120,18 @@ impl<'a> fmt::Display for DnsResponse<'a> {
 fn run() -> Result<()> {
     let args = CliArgs::from_args();
 
-    let record_type = RecordType::from_str(&args.record_type.to_uppercase()).unwrap();
     let domain_name = args.domain_name;
+    let record_types = if !args.record_types.is_empty() {
+        args.record_types
+            .iter()
+            .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
+            .collect()
+    } else {
+        DEFAULT_RECORD_TYPES
+            .iter()
+            .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
+            .collect()
+    };
     let servers = if !args.dns_servers.is_empty() {
         args.dns_servers
             .iter()
@@ -127,7 +139,6 @@ fn run() -> Result<()> {
             .collect()
     } else {
         DEFAULT_DNS_SERVERS
-            .to_vec()
             .iter()
             .map(|server| (Ipv4Addr::from_str(server).unwrap(), 53))
             .collect()
@@ -136,7 +147,7 @@ fn run() -> Result<()> {
     let timeout = Duration::from_secs(args.timeout as u64);
 
     let mut io_loop = Core::new().unwrap();
-    let query = DnsQuery::new(&domain_name, record_type, timeout);
+    let query = DnsQuery::new(&domain_name, record_types, timeout);
     let lookup = multiple_lookup(&io_loop.handle(), query, servers);
     let result = io_loop.run(lookup);
 

@@ -20,16 +20,21 @@ use trust_dns::rr::domain;
 use trust_dns::rr::{DNSClass, Record, RecordType};
 use trust_dns::udp::UdpClientStream;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct DnsQuery<'a> {
     domain_name: &'a str,
-    record_type: RecordType,
+    record_types: Vec<RecordType>,
     timeout: Duration,
 }
 
 impl<'a> DnsQuery<'a> {
-    pub fn new(domain_name: &'a str, record_type: RecordType, timeout: Duration) -> DnsQuery<'a> {
-        DnsQuery { domain_name, record_type, timeout }
+    pub fn new(domain_name: &'a str, record_types: Vec<RecordType>, timeout: Duration) -> DnsQuery<'a> {
+        DnsQuery { domain_name, record_types, timeout }
+    }
+
+    pub fn add_recordtype(mut self: Self, record_type: RecordType) -> Self {
+        self.record_types.push(record_type);
+        self
     }
 }
 
@@ -39,35 +44,49 @@ pub struct DnsResponse {
     pub answers: Vec<Record>,
 }
 
-/// Lookup a domain name against a single DNS server
-///
-/// The return type is special here. `Future<Item=Result<DnsResponse>, Error=()`. This Future is not supposed to fail
-/// in future::futures::Err way, but rather propagate errors as part of the Future's successful execution.
-/// In this way, `multiple_lookup` does not abort when lookups fail, but wait for all queries / Futures to finish.
-/// The library user than can distinguish between successful and failed lookups.
-///
-/// See also `multiple_lookup`.
 pub fn lookup<T: Into<SocketAddr>>(
     loop_handle: &Handle,
     query: DnsQuery,
     server: T
 ) -> Box<Future<Item=DnsResponse, Error=Error>> {
     let socket_addr = server.into();
+    // TODO: chain err!
     let domain_name = domain::Name::from_str(query.domain_name).unwrap();
 
     let (stream, sender) = UdpClientStream::new(socket_addr, loop_handle);
     let mut client = ClientFuture::with_timeout(stream, sender, loop_handle, query.timeout, None);
 
-    Box::new(
-        client
-            .query(domain_name, DNSClass::IN, query.record_type)
-            .map(move |mut response|
-                DnsResponse { server: socket_addr.ip(), answers: response.take_answers() }
-            )
-            .map_err(move |e| Error::with_chain(e, ErrorKind::QueryError) )
-    )
+    let lookups: Vec<_> = query.record_types
+        .into_iter()
+        .map(|rt| {
+            client
+                .query(domain_name.clone(), DNSClass::IN, rt)
+                .map(move |mut response|
+                    DnsResponse { server: socket_addr.ip(), answers: response.take_answers() }
+                )
+                .map_err(move |e| Error::with_chain(e, ErrorKind::QueryError(socket_addr.ip())))
+        })
+        .collect();
+    let all = join_all(lookups)
+        .and_then(move |lookups| {
+            let all_answers = lookups
+                .into_iter()
+                .fold(Vec::new(), |mut acc, mut lookup: DnsResponse| {
+                    acc.append(&mut lookup.answers);
+                    acc
+                });
+            futures::future::ok(DnsResponse { server: socket_addr.ip(), answers: all_answers })
+        });
+
+    Box::new(all)
 }
 
+/// Lookup a domain name against a set of DNS servers
+///
+/// The return type is special here. `Future<Item=Vec<Result<DnsResponse>>, Error=()`. This Future is not supposed to fail
+/// in future::futures::Err way, but rather propagate errors as part of the Future's successful execution.
+/// In this way, this function does not abort when single lookups fail, but wait for all queries / Futures to finish.
+/// The library user than can distinguish between successful and failed lookups.
 pub fn multiple_lookup<T: Into<SocketAddr>>(
     loop_handle: &Handle,
     query: DnsQuery,
@@ -76,9 +95,10 @@ pub fn multiple_lookup<T: Into<SocketAddr>>(
     let futures: Vec<_> = servers
         .into_iter()
         .map(|server| {
-            lookup(loop_handle, query, server)
-                .map(|response| Ok(response) )
-                .or_else(|e| Ok(Err(e)) )
+            // TODO:
+            lookup(loop_handle, query.clone(), server)
+                .map(|response| Ok(response))
+                .or_else(|e| Ok(Err(e)))
         })
         .collect();
 
@@ -91,9 +111,9 @@ error_chain! {
     }
 
     errors {
-        QueryError {
+        QueryError(ip: IpAddr) {
             description("Query failed")
-            display("Query failed")
+            display("Query against DNS server {} failed", ip)
         }
     }
 }
@@ -102,45 +122,15 @@ error_chain! {
 mod test {
     use super::*;
     use std::mem;
-    use std::net::Ipv4Addr;
+    use std::net::{Ipv4Addr, Ipv6Addr};
     use tokio_core::reactor::Core;
     use trust_dns::rr::{RData, RecordType};
-
-    #[test]
-    fn multi_record_type_lookup() {
-        let mut io_loop = Core::new().unwrap();
-        let server = (Ipv4Addr::from_str("8.8.8.7").unwrap(), 53);
-
-        let record_types = vec![RecordType::A, RecordType::AAAA, RecordType::MX];
-
-        let lookups: Vec<_> = record_types
-            .into_iter()
-            .map(|rt| {
-                let query = DnsQuery::new("example.com", rt, Duration::from_secs(5));
-                lookup(&io_loop.handle(), query, server)
-            })
-            .collect();
-        let all = join_all(lookups)
-            .and_then(|lookups| {
-                let res = lookups
-                    .into_iter()
-                    .fold(Vec::new(), |mut acc, mut lookup: DnsResponse| {
-                        acc.append(&mut lookup.answers);
-                        acc
-                    });
-                futures::future::ok(res)
-            });
-
-        let result = io_loop.run(all);
-
-        eprintln!("result = {:?}", result);
-    }
 
 
     #[test]
     fn lookup_with_google() {
         let mut io_loop = Core::new().unwrap();
-        let query = DnsQuery::new("example.com", RecordType::A, Duration::from_secs(5));
+        let query = DnsQuery::new("example.com", vec![RecordType::A], Duration::from_secs(5));
         let server = (Ipv4Addr::from_str("8.8.8.8").unwrap(), 53);
 
         let lookup = lookup(&io_loop.handle(), query, server);
@@ -158,7 +148,7 @@ mod test {
     #[test]
     fn multiple_lookup_with_google_ok() {
         let mut io_loop = Core::new().unwrap();
-        let query = DnsQuery::new("example.com", RecordType::A, Duration::from_secs(5));
+        let query = DnsQuery::new("example.com", vec![RecordType::A], Duration::from_secs(5));
         let servers = vec![
             (Ipv4Addr::from_str("8.8.8.8").unwrap(), 53),
             (Ipv4Addr::from_str("8.8.4.4").unwrap(), 53),
@@ -189,7 +179,7 @@ mod test {
     fn multiple_lookup_with_google_fail_1() {
         let mut io_loop = Core::new().unwrap();
         // short timeout, because we won't the test to take too long, Google is fast enough to answer in time
-        let query = DnsQuery::new("example.com", RecordType::A, Duration::from_millis(500));
+        let query = DnsQuery::new("example.com", vec![RecordType::A], Duration::from_millis(500));
         let servers = vec![
             (Ipv4Addr::from_str("8.8.8.8").unwrap(), 53),
             // This one does not exists and should lead to a timeout
@@ -212,8 +202,37 @@ mod test {
         }
     }
 
+    #[test]
+    fn multi_record_type_lookup() {
+        let mut io_loop = Core::new().unwrap();
+        let server = (Ipv4Addr::from_str("8.8.8.8").unwrap(), 53);
+
+        let record_types = vec![RecordType::A, RecordType::AAAA, RecordType::MX];
+        let query = DnsQuery::new("example.com", record_types, Duration::from_secs(5));
+
+        let lookup = lookup(&io_loop.handle(), query, server);
+        let result = io_loop.run(lookup).unwrap();
+        let response: DnsResponse = result;
+
+        assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
+        assert_eq!(response.answers.len(), 2);
+        assert!(is_A_record(response.answers[0].rdata()));
+        if let RData::A(ip) = *response.answers[0].rdata() {
+            assert_eq!(ip, Ipv4Addr::new(93, 184, 216, 34));
+        }
+        assert!(is_AAAA_record(response.answers[1].rdata()));
+        if let RData::AAAA(ip) = *response.answers[1].rdata() {
+            assert_eq!(ip, Ipv6Addr::new(0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946));
+        }
+    }
+
     #[allow(non_snake_case)]
     fn is_A_record(rdata: &RData) -> bool {
-        mem::discriminant(rdata) == mem::discriminant(&RData::A(Ipv4Addr::new(127, 0, 0, 1)))
+        mem::discriminant(rdata) == mem::discriminant(&RData::A(Ipv4Addr::new(0, 0, 0, 0)))
+    }
+
+    #[allow(non_snake_case)]
+    fn is_AAAA_record(rdata: &RData) -> bool {
+        mem::discriminant(rdata) == mem::discriminant(&RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)))
     }
 }
