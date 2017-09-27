@@ -155,11 +155,12 @@ fn run() -> Result<()> {
     let timeout = Duration::from_secs(args.timeout as u64);
 
     // Check if domain_name is an IP address -> PTR query and ignore -t, else normal query
-    let query = if let Ok(ip) = IpAddr::from_str(&args.domain_name) {
-        DnsQuery::from(ip, record_types, timeout)
+    let mut query = if let Ok(ip) = IpAddr::from_str(&args.domain_name) {
+        DnsQuery::from(ip, record_types)
     } else {
-        DnsQuery::new(&args.domain_name, record_types, timeout)
+        DnsQuery::new(&args.domain_name, record_types)
     };
+    query = query.set_timeout(timeout);
 
     let mut io_loop = Core::new().unwrap();
     let lookup = multiple_lookup(&io_loop.handle(), query, servers);

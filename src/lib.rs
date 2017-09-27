@@ -28,13 +28,18 @@ pub struct DnsQuery {
 }
 
 impl DnsQuery {
-    pub fn from<T: Into<domain::Name>>(domain_name: T, record_types: Vec<RecordType>, timeout: Duration) -> DnsQuery {
-        DnsQuery { domain_name: domain_name.into(), record_types, timeout }
+    pub fn from<T: Into<domain::Name>>(domain_name: T, record_types: Vec<RecordType>) -> DnsQuery {
+        DnsQuery { domain_name: domain_name.into(), record_types, timeout: Duration::from_secs(5) }
     }
 
-    pub fn new(domain_name: &str, record_types: Vec<RecordType>, timeout: Duration) -> DnsQuery {
+    pub fn new(domain_name: &str, record_types: Vec<RecordType>) -> DnsQuery {
         let domain_name = domain::Name::from_str(domain_name).unwrap();
-        DnsQuery { domain_name, record_types, timeout }
+        DnsQuery::from(domain_name, record_types)
+    }
+
+    pub fn set_timeout(mut self: Self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
     }
 
     pub fn add_recordtype(mut self: Self, record_type: RecordType) -> Self {
@@ -136,7 +141,7 @@ mod test {
     fn lookup_with_google() {
         let mut io_loop = Core::new().unwrap();
         let domain_name = "example.com";
-        let query = DnsQuery::new(domain_name, vec![RecordType::A], Duration::from_secs(5));
+        let query = DnsQuery::new(domain_name, vec![RecordType::A]);
         let server = (Ipv4Addr::from_str("8.8.8.8").unwrap(), 53);
 
         let lookup = lookup(&io_loop.handle(), query, server);
@@ -155,7 +160,7 @@ mod test {
     fn ptr_lookup_with_google() {
         let mut io_loop = Core::new().unwrap();
         let ip_addr = IpAddr::from_str("8.8.8.8").unwrap();
-        let query = DnsQuery::from(ip_addr, vec![RecordType::PTR], Duration::from_secs(5));
+        let query = DnsQuery::from(ip_addr, vec![RecordType::PTR]);
         let server = (Ipv4Addr::from_str("8.8.8.8").unwrap(), 53);
 
         let lookup = lookup(&io_loop.handle(), query, server);
@@ -175,7 +180,7 @@ mod test {
     fn multiple_lookup_with_google_ok() {
         let mut io_loop = Core::new().unwrap();
         let domain_name = "example.com";
-        let query = DnsQuery::new(domain_name, vec![RecordType::A], Duration::from_secs(5));
+        let query = DnsQuery::new(domain_name, vec![RecordType::A]);
         let servers = vec![
             (Ipv4Addr::from_str("8.8.8.8").unwrap(), 53),
             (Ipv4Addr::from_str("8.8.4.4").unwrap(), 53),
@@ -207,7 +212,8 @@ mod test {
         let mut io_loop = Core::new().unwrap();
         let domain_name = "example.com";
         // short timeout, because we won't the test to take too long, Google is fast enough to answer in time
-        let query = DnsQuery::new(domain_name, vec![RecordType::A], Duration::from_millis(500));
+        let mut query = DnsQuery::new(domain_name, vec![RecordType::A]);
+        let query = query.set_timeout(Duration::from_millis(500));
         let servers = vec![
             (Ipv4Addr::from_str("8.8.8.8").unwrap(), 53),
             // This one does not exists and should lead to a timeout
@@ -237,7 +243,7 @@ mod test {
 
         let record_types = vec![RecordType::A, RecordType::AAAA, RecordType::MX];
         let domain_name = "example.com";
-        let query = DnsQuery::new(domain_name, record_types, Duration::from_secs(5));
+        let query = DnsQuery::new(domain_name, record_types);
 
         let lookup = lookup(&io_loop.handle(), query, server);
         let result = io_loop.run(lookup).unwrap();
