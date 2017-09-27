@@ -129,23 +129,21 @@ fn run() -> Result<()> {
     let args = CliArgs::from_args();
 
     // Check if domain_name is an IP address -> PTR query and ignore -t, else normal query
-    let record_types = if let Ok(_) = IpAddr::from_str(&args.domain_name) {
+    let record_types = if IpAddr::from_str(&args.domain_name).is_ok() {
             vec!["PTR"]
                 .iter()
                 .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
                 .collect()
+    } else if !args.record_types.is_empty() {
+        args.record_types
+            .iter()
+            .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
+            .collect()
     } else {
-        if !args.record_types.is_empty() {
-            args.record_types
-                .iter()
-                .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
-                .collect()
-        } else {
-             DEFAULT_RECORD_TYPES
-                 .iter()
-                 .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
-                 .collect()
-        }
+         DEFAULT_RECORD_TYPES
+             .iter()
+             .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
+             .collect()
     };
 
     let mut servers: Vec<_> = if !args.dns_servers.is_empty() {
@@ -172,7 +170,7 @@ fn run() -> Result<()> {
     }
 
     // args.timeout: u32 is a workaround for structopt -- cf.
-    let timeout = Duration::from_secs(args.timeout as u64);
+    let timeout = Duration::from_secs(u64::from(args.timeout));
 
     // Check if domain_name is an IP address -> PTR query and ignore -t, else normal query
     let mut query = if let Ok(ip) = IpAddr::from_str(&args.domain_name) {

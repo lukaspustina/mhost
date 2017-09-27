@@ -93,7 +93,7 @@ pub fn lookup<T: Into<SocketAddr>>(
 /// Lookup a domain name against a set of DNS servers
 ///
 /// The return type is special here. `Future<Item=Vec<Result<DnsResponse>>, Error=()`. This Future is not supposed to fail
-/// in future::futures::Err way, but rather propagate errors as part of the Future's successful execution.
+/// in `future::futures::Err` way, but rather propagate errors as part of the Future's successful execution.
 /// In this way, this function does not abort when single lookups fail, but wait for all queries / Futures to finish.
 /// The library user than can distinguish between successful and failed lookups.
 pub fn multiple_lookup<T: Into<SocketAddr>>(
@@ -106,7 +106,7 @@ pub fn multiple_lookup<T: Into<SocketAddr>>(
         .map(|server| {
             // TODO:
             lookup(loop_handle, query.clone(), server)
-                .map(|response| Ok(response))
+                .map(Ok)
                 .or_else(|e| Ok(Err(e)))
         })
         .collect();
