@@ -29,7 +29,11 @@ pub struct DnsQuery {
 
 impl DnsQuery {
     pub fn from<T: Into<domain::Name>>(domain_name: T, record_types: Vec<RecordType>) -> DnsQuery {
-        DnsQuery { domain_name: domain_name.into(), record_types, timeout: Duration::from_secs(5) }
+        DnsQuery {
+            domain_name: domain_name.into(),
+            record_types,
+            timeout: Duration::from_secs(5),
+        }
     }
 
     pub fn new(domain_name: &str, record_types: Vec<RecordType>) -> DnsQuery {
@@ -57,35 +61,42 @@ pub struct DnsResponse {
 pub fn lookup<T: Into<SocketAddr>>(
     loop_handle: &Handle,
     query: DnsQuery,
-    server: T
-) -> Box<Future<Item=DnsResponse, Error=Error>> {
+    server: T,
+) -> Box<Future<Item = DnsResponse, Error = Error>> {
     let socket_addr = server.into();
     let domain_name = query.domain_name;
 
     let (stream, sender) = UdpClientStream::new(socket_addr, loop_handle);
     let mut client = ClientFuture::with_timeout(stream, sender, loop_handle, query.timeout, None);
 
-    let lookups: Vec<_> = query.record_types
+    let lookups: Vec<_> = query
+        .record_types
         .into_iter()
         .map(|rt| {
             client
                 .query(domain_name.clone(), DNSClass::IN, rt)
-                .map(move |mut response|
-                    DnsResponse { server: socket_addr.ip(), answers: response.take_answers() }
-                )
-                .map_err(move |e| Error::with_chain(e, ErrorKind::QueryError(socket_addr.ip())))
+                .map(move |mut response| {
+                    DnsResponse {
+                        server: socket_addr.ip(),
+                        answers: response.take_answers(),
+                    }
+                })
+                .map_err(move |e| {
+                    Error::with_chain(e, ErrorKind::QueryError(socket_addr.ip()))
+                })
         })
         .collect();
-    let all = join_all(lookups)
-        .and_then(move |lookups| {
-            let all_answers = lookups
-                .into_iter()
-                .fold(Vec::new(), |mut acc, mut lookup: DnsResponse| {
-                    acc.append(&mut lookup.answers);
-                    acc
-                });
-            futures::future::ok(DnsResponse { server: socket_addr.ip(), answers: all_answers })
+    let all = join_all(lookups).and_then(move |lookups| {
+        let all_answers = lookups.into_iter().fold(Vec::new(), |mut acc,
+         mut lookup: DnsResponse| {
+            acc.append(&mut lookup.answers);
+            acc
         });
+        futures::future::ok(DnsResponse {
+            server: socket_addr.ip(),
+            answers: all_answers,
+        })
+    });
 
     Box::new(all)
 }
@@ -100,14 +111,16 @@ pub fn multiple_lookup<T: Into<SocketAddr>>(
     loop_handle: &Handle,
     query: DnsQuery,
     servers: Vec<T>,
-) -> Box<Future<Item=Vec<Result<DnsResponse>>, Error=()>> {
+) -> Box<Future<Item = Vec<Result<DnsResponse>>, Error = ()>> {
     let futures: Vec<_> = servers
         .into_iter()
         .map(|server| {
             // TODO:
-            lookup(loop_handle, query.clone(), server)
-                .map(Ok)
-                .or_else(|e| Ok(Err(e)))
+            lookup(loop_handle, query.clone(), server).map(Ok).or_else(
+                |e| {
+                    Ok(Err(e))
+                },
+            )
         })
         .collect();
 
@@ -156,7 +169,7 @@ mod test {
         }
     }
 
-     #[test]
+    #[test]
     fn ptr_lookup_with_google() {
         let mut io_loop = Core::new().unwrap();
         let ip_addr = IpAddr::from_str("8.8.8.8").unwrap();
@@ -170,7 +183,10 @@ mod test {
         assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
         assert_eq!(response.answers.len(), 1);
         if let RData::PTR(ref ptr) = *response.answers[0].rdata() {
-            assert_eq!(ptr, &domain::Name::from_str("google-public-dns-a.google.com.").unwrap());
+            assert_eq!(
+                ptr,
+                &domain::Name::from_str("google-public-dns-a.google.com.").unwrap()
+            );
         } else {
             panic!("Not a PTR record");
         }
@@ -257,7 +273,10 @@ mod test {
         }
         assert!(is_AAAA_record(response.answers[1].rdata()));
         if let RData::AAAA(ip) = *response.answers[1].rdata() {
-            assert_eq!(ip, Ipv6Addr::new(0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946));
+            assert_eq!(
+                ip,
+                Ipv6Addr::new(0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946)
+            );
         }
     }
 
@@ -268,6 +287,7 @@ mod test {
 
     #[allow(non_snake_case)]
     fn is_AAAA_record(rdata: &RData) -> bool {
-        mem::discriminant(rdata) == mem::discriminant(&RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)))
+        mem::discriminant(rdata) ==
+            mem::discriminant(&RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)))
     }
 }

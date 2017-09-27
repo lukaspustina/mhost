@@ -22,7 +22,7 @@ use structopt::StructOpt;
 use tokio_core::reactor::Core;
 use trust_dns::rr::{RData, RecordType};
 
-static DEFAULT_RECORD_TYPES: &'static [&str] = &[ "a", "aaaa", "mx" ];
+static DEFAULT_RECORD_TYPES: &'static [&str] = &["a", "aaaa", "mx"];
 
 // Arbitrary list of public DNS servers
 static DEFAULT_DNS_SERVERS: &'static [&str] = &[
@@ -56,7 +56,8 @@ static DEFAULT_DNS_SERVERS: &'static [&str] = &[
 ];
 
 #[derive(StructOpt, Debug)]
-#[structopt(name = "mhost", about = "Like `host`, but uses multiple DNS servers massively parallel and compares results")]
+#[structopt(name = "mhost",
+            about = "Like `host`, but uses multiple DNS servers massively parallel and compares results")]
 struct CliArgs {
     /// DNS servers to use; if empty use predefined, public DNS servers
     #[structopt(name = "DNS server", long = "server", short = "s", number_of_values = 1)]
@@ -68,19 +69,10 @@ struct CliArgs {
 
     /// Select resource record type [default: a, aaaa, mx]
     #[structopt(name = "record type", long = "type", short = "t", number_of_values = 1,
-        possible_value = "a",
-        possible_value = "aaaa",
-        possible_value = "any",
-        possible_value = "cname",
-        possible_value = "dnskey",
-        possible_value = "mx",
-        possible_value = "ns",
-        possible_value = "opt",
-        possible_value = "ptr",
-        possible_value = "soa",
-        possible_value = "srv",
-        possible_value = "txt",
-    )]
+                possible_value = "a", possible_value = "aaaa", possible_value = "any",
+                possible_value = "cname", possible_value = "dnskey", possible_value = "mx",
+                possible_value = "ns", possible_value = "opt", possible_value = "ptr",
+                possible_value = "soa", possible_value = "srv", possible_value = "txt")]
     record_types: Vec<String>,
 
     /// Timeout for server responses in sec
@@ -103,21 +95,36 @@ impl<'a> fmt::Display for DnsResponse<'a> {
             return write!(f, "DNS server {} has not records.", dns_response.server);
         }
         let _ = write!(f, "DNS server {} responded with\n", dns_response.server);
-        let mut answers: Vec<String> = dns_response.answers
+        let mut answers: Vec<String> = dns_response
+            .answers
             .iter()
-            .map(|answer| {
-                match *answer.rdata() {
-                    RData::A(ip)  => format!(" * IPv4: {}", ip),
-                    RData::AAAA(ip)  => format!(" * IPv6: {}", ip),
-                    RData::CNAME(ref name)  => format!(" * CNAME: {}", name),
-                    RData::MX(ref mx)  => format!(" * MX: {} with preference {}", mx.exchange(), mx.preference()),
-                    RData::NS(ref name)  => format!(" * NS: {}", name),
-                    RData::SOA(ref soa)  => format!(" * SOA: {} {} {} {} {} {} {}",
-                        soa.mname(), soa.rname(), soa.serial(), soa.refresh(), soa.retry(), soa.expire(), soa.minimum()),
-                    RData::TXT(ref txt)  => format!(" * TXT: {}", txt.txt_data().join(" ")),
-                    RData::PTR(ref ptr)  => format!(" * PTR: {}", ptr.to_string()),
-                    ref x => format!(" * unclassified answer: {:?}", x)
+            .map(|answer| match *answer.rdata() {
+                RData::A(ip) => format!(" * IPv4: {}", ip),
+                RData::AAAA(ip) => format!(" * IPv6: {}", ip),
+                RData::CNAME(ref name) => format!(" * CNAME: {}", name),
+                RData::MX(ref mx) => {
+                    format!(
+                        " * MX: {} with preference {}",
+                        mx.exchange(),
+                        mx.preference()
+                    )
                 }
+                RData::NS(ref name) => format!(" * NS: {}", name),
+                RData::SOA(ref soa) => {
+                    format!(
+                        " * SOA: {} {} {} {} {} {} {}",
+                        soa.mname(),
+                        soa.rname(),
+                        soa.serial(),
+                        soa.refresh(),
+                        soa.retry(),
+                        soa.expire(),
+                        soa.minimum()
+                    )
+                }
+                RData::TXT(ref txt) => format!(" * TXT: {}", txt.txt_data().join(" ")),
+                RData::PTR(ref ptr) => format!(" * PTR: {}", ptr.to_string()),
+                ref x => format!(" * unclassified answer: {:?}", x),
             })
             .collect();
         answers.sort();
@@ -130,20 +137,20 @@ fn run() -> Result<()> {
 
     // Check if domain_name is an IP address -> PTR query and ignore -t, else normal query
     let record_types = if IpAddr::from_str(&args.domain_name).is_ok() {
-            vec!["PTR"]
-                .iter()
-                .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
-                .collect()
+        vec!["PTR"]
+            .iter()
+            .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
+            .collect()
     } else if !args.record_types.is_empty() {
         args.record_types
             .iter()
             .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
             .collect()
     } else {
-         DEFAULT_RECORD_TYPES
-             .iter()
-             .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
-             .collect()
+        DEFAULT_RECORD_TYPES
+            .iter()
+            .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
+            .collect()
     };
 
     let mut servers: Vec<_> = if !args.dns_servers.is_empty() {
@@ -162,10 +169,7 @@ fn run() -> Result<()> {
         let mut f = File::open("/etc/resolv.conf").unwrap();
         f.read_to_end(&mut buf).unwrap();
         let cfg = resolv_conf::Config::parse(&buf[..]).unwrap();
-        let mut local_servers: Vec<_> = cfg.nameservers
-            .into_iter()
-            .map(|s| (s, 53))
-            .collect();
+        let mut local_servers: Vec<_> = cfg.nameservers.into_iter().map(|s| (s, 53)).collect();
         servers.append(&mut local_servers);
     }
 
@@ -189,10 +193,10 @@ fn run() -> Result<()> {
             for response in responses {
                 match *response {
                     Ok(ref x) => println!("{}", DnsResponse(x)),
-                    Err(ref e) => println!("Error: {}", e)
+                    Err(ref e) => println!("Error: {}", e),
                 }
             }
-        },
+        }
         Err(_) => {
             println!("General Error");
         }
@@ -201,6 +205,6 @@ fn run() -> Result<()> {
     Ok(())
 }
 
-error_chain! {}
+error_chain!{}
 
 quick_main!(run);
