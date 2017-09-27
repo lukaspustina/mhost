@@ -35,6 +35,7 @@ path = "src/lib.rs"
 [dependencies]
 error-chain = "^0.11"
 futures = "^0.1.14"
+resolv-conf = "^0.4"
 tokio-core = "^0.1.9"
 trust-dns = "^0.11"
 structopt = "^0.1"

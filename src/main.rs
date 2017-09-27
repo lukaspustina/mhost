@@ -3,6 +3,7 @@
 #[macro_use]
 extern crate error_chain;
 extern crate mhost;
+extern crate resolv_conf;
 extern crate structopt;
 #[macro_use]
 extern crate structopt_derive;
@@ -12,7 +13,9 @@ extern crate trust_dns;
 use mhost::{multiple_lookup, DnsQuery};
 
 use std::fmt;
-use std::net::{IpAddr, Ipv4Addr};
+use std::fs::File;
+use std::io::Read;
+use std::net::IpAddr;
 use std::str::FromStr;
 use std::time::Duration;
 use structopt::StructOpt;
@@ -58,6 +61,10 @@ struct CliArgs {
     /// DNS servers to use; if empty use predefined, public DNS servers
     #[structopt(name = "DNS server", long = "server", short = "s", number_of_values = 1)]
     dns_servers: Vec<String>,
+
+    /// Do not use local (/etc/resolv.conf) nameservers
+    #[structopt(name = "don't use local DNS server", short = "L")]
+    dont_use_local_dns_servers: bool,
 
     /// Select resource record type [default: a, aaaa, mx]
     #[structopt(name = "record type", long = "type", short = "t", number_of_values = 1,
@@ -140,17 +147,30 @@ fn run() -> Result<()> {
                  .collect()
         }
     };
-    let servers = if !args.dns_servers.is_empty() {
+
+    let mut servers: Vec<_> = if !args.dns_servers.is_empty() {
         args.dns_servers
             .iter()
-            .map(|server| (Ipv4Addr::from_str(server).unwrap(), 53))
+            .map(|server| (IpAddr::from_str(server).unwrap(), 53))
             .collect()
     } else {
         DEFAULT_DNS_SERVERS
             .iter()
-            .map(|server| (Ipv4Addr::from_str(server).unwrap(), 53))
+            .map(|server| (IpAddr::from_str(server).unwrap(), 53))
             .collect()
     };
+    if !args.dont_use_local_dns_servers {
+        let mut buf = Vec::with_capacity(4096);
+        let mut f = File::open("/etc/resolv.conf").unwrap();
+        f.read_to_end(&mut buf).unwrap();
+        let cfg = resolv_conf::Config::parse(&buf[..]).unwrap();
+        let mut local_servers: Vec<_> = cfg.nameservers
+            .into_iter()
+            .map(|s| (s, 53))
+            .collect();
+        servers.append(&mut local_servers);
+    }
+
     // args.timeout: u32 is a workaround for structopt -- cf.
     let timeout = Duration::from_secs(args.timeout as u64);
 
