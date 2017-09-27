@@ -12,7 +12,7 @@ extern crate trust_dns;
 use mhost::{multiple_lookup, DnsQuery};
 
 use std::fmt;
-use std::net::Ipv4Addr;
+use std::net::{IpAddr, Ipv4Addr};
 use std::str::FromStr;
 use std::time::Duration;
 use structopt::StructOpt;
@@ -108,6 +108,7 @@ impl<'a> fmt::Display for DnsResponse<'a> {
                     RData::SOA(ref soa)  => format!(" * SOA: {} {} {} {} {} {} {}",
                         soa.mname(), soa.rname(), soa.serial(), soa.refresh(), soa.retry(), soa.expire(), soa.minimum()),
                     RData::TXT(ref txt)  => format!(" * TXT: {}", txt.txt_data().join(" ")),
+                    RData::PTR(ref ptr)  => format!(" * PTR: {}", ptr.to_string()),
                     ref x => format!(" * unclassified answer: {:?}", x)
                 }
             })
@@ -120,17 +121,24 @@ impl<'a> fmt::Display for DnsResponse<'a> {
 fn run() -> Result<()> {
     let args = CliArgs::from_args();
 
-    let domain_name = args.domain_name;
-    let record_types = if !args.record_types.is_empty() {
-        args.record_types
-            .iter()
-            .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
-            .collect()
+    // Check if domain_name is an IP address -> PTR query and ignore -t, else normal query
+    let record_types = if let Ok(_) = IpAddr::from_str(&args.domain_name) {
+            vec!["PTR"]
+                .iter()
+                .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
+                .collect()
     } else {
-        DEFAULT_RECORD_TYPES
-            .iter()
-            .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
-            .collect()
+        if !args.record_types.is_empty() {
+            args.record_types
+                .iter()
+                .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
+                .collect()
+        } else {
+             DEFAULT_RECORD_TYPES
+                 .iter()
+                 .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
+                 .collect()
+        }
     };
     let servers = if !args.dns_servers.is_empty() {
         args.dns_servers
@@ -146,8 +154,14 @@ fn run() -> Result<()> {
     // args.timeout: u32 is a workaround for structopt -- cf.
     let timeout = Duration::from_secs(args.timeout as u64);
 
+    // Check if domain_name is an IP address -> PTR query and ignore -t, else normal query
+    let query = if let Ok(ip) = IpAddr::from_str(&args.domain_name) {
+        DnsQuery::from(ip, record_types, timeout)
+    } else {
+        DnsQuery::new(&args.domain_name, record_types, timeout)
+    };
+
     let mut io_loop = Core::new().unwrap();
-    let query = DnsQuery::new(&domain_name, record_types, timeout);
     let lookup = multiple_lookup(&io_loop.handle(), query, servers);
     let result = io_loop.run(lookup);
 
