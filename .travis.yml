@@ -12,28 +12,27 @@ matrix:
   include:
     # Linux
     - env: TARGET=x86_64-unknown-linux-gnu DEPLOY_ARCH=amd64
-      rust: nightly
+      rust: stable
     - env: TARGET=x86_64-unknown-linux-musl
-      rust: nightly
+      rust: stable
 
     # macOS
     - env: TARGET=x86_64-apple-darwin
-      rust: nightly
+      rust: stable
       os: osx
 
     # Rapsi
     - env: TARGET=armv7-unknown-linux-gnueabihf DEPLOY_ARCH=armhf
-      rust: nightly
+      rust: stable
 
     # Testing for future releases of Rust
     - env: TARGET=x86_64-unknown-linux-gnu
       rust: beta
     - env: TARGET=x86_64-unknown-linux-gnu
-      rust: stable
+      rust: nightly
 
   allow_failures:
-    - rust: stable
-    - rust: beta
+    - rust: nightly
 
 branches:
   only:

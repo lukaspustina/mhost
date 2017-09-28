@@ -1,7 +1,5 @@
 // TODO: deny missing docs
 #![allow(missing_docs)]
-// for mem::discriminant_value
-#![feature(discriminant_value)]
 
 #[macro_use]
 extern crate error_chain;
@@ -143,7 +141,6 @@ error_chain! {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::mem;
     use std::net::{Ipv4Addr, Ipv6Addr};
     use std::str::FromStr;
     use tokio_core::reactor::Core;
@@ -163,9 +160,10 @@ mod test {
 
         assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
         assert_eq!(response.answers.len(), 1);
-        assert!(is_A_record(response.answers[0].rdata()));
         if let RData::A(ip) = *response.answers[0].rdata() {
             assert_eq!(ip, Ipv4Addr::new(93, 184, 216, 34));
+        } else {
+            panic!("Not a PTR record");
         }
     }
 
@@ -209,17 +207,19 @@ mod test {
         let response = responses.pop().unwrap().unwrap();
         assert_eq!(response.server, Ipv4Addr::from_str("8.8.4.4").unwrap());
         assert_eq!(response.answers.len(), 1);
-        assert!(is_A_record(response.answers[0].rdata()));
         if let RData::A(ip) = *response.answers[0].rdata() {
             assert_eq!(ip, Ipv4Addr::new(93, 184, 216, 34));
+        } else {
+            panic!("Not an A record");
         }
 
         let response = responses.pop().unwrap().unwrap();
         assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
         assert_eq!(response.answers.len(), 1);
-        assert!(is_A_record(response.answers[0].rdata()));
         if let RData::A(ip) = *response.answers[0].rdata() {
             assert_eq!(ip, Ipv4Addr::new(93, 184, 216, 34));
+        } else {
+            panic!("Not an A record");
         }
     }
 
@@ -246,9 +246,10 @@ mod test {
         let response = responses.pop().unwrap().unwrap();
         assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
         assert_eq!(response.answers.len(), 1);
-        assert!(is_A_record(response.answers[0].rdata()));
         if let RData::A(ip) = *response.answers[0].rdata() {
             assert_eq!(ip, Ipv4Addr::new(93, 184, 216, 34));
+        } else {
+            panic!("Not an A record");
         }
     }
 
@@ -267,27 +268,18 @@ mod test {
 
         assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
         assert_eq!(response.answers.len(), 2);
-        assert!(is_A_record(response.answers[0].rdata()));
         if let RData::A(ip) = *response.answers[0].rdata() {
             assert_eq!(ip, Ipv4Addr::new(93, 184, 216, 34));
+        } else {
+            panic!("Not an A record");
         }
-        assert!(is_AAAA_record(response.answers[1].rdata()));
         if let RData::AAAA(ip) = *response.answers[1].rdata() {
             assert_eq!(
                 ip,
                 Ipv6Addr::new(0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946)
             );
+        } else {
+            panic!("Not an AAAA record");
         }
-    }
-
-    #[allow(non_snake_case)]
-    fn is_A_record(rdata: &RData) -> bool {
-        mem::discriminant(rdata) == mem::discriminant(&RData::A(Ipv4Addr::new(0, 0, 0, 0)))
-    }
-
-    #[allow(non_snake_case)]
-    fn is_AAAA_record(rdata: &RData) -> bool {
-        mem::discriminant(rdata) ==
-            mem::discriminant(&RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)))
     }
 }

@@ -3,7 +3,7 @@ version: build-{build}
 environment:
   global:
     CRATE_NAME: mhost
-    RUST_VERSION: nightly
+    RUST_VERSION: stable
 
 
   matrix:
@@ -19,12 +19,11 @@ environment:
       RUST_VERSION: beta
     - TARGET: x86_64-pc-windows-gnu
       BITS: 64
-      RUST_VERSION: stable
+      RUST_VERSION: nightly
 
 matrix:
   allow_failures:
-    - RUST_VERSION: stable
-    - RUST_VERSION: beta
+    - RUST_VERSION: nightly
 
 install:
     # Install OpenSSL
