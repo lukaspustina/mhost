@@ -190,6 +190,7 @@ fn build_cli() -> App<'static, 'static> {
         .arg(Arg::with_name("domain name")
             .index(1)
             .required(true)
+            .conflicts_with("completions")
             .help("domain name or IP address to look up"))
         .arg(Arg::with_name("timeout")
             .long("timeout")
