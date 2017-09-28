@@ -64,15 +64,15 @@ fn run() -> Result<()> {
         .map(|s| (s, 53))
         .collect();
 
-    let timeout = value_t!(args, "timeout", u64).map(|t| Duration::from_secs(t)).unwrap();
+    let timeout = value_t!(args, "timeout", u64).map(Duration::from_secs).unwrap();
 
-    let mut query = match IpAddr::from_str(&args.value_of("domain name").unwrap()) {
+    let mut query = match IpAddr::from_str(args.value_of("domain name").unwrap()) {
         Ok(ip) => {
             DnsQuery::from(ip, vec![RecordType::PTR])
         }
         Err(_) => {
             let record_types = get_record_types(&args).chain_err(|| ErrorKind::ResoureRecordTypeParsingError)?;
-            DnsQuery::new(&args.value_of("domain name").unwrap(), record_types)
+            DnsQuery::new(args.value_of("domain name").unwrap(), record_types)
         }
     };
     query = query.set_timeout(timeout);
