@@ -80,7 +80,11 @@ deploy:
       condition:
       - "$TRAVIS_OS_NAME == linux"
       - "$DEPLOY_ARCH"
-
-after_deploy:
-  - cd /home/travis/build/lukaspustina/mhost; cargo publish --token ${CRATES_IO_TOKEN}
+  - provider: script
+    script: .ci/cargo_publish.sh ${CRATES_IO_TOKEN}
+    on:
+      tags: true
+      condition:
+      - "$TRAVIS_OS_NAME == linux"
+      - "$DEPLOY_ARCH"
 
