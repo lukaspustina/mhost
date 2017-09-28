@@ -59,19 +59,22 @@ fn run() -> Result<()> {
         return generate_completion(&args);
     }
 
-    let dns_endpoints = get_dns_servers(&args).chain_err(|| ErrorKind::ServerIpAddrParsingError)?
+    let dns_endpoints = get_dns_servers(&args)
+        .chain_err(|| ErrorKind::ServerIpAddrParsingError)?
         .into_iter()
         .map(|s| (s, 53))
         .collect();
 
-    let timeout = value_t!(args, "timeout", u64).map(Duration::from_secs).unwrap();
+    let timeout = value_t!(args, "timeout", u64)
+        .map(Duration::from_secs)
+        .unwrap();
 
     let mut query = match IpAddr::from_str(args.value_of("domain name").unwrap()) {
-        Ok(ip) => {
-            DnsQuery::from(ip, vec![RecordType::PTR])
-        }
+        Ok(ip) => DnsQuery::from(ip, vec![RecordType::PTR]),
         Err(_) => {
-            let record_types = get_record_types(&args).chain_err(|| ErrorKind::ResoureRecordTypeParsingError)?;
+            let record_types = get_record_types(&args).chain_err(|| {
+                ErrorKind::ResoureRecordTypeParsingError
+            })?;
             DnsQuery::new(args.value_of("domain name").unwrap(), record_types)
         }
     };
@@ -106,43 +109,72 @@ fn build_cli() -> App<'static, 'static> {
     App::new(name)
         .version(version)
         .about(about)
-        .arg(Arg::with_name("domain name")
-            .index(1)
-            .required(true)
-            .conflicts_with("completions")
-            .help("domain name or IP address to look up"))
-        .arg(Arg::with_name("timeout")
-            .long("timeout")
-            .default_value("5")
-            .help("timeout for server responses in sec")
-            .takes_value(true))
-        .arg(Arg::with_name("record types")
-            .long("type")
-            .short("t")
-            .takes_value(true)
-            .multiple(true)
-            .number_of_values(1)
-            .possible_values(&["a", "aaaa", "any", "cname", "dnskey", "mx", "ns", "opt", "ptr", "soa", "srv", "txt"])
-            .help("Select resource record type [default: a, aaaa, mx]"))
-        .arg(Arg::with_name("dont use local dns servers")
-            .short("L")
-            .help("Do not use local (/etc/resolv.conf) DNS servers"))
-        .arg(Arg::with_name("predefined server")
-            .short("S")
-            .help("use predefined DNS server set"))
-        .arg(Arg::with_name("DNS servers")
-            .long("server")
-            .short("s")
-            .takes_value(true)
-            .multiple(true)
-            .number_of_values(1)
-            .help("DNS servers to use; if empty use predefined, public DNS server"))
-        .arg(Arg::with_name("completions")
-            .long("completions")
-            .takes_value(true)
-            .hidden(true)
-            .possible_values(&["bash", "fish", "zsh"])
-            .help("The shell to generate the script for"))
+        .arg(
+            Arg::with_name("domain name")
+                .index(1)
+                .required(true)
+                .conflicts_with("completions")
+                .help("domain name or IP address to look up"),
+        )
+        .arg(
+            Arg::with_name("timeout")
+                .long("timeout")
+                .default_value("5")
+                .help("timeout for server responses in sec")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("record types")
+                .long("type")
+                .short("t")
+                .takes_value(true)
+                .multiple(true)
+                .number_of_values(1)
+                .possible_values(
+                    &[
+                        "a",
+                        "aaaa",
+                        "any",
+                        "cname",
+                        "dnskey",
+                        "mx",
+                        "ns",
+                        "opt",
+                        "ptr",
+                        "soa",
+                        "srv",
+                        "txt",
+                    ],
+                )
+                .help("Select resource record type [default: a, aaaa, mx]"),
+        )
+        .arg(
+            Arg::with_name("dont use local dns servers")
+                .short("L")
+                .help("Do not use local (/etc/resolv.conf) DNS servers"),
+        )
+        .arg(Arg::with_name("predefined server").short("S").help(
+            "use predefined DNS server set",
+        ))
+        .arg(
+            Arg::with_name("DNS servers")
+                .long("server")
+                .short("s")
+                .takes_value(true)
+                .multiple(true)
+                .number_of_values(1)
+                .help(
+                    "DNS servers to use; if empty use predefined, public DNS server",
+                ),
+        )
+        .arg(
+            Arg::with_name("completions")
+                .long("completions")
+                .takes_value(true)
+                .hidden(true)
+                .possible_values(&["bash", "fish", "zsh"])
+                .help("The shell to generate the script for"),
+        )
 }
 
 fn generate_completion(args: &ArgMatches) -> Result<()> {
@@ -160,27 +192,27 @@ fn generate_completion(args: &ArgMatches) -> Result<()> {
 
 fn get_local_dns_servers() -> Result<Vec<IpAddr>> {
     let mut buf = Vec::with_capacity(4096);
-    let mut f = File::open("/etc/resolv.conf").chain_err(|| ErrorKind::ResolvConfError)?;
+    let mut f = File::open("/etc/resolv.conf").chain_err(
+        || ErrorKind::ResolvConfError,
+    )?;
     f.read_to_end(&mut buf).unwrap();
-    let cfg = resolv_conf::Config::parse(&buf[..]).chain_err(|| ErrorKind::ResolvConfError)?;
+    let cfg = resolv_conf::Config::parse(&buf[..]).chain_err(|| {
+        ErrorKind::ResolvConfError
+    })?;
     Ok(cfg.nameservers)
 }
 
 fn get_dns_servers(args: &ArgMatches) -> Result<Vec<IpAddr>> {
     let mut dns_servers: Vec<IpAddr> = Vec::new();
     if let Some(servers) = args.values_of_lossy("DNS servers") {
-        dns_servers.extend(servers
-            .into_iter()
-            .map(|server|
-                IpAddr::from_str(&server).unwrap()
-            )
-        );
+        dns_servers.extend(servers.into_iter().map(|server| {
+            IpAddr::from_str(&server).unwrap()
+        }));
     }
     if args.is_present("predefined server") {
-        dns_servers.extend(DEFAULT_DNS_SERVERS
-            .iter()
-            .map(|server| IpAddr::from_str(server).unwrap())
-        );
+        dns_servers.extend(DEFAULT_DNS_SERVERS.iter().map(|server| {
+            IpAddr::from_str(server).unwrap()
+        }));
     }
     if !args.is_present("dont use local dns servers") {
         dns_servers.extend(get_local_dns_servers()?);
