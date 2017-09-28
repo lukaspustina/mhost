@@ -245,7 +245,7 @@ impl<'a> fmt::Display for DnsResponse<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let DnsResponse(dns_response) = *self;
         if dns_response.answers.is_empty() {
-            return write!(f, "DNS server {} has not records.", dns_response.server);
+            return write!(f, "DNS server {} has no records.", dns_response.server);
         }
         let _ = write!(f, "DNS server {} responded with\n", dns_response.server);
         let mut answers: Vec<String> = dns_response
