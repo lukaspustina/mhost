@@ -9,7 +9,7 @@ extern crate trust_dns;
 
 use mhost::{multiple_lookup, DnsQuery};
 
-use clap::{App, Arg, Shell};
+use clap::{App, Arg, ArgMatches, Shell};
 use std::fmt;
 use std::fs::File;
 use std::io::Read;
@@ -18,8 +18,6 @@ use std::str::FromStr;
 use std::time::Duration;
 use tokio_core::reactor::Core;
 use trust_dns::rr::{RData, RecordType};
-
-static DEFAULT_RECORD_TYPES: &'static [&str] = &["a", "aaaa", "mx"];
 
 // Arbitrary list of public DNS servers
 static DEFAULT_DNS_SERVERS: &'static [&str] = &[
@@ -51,6 +49,161 @@ static DEFAULT_DNS_SERVERS: &'static [&str] = &[
     "198.101.242.72",
     "23.253.163.53",
 ];
+
+static DEFAULT_RECORD_TYPES: &'static [&str] = &["a", "aaaa", "mx"];
+
+fn run() -> Result<()> {
+    let args = build_cli().get_matches();
+
+    if args.is_present("completions") {
+        return generate_completion(&args);
+    }
+
+    let dns_endpoints = get_dns_servers(&args).chain_err(|| ErrorKind::ServerIpAddrParsingError)?
+        .into_iter()
+        .map(|s| (s, 53))
+        .collect();
+
+    let timeout = value_t!(args, "timeout", u64).map(|t| Duration::from_secs(t)).unwrap();
+
+    let mut query = match IpAddr::from_str(&args.value_of("domain name").unwrap()) {
+        Ok(ip) => {
+            DnsQuery::from(ip, vec![RecordType::PTR])
+        }
+        Err(_) => {
+            let record_types = get_record_types(&args).chain_err(|| ErrorKind::ResoureRecordTypeParsingError)?;
+            DnsQuery::new(&args.value_of("domain name").unwrap(), record_types)
+        }
+    };
+    query = query.set_timeout(timeout);
+
+    let mut io_loop = Core::new().unwrap();
+    let lookup = multiple_lookup(&io_loop.handle(), query, dns_endpoints);
+    let result = io_loop.run(lookup);
+
+    match result {
+        Ok(ref responses) => {
+            for response in responses {
+                match *response {
+                    Ok(ref x) => println!("{}", DnsResponse(x)),
+                    Err(ref e) => println!("Error: {}", e),
+                }
+            }
+        }
+        Err(_) => {
+            println!("General Error");
+        }
+    }
+
+    Ok(())
+}
+
+fn build_cli() -> App<'static, 'static> {
+    let name = env!("CARGO_PKG_NAME");
+    let version = env!("CARGO_PKG_VERSION");
+    let about = env!("CARGO_PKG_DESCRIPTION");
+
+    App::new(name)
+        .version(version)
+        .about(about)
+        .arg(Arg::with_name("domain name")
+            .index(1)
+            .required(true)
+            .conflicts_with("completions")
+            .help("domain name or IP address to look up"))
+        .arg(Arg::with_name("timeout")
+            .long("timeout")
+            .default_value("5")
+            .help("timeout for server responses in sec")
+            .takes_value(true))
+        .arg(Arg::with_name("record types")
+            .long("type")
+            .short("t")
+            .takes_value(true)
+            .multiple(true)
+            .number_of_values(1)
+            .possible_values(&["a", "aaaa", "any", "cname", "dnskey", "mx", "ns", "opt", "ptr", "soa", "srv", "txt"])
+            .help("Select resource record type [default: a, aaaa, mx]"))
+        .arg(Arg::with_name("dont use local dns servers")
+            .short("L")
+            .help("Do not use local (/etc/resolv.conf) DNS servers"))
+        .arg(Arg::with_name("predefined server")
+            .short("S")
+            .help("use predefined DNS server set"))
+        .arg(Arg::with_name("DNS servers")
+            .long("server")
+            .short("s")
+            .takes_value(true)
+            .multiple(true)
+            .number_of_values(1)
+            .help("DNS servers to use; if empty use predefined, public DNS server"))
+        .arg(Arg::with_name("completions")
+            .long("completions")
+            .takes_value(true)
+            .hidden(true)
+            .possible_values(&["bash", "fish", "zsh"])
+            .help("The shell to generate the script for"))
+}
+
+fn generate_completion(args: &ArgMatches) -> Result<()> {
+    let bin_name = env!("CARGO_PKG_NAME");
+    let shell = args.value_of("completions").ok_or(
+        ErrorKind::CliArgsParsingError,
+    )?;
+    build_cli().gen_completions_to(
+        bin_name,
+        shell.parse::<Shell>().unwrap(),
+        &mut std::io::stdout(),
+    );
+    Ok(())
+}
+
+fn get_local_dns_servers() -> Result<Vec<IpAddr>> {
+    let mut buf = Vec::with_capacity(4096);
+    let mut f = File::open("/etc/resolv.conf").chain_err(|| ErrorKind::ResolvConfError)?;
+    f.read_to_end(&mut buf).unwrap();
+    let cfg = resolv_conf::Config::parse(&buf[..]).chain_err(|| ErrorKind::ResolvConfError)?;
+    Ok(cfg.nameservers)
+}
+
+fn get_dns_servers(args: &ArgMatches) -> Result<Vec<IpAddr>> {
+    let mut dns_servers: Vec<IpAddr> = Vec::new();
+    if let Some(servers) = args.values_of_lossy("DNS servers") {
+        dns_servers.extend(servers
+            .into_iter()
+            .map(|server|
+                IpAddr::from_str(&server).unwrap()
+            )
+        );
+    }
+    if args.is_present("predefined server") {
+        dns_servers.extend(DEFAULT_DNS_SERVERS
+            .iter()
+            .map(|server| IpAddr::from_str(server).unwrap())
+        );
+    }
+    if !args.is_present("dont use local dns servers") {
+        dns_servers.extend(get_local_dns_servers()?);
+    }
+
+    Ok(dns_servers)
+}
+
+fn get_record_types(args: &ArgMatches) -> Result<Vec<RecordType>> {
+    let record_types = if let Some(record_types) = args.values_of_lossy("record types") {
+        record_types
+            .iter()
+            .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
+            .collect()
+    } else {
+        DEFAULT_RECORD_TYPES
+            .iter()
+            .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
+            .collect()
+    };
+
+    Ok(record_types)
+}
 
 // Newtype pattern for Display implementation
 struct DnsResponse<'a>(pub &'a mhost::DnsResponse);
@@ -100,129 +253,28 @@ impl<'a> fmt::Display for DnsResponse<'a> {
     }
 }
 
-fn run() -> Result<()> {
-    let args = build_cli().get_matches();
-
-    if args.is_present("completions") {
-        let bin_name = env!("CARGO_PKG_NAME");
-        let shell= args.value_of("completions").unwrap();
-        build_cli().gen_completions_to(bin_name, shell.parse::<Shell>().unwrap(), &mut std::io::stdout());
-        return Ok(());
-    }
-
-    // Check if domain_name is an IP address -> PTR query and ignore -t, else normal query
-    let record_types = if IpAddr::from_str(&args.value_of("domain name").unwrap()).is_ok() {
-        vec!["PTR"]
-            .iter()
-            .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
-            .collect()
-    } else if let Some(record_types) = args.values_of_lossy("record types") {
-        record_types
-            .iter()
-            .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
-            .collect()
-    } else {
-        DEFAULT_RECORD_TYPES
-            .iter()
-            .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
-            .collect()
-    };
-
-    let mut servers: Vec<_> = if let Some(dns_servers) = args.values_of_lossy("DNS servers") {
-        dns_servers
-            .iter()
-            .map(|server| (IpAddr::from_str(server).unwrap(), 53))
-            .collect()
-    } else {
-        DEFAULT_DNS_SERVERS
-            .iter()
-            .map(|server| (IpAddr::from_str(server).unwrap(), 53))
-            .collect()
-    };
-    if !args.is_present("dont use local dns servers") {
-        let mut buf = Vec::with_capacity(4096);
-        let mut f = File::open("/etc/resolv.conf").unwrap();
-        f.read_to_end(&mut buf).unwrap();
-        let cfg = resolv_conf::Config::parse(&buf[..]).unwrap();
-        let mut local_servers: Vec<_> = cfg.nameservers.into_iter().map(|s| (s, 53)).collect();
-        servers.append(&mut local_servers);
-    }
-
-    let timeout = value_t!(args, "timeout", u64).map(|t| Duration::from_secs(t)).unwrap();
-
-    // Check if domain_name is an IP address -> PTR query and ignore -t, else normal query
-    let mut query = if let Ok(ip) = IpAddr::from_str(&args.value_of("domain name").unwrap()) {
-        DnsQuery::from(ip, record_types)
-    } else {
-        DnsQuery::new(&args.value_of("domain name").unwrap(), record_types)
-    };
-    query = query.set_timeout(timeout);
-
-    let mut io_loop = Core::new().unwrap();
-    let lookup = multiple_lookup(&io_loop.handle(), query, servers);
-    let result = io_loop.run(lookup);
-
-    match result {
-        Ok(ref responses) => {
-            for response in responses {
-                match *response {
-                    Ok(ref x) => println!("{}", DnsResponse(x)),
-                    Err(ref e) => println!("Error: {}", e),
-                }
-            }
+error_chain! {
+    errors {
+        CliArgsParsingError {
+            description("failed to parse CLI arguments")
+            display("failed to parse CLI arguments")
         }
-        Err(_) => {
-            println!("General Error");
+
+        ResolvConfError {
+            description("failed to parse /etc/resolv.conf")
+            display("failed to parse /etc/resolv.cons")
+        }
+
+        ServerIpAddrParsingError {
+            description("failed to parse server IP address")
+            display("failed to parse server IP address")
+        }
+
+        ResoureRecordTypeParsingError {
+            description("failed to parse resource record type")
+            display("failed to parse resource record type")
         }
     }
-
-    Ok(())
 }
-
-fn build_cli() -> App<'static, 'static> {
-    let name  = env!("CARGO_PKG_NAME");
-    let version = env!("CARGO_PKG_VERSION");
-    let about = env!("CARGO_PKG_DESCRIPTION");
-
-    App::new(name)
-        .version(version)
-        .about(about)
-        .arg(Arg::with_name("domain name")
-            .index(1)
-            .required(true)
-            .conflicts_with("completions")
-            .help("domain name or IP address to look up"))
-        .arg(Arg::with_name("timeout")
-            .long("timeout")
-            .default_value("5")
-            .help("timeout for server responses in sec")
-            .takes_value(true))
-        .arg(Arg::with_name("record types")
-            .long("type")
-            .short("t")
-            .takes_value(true)
-            .multiple(true)
-            .number_of_values(1)
-            .possible_values(&["a", "aaaa", "any", "cname", "dnskey", "mx", "ns", "opt", "ptr", "soa", "srv", "txt"])
-            .help("Select resource record type [default: a, aaaa, mx]"))
-        .arg(Arg::with_name("dont use local dns servers")
-            .short("L")
-            .help("Do not use local (/etc/resolv.conf) DNS servers"))
-        .arg(Arg::with_name("DNS servers")
-            .long("server")
-            .short("s")
-            .takes_value(true)
-            .multiple(true)
-            .number_of_values(1)
-            .help("DNS servers to use; if empty use predefined, public DNS server"))
-        .arg(Arg::with_name("completions")
-            .long("completions")
-            .takes_value(true)
-            .hidden(true)
-            .possible_values(&["bash", "fish", "zsh"])
-            .help("The shell to generate the script for"))
-}
-
-error_chain!{}
 
 quick_main!(run);
