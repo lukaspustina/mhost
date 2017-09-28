@@ -1,5 +1,3 @@
-#![feature(attr_literals)]
-
 #[macro_use]
 extern crate clap;
 #[macro_use]
