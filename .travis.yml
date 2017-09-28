@@ -86,5 +86,5 @@ deploy:
       tags: true
       condition:
       - "$TRAVIS_OS_NAME == linux"
-      - "$DEPLOY_ARCH"
+      - "$DEPLOY_ARCH == amd64"
 

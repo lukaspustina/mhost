@@ -1,4 +1,6 @@
 // Remove all remaining, untracked files
+echo "Cleaning working directory"
 git clean -f -x
-cross publish --token "$1"
+echo "Publishing to crates.io"
+cross publish --allow-dirty --token "$1"
 
