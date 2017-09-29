@@ -89,7 +89,7 @@ fn run() -> Result<()> {
             for response in responses {
                 match *response {
                     Ok(ref x) => println!("{}", DnsResponse(x)),
-                    Err(ref e) => println!("Error: {}", e),
+                    Err(ref e) => print_error(e),
                 }
             }
         }
@@ -282,6 +282,20 @@ impl<'a> fmt::Display for DnsResponse<'a> {
             .collect();
         answers.sort();
         write!(f, "{}", answers.join("\n"))
+    }
+}
+
+
+fn print_error(err: &mhost::Error) {
+    print!("{} ", err);
+    for e in err.iter().skip(1) {
+        print!("because {}", e);
+    }
+    println!();
+
+    // The backtrace is only available if run with `RUST_BACKTRACE=1`.
+    if let Some(backtrace) = err.backtrace() {
+        println!("backtrace: {:?}", backtrace);
     }
 }
 
