@@ -7,9 +7,10 @@ extern crate resolv_conf;
 extern crate tokio_core;
 extern crate trust_dns;
 
-use mhost::{multiple_lookup, Query};
+use mhost::{multiple_lookup, Statistics, Query};
 
 use clap::{App, Arg, ArgMatches, Shell};
+use error_chain::ChainedError;
 use std::fmt;
 use std::fs::File;
 use std::io::Read;
@@ -84,17 +85,43 @@ fn run() -> Result<()> {
     let lookup = multiple_lookup(&io_loop.handle(), query, dns_endpoints);
     let result = io_loop.run(lookup);
 
+    /*
     match result {
         Ok(responses) => {
             for response in responses {
                 match response {
                     Ok(ref x) => println!("{}", DnsResponse(x)),
-                    Err(e) => print_error(&e.into()),
+                    Err(ref e) => print_error(e),
                 }
             }
         }
         Err(_) => {
             println!("General Error");
+        }
+    }
+    */
+    let statistics = Statistics::from(result.as_ref().unwrap());
+
+    println!("Received {} (min {}, max {} records) answers from {} servers",
+             statistics.num_of_ok_samples,
+             statistics.min_num_of_records,
+             statistics.max_num_of_records,
+             statistics.num_of_samples,
+    );
+    let mut records: Vec<_> = statistics.record_counts.values().map(|rr| {
+        let record = DnsRecord(rr.0);
+        let count = rr.1;
+        format!("{} ({})", record, count)
+    }).collect();
+    records.sort();
+    for r in records {
+        println!("* {}", r);
+    }
+    if ! statistics.failures.is_empty() {
+        println!("Failures");
+        for f in statistics.failures {
+            print!("* ");
+            print_error(f);
         }
     }
 
@@ -251,42 +278,53 @@ impl<'a> fmt::Display for DnsResponse<'a> {
         let mut answers: Vec<String> = dns_response
             .answers
             .iter()
-            .map(|answer| match *answer.rdata() {
-                RData::A(ip) => format!(" * IPv4: {}", ip),
-                RData::AAAA(ip) => format!(" * IPv6: {}", ip),
-                RData::CNAME(ref name) => format!(" * CNAME: {}", name),
-                RData::MX(ref mx) => {
-                    format!(
-                        " * MX: {} with preference {}",
-                        mx.exchange(),
-                        mx.preference()
-                    )
-                }
-                RData::NS(ref name) => format!(" * NS: {}", name),
-                RData::SOA(ref soa) => {
-                    format!(
-                        " * SOA: {} {} {} {} {} {} {}",
-                        soa.mname(),
-                        soa.rname(),
-                        soa.serial(),
-                        soa.refresh(),
-                        soa.retry(),
-                        soa.expire(),
-                        soa.minimum()
-                    )
-                }
-                RData::TXT(ref txt) => format!(" * TXT: {}", txt.txt_data().join(" ")),
-                RData::PTR(ref ptr) => format!(" * PTR: {}", ptr.to_string()),
-                ref x => format!(" * unclassified answer: {:?}", x),
-            })
+            .map(|answer| format!("* {}", DnsRecord(answer)))
             .collect();
         answers.sort();
         write!(f, "{}", answers.join("\n"))
     }
 }
 
+// Newtype pattern for Display implementation
+struct DnsRecord<'a>(pub &'a trust_dns::rr::Record);
 
-fn print_error(err: &Error) {
+impl<'a> fmt::Display for DnsRecord<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let DnsRecord(record) = *self;
+
+        let str = match *record.rdata() {
+            RData::A(ip) => format!("IPv4: {}", ip),
+            RData::AAAA(ip) => format!("IPv6: {}", ip),
+            RData::CNAME(ref name) => format!("CNAME: {}", name),
+            RData::MX(ref mx) => {
+                format!(
+                    "MX: {} with preference {}",
+                    mx.exchange(),
+                    mx.preference()
+                )
+            }
+            RData::NS(ref name) => format!("NS: {}", name),
+            RData::SOA(ref soa) => {
+                format!(
+                    "SOA: {} {} {} {} {} {} {}",
+                    soa.mname(),
+                    soa.rname(),
+                    soa.serial(),
+                    soa.refresh(),
+                    soa.retry(),
+                    soa.expire(),
+                    soa.minimum()
+                )
+            }
+            RData::TXT(ref txt) => format!("TXT: {}", txt.txt_data().join(" ")),
+            RData::PTR(ref ptr) => format!("PTR: {}", ptr.to_string()),
+            ref x => format!(" * unclassified answer: {:?}", x),
+        };
+        write!(f, "{}", str)
+    }
+}
+
+fn print_error<T: ChainedError>(err: &T) {
     print!("{} ", err);
     for e in err.iter().skip(1) {
         print!("because {}", e);
