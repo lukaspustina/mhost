@@ -20,9 +20,14 @@ impl<'a> Statistics<'a> {
     pub fn from(responses: &'a [LookupResult<Response>]) -> Self {
         let num_of_samples = responses.len();
 
-        let (responses, failures): (Vec<_>, Vec<_>) = responses.into_iter().partition(|x| x.is_ok());
-        let responses: Vec<&Response> = responses.into_iter().map(|x| x.as_ref().unwrap()).collect();
-        let failures: Vec<&LookupError> = failures.into_iter().map(|x| x.as_ref().unwrap_err()).collect();
+        let (responses, failures): (Vec<_>, Vec<_>) =
+            responses.into_iter().partition(|x| x.is_ok());
+        let responses: Vec<&Response> =
+            responses.into_iter().map(|x| x.as_ref().unwrap()).collect();
+        let failures: Vec<&LookupError> = failures
+            .into_iter()
+            .map(|x| x.as_ref().unwrap_err())
+            .collect();
 
         let num_of_ok_samples = responses.len();
         let num_of_err_samples = failures.len();
@@ -30,12 +35,15 @@ impl<'a> Statistics<'a> {
         let (min_num_of_records, max_num_of_records) = responses
             .iter()
             .map(|x| x.answers.len())
-            .fold((::std::usize::MAX, 0),
-                  |(mut min, mut max), x| {
-                      if min > x { min = x };
-                      if max < x { max = x };
-                      (min, max)
-                  });
+            .fold((::std::usize::MAX, 0), |(mut min, mut max), x| {
+                if min > x {
+                    min = x
+                };
+                if max < x {
+                    max = x
+                };
+                (min, max)
+            });
 
         let mut record_counts = HashMap::new();
         for response in &responses {
@@ -46,7 +54,15 @@ impl<'a> Statistics<'a> {
             }
         }
 
-        Statistics { num_of_samples, num_of_ok_samples, num_of_err_samples, min_num_of_records, max_num_of_records, record_counts, failures }
+        Statistics {
+            num_of_samples,
+            num_of_ok_samples,
+            num_of_err_samples,
+            min_num_of_records,
+            max_num_of_records,
+            record_counts,
+            failures,
+        }
     }
 }
 
@@ -61,19 +77,38 @@ mod test {
     #[test]
     fn simple_statistics() {
         let records_1: Vec<Record> = vec![
-            Record::with(domain::Name::from_str("www.example.com").unwrap(), RecordType::A, 100),
-            Record::with(domain::Name::from_str("www.example.com").unwrap(), RecordType::MX, 99),
+            Record::with(
+                domain::Name::from_str("www.example.com").unwrap(),
+                RecordType::A,
+                100
+            ),
+            Record::with(
+                domain::Name::from_str("www.example.com").unwrap(),
+                RecordType::MX,
+                99
+            ),
         ];
-        let response_1 = Response { server: IpAddr::from([127, 0, 0, 1]), answers: records_1 };
+        let response_1 = Response {
+            server: IpAddr::from([127, 0, 0, 1]),
+            answers: records_1,
+        };
         let records_2: Vec<Record> = vec![
-            Record::with(domain::Name::from_str("www.example.com").unwrap(), RecordType::A, 98),
+            Record::with(
+                domain::Name::from_str("www.example.com").unwrap(),
+                RecordType::A,
+                98
+            ),
         ];
-        let response_2 = Response { server: IpAddr::from([127, 0, 0, 2]), answers: records_2 };
-        let responses: Vec<LookupResult<Response>> = vec![
-            Ok(response_1),
-            Ok(response_2),
-            Err(LookupErrorKind::QueryError(IpAddr::from([127, 0, 0, 3])).into())
-        ];
+        let response_2 = Response {
+            server: IpAddr::from([127, 0, 0, 2]),
+            answers: records_2,
+        };
+        let responses: Vec<LookupResult<Response>> =
+            vec![
+                Ok(response_1),
+                Ok(response_2),
+                Err(LookupErrorKind::QueryError(IpAddr::from([127, 0, 0, 3])).into()),
+            ];
 
         let statistics = Statistics::from(&responses);
 
@@ -84,7 +119,8 @@ mod test {
         assert_eq!(statistics.max_num_of_records, 2);
         assert_eq!(statistics.record_counts.len(), 2);
 
-        let mut record_counts: Vec<_> = statistics.record_counts
+        let mut record_counts: Vec<_> = statistics
+            .record_counts
             .values()
             .map(|&(_, count)| count)
             .collect();

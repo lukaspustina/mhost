@@ -80,7 +80,7 @@ pub fn lookup<T: Into<SocketAddr>>(
         .collect();
     let all = join_all(lookups).and_then(move |lookups| {
         let all_answers = lookups.into_iter().fold(Vec::new(), |mut acc,
-                                                                mut lookup: Response| {
+         mut lookup: Response| {
             acc.append(&mut lookup.answers);
             acc
         });

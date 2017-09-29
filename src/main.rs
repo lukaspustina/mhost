@@ -108,16 +108,20 @@ fn run() -> Result<()> {
              statistics.max_num_of_records,
              statistics.num_of_samples,
     );
-    let mut records: Vec<_> = statistics.record_counts.values().map(|rr| {
-        let record = DnsRecord(rr.0);
-        let count = rr.1;
-        format!("{} ({})", record, count)
-    }).collect();
+    let mut records: Vec<_> = statistics
+        .record_counts
+        .values()
+        .map(|rr| {
+            let record = DnsRecord(rr.0);
+            let count = rr.1;
+            format!("{} ({})", record, count)
+        })
+        .collect();
     records.sort();
     for r in records {
         println!("* {}", r);
     }
-    if ! statistics.failures.is_empty() {
+    if !statistics.failures.is_empty() {
         println!("Failures");
         for f in statistics.failures {
             print!("* ");
@@ -297,11 +301,7 @@ impl<'a> fmt::Display for DnsRecord<'a> {
             RData::AAAA(ip) => format!("IPv6: {}", ip),
             RData::CNAME(ref name) => format!("CNAME: {}", name),
             RData::MX(ref mx) => {
-                format!(
-                    "MX: {} with preference {}",
-                    mx.exchange(),
-                    mx.preference()
-                )
+                format!("MX: {} with preference {}", mx.exchange(), mx.preference())
             }
             RData::NS(ref name) => format!("NS: {}", name),
             RData::SOA(ref soa) => {
