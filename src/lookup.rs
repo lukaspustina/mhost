@@ -54,7 +54,7 @@ pub fn lookup<T: Into<SocketAddr>>(
     loop_handle: &Handle,
     query: Query,
     server: T,
-) -> Box<Future<Item = Response, Error = Error>> {
+) -> Box<Future<Item=Response, Error=Error>> {
     let socket_addr = server.into();
     let domain_name = query.domain_name;
 
@@ -79,8 +79,7 @@ pub fn lookup<T: Into<SocketAddr>>(
         })
         .collect();
     let all = join_all(lookups).and_then(move |lookups| {
-        let all_answers = lookups.into_iter().fold(Vec::new(), |mut acc,
-         mut lookup: Response| {
+        let all_answers = lookups.into_iter().fold(Vec::new(), |mut acc, mut lookup: Response| {
             acc.append(&mut lookup.answers);
             acc
         });
@@ -103,11 +102,10 @@ pub fn multiple_lookup<T: Into<SocketAddr>>(
     loop_handle: &Handle,
     query: Query,
     servers: Vec<T>,
-) -> Box<Future<Item = Vec<Result<Response>>, Error = ()>> {
+) -> Box<Future<Item=Vec<Result<Response>>, Error=()>> {
     let futures: Vec<_> = servers
         .into_iter()
         .map(|server| {
-            // TODO:
             lookup(loop_handle, query.clone(), server).map(Ok).or_else(
                 |e| {
                     Ok(Err(e))

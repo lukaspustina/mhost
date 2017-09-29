@@ -2,16 +2,21 @@
 extern crate clap;
 #[macro_use]
 extern crate error_chain;
+extern crate futures;
+extern crate itertools;
 extern crate mhost;
 extern crate resolv_conf;
 extern crate tokio_core;
 extern crate trust_dns;
 
-use mhost::{multiple_lookup, Statistics, Query, Response};
+
+use mhost::{multiple_lookup, ungefiltert_surfen, Statistics, Query, Response};
 use mhost::lookup::Result as LookupResult;
 
 use clap::{App, Arg, ArgMatches, Shell};
 use error_chain::ChainedError;
+use futures::future::join_all;
+use itertools::Itertools;
 use std::fmt;
 use std::fs::File;
 use std::io::Read;
@@ -50,26 +55,85 @@ static DEFAULT_DNS_SERVERS: &'static [&str] = &[
     // "Alternate DNS",
     "198.101.242.72",
     "23.253.163.53",
+    // "Level3",
+    "209.244.0.3",
+    "209.244.0.4",
+    // "Verisign",
+    "64.6.64.6",
+    "64.6.65.6",
+    // "Google",
+    "8.8.8.8",
+    "8.8.4.4",
+    // "DNS.WATCH",
+    "84.200.69.80",
+    "84.200.70.40",
+    // "OpenDNS Home",
+    "208.67.222.222",
+    "208.67.220.220",
+    // "SafeDNS",
+    "195.46.39.39",
+    "195.46.39.40",
+    // "Dyn",
+    "216.146.35.35",
+    "216.146.36.36",
+    // "FreeDNS",
+    "37.235.1.174",
+    "37.235.1.177",
+    // "Alternate DNS",
+    "198.101.242.72",
+    "23.253.163.53",
+    // "Level3",
+    "209.244.0.3",
+    "209.244.0.4",
+    // "Verisign",
+    "64.6.64.6",
+    "64.6.65.6",
+    // "Google",
+    "8.8.8.8",
+    "8.8.4.4",
+    // "DNS.WATCH",
+    "84.200.69.80",
+    "84.200.70.40",
+    // "OpenDNS Home",
+    "208.67.222.222",
+    "208.67.220.220",
+    // "SafeDNS",
+    "195.46.39.39",
+    "195.46.39.40",
+    // "Dyn",
+    "216.146.35.35",
+    "216.146.36.36",
+    // "FreeDNS",
+    "37.235.1.174",
+    "37.235.1.177",
+    // "Alternate DNS",
+    "198.101.242.72",
+    "23.253.163.53",
 ];
 
 static DEFAULT_RECORD_TYPES: &'static [&str] = &["a", "aaaa", "mx"];
 
 fn run() -> Result<()> {
+    let mut io_loop = Core::new().unwrap();
     let args = build_cli().get_matches();
 
     if args.is_present("completions") {
         return generate_completion(&args);
     }
 
-    let dns_endpoints = get_dns_servers(&args)
+    let timeout = value_t!(args, "timeout", u64)
+        .map(Duration::from_secs)
+        .unwrap();
+
+    let limit = value_t!(args, "limit", usize).unwrap();
+
+    let dns_endpoints: Vec<(IpAddr, u16)> = get_dns_servers(&args, &mut io_loop)
         .chain_err(|| ErrorKind::ServerIpAddrParsingError)?
         .into_iter()
         .map(|s| (s, 53))
         .collect();
 
-    let timeout = value_t!(args, "timeout", u64)
-        .map(Duration::from_secs)
-        .unwrap();
+    let dns_endpoints: Vec<(IpAddr, u16)> = dns_endpoints.into_iter().take(limit).collect();
 
     let mut query = match IpAddr::from_str(args.value_of("domain name").unwrap()) {
         Ok(ip) => Query::from(ip, vec![RecordType::PTR]),
@@ -82,10 +146,8 @@ fn run() -> Result<()> {
     };
     query = query.set_timeout(timeout);
 
-    let mut io_loop = Core::new().unwrap();
     let lookup = multiple_lookup(&io_loop.handle(), query, dns_endpoints);
     let result = io_loop.run(lookup);
-
     let responses = result.as_ref().unwrap();
 
     for output in args.values_of_lossy("output module").unwrap() {
@@ -234,6 +296,22 @@ fn build_cli() -> App<'static, 'static> {
                 )
         )
         .arg(
+            Arg::with_name("ungefiltert")
+                .short("u")
+                .takes_value(true)
+                .multiple(true)
+                .require_delimiter(true)
+                .help("Retrieves DNS servers from https://www.ungefiltert-surfen.de/ for country ids, e.g., 'de'")
+        )
+        .arg(
+            Arg::with_name("limit")
+                .long("limit")
+                .short("l")
+                .default_value("100")
+                .help("Limits the amount of servers to query")
+                .takes_value(true)
+        )
+        .arg(
             Arg::with_name("output module")
                 .long("module")
                 .short("m")
@@ -284,7 +362,8 @@ fn get_local_dns_servers() -> Result<Vec<IpAddr>> {
     Ok(cfg.nameservers)
 }
 
-fn get_dns_servers(args: &ArgMatches) -> Result<Vec<IpAddr>> {
+// TODO: Make this a future with future::ok().and_then(ungefiltert)
+fn get_dns_servers(args: &ArgMatches, io_loop: &mut Core) -> Result<Vec<IpAddr>> {
     let mut dns_servers: Vec<IpAddr> = Vec::new();
     if let Some(servers) = args.values_of_lossy("DNS servers") {
         dns_servers.extend(servers.into_iter().map(|server| {
@@ -298,6 +377,24 @@ fn get_dns_servers(args: &ArgMatches) -> Result<Vec<IpAddr>> {
     }
     if !args.is_present("dont use local dns servers") {
         dns_servers.extend(get_local_dns_servers()?);
+    }
+    if args.is_present("ungefiltert") {
+        println!("Retrieving ungefiltert-surfen DNS servers ... ");
+        let futures: Vec<_> = args.values_of_lossy("ungefiltert").unwrap()
+            .iter()
+            .map(|id| ungefiltert_surfen::retrieve_servers(&io_loop.handle(), id))
+            .collect();
+        let join = join_all(futures);
+        // TODO: Err chain
+        let result = io_loop.run(join).unwrap();
+        let servers = result
+            .iter()
+            .flatten()
+            .map(|x| {
+                IpAddr::from_str(&x.ip).unwrap()
+            });
+        println!("done.");
+        dns_servers.extend(servers);
     }
 
     Ok(dns_servers)
