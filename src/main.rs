@@ -7,7 +7,8 @@ extern crate resolv_conf;
 extern crate tokio_core;
 extern crate trust_dns;
 
-use mhost::{multiple_lookup, Statistics, Query};
+use mhost::{multiple_lookup, Statistics, Query, Response};
+use mhost::lookup::Result as LookupResult;
 
 use clap::{App, Arg, ArgMatches, Shell};
 use error_chain::ChainedError;
@@ -85,52 +86,85 @@ fn run() -> Result<()> {
     let lookup = multiple_lookup(&io_loop.handle(), query, dns_endpoints);
     let result = io_loop.run(lookup);
 
-    /*
-    match result {
-        Ok(responses) => {
-            for response in responses {
-                match response {
-                    Ok(ref x) => println!("{}", DnsResponse(x)),
-                    Err(ref e) => print_error(e),
-                }
-            }
-        }
-        Err(_) => {
-            println!("General Error");
-        }
-    }
-    */
-    let statistics = Statistics::from(result.as_ref().unwrap());
+    let responses = result.as_ref().unwrap();
 
-    println!("Received {} (min {}, max {} records) answers from {} servers",
-             statistics.num_of_ok_samples,
-             statistics.min_num_of_records,
-             statistics.max_num_of_records,
-             statistics.num_of_samples,
-    );
-    let mut records: Vec<_> = statistics
-        .record_counts
-        .values()
-        .map(|rr| {
-            let record = DnsRecord(rr.0);
-            let count = rr.1;
-            format!("{} ({})", record, count)
-        })
-        .collect();
-    records.sort();
-    for r in records {
-        println!("* {}", r);
-    }
-    if !statistics.failures.is_empty() {
-        println!("Failures");
-        for f in statistics.failures {
-            print!("* ");
-            print_error(f);
+    for output in args.values_of_lossy("output module").unwrap() {
+        match output.as_ref() {
+            "details" => DetailsOutput::new(responses).output(),
+            _ => SummaryOutput::new(responses).output(),
         }
     }
 
     Ok(())
 }
+
+trait OutputModule {
+    fn output(self) -> ();
+}
+
+struct DetailsOutput<'a> {
+    responses: &'a [LookupResult<Response>],
+}
+
+impl<'a> DetailsOutput<'a> {
+    pub fn new(responses: &'a [LookupResult<Response>]) -> Self {
+        DetailsOutput { responses }
+    }
+}
+
+impl<'a> OutputModule for DetailsOutput<'a> {
+    fn output(self) -> () {
+        for response in self.responses {
+            match *response {
+                Ok(ref x) => println!("{}", DnsResponse(x)),
+                Err(ref e) => print_error(e),
+            }
+        }
+    }
+}
+
+struct SummaryOutput<'a> {
+    statistics: Statistics<'a>,
+}
+
+impl<'a> SummaryOutput<'a> {
+    pub fn new(responses: &'a [LookupResult<Response>]) -> Self {
+        let statistics = Statistics::from(responses);
+        SummaryOutput { statistics }
+    }
+}
+
+impl<'a> OutputModule for SummaryOutput<'a> {
+    fn output(self) -> () {
+        println!("Received {} (min {}, max {} records) answers from {} servers",
+                 self.statistics.num_of_ok_samples,
+                 self.statistics.min_num_of_records,
+                 self.statistics.max_num_of_records,
+                 self.statistics.num_of_samples,
+        );
+        let mut records: Vec<_> = self.statistics
+            .record_counts
+            .values()
+            .map(|rr| {
+                let record = DnsRecord(rr.0);
+                let count = rr.1;
+                format!("{} ({})", record, count)
+            })
+            .collect();
+        records.sort();
+        for r in records {
+            println!("* {}", r);
+        }
+        if !self.statistics.failures.is_empty() {
+            println!("Failures");
+            for f in self.statistics.failures {
+                print!("* ");
+                print_error(f);
+            }
+        }
+    }
+}
+
 
 fn build_cli() -> App<'static, 'static> {
     let name = env!("CARGO_PKG_NAME");
@@ -145,14 +179,14 @@ fn build_cli() -> App<'static, 'static> {
                 .index(1)
                 .required(true)
                 .conflicts_with("completions")
-                .help("domain name or IP address to look up"),
+                .help("domain name or IP address to look up")
         )
         .arg(
             Arg::with_name("timeout")
                 .long("timeout")
                 .default_value("5")
                 .help("timeout for server responses in sec")
-                .takes_value(true),
+                .takes_value(true)
         )
         .arg(
             Arg::with_name("record types")
@@ -161,7 +195,6 @@ fn build_cli() -> App<'static, 'static> {
                 .takes_value(true)
                 .multiple(true)
                 .require_delimiter(true)
-                //.number_of_values(1)
                 .possible_values(
                     &[
                         "a",
@@ -178,15 +211,15 @@ fn build_cli() -> App<'static, 'static> {
                         "txt",
                     ],
                 )
-                .help("Select resource record type [default: a, aaaa, mx]"),
+                .help("Select resource record type [default: a, aaaa, mx]")
         )
         .arg(
             Arg::with_name("dont use local dns servers")
                 .short("L")
-                .help("Do not use local (/etc/resolv.conf) DNS servers"),
+                .help("Do not use local (/etc/resolv.conf) DNS servers")
         )
         .arg(Arg::with_name("predefined server").short("p").help(
-            "use predefined DNS server set",
+            "use predefined DNS server set"
         ))
         .arg(
             Arg::with_name("DNS servers")
@@ -194,10 +227,27 @@ fn build_cli() -> App<'static, 'static> {
                 .short("s")
                 .takes_value(true)
                 .multiple(true)
+                .require_delimiter(true)
                 .number_of_values(1)
                 .help(
-                    "DNS servers to use; if empty use predefined, public DNS server",
-                ),
+                    "DNS servers to use; if empty use predefined, public DNS server"
+                )
+        )
+        .arg(
+            Arg::with_name("output module")
+                .long("module")
+                .short("m")
+                .takes_value(true)
+                .multiple(true)
+                .require_delimiter(true)
+                .default_value("summary")
+                .possible_values(
+                    &[
+                        "summary",
+                        "details",
+                    ],
+                )
+                .help("Select output module")
         )
         .arg(
             Arg::with_name("completions")
@@ -205,7 +255,7 @@ fn build_cli() -> App<'static, 'static> {
                 .takes_value(true)
                 .hidden(true)
                 .possible_values(&["bash", "fish", "zsh"])
-                .help("The shell to generate the script for"),
+                .help("The shell to generate the script for")
         )
 }
 
