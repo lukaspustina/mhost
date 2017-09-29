@@ -7,7 +7,7 @@ extern crate resolv_conf;
 extern crate tokio_core;
 extern crate trust_dns;
 
-use mhost::{multiple_lookup, DnsQuery};
+use mhost::{multiple_lookup, Query};
 
 use clap::{App, Arg, ArgMatches, Shell};
 use std::fmt;
@@ -70,12 +70,12 @@ fn run() -> Result<()> {
         .unwrap();
 
     let mut query = match IpAddr::from_str(args.value_of("domain name").unwrap()) {
-        Ok(ip) => DnsQuery::from(ip, vec![RecordType::PTR]),
+        Ok(ip) => Query::from(ip, vec![RecordType::PTR]),
         Err(_) => {
             let record_types = get_record_types(&args).chain_err(|| {
                 ErrorKind::ResoureRecordTypeParsingError
             })?;
-            DnsQuery::new(args.value_of("domain name").unwrap(), record_types)
+            Query::new(args.value_of("domain name").unwrap(), record_types)
         }
     };
     query = query.set_timeout(timeout);
@@ -85,11 +85,11 @@ fn run() -> Result<()> {
     let result = io_loop.run(lookup);
 
     match result {
-        Ok(ref responses) => {
+        Ok(responses) => {
             for response in responses {
-                match *response {
+                match response {
                     Ok(ref x) => println!("{}", DnsResponse(x)),
-                    Err(ref e) => print_error(e),
+                    Err(e) => print_error(&e.into()),
                 }
             }
         }
@@ -238,7 +238,7 @@ fn get_record_types(args: &ArgMatches) -> Result<Vec<RecordType>> {
 }
 
 // Newtype pattern for Display implementation
-struct DnsResponse<'a>(pub &'a mhost::DnsResponse);
+struct DnsResponse<'a>(pub &'a mhost::Response);
 
 // Display impl for plain, basic output
 impl<'a> fmt::Display for DnsResponse<'a> {
@@ -286,7 +286,7 @@ impl<'a> fmt::Display for DnsResponse<'a> {
 }
 
 
-fn print_error(err: &mhost::Error) {
+fn print_error(err: &Error) {
     print!("{} ", err);
     for e in err.iter().skip(1) {
         print!("because {}", e);
@@ -320,6 +320,10 @@ error_chain! {
             description("failed to parse resource record type")
             display("failed to parse resource record type")
         }
+    }
+
+    links {
+        Lookup(::mhost::lookup::Error, ::mhost::lookup::ErrorKind);
     }
 }
 
