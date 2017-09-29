@@ -160,7 +160,8 @@ fn build_cli() -> App<'static, 'static> {
                 .short("t")
                 .takes_value(true)
                 .multiple(true)
-                .number_of_values(1)
+                .require_delimiter(true)
+                //.number_of_values(1)
                 .possible_values(
                     &[
                         "a",
@@ -184,7 +185,7 @@ fn build_cli() -> App<'static, 'static> {
                 .short("L")
                 .help("Do not use local (/etc/resolv.conf) DNS servers"),
         )
-        .arg(Arg::with_name("predefined server").short("S").help(
+        .arg(Arg::with_name("predefined server").short("p").help(
             "use predefined DNS server set",
         ))
         .arg(
