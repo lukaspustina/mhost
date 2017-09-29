@@ -38,10 +38,10 @@ impl<'a> Statistics<'a> {
                   });
 
         let mut record_counts = HashMap::new();
-        for ref response in responses.iter() {
-            for ref rr in response.answers.iter() {
+        for response in &responses {
+            for rr in &response.answers {
                 let key = format!("{:?}-{:?}", rr.rr_type(), rr.rdata());
-                let mut value = record_counts.entry(key).or_insert((*rr, 0u16));
+                let value = record_counts.entry(key).or_insert((rr, 0u16));
                 value.1 += 1
             }
         }
