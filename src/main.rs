@@ -185,7 +185,7 @@ fn build_cli() -> App<'static, 'static> {
             Arg::with_name("timeout")
                 .long("timeout")
                 .default_value("5")
-                .help("timeout for server responses in sec")
+                .help("Sets timeout for server responses in sec")
                 .takes_value(true)
         )
         .arg(
@@ -211,7 +211,7 @@ fn build_cli() -> App<'static, 'static> {
                         "txt",
                     ],
                 )
-                .help("Select resource record type [default: a, aaaa, mx]")
+                .help("Selects resource record type [default: a, aaaa, mx]")
         )
         .arg(
             Arg::with_name("dont use local dns servers")
@@ -219,7 +219,7 @@ fn build_cli() -> App<'static, 'static> {
                 .help("Do not use local (/etc/resolv.conf) DNS servers")
         )
         .arg(Arg::with_name("predefined server").short("p").help(
-            "use predefined DNS server set"
+            "Uses predefined DNS servers set"
         ))
         .arg(
             Arg::with_name("DNS servers")
@@ -230,7 +230,7 @@ fn build_cli() -> App<'static, 'static> {
                 .require_delimiter(true)
                 .number_of_values(1)
                 .help(
-                    "DNS servers to use; if empty use predefined, public DNS server"
+                    "Sets DNS servers to use"
                 )
         )
         .arg(
@@ -247,7 +247,7 @@ fn build_cli() -> App<'static, 'static> {
                         "details",
                     ],
                 )
-                .help("Select output module")
+                .help("Selects output module")
         )
         .arg(
             Arg::with_name("completions")
