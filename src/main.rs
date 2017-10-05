@@ -3,27 +3,26 @@ extern crate clap;
 #[macro_use]
 extern crate error_chain;
 extern crate futures;
-extern crate itertools;
 extern crate mhost;
 extern crate resolv_conf;
 extern crate tokio_core;
 extern crate trust_dns;
 
 
-use mhost::{multiple_lookup, ungefiltert_surfen, Statistics, Query, Response};
+use mhost::{multiple_lookup, Statistics, Query, Response};
 use mhost::lookup::Result as LookupResult;
+use mhost::ungefiltert_surfen::{self, Server as UngefiltertServer};
 
 use clap::{App, Arg, ArgMatches, Shell};
 use error_chain::ChainedError;
-use futures::future::join_all;
-use itertools::Itertools;
+use futures::{Future, future};
 use std::fmt;
 use std::fs::File;
 use std::io::Read;
 use std::net::IpAddr;
 use std::str::FromStr;
 use std::time::Duration;
-use tokio_core::reactor::Core;
+use tokio_core::reactor::{Core, Handle};
 use trust_dns::rr::{RData, RecordType};
 
 // Arbitrary list of public DNS servers
@@ -114,7 +113,6 @@ static DEFAULT_DNS_SERVERS: &'static [&str] = &[
 static DEFAULT_RECORD_TYPES: &'static [&str] = &["a", "aaaa", "mx"];
 
 fn run() -> Result<()> {
-    let mut io_loop = Core::new().unwrap();
     let args = build_cli().get_matches();
 
     if args.is_present("completions") {
@@ -125,15 +123,7 @@ fn run() -> Result<()> {
         .map(Duration::from_secs)
         .unwrap();
 
-    let limit = value_t!(args, "limit", usize).unwrap();
-
-    let dns_endpoints: Vec<(IpAddr, u16)> = get_dns_servers(&args, &mut io_loop)
-        .chain_err(|| ErrorKind::ServerIpAddrParsingError)?
-        .into_iter()
-        .map(|s| (s, 53))
-        .collect();
-
-    let dns_endpoints: Vec<(IpAddr, u16)> = dns_endpoints.into_iter().take(limit).collect();
+    let server_limit = value_t!(args, "limit", usize).unwrap();
 
     let mut query = match IpAddr::from_str(args.value_of("domain name").unwrap()) {
         Ok(ip) => Query::from(ip, vec![RecordType::PTR]),
@@ -146,7 +136,20 @@ fn run() -> Result<()> {
     };
     query = query.set_timeout(timeout);
 
-    let lookup = multiple_lookup(&io_loop.handle(), query, dns_endpoints);
+    let mut io_loop = Core::new().unwrap();
+    let handle = io_loop.handle();
+    let lookup = get_dns_servers(&handle, &args)
+            .and_then(|servers| {
+                let dns_endpoints = servers
+                    .into_iter()
+                    .map(|s| (s, 53))
+                    .take(server_limit)
+                    .collect();
+                multiple_lookup(&handle, query, dns_endpoints)
+                    .map_err(|_| {
+                        Error::from_kind(ErrorKind::LookupFailed)
+                    })
+            });
     let result = io_loop.run(lookup);
     let responses = result.as_ref().unwrap();
 
@@ -362,42 +365,52 @@ fn get_local_dns_servers() -> Result<Vec<IpAddr>> {
     Ok(cfg.nameservers)
 }
 
-// TODO: Make this a future with future::ok().and_then(ungefiltert)
-fn get_dns_servers(args: &ArgMatches, io_loop: &mut Core) -> Result<Vec<IpAddr>> {
-    let mut dns_servers: Vec<IpAddr> = Vec::new();
-    if let Some(servers) = args.values_of_lossy("DNS servers") {
-        dns_servers.extend(servers.into_iter().map(|server| {
-            IpAddr::from_str(&server).unwrap()
-        }));
-    }
-    if args.is_present("predefined server") {
-        dns_servers.extend(DEFAULT_DNS_SERVERS.iter().map(|server| {
-            IpAddr::from_str(server).unwrap()
-        }));
-    }
-    if !args.is_present("dont use local dns servers") {
-        dns_servers.extend(get_local_dns_servers()?);
-    }
-    if args.is_present("ungefiltert") {
-        println!("Retrieving ungefiltert-surfen DNS servers ... ");
-        let futures: Vec<_> = args.values_of_lossy("ungefiltert").unwrap()
-            .iter()
-            .map(|id| ungefiltert_surfen::retrieve_servers(&io_loop.handle(), id))
-            .collect();
-        let join = join_all(futures);
-        // TODO: Err chain
-        let result = io_loop.run(join).unwrap();
-        let servers = result
-            .iter()
-            .flatten()
-            .map(|x| {
-                IpAddr::from_str(&x.ip).unwrap()
-            });
-        println!("done.");
-        dns_servers.extend(servers);
-    }
+fn get_dns_servers(loop_handle: &Handle, args: &ArgMatches) -> Box<Future<Item=Vec<IpAddr>, Error=Error>> {
+    let from_args = future::ok::<Vec<IpAddr>, Error>({
+        let mut dns_servers: Vec<IpAddr> = Vec::new();
+        if let Some(servers) = args.values_of_lossy("DNS servers") {
+            dns_servers.extend(servers.into_iter().map(|server| {
+                IpAddr::from_str(&server).unwrap()
+            }));
+        }
+        if args.is_present("predefined server") {
+            dns_servers.extend(DEFAULT_DNS_SERVERS.iter().map(|server| {
+                IpAddr::from_str(server).unwrap()
+            }));
+        }
+        if !args.is_present("dont use local dns servers") {
+            dns_servers.extend(get_local_dns_servers().unwrap());
+        }
 
-    Ok(dns_servers)
+        dns_servers
+    }).map_err(move |e| {
+        Error::with_chain(e, ErrorKind::CliArgsParsingError)
+    });
+
+    let us: Vec<_> = args.values_of_lossy("ungefiltert").unwrap_or_else(|| vec![])
+        .iter()
+        .map(|id| ungefiltert_surfen::retrieve_servers(&loop_handle, id))
+        .collect();
+    let from_ungefiltert = future::join_all(us)
+        .map(move |answers| {
+            answers.into_iter().fold(Vec::new(), |mut acc, servers: Vec<UngefiltertServer>| {
+                acc.extend(servers);
+                acc
+            })
+                .iter()
+                .map(|server| IpAddr::from_str(&server.ip).unwrap())
+                .collect()
+        })
+        .map_err(move |e| {
+            e.into()
+        });
+
+    Box::new(from_args.join(from_ungefiltert)
+        .map(|(mut r1, r2): (Vec<_>, Vec<_>)| {
+            r1.extend(r2);
+            r1
+        })
+    )
 }
 
 fn get_record_types(args: &ArgMatches) -> Result<Vec<RecordType>> {
@@ -417,7 +430,7 @@ fn get_record_types(args: &ArgMatches) -> Result<Vec<RecordType>> {
 }
 
 // Newtype pattern for Display implementation
-struct DnsResponse<'a>(pub &'a mhost::Response);
+struct DnsResponse<'a> (pub &'a mhost::Response);
 
 // Display impl for plain, basic output
 impl<'a> fmt::Display for DnsResponse<'a> {
@@ -438,7 +451,7 @@ impl<'a> fmt::Display for DnsResponse<'a> {
 }
 
 // Newtype pattern for Display implementation
-struct DnsRecord<'a>(pub &'a trust_dns::rr::Record);
+struct DnsRecord<'a> (pub &'a trust_dns::rr::Record);
 
 impl<'a> fmt::Display for DnsRecord<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -506,10 +519,16 @@ error_chain! {
             description("failed to parse resource record type")
             display("failed to parse resource record type")
         }
+
+        LookupFailed {
+            description("failed to run lookup")
+            display("failed to run lookup")
+        }
     }
 
     links {
         Lookup(::mhost::lookup::Error, ::mhost::lookup::ErrorKind);
+        Ungefiltert(::mhost::ungefiltert_surfen::Error, ::mhost::ungefiltert_surfen::ErrorKind);
     }
 }
 
