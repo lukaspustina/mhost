@@ -24,7 +24,7 @@ bin = []
 
 [[bin]]
 name = "mhost"
-path = "src/main.rs"
+path = "src/bin/mhost.rs"
 doc = false
 required-features = ["bin"]
 
