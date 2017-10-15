@@ -65,7 +65,8 @@ pub fn lookup<T: Into<SocketAddr>>(
     let lookups: Vec<_> = query
         .record_types
         .into_iter()
-        .map(|rt| {
+        .enumerate()
+        .map(|(index, rt)| {
             client
                 .query(domain_name.clone(), DNSClass::IN, rt)
                 .map(move |mut response| {
@@ -75,7 +76,7 @@ pub fn lookup<T: Into<SocketAddr>>(
                     }
                 })
                 .map_err(move |e| {
-                    Error::with_chain(e, ErrorKind::QueryError(socket_addr.ip()))
+                    Error::with_chain(e, ErrorKind::QueryError(index+1, rt, socket_addr.ip()))
                 })
         })
         .collect();
@@ -124,9 +125,9 @@ error_chain! {
     }
 
     errors {
-        QueryError(ip: IpAddr) {
+        QueryError(index: usize, rt: RecordType, ip: IpAddr) {
             description("Query failed")
-            display("Query against DNS server {} failed", ip)
+            display("{}. query for {:?} record against DNS server {} failed", index, rt, ip)
         }
     }
 }

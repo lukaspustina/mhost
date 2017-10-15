@@ -107,7 +107,7 @@ mod test {
             vec![
                 Ok(response_1),
                 Ok(response_2),
-                Err(LookupErrorKind::QueryError(IpAddr::from([127, 0, 0, 3])).into()),
+                Err(LookupErrorKind::QueryError(1, RecordType::AAAA, IpAddr::from([127, 0, 0, 3])).into()),
             ];
 
         let statistics = Statistics::from(&responses);
