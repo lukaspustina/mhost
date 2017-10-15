@@ -135,17 +135,16 @@ impl<'a> fmt::Display for DnsRecord<'a> {
             }
             RData::NS(ref name) => format!("NS:\t{}", Colour::Cyan.paint(format!("{}", name))),
             RData::SOA(ref soa) => {
-                format!("SOA:\t{}", Colour::Green.paint(
-                    format!(
-                        "{} {} {} {} {} {} {}",
-                        soa.mname(),
-                        soa.rname(),
-                        soa.serial(),
-                        soa.refresh(),
-                        soa.retry(),
-                        soa.expire(),
-                        soa.minimum()
-                    )))
+                // TODO: time interval is in sec, use relative time
+                format!("SOA:\torigin NS {}, responsible party {}, serial {}, refresh {} sec, retry {} sec, expire {} sec, min {} sec",
+                        Colour::Green.paint(format!("{}", soa.mname())),
+                        Colour::Green.paint(format!("{}", soa.rname())),
+                        Colour::Green.paint(format!("{}", soa.serial())),
+                        Colour::Green.paint(format!("{}", soa.refresh())),
+                        Colour::Green.paint(format!("{}", soa.retry())),
+                        Colour::Green.paint(format!("{}", soa.expire())),
+                        Colour::Green.paint(format!("{}", soa.minimum()))
+                    )
             }
             RData::TXT(ref txt) => format!("TXT:\t{}", Colour::Purple.paint(txt.txt_data().join(" "))),
             RData::PTR(ref ptr) => format!("PTR:\t{}", ptr.to_string()),
