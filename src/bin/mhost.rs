@@ -182,7 +182,7 @@ fn run_lookup(args: &ArgMatches, query: Query, server_limit: usize) -> Vec<Looku
     let lookup =
         get::dns_servers(
             &handle,
-            args.values_of_lossy("DNS server"),
+            args.values_of_lossy("DNS servers"),
             args.is_present("predefined server"),
             args.is_present("dont use local dns servers"),
             args.values_of_lossy("ungefiltert ids")
