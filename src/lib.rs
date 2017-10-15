@@ -7,6 +7,8 @@ extern crate ansi_term;
 extern crate error_chain;
 extern crate futures;
 extern crate hyper;
+#[cfg(feature = "bin")]
+extern crate itertools;
 extern crate tokio_core;
 extern crate resolv_conf;
 #[macro_use]

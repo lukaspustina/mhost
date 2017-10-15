@@ -3,6 +3,7 @@ use statistics::Statistics;
 
 use ansi_term::Colour;
 use error_chain::ChainedError;
+use itertools::Itertools;
 use std::io::Write;
 use std::fmt;
 use tabwriter::TabWriter;
@@ -52,16 +53,17 @@ impl<'a> OutputModule for SummaryOutput<'a> {
                  self.statistics.max_num_of_records,
                  self.statistics.num_of_samples,
         );
-        let mut records: Vec<_> = self.statistics
+        let records: Vec<_> = self.statistics
             .record_counts
             .values()
+            .sorted_by(|a, b| compare_records(a.0, b.0))
+            .iter()
             .map(|rr| {
                 let record = DnsRecord(rr.0);
                 let count = rr.1;
                 format!("* {} ({})", record, count)
             })
             .collect();
-        records.sort();
 
         let mut tw = TabWriter::new(vec![]).padding(1);
         let _ = write!(&mut tw, "{}", records.join("\n"));
@@ -77,18 +79,40 @@ impl fmt::Display for lookup::Response {
             return write!(f, "DNS server {} has no records.", self.server);
         }
         let _ = write!(f, "DNS server {} responded with\n", self.server);
-        let mut answers: Vec<String> = self
+        let answers: Vec<String> = self
             .answers
+            .iter()
+            .sorted_by(|a, b| compare_records(a, b))
             .iter()
             .map(|answer| format!("* {}", DnsRecord(answer)))
             .collect();
-        answers.sort();
 
         let mut tw = TabWriter::new(vec![]).padding(1);
         let _ = write!(&mut tw, "{}", answers.join("\n"));
         let out_str = String::from_utf8(tw.into_inner().unwrap()).unwrap();
 
         write!(f, "{}", out_str)
+    }
+}
+
+fn compare_records(a: &Record, b: &Record) -> ::std::cmp::Ordering {
+    let a = record_type_to_ordinal(a);
+    let b = record_type_to_ordinal(b);
+
+    a.cmp(&b)
+}
+
+fn record_type_to_ordinal(r: &Record) -> u16 {
+    match *r.rdata() {
+        RData::SOA(_) => 1000,
+        RData::NS(_) => 2000,
+        RData::MX(ref mx) => 3000 + mx.preference(),
+        RData::TXT(_) => 4000,
+        RData::CNAME(_) => 5000,
+        RData::A(_) => 6000,
+        RData::AAAA(_) => 7000,
+        RData::PTR(_) => 8000,
+        _ => ::std::u16::MAX,
     }
 }
 
@@ -106,7 +130,7 @@ impl<'a> fmt::Display for DnsRecord<'a> {
             RData::MX(ref mx) => {
                 format!("MX:\t{} with preference {}",
                         Colour::Yellow.paint(format!("{}", mx.exchange())),
-                        Colour::Yellow.paint(format!("{}",mx.preference()))
+                        Colour::Yellow.paint(format!("{}", mx.preference()))
                 )
             }
             RData::NS(ref name) => format!("NS:\t{}", Colour::Cyan.paint(format!("{}", name))),
