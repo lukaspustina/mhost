@@ -62,13 +62,6 @@ impl<'a> OutputModule for SummaryOutput<'a> {
         for r in records {
             println!("* {}", r);
         }
-        if !self.statistics.failures.is_empty() {
-            println!("Failures");
-            for f in self.statistics.failures {
-                print!("* ");
-                print_error(f);
-            }
-        }
     }
 }
 
