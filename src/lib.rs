@@ -12,6 +12,8 @@ extern crate resolv_conf;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
+#[cfg(feature = "bin")]
+extern crate tabwriter;
 extern crate trust_dns;
 
 #[cfg(feature = "bin")]

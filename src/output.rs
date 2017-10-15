@@ -3,7 +3,9 @@ use statistics::Statistics;
 
 use ansi_term::Colour;
 use error_chain::ChainedError;
+use std::io::Write;
 use std::fmt;
+use tabwriter::TabWriter;
 use trust_dns::rr::{RData, Record};
 
 pub trait OutputModule {
@@ -56,13 +58,16 @@ impl<'a> OutputModule for SummaryOutput<'a> {
             .map(|rr| {
                 let record = DnsRecord(rr.0);
                 let count = rr.1;
-                format!("{} ({})", record, count)
+                format!("* {} ({})", record, count)
             })
             .collect();
         records.sort();
-        for r in records {
-            println!("* {}", r);
-        }
+
+        let mut tw = TabWriter::new(vec![]).padding(1);
+        let _ = write!(&mut tw, "{}", records.join("\n"));
+        let out_str = String::from_utf8(tw.into_inner().unwrap()).unwrap();
+
+        println!("{}", out_str);
     }
 }
 
@@ -78,7 +83,12 @@ impl fmt::Display for lookup::Response {
             .map(|answer| format!("* {}", DnsRecord(answer)))
             .collect();
         answers.sort();
-        write!(f, "{}", answers.join("\n"))
+
+        let mut tw = TabWriter::new(vec![]).padding(1);
+        let _ = write!(&mut tw, "{}", answers.join("\n"));
+        let out_str = String::from_utf8(tw.into_inner().unwrap()).unwrap();
+
+        write!(f, "{}", out_str)
     }
 }
 
@@ -90,20 +100,20 @@ impl<'a> fmt::Display for DnsRecord<'a> {
         let DnsRecord(record) = *self;
 
         let str = match *record.rdata() {
-            RData::A(ip) => format!("IPv4: {}", ip),
-            RData::AAAA(ip) => format!("IPv6: {}", ip),
-            RData::CNAME(ref name) => format!("CNAME: {}", Colour::Blue.paint(format!("{}", name))),
+            RData::A(ip) => format!("IPv4:\t{}", ip),
+            RData::AAAA(ip) => format!("IPv6:\t{}", ip),
+            RData::CNAME(ref name) => format!("CNAME:\t{}", Colour::Blue.paint(format!("{}", name))),
             RData::MX(ref mx) => {
-                format!("MX: {} with preference {}",
+                format!("MX:\t{} with preference {}",
                         Colour::Yellow.paint(format!("{}", mx.exchange())),
                         Colour::Yellow.paint(format!("{}",mx.preference()))
                 )
             }
-            RData::NS(ref name) => format!("NS: {}", Colour::Cyan.paint(format!("{}", name))),
+            RData::NS(ref name) => format!("NS:\t{}", Colour::Cyan.paint(format!("{}", name))),
             RData::SOA(ref soa) => {
-                format!("SAO: {}", Colour::Green.paint(
+                format!("SOA:\t{}", Colour::Green.paint(
                     format!(
-                        "SOA: {} {} {} {} {} {} {}",
+                        "{} {} {} {} {} {} {}",
                         soa.mname(),
                         soa.rname(),
                         soa.serial(),
@@ -113,8 +123,8 @@ impl<'a> fmt::Display for DnsRecord<'a> {
                         soa.minimum()
                     )))
             }
-            RData::TXT(ref txt) => format!("TXT: {}", Colour::Purple.paint(txt.txt_data().join(" "))),
-            RData::PTR(ref ptr) => format!("PTR: {}", ptr.to_string()),
+            RData::TXT(ref txt) => format!("TXT:\t{}", Colour::Purple.paint(txt.txt_data().join(" "))),
+            RData::PTR(ref ptr) => format!("PTR:\t{}", ptr.to_string()),
             ref x => format!(" * unclassified answer: {}", Colour::Red.paint(format!("{:?}", x))),
         };
         write!(f, "{}", str)
