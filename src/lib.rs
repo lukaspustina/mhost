@@ -1,6 +1,8 @@
 // TODO: deny missing docs
 #![allow(missing_docs)]
 
+#[cfg(feature = "bin")]
+extern crate ansi_term;
 #[macro_use]
 extern crate error_chain;
 extern crate futures;

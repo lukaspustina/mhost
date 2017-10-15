@@ -1,6 +1,7 @@
 use lookup;
 use statistics::Statistics;
 
+use ansi_term::Colour;
 use error_chain::ChainedError;
 use std::fmt;
 use trust_dns::rr::{RData, Record};
@@ -91,26 +92,30 @@ impl<'a> fmt::Display for DnsRecord<'a> {
         let str = match *record.rdata() {
             RData::A(ip) => format!("IPv4: {}", ip),
             RData::AAAA(ip) => format!("IPv6: {}", ip),
-            RData::CNAME(ref name) => format!("CNAME: {}", name),
+            RData::CNAME(ref name) => format!("CNAME: {}", Colour::Blue.paint(format!("{}", name))),
             RData::MX(ref mx) => {
-                format!("MX: {} with preference {}", mx.exchange(), mx.preference())
-            }
-            RData::NS(ref name) => format!("NS: {}", name),
-            RData::SOA(ref soa) => {
-                format!(
-                    "SOA: {} {} {} {} {} {} {}",
-                    soa.mname(),
-                    soa.rname(),
-                    soa.serial(),
-                    soa.refresh(),
-                    soa.retry(),
-                    soa.expire(),
-                    soa.minimum()
+                format!("MX: {} with preference {}",
+                        Colour::Yellow.paint(format!("{}", mx.exchange())),
+                        Colour::Yellow.paint(format!("{}",mx.preference()))
                 )
             }
-            RData::TXT(ref txt) => format!("TXT: {}", txt.txt_data().join(" ")),
+            RData::NS(ref name) => format!("NS: {}", Colour::Cyan.paint(format!("{}", name))),
+            RData::SOA(ref soa) => {
+                format!("SAO: {}", Colour::Green.paint(
+                    format!(
+                        "SOA: {} {} {} {} {} {} {}",
+                        soa.mname(),
+                        soa.rname(),
+                        soa.serial(),
+                        soa.refresh(),
+                        soa.retry(),
+                        soa.expire(),
+                        soa.minimum()
+                    )))
+            }
+            RData::TXT(ref txt) => format!("TXT: {}", Colour::Purple.paint(txt.txt_data().join(" "))),
             RData::PTR(ref ptr) => format!("PTR: {}", ptr.to_string()),
-            ref x => format!(" * unclassified answer: {:?}", x),
+            ref x => format!(" * unclassified answer: {}", Colour::Red.paint(format!("{:?}", x))),
         };
         write!(f, "{}", str)
     }
