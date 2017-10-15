@@ -1,8 +1,9 @@
 // TODO: deny missing docs
 #![allow(missing_docs)]
 
-use futures::{self, Future};
+use futures::{self, Future, Stream};
 use futures::future::join_all;
+use futures::stream::futures_unordered;
 use std::net::{IpAddr, SocketAddr};
 use std::time::Duration;
 use std::str::FromStr;
@@ -114,7 +115,7 @@ pub fn multiple_lookup<T: Into<SocketAddr>>(
         })
         .collect();
 
-    Box::new(join_all(futures))
+    Box::new(futures_unordered(futures).collect())
 }
 
 error_chain! {
@@ -220,8 +221,8 @@ mod test {
         let mut io_loop = Core::new().unwrap();
         let domain_name = "example.com";
         // short timeout, because we won't the test to take too long, Google is fast enough to answer in time
-        let mut query = Query::new(domain_name, vec![RecordType::A]);
-        let query = query.set_timeout(Duration::from_millis(500));
+        let query = Query::new(domain_name, vec![RecordType::A])
+            .set_timeout(Duration::from_millis(500));
         let servers = vec![
             (Ipv4Addr::from_str("8.8.8.8").unwrap(), 53),
             // This one does not exists and should lead to a timeout
