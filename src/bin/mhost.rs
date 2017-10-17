@@ -164,9 +164,7 @@ fn parse_args(args: &ArgMatches) -> Result<(Query, usize)> {
         Ok(ip) => Query::from(ip, vec![RecordType::PTR]),
         Err(_) => {
             let record_types = get::record_types(args.values_of_lossy("record types"))
-                .chain_err(|| {
-                    ErrorKind::CliArgsParsingError
-                })?;
+                .chain_err(|| ErrorKind::CliArgsParsingError)?;
             Query::new(args.value_of("domain name").unwrap(), record_types)
         }
     }.set_timeout(timeout);
@@ -180,28 +178,25 @@ fn parse_args(args: &ArgMatches) -> Result<(Query, usize)> {
 fn run_lookup(args: &ArgMatches, query: Query, server_limit: usize) -> Vec<LookupResult<Response>> {
     let mut io_loop = Core::new().unwrap();
     let handle = io_loop.handle();
-    let lookup =
-        get::dns_servers(
-            &handle,
-            args.values_of_lossy("DNS servers"),
-            args.is_present("predefined server"),
-            args.is_present("dont use local dns servers"),
-            args.values_of_lossy("ungefiltert ids")
-        )
-            .map_err(|e| {
-                e.into()
-            })
-            .and_then(|servers| {
-                let dns_endpoints = servers
-                    .into_iter()
-                    .map(|s| (s, 53))
-                    .take(server_limit)
-                    .collect();
-                multiple_lookup(&handle, query, dns_endpoints)
-                    .map_err(|_| {
-                        Error::from_kind(ErrorKind::LookupFailed)
-                    })
-            });
+    let lookup = get::dns_servers(
+        &handle,
+        args.values_of_lossy("DNS servers"),
+        args.is_present("predefined server"),
+        args.is_present("dont use local dns servers"),
+        args.values_of_lossy("ungefiltert ids"),
+    ).map_err(|e| e.into())
+        .and_then(|servers| {
+            let dns_endpoints = servers
+                .into_iter()
+                .map(|s| (s, 53))
+                .take(server_limit)
+                .collect();
+            multiple_lookup(&handle, query, dns_endpoints).map_err(
+                |_| {
+                    Error::from_kind(ErrorKind::LookupFailed)
+                },
+            )
+        });
     let result = io_loop.run(lookup);
 
     result.unwrap()

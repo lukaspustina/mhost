@@ -23,22 +23,26 @@ pub struct Server {
     pub created_at: String,
 }
 
-pub fn retrieve_servers(loop_handle: &Handle, country_id: &str) -> Box<Future<Item=Vec<Server>, Error=Error>> {
+pub fn retrieve_servers(
+    loop_handle: &Handle,
+    country_id: &str,
+) -> Box<Future<Item = Vec<Server>, Error = Error>> {
     let uri = format!("{}/{}.json", BASE_URI, country_id);
-    let uri = uri.parse().unwrap();// TODO: .chain_err(|| ErrorKind::RetrievalError);
+    let uri = uri.parse().unwrap(); // TODO: .chain_err(|| ErrorKind::RetrievalError);
     let client = Client::new(loop_handle);
 
     Box::new(
-        client.get(uri).and_then(|res| {
-            res.body().concat2().and_then(move |body| {
-                // TODO: Error
-                let v: Vec<Server> = serde_json::from_slice(&body).unwrap();
+        client
+            .get(uri)
+            .and_then(|res| {
+                res.body().concat2().and_then(move |body| {
+                    // TODO: Error
+                    let v: Vec<Server> = serde_json::from_slice(&body).unwrap();
 
-                Ok(v)
+                    Ok(v)
+                })
             })
-        }).map_err(move |e| {
-            Error::with_chain(e, ErrorKind::RetrievalError)
-        })
+            .map_err(move |e| Error::with_chain(e, ErrorKind::RetrievalError)),
     )
 }
 

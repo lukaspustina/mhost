@@ -101,8 +101,8 @@ pub fn dns_servers(
     servers: Option<Vec<String>>,
     use_predefined_server: bool,
     dont_use_local_servers: bool,
-    ungefiltert_surfen_ids: Option<Vec<String>>
-) -> Box<Future<Item=Vec<IpAddr>, Error=Error>> {
+    ungefiltert_surfen_ids: Option<Vec<String>>,
+) -> Box<Future<Item = Vec<IpAddr>, Error = Error>> {
     let from_args = future::ok::<Vec<IpAddr>, Error>({
         let mut dns_servers: Vec<IpAddr> = Vec::new();
         if let Some(servers) = servers {
@@ -124,30 +124,31 @@ pub fn dns_servers(
         Error::with_chain(e, ErrorKind::ServerIpAddrParsingError)
     });
 
-    let us: Vec<_> = ungefiltert_surfen_ids.unwrap_or_else(|| vec![])
+    let us: Vec<_> = ungefiltert_surfen_ids
+        .unwrap_or_else(|| vec![])
         .iter()
         .map(|id| ungefiltert_surfen::retrieve_servers(loop_handle, id))
         .collect();
     let from_ungefiltert = future::join_all(us)
         .map(move |answers| {
-            answers.into_iter().fold(Vec::new(), |mut acc, servers: Vec<UngefiltertServer>| {
-                acc.extend(servers);
-                acc
-            })
+            answers
+                .into_iter()
+                .fold(Vec::new(), |mut acc, servers: Vec<UngefiltertServer>| {
+                    acc.extend(servers);
+                    acc
+                })
                 .iter()
                 .map(|server| IpAddr::from_str(&server.ip).unwrap())
                 .collect()
         })
-        .map_err(move |e| {
-            e.into()
-        });
+        .map_err(move |e| e.into());
 
-    Box::new(from_args.join(from_ungefiltert)
-        .map(|(mut r1, r2): (Vec<_>, Vec<_>)| {
+    Box::new(from_args.join(from_ungefiltert).map(
+        |(mut r1, r2): (Vec<_>, Vec<_>)| {
             r1.extend(r2);
             r1
-        })
-    )
+        },
+    ))
 }
 
 fn dns_servers_from_resolv_conf() -> Result<Vec<IpAddr>> {
@@ -164,8 +165,7 @@ fn dns_servers_from_resolv_conf() -> Result<Vec<IpAddr>> {
 
 pub fn record_types(record_types: Option<Vec<String>>) -> Result<Vec<RecordType>> {
     let record_types = if let Some(rt) = record_types {
-        rt
-            .iter()
+        rt.iter()
             .map(|rt| RecordType::from_str(&rt.to_uppercase()).unwrap())
             .collect()
     } else {

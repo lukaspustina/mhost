@@ -79,8 +79,7 @@ impl fmt::Display for lookup::Response {
             return write!(f, "DNS server {} has no records.", self.server);
         }
         let _ = write!(f, "DNS server {} responded with\n", self.server);
-        let answers: Vec<String> = self
-            .answers
+        let answers: Vec<String> = self.answers
             .iter()
             .sorted_by(|a, b| compare_records(a, b))
             .iter()
@@ -117,7 +116,7 @@ fn record_type_to_ordinal(r: &Record) -> u16 {
 }
 
 // Newtype pattern for Display implementation
-pub struct DnsRecord<'a> (pub &'a Record);
+pub struct DnsRecord<'a>(pub &'a Record);
 
 impl<'a> fmt::Display for DnsRecord<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -126,29 +125,40 @@ impl<'a> fmt::Display for DnsRecord<'a> {
         let str = match *record.rdata() {
             RData::A(ip) => format!("IPv4:\t{}", ip),
             RData::AAAA(ip) => format!("IPv6:\t{}", ip),
-            RData::CNAME(ref name) => format!("CNAME:\t{}", Colour::Blue.paint(format!("{}", name))),
+            RData::CNAME(ref name) => {
+                format!("CNAME:\t{}", Colour::Blue.paint(format!("{}", name)))
+            }
             RData::MX(ref mx) => {
-                format!("MX:\t{} with preference {}",
-                        Colour::Yellow.paint(format!("{}", mx.exchange())),
-                        Colour::Yellow.paint(format!("{}", mx.preference()))
+                format!(
+                    "MX:\t{} with preference {}",
+                    Colour::Yellow.paint(format!("{}", mx.exchange())),
+                    Colour::Yellow.paint(format!("{}", mx.preference()))
                 )
             }
             RData::NS(ref name) => format!("NS:\t{}", Colour::Cyan.paint(format!("{}", name))),
             RData::SOA(ref soa) => {
                 // TODO: time interval is in sec, use relative time
-                format!("SOA:\torigin NS {}, responsible party {}, serial {}, refresh {} sec, retry {} sec, expire {} sec, min {} sec",
-                        Colour::Green.paint(format!("{}", soa.mname())),
-                        Colour::Green.paint(format!("{}", soa.rname())),
-                        Colour::Green.paint(format!("{}", soa.serial())),
-                        Colour::Green.paint(format!("{}", soa.refresh())),
-                        Colour::Green.paint(format!("{}", soa.retry())),
-                        Colour::Green.paint(format!("{}", soa.expire())),
-                        Colour::Green.paint(format!("{}", soa.minimum()))
-                    )
+                format!(
+                    "SOA:\torigin NS {}, responsible party {}, serial {}, refresh {} sec, retry {} sec, expire {} sec, min {} sec",
+                    Colour::Green.paint(format!("{}", soa.mname())),
+                    Colour::Green.paint(format!("{}", soa.rname())),
+                    Colour::Green.paint(format!("{}", soa.serial())),
+                    Colour::Green.paint(format!("{}", soa.refresh())),
+                    Colour::Green.paint(format!("{}", soa.retry())),
+                    Colour::Green.paint(format!("{}", soa.expire())),
+                    Colour::Green.paint(format!("{}", soa.minimum()))
+                )
             }
-            RData::TXT(ref txt) => format!("TXT:\t{}", Colour::Purple.paint(txt.txt_data().join(" "))),
+            RData::TXT(ref txt) => {
+                format!("TXT:\t{}", Colour::Purple.paint(txt.txt_data().join(" ")))
+            }
             RData::PTR(ref ptr) => format!("PTR:\t{}", ptr.to_string()),
-            ref x => format!(" * unclassified answer: {}", Colour::Red.paint(format!("{:?}", x))),
+            ref x => {
+                format!(
+                    " * unclassified answer: {}",
+                    Colour::Red.paint(format!("{:?}", x))
+                )
+            }
         };
         write!(f, "{}", str)
     }
@@ -167,5 +177,4 @@ pub fn print_error<T: ChainedError>(err: &T) {
     }
 }
 
-error_chain! {
-}
+error_chain!{}

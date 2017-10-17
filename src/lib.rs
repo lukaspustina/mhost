@@ -30,5 +30,3 @@ pub mod ungefiltert_surfen;
 
 pub use lookup::{Query, Response, lookup, multiple_lookup};
 pub use statistics::Statistics;
-
-

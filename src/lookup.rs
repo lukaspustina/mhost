@@ -55,7 +55,7 @@ pub fn lookup<T: Into<SocketAddr>>(
     loop_handle: &Handle,
     query: Query,
     server: T,
-) -> Box<Future<Item=Response, Error=Error>> {
+) -> Box<Future<Item = Response, Error = Error>> {
     let socket_addr = server.into();
     let domain_name = query.domain_name;
 
@@ -76,12 +76,13 @@ pub fn lookup<T: Into<SocketAddr>>(
                     }
                 })
                 .map_err(move |e| {
-                    Error::with_chain(e, ErrorKind::QueryError(index+1, rt, socket_addr.ip()))
+                    Error::with_chain(e, ErrorKind::QueryError(index + 1, rt, socket_addr.ip()))
                 })
         })
         .collect();
     let all = join_all(lookups).and_then(move |lookups| {
-        let all_answers = lookups.into_iter().fold(Vec::new(), |mut acc, mut lookup: Response| {
+        let all_answers = lookups.into_iter().fold(Vec::new(), |mut acc,
+         mut lookup: Response| {
             acc.append(&mut lookup.answers);
             acc
         });
@@ -105,7 +106,7 @@ pub fn multiple_lookup<T: Into<SocketAddr>>(
     loop_handle: &Handle,
     query: Query,
     servers: Vec<T>,
-) -> Box<Future<Item=Vec<Result<Response>>, Error=()>> {
+) -> Box<Future<Item = Vec<Result<Response>>, Error = ()>> {
     let futures: Vec<_> = servers
         .into_iter()
         .map(|server| {
@@ -223,8 +224,8 @@ mod test {
         let mut io_loop = Core::new().unwrap();
         let domain_name = "example.com";
         // short timeout, because we won't the test to take too long, Google is fast enough to answer in time
-        let query = Query::new(domain_name, vec![RecordType::A])
-            .set_timeout(Duration::from_millis(500));
+        let query =
+            Query::new(domain_name, vec![RecordType::A]).set_timeout(Duration::from_millis(500));
         let servers = vec![
             (Ipv4Addr::from_str("8.8.8.8").unwrap(), 53),
             // This one does not exists and should lead to a timeout
