@@ -176,6 +176,7 @@ fn parse_args(args: &ArgMatches) -> Result<(Query, usize)> {
     Ok((query, server_limit))
 }
 
+// TODO: make this a Result
 fn run_lookup(args: &ArgMatches, query: Query, server_limit: usize) -> Vec<LookupResult<Response>> {
     let mut io_loop = Core::new().unwrap();
     let handle = io_loop.handle();
@@ -202,9 +203,8 @@ fn run_lookup(args: &ArgMatches, query: Query, server_limit: usize) -> Vec<Looku
                     })
             });
     let result = io_loop.run(lookup);
-    let responses = result.unwrap();
 
-    responses
+    result.unwrap()
 }
 
 fn output(responses: &[LookupResult<Response>], outputs: Vec<String>) -> () {

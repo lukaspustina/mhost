@@ -1,5 +1,7 @@
 // TODO: deny missing docs
 #![allow(missing_docs)]
+// Ignore Clippy lints
+#![allow(unknown_lints)]
 
 #[cfg(feature = "bin")]
 extern crate ansi_term;

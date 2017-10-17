@@ -100,6 +100,7 @@ pub fn lookup<T: Into<SocketAddr>>(
 /// in `future::futures::Err` way, but rather propagate errors as part of the Future's successful execution.
 /// In this way, this function does not abort when single lookups fail, but wait for all queries / Futures to finish.
 /// The library user than can distinguish between successful and failed lookups.
+#[allow(needless_pass_by_value)]
 pub fn multiple_lookup<T: Into<SocketAddr>>(
     loop_handle: &Handle,
     query: Query,

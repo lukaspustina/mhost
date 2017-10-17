@@ -126,7 +126,7 @@ pub fn dns_servers(
 
     let us: Vec<_> = ungefiltert_surfen_ids.unwrap_or_else(|| vec![])
         .iter()
-        .map(|id| ungefiltert_surfen::retrieve_servers(&loop_handle, id))
+        .map(|id| ungefiltert_surfen::retrieve_servers(loop_handle, id))
         .collect();
     let from_ungefiltert = future::join_all(us)
         .map(move |answers| {
