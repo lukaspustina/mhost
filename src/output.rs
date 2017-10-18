@@ -10,7 +10,7 @@ use tabwriter::TabWriter;
 use trust_dns::rr::{RData, Record};
 
 pub trait OutputModule {
-    fn output(self) -> ();
+    fn output(self, w: &mut Write) -> Result<()>;
 }
 
 pub struct DetailsOutput<'a> {
@@ -24,13 +24,15 @@ impl<'a> DetailsOutput<'a> {
 }
 
 impl<'a> OutputModule for DetailsOutput<'a> {
-    fn output(self) -> () {
+    fn output(self, w: &mut Write) -> Result<()> {
         for response in self.responses {
             match *response {
-                Ok(ref x) => println!("{}", x),
-                Err(ref e) => print_error(e),
+                Ok(ref x) => writeln!(w, "{}", x).chain_err(|| ErrorKind::OutputError)?,
+                Err(ref e) => print_error(w, e)?,
             }
         }
+
+        Ok(())
     }
 }
 
@@ -46,16 +48,17 @@ impl<'a> SummaryOutput<'a> {
 }
 
 impl<'a> OutputModule for SummaryOutput<'a> {
-    fn output(self) -> () {
-        println!("Received {} (min {}, max {} records) answers from {} servers",
+    fn output(self, w: &mut Write) -> Result<()> {
+        writeln!(w, "Received {} (min {}, max {} records) answers from {} servers",
                  self.statistics.num_of_ok_samples,
                  self.statistics.min_num_of_records,
                  self.statistics.max_num_of_records,
                  self.statistics.num_of_samples,
-        );
+        ).chain_err(|| ErrorKind::OutputError)?;
         let records: Vec<_> = self.statistics
             .record_counts
             .values()
+            // TODO: Why do I need to specify a closure and not just a function?
             .sorted_by(|a, b| compare_records(a.0, b.0))
             .iter()
             .map(|rr| {
@@ -66,10 +69,12 @@ impl<'a> OutputModule for SummaryOutput<'a> {
             .collect();
 
         let mut tw = TabWriter::new(vec![]).padding(1);
-        let _ = write!(&mut tw, "{}", records.join("\n"));
+        write!(&mut tw, "{}", records.join("\n")).chain_err(|| ErrorKind::OutputError)?;
         let out_str = String::from_utf8(tw.into_inner().unwrap()).unwrap();
 
-        println!("{}", out_str);
+        writeln!(w, "{}", out_str).chain_err(|| ErrorKind::OutputError)?;
+
+        Ok(())
     }
 }
 
@@ -164,17 +169,26 @@ impl<'a> fmt::Display for DnsRecord<'a> {
     }
 }
 
-pub fn print_error<T: ChainedError>(err: &T) {
-    print!("{} ", err);
+pub fn print_error<T: ChainedError>(w: &mut Write, err: &T) -> Result<()>{
+    write!(w, "{} ", err).chain_err(|| ErrorKind::OutputError)?;
     for e in err.iter().skip(1) {
-        print!("because {}", e);
+        write!(w, "because {}", e).chain_err(|| ErrorKind::OutputError)?;
     }
-    println!();
+    writeln!(w).chain_err(|| ErrorKind::OutputError)?;
 
     // The backtrace is only available if run with `RUST_BACKTRACE=1`.
     if let Some(backtrace) = err.backtrace() {
-        println!("backtrace: {:?}", backtrace);
+        writeln!(w, "backtrace: {:?}", backtrace).chain_err(|| ErrorKind::OutputError)?;
     }
+
+    Ok(())
 }
 
-error_chain!{}
+error_chain!{
+    errors {
+        OutputError {
+            description("Failed to write output")
+            display("Failed to write output")
+        }
+    }
+}

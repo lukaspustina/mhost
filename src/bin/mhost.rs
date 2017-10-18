@@ -29,7 +29,8 @@ fn run() -> Result<()> {
 
     let (query, server_limit) = parse_args(&args)?;
     let responses = run_lookup(&args, query, server_limit);
-    output(&responses, args.values_of_lossy("output modules").unwrap());
+    output(&responses, args.values_of_lossy("output modules").unwrap())?;
+
     Ok(())
 }
 
@@ -202,13 +203,16 @@ fn run_lookup(args: &ArgMatches, query: Query, server_limit: usize) -> Vec<Looku
     result.unwrap()
 }
 
-fn output(responses: &[LookupResult<Response>], outputs: Vec<String>) -> () {
+fn output(responses: &[LookupResult<Response>], outputs: Vec<String>) -> Result<()> {
+    let mut writer = std::io::stdout();
     for output in outputs {
         match output.as_ref() {
-            "details" => output::DetailsOutput::new(responses).output(),
-            _ => output::SummaryOutput::new(responses).output(),
+            "details" => output::DetailsOutput::new(responses).output(&mut writer)?,
+            _ => output::SummaryOutput::new(responses).output(&mut writer)?,
         }
     }
+
+    Ok(())
 }
 
 error_chain! {
@@ -227,6 +231,7 @@ error_chain! {
     links {
         Get(get::Error, get::ErrorKind);
         Lookup(lookup::Error, lookup::ErrorKind);
+        Output(output::Error, output::ErrorKind);
     }
 }
 
