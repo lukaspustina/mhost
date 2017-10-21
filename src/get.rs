@@ -97,7 +97,8 @@ pub fn dns_servers(
     ))
 }
 
-fn dns_servers_from_resolv_conf() -> Result<Vec<IpAddr>> {
+pub fn resolv_conf() -> Result<resolv_conf::Config> {
+
     let mut buf = Vec::with_capacity(4096);
     let mut f = File::open("/etc/resolv.conf").chain_err(
         || ErrorKind::ResolvConfError,
@@ -106,6 +107,12 @@ fn dns_servers_from_resolv_conf() -> Result<Vec<IpAddr>> {
     let cfg = resolv_conf::Config::parse(&buf[..]).chain_err(|| {
         ErrorKind::ResolvConfError
     })?;
+
+    Ok(cfg)
+}
+
+fn dns_servers_from_resolv_conf() -> Result<Vec<IpAddr>> {
+    let cfg = resolv_conf()?;
     Ok(cfg.nameservers)
 }
 

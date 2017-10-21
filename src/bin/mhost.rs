@@ -95,7 +95,12 @@ fn build_cli() -> App<'static, 'static> {
         .arg(
             Arg::with_name("dont use local dns servers")
                 .short("L")
-                .help("Do not use local (/etc/resolv.conf) DNS servers")
+                .help("Ignore local DNS servers from /etc/resolv.conf")
+        )
+        .arg(
+            Arg::with_name("dont use local search domain")
+                .short("S")
+                .help("Ignore local search domains from /etc/resolv.conf")
         )
         .arg(Arg::with_name("predefined server").short("p").help(
             "Uses predefined DNS servers set"
@@ -218,15 +223,30 @@ fn parse_args(args: &ArgMatches) -> Result<(Query, usize)> {
         .map(Duration::from_secs)
         .unwrap();
 
-    let query = match IpAddr::from_str(args.value_of("domain name").unwrap()) {
+    let domain_name = if args.is_present("dont use local search domain") {
+        args.value_of("domain name").unwrap().to_string()
+    } else {
+        let cfg = get::resolv_conf()?;
+        let domain_name_from_args = args.value_of("domain name").unwrap();
+        if domain_name_from_args.ends_with(".") {
+            domain_name_from_args.to_string()
+        } else if cfg.search.len() > 0 && domain_name_from_args.matches(".").count() >= cfg.ndots as usize {
+            format!("{}.", domain_name_from_args)
+        } else {
+            format!("{}.{}.", domain_name_from_args, cfg.search.first().unwrap())
+        }
+    };
+    debug!("domain_name: '{}'", domain_name);
+
+    let query = match IpAddr::from_str(&domain_name) {
         Ok(ip) => Query::from(ip, vec![RecordType::PTR]),
         Err(_) => {
             let record_types = get::record_types(args.values_of_lossy("record types"))
                 .chain_err(|| ErrorKind::CliArgsParsingError)?;
-            Query::new(args.value_of("domain name").unwrap(), record_types)
+            Query::new(&domain_name, record_types)
         }
     }.set_timeout(timeout);
-    debug!("{:?}", query);
+    trace!("{:?}", query);
 
     let server_limit = value_t!(args, "limit", usize).unwrap();
 
