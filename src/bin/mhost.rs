@@ -1,8 +1,12 @@
+extern crate ansi_term;
 #[macro_use]
 extern crate clap;
 #[macro_use]
 extern crate error_chain;
+extern crate flexi_logger;
 extern crate futures;
+#[macro_use]
+extern crate log;
 extern crate mhost;
 extern crate tokio_core;
 extern crate trust_dns;
@@ -12,8 +16,11 @@ use mhost::lookup::{self, Result as LookupResult};
 use mhost::get;
 use mhost::output::{self, OutputModule};
 
+use ansi_term::Colour;
 use clap::{App, Arg, ArgMatches, Shell};
+use flexi_logger::{Logger, LogRecord};
 use futures::Future;
+use log::LogLevel;
 use std::net::IpAddr;
 use std::str::FromStr;
 use std::time::Duration;
@@ -22,6 +29,10 @@ use trust_dns::rr::RecordType;
 
 fn run() -> Result<()> {
     let args = build_cli().get_matches();
+
+    init_looger(args.occurrences_of("verbosity"))
+        .start()
+        .unwrap_or_else(|e| { panic!("Logger initialization failed with {}", e) });
 
     if args.is_present("completions") {
         return generate_completion(&args);
@@ -133,6 +144,11 @@ fn build_cli() -> App<'static, 'static> {
                 )
                 .help("Selects output module")
         )
+        .arg(Arg::with_name("verbosity")
+            .short("v")
+            .multiple(true)
+            .help("Sets level of verbosity")
+        )
         .arg(
             Arg::with_name("completions")
                 .long("completions")
@@ -141,6 +157,47 @@ fn build_cli() -> App<'static, 'static> {
                 .possible_values(&["bash", "fish", "zsh"])
                 .help("The shell to generate the script for")
         )
+}
+
+fn init_looger(verbosity_level: u64) -> Logger {
+    fn colour(l: LogLevel) -> Colour {
+        match l {
+            LogLevel::Error => Colour::Red,
+            LogLevel::Warn => Colour::Yellow,
+            LogLevel::Info => Colour::Blue,
+            _ => Colour::White,
+        }
+    }
+
+    fn log_format_info(r: &LogRecord) -> String {
+        format!("{}", colour(r.level()).paint(
+            format!("{}: {}",
+                    r.location().module_path(),
+                    &r.args()
+            )
+        ))
+    }
+
+    fn log_format_debug(r: &LogRecord) -> String {
+        format!("{}", colour(r.level()).paint(
+            format!("{}:{}:{}: {}",
+                    r.location().module_path(),
+                    r.location().file(),
+                    r.location().line(),
+                    &r.args()
+            )
+        ))
+    }
+
+    let (log_spec, log_format): (String, fn(&LogRecord) -> String) = match std::env::var("RUST_LOG") {
+        Ok(spec) => (spec, log_format_debug),
+        Err(_) if verbosity_level == 1 => ("mhost=info".to_string(), log_format_info),
+        Err(_) if verbosity_level == 2 => ("mhost=debug".to_string(), log_format_debug),
+        Err(_) if verbosity_level > 2 => ("mhost=trace".to_string(), log_format_debug),
+        Err(_) => ("mhost=warn".to_string(), log_format_info),
+    };
+
+    Logger::with_str(&log_spec).format(log_format)
 }
 
 fn generate_completion(args: &ArgMatches) -> Result<()> {
@@ -169,6 +226,7 @@ fn parse_args(args: &ArgMatches) -> Result<(Query, usize)> {
             Query::new(args.value_of("domain name").unwrap(), record_types)
         }
     }.set_timeout(timeout);
+    debug!("{:?}", query);
 
     let server_limit = value_t!(args, "limit", usize).unwrap();
 
@@ -185,8 +243,10 @@ fn run_lookup(args: &ArgMatches, query: Query, server_limit: usize) -> Vec<Looku
         args.is_present("predefined server"),
         args.is_present("dont use local dns servers"),
         args.values_of_lossy("ungefiltert ids"),
-    ).map_err(|e| e.into())
+    )
+        .map_err(|e| e.into())
         .and_then(|servers| {
+            debug!("DNS Server set: {:?}", servers);
             let dns_endpoints = servers
                 .into_iter()
                 .map(|s| (s, 53))
