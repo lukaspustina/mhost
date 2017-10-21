@@ -5,6 +5,8 @@
 
 #[cfg(feature = "bin")]
 extern crate ansi_term;
+extern crate chrono;
+extern crate chrono_humanize;
 #[macro_use]
 extern crate error_chain;
 extern crate futures;

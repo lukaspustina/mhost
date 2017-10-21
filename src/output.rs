@@ -2,6 +2,8 @@ use lookup;
 use statistics::Statistics;
 
 use ansi_term::Colour;
+use chrono::{Local, Duration};
+use chrono_humanize::HumanTime;
 use error_chain::ChainedError;
 use itertools::Itertools;
 use std::io::Write;
@@ -88,7 +90,7 @@ impl fmt::Display for lookup::Response {
             .iter()
             .sorted_by(|a, b| compare_records(a, b))
             .iter()
-            .map(|answer| format!("* {}", DnsRecord(answer)))
+            .map(|answer| format!("* {} [expires {}]", DnsRecord(answer), humanize_ttl(answer.ttl() as i64)))
             .collect();
 
         let mut tw = TabWriter::new(vec![]).padding(1);
@@ -104,6 +106,13 @@ fn compare_records(a: &Record, b: &Record) -> ::std::cmp::Ordering {
     let b = record_type_to_ordinal(b);
 
     a.cmp(&b)
+}
+
+fn humanize_ttl(ttl: i64) -> String {
+    let dt = Local::now() + Duration::seconds(ttl);
+    let ht = HumanTime::from(dt);
+
+    format!("{}", ht)
 }
 
 fn record_type_to_ordinal(r: &Record) -> u16 {
@@ -169,7 +178,7 @@ impl<'a> fmt::Display for DnsRecord<'a> {
     }
 }
 
-pub fn print_error<T: ChainedError>(w: &mut Write, err: &T) -> Result<()>{
+pub fn print_error<T: ChainedError>(w: &mut Write, err: &T) -> Result<()> {
     write!(w, "{} ", err).chain_err(|| ErrorKind::OutputError)?;
     for e in err.iter().skip(1) {
         write!(w, "because {}", e).chain_err(|| ErrorKind::OutputError)?;
@@ -184,7 +193,7 @@ pub fn print_error<T: ChainedError>(w: &mut Write, err: &T) -> Result<()>{
     Ok(())
 }
 
-error_chain!{
+error_chain! {
     errors {
         OutputError {
             description("Failed to write output")
