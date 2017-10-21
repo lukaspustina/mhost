@@ -6,51 +6,58 @@ use chrono::{Local, Duration};
 use chrono_humanize::HumanTime;
 use error_chain::ChainedError;
 use itertools::Itertools;
-use std::io::Write;
-use std::fmt;
+use std::cmp::Ordering;
+use std::io::{self, Write};
 use tabwriter::TabWriter;
 use trust_dns::rr::{RData, Record};
 
 pub trait OutputModule {
-    fn output(self, w: &mut Write) -> Result<()>;
+    fn output(&self, w: &mut Write) -> Result<()>;
+    fn is_human(&self) -> bool;
 }
 
 pub struct DetailsOutput<'a> {
     responses: &'a [lookup::Result<lookup::Response>],
+    human: bool,
 }
 
 impl<'a> DetailsOutput<'a> {
-    pub fn new(responses: &'a [lookup::Result<lookup::Response>]) -> Self {
-        DetailsOutput { responses }
+    pub fn new(responses: &'a [lookup::Result<lookup::Response>], human: bool) -> Self {
+        DetailsOutput { responses, human }
     }
 }
 
 impl<'a> OutputModule for DetailsOutput<'a> {
-    fn output(self, w: &mut Write) -> Result<()> {
+    fn output(&self, w: &mut Write) -> Result<()> {
         for response in self.responses {
             match *response {
-                Ok(ref x) => writeln!(w, "{}", x).chain_err(|| ErrorKind::OutputError)?,
+                Ok(ref r) => write_response(w, r, self.human).chain_err(|| ErrorKind::OutputError)?,
                 Err(ref e) => print_error(w, e)?,
             }
         }
 
         Ok(())
     }
+
+    fn is_human(&self) -> bool {
+        self.human
+    }
 }
 
 pub struct SummaryOutput<'a> {
     statistics: Statistics<'a>,
+    human: bool,
 }
 
 impl<'a> SummaryOutput<'a> {
-    pub fn new(responses: &'a [lookup::Result<lookup::Response>]) -> Self {
+    pub fn new(responses: &'a [lookup::Result<lookup::Response>], human: bool) -> Self {
         let statistics = Statistics::from(responses);
-        SummaryOutput { statistics }
+        SummaryOutput { statistics, human }
     }
 }
 
 impl<'a> OutputModule for SummaryOutput<'a> {
-    fn output(self, w: &mut Write) -> Result<()> {
+    fn output(&self, w: &mut Write) -> Result<()> {
         writeln!(w, "Received {} (min {}, max {} records) answers from {} servers",
                  self.statistics.num_of_ok_samples,
                  self.statistics.min_num_of_records,
@@ -64,9 +71,9 @@ impl<'a> OutputModule for SummaryOutput<'a> {
             .sorted_by(|a, b| compare_records(a.0, b.0))
             .iter()
             .map(|rr| {
-                let record = DnsRecord(rr.0);
+                let record = rr.0;
                 let count = rr.1;
-                format!("* {} ({})", record, count)
+                format!("* {} ({})", fmt_record(record, self.human), count)
             })
             .collect();
 
@@ -78,41 +85,46 @@ impl<'a> OutputModule for SummaryOutput<'a> {
 
         Ok(())
     }
-}
 
-impl fmt::Display for lookup::Response {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.answers.is_empty() {
-            return write!(f, "DNS server {} has no records.", self.server);
-        }
-        let _ = write!(f, "DNS server {} responded with\n", self.server);
-        let answers: Vec<String> = self.answers
-            .iter()
-            .sorted_by(|a, b| compare_records(a, b))
-            .iter()
-            .map(|answer| format!("* {} [expires {}]", DnsRecord(answer), humanize_ttl(answer.ttl() as i64)))
-            .collect();
-
-        let mut tw = TabWriter::new(vec![]).padding(1);
-        let _ = write!(&mut tw, "{}", answers.join("\n"));
-        let out_str = String::from_utf8(tw.into_inner().unwrap()).unwrap();
-
-        write!(f, "{}", out_str)
+    fn is_human(&self) -> bool {
+        self.human
     }
 }
 
-fn compare_records(a: &Record, b: &Record) -> ::std::cmp::Ordering {
+fn write_response(f: &mut Write, r: &lookup::Response, human: bool) -> io::Result<()> {
+    if r.answers.is_empty() {
+        return writeln!(f, "DNS server {} has no records.", r.server);
+    }
+    let _ = write!(f, "DNS server {} responded with\n", r.server);
+    let answers: Vec<String> = r.answers
+        .iter()
+        .sorted_by(|a, b| compare_records(a, b))
+        .iter()
+        .map(|answer|
+            format!("* {} [expires {}]",
+                    fmt_record(answer, human),
+                    if human {
+                        humanize_ttl(answer.ttl() as i64)
+                    } else {
+                        format!("in {} sec", answer.ttl())
+                    }
+            )
+        )
+        .collect();
+
+    let mut tw = TabWriter::new(vec![]).padding(1);
+    let _ = write!(&mut tw, "{}", answers.join("\n"));
+    let out_str = String::from_utf8(tw.into_inner().unwrap()).unwrap();
+
+    writeln!(f, "{}", out_str)
+}
+
+
+fn compare_records(a: &Record, b: &Record) -> Ordering {
     let a = record_type_to_ordinal(a);
     let b = record_type_to_ordinal(b);
 
     a.cmp(&b)
-}
-
-fn humanize_ttl(ttl: i64) -> String {
-    let dt = Local::now() + Duration::seconds(ttl);
-    let ht = HumanTime::from(dt);
-
-    format!("{}", ht)
 }
 
 fn record_type_to_ordinal(r: &Record) -> u16 {
@@ -129,53 +141,76 @@ fn record_type_to_ordinal(r: &Record) -> u16 {
     }
 }
 
-// Newtype pattern for Display implementation
-pub struct DnsRecord<'a>(pub &'a Record);
+fn humanize_ttl(ttl: i64) -> String {
+    let dt = Local::now() + Duration::seconds(ttl);
+    let ht = HumanTime::from(dt);
 
-impl<'a> fmt::Display for DnsRecord<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let DnsRecord(record) = *self;
+    format!("{}", ht)
+}
 
-        let str = match *record.rdata() {
-            RData::A(ip) => format!("IPv4:\t{}", ip),
-            RData::AAAA(ip) => format!("IPv6:\t{}", ip),
-            RData::CNAME(ref name) => {
-                format!("CNAME:\t{}", Colour::Blue.paint(format!("{}", name)))
-            }
-            RData::MX(ref mx) => {
-                format!(
-                    "MX:\t{} with preference {}",
-                    Colour::Yellow.paint(format!("{}", mx.exchange())),
-                    Colour::Yellow.paint(format!("{}", mx.preference()))
-                )
-            }
-            RData::NS(ref name) => format!("NS:\t{}", Colour::Cyan.paint(format!("{}", name))),
-            RData::SOA(ref soa) => {
-                // TODO: time interval is in sec, use relative time
-                format!(
-                    "SOA:\torigin NS {}, responsible party {}, serial {}, refresh {} sec, retry {} sec, expire {} sec, min {} sec",
-                    Colour::Green.paint(format!("{}", soa.mname())),
-                    Colour::Green.paint(format!("{}", soa.rname())),
-                    Colour::Green.paint(format!("{}", soa.serial())),
-                    Colour::Green.paint(format!("{}", soa.refresh())),
-                    Colour::Green.paint(format!("{}", soa.retry())),
-                    Colour::Green.paint(format!("{}", soa.expire())),
-                    Colour::Green.paint(format!("{}", soa.minimum()))
-                )
-            }
-            RData::TXT(ref txt) => {
-                format!("TXT:\t{}", Colour::Purple.paint(txt.txt_data().join(" ")))
-            }
-            RData::PTR(ref ptr) => format!("PTR:\t{}", ptr.to_string()),
-            ref x => {
-                format!(
-                    " * unclassified answer: {}",
-                    Colour::Red.paint(format!("{:?}", x))
-                )
-            }
-        };
-        write!(f, "{}", str)
+fn fmt_record(r: &Record, human: bool) -> String {
+    match *r.rdata() {
+        RData::A(ip) => format!("IPv4:\t{}", ip),
+        RData::AAAA(ip) => format!("IPv6:\t{}", ip),
+        RData::CNAME(ref name) => {
+            format!("CNAME:\t{}", Colour::Blue.paint(format!("{}", name)))
+        }
+        RData::MX(ref mx) => {
+            format!(
+                "MX:\t{} with preference {}",
+                Colour::Yellow.paint(format!("{}", mx.exchange())),
+                Colour::Yellow.paint(format!("{}", mx.preference()))
+            )
+        }
+        RData::NS(ref name) => format!("NS:\t{}", Colour::Cyan.paint(format!("{}", name))),
+        RData::SOA(ref soa) => {
+            // TODO: time interval is in sec, use relative time
+            format!(
+                "SOA:\torigin NS {}, responsible party {}, serial {}, refresh {} sec, retry {} sec, expire {} sec, min {} sec",
+                Colour::Green.paint(format!("{}", soa.mname())),
+                Colour::Green.paint(format!("{}", soa.rname())),
+                Colour::Green.paint(format!("{}", soa.serial())),
+                Colour::Green.paint(format!("{}", soa.refresh())),
+                Colour::Green.paint(format!("{}", soa.retry())),
+                Colour::Green.paint(format!("{}", soa.expire())),
+                Colour::Green.paint(format!("{}", soa.minimum()))
+            )
+        }
+        RData::TXT(ref txt) => {
+            format!("TXT:\t{}", Colour::Purple.paint(
+                if human {
+                    fmt_txt(txt.txt_data())
+                } else {
+                    txt.txt_data().join(" ")
+                }
+            ))
+        }
+        RData::PTR(ref ptr) => format!("PTR:\t{}", ptr.to_string()),
+        ref x => {
+            format!(
+                " * unclassified answer: {}",
+                Colour::Red.paint(format!("{:?}", x))
+            )
+        }
     }
+}
+
+fn fmt_txt(txts: &[String]) -> String {
+    let fmts: Vec<_> = txts
+        .iter()
+        .map(|txt| {
+            if txt.starts_with("v=spf") {
+                fmt_txt_spf(txt)
+            } else {
+                format!("{}", txt)
+            }
+        })
+        .collect();
+    fmts.iter().join("\t* ")
+}
+
+fn fmt_txt_spf(txt: &str) -> String {
+    txt.split(' ').join("\n\t")
 }
 
 pub fn print_error<T: ChainedError>(w: &mut Write, err: &T) -> Result<()> {

@@ -45,7 +45,7 @@ fn run() -> Result<()> {
         Some(v) => v,
         None => vec!["summar".to_string()],
     };
-    output(&responses, output_modules)?;
+    output(&responses, output_modules, args.is_present("human-readable output"))?;
 
     Ok(())
 }
@@ -153,6 +153,11 @@ fn build_cli() -> App<'static, 'static> {
                     ],
                 )
                 .help("Selects output module")
+        )
+        .arg(
+            Arg::with_name("human-readable output")
+                .short("h")
+                .help("Sets human-readable output")
         )
         .arg(Arg::with_name("verbosity")
             .short("v")
@@ -288,12 +293,12 @@ fn run_lookup(args: &ArgMatches, query: Query, server_limit: usize) -> Vec<Looku
     result.unwrap()
 }
 
-fn output(responses: &[LookupResult<Response>], outputs: Vec<String>) -> Result<()> {
+fn output(responses: &[LookupResult<Response>], outputs: Vec<String>, human: bool) -> Result<()> {
     let mut writer = std::io::stdout();
     for output in outputs {
         match output.as_ref() {
-            "details" => output::DetailsOutput::new(responses).output(&mut writer)?,
-            _ => output::SummaryOutput::new(responses).output(&mut writer)?,
+            "details" => output::DetailsOutput::new(responses, human).output(&mut writer)?,
+            _ => output::SummaryOutput::new(responses, human).output(&mut writer)?,
         }
     }
 
