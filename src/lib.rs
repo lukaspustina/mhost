@@ -13,6 +13,8 @@ extern crate futures;
 extern crate hyper;
 #[cfg(feature = "bin")]
 extern crate itertools;
+#[macro_use]
+extern crate nom;
 extern crate tokio_core;
 extern crate resolv_conf;
 #[macro_use]
@@ -28,6 +30,7 @@ pub mod lookup;
 #[cfg(feature = "bin")]
 pub mod output;
 pub mod statistics;
+pub mod txt_records;
 pub mod ungefiltert_surfen;
 
 pub use lookup::{Query, Response, lookup, multiple_lookup};
