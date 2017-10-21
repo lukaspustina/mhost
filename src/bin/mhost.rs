@@ -40,7 +40,12 @@ fn run() -> Result<()> {
 
     let (query, server_limit) = parse_args(&args)?;
     let responses = run_lookup(&args, query, server_limit);
-    output(&responses, args.values_of_lossy("output modules").unwrap())?;
+    // TODO: https://github.com/kbknapp/clap-rs/issues/1056
+    let output_modules = match args.values_of_lossy("output modules") {
+        Some(v) => v,
+        None => vec!["summar".to_string()],
+    };
+    output(&responses, output_modules)?;
 
     Ok(())
 }
@@ -140,7 +145,7 @@ fn build_cli() -> App<'static, 'static> {
                 .takes_value(true)
                 .multiple(true)
                 .require_delimiter(true)
-                .default_value("summary")
+                // TODO: https://github.com/kbknapp/clap-rs/issues/1056: .default_value("summary")
                 .possible_values(
                     &[
                         "summary",
