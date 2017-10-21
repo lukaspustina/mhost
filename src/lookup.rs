@@ -192,16 +192,22 @@ mod test {
         let domain_name = "example.com";
         let query = Query::new(domain_name, vec![RecordType::A]);
         let servers = vec![
-            (Ipv4Addr::from_str("8.8.8.8").unwrap(), 53),
             (Ipv4Addr::from_str("8.8.4.4").unwrap(), 53),
+            (Ipv4Addr::from_str("8.8.8.8").unwrap(), 53),
         ];
 
         let lookup = multiple_lookup(&io_loop.handle(), query, servers);
-        let mut responses: Vec<_> = io_loop.run(lookup).unwrap();
-        assert_eq!(responses.len(), 2);
+        let results: ::std::result::Result<Vec<_>, _> = io_loop.run(lookup)
+            .unwrap()
+            .into_iter()
+            .collect();
+        let mut responses = results.unwrap();
 
-        let response = responses.pop().unwrap().unwrap();
-        assert_eq!(response.server, Ipv4Addr::from_str("8.8.4.4").unwrap());
+        assert_eq!(responses.len(), 2);
+        responses.sort_by(|a, b| a.server.cmp(&b.server));
+
+        let response = responses.pop().unwrap();
+        assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
         assert_eq!(response.answers.len(), 1);
         if let RData::A(ip) = *response.answers[0].rdata() {
             assert_eq!(ip, Ipv4Addr::new(93, 184, 216, 34));
@@ -209,8 +215,8 @@ mod test {
             panic!("Not an A record");
         }
 
-        let response = responses.pop().unwrap().unwrap();
-        assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
+        let response = responses.pop().unwrap();
+        assert_eq!(response.server, Ipv4Addr::from_str("8.8.4.4").unwrap());
         assert_eq!(response.answers.len(), 1);
         if let RData::A(ip) = *response.answers[0].rdata() {
             assert_eq!(ip, Ipv4Addr::new(93, 184, 216, 34));
