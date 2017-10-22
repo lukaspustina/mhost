@@ -217,8 +217,10 @@ fn fmt_txt_spf(spf: &Spf) -> String {
             match w {
                 &Word::Word(ref q, Mechanism::All) => format!("{:?} for all", q),
                 &Word::Word(ref q, Mechanism::A) => format!("{:?} for A/AAAA record", q),
-                &Word::Word(ref q, Mechanism::IPv4(range)) => format!("{:?} for IPv4 range {}", q, range),
-                &Word::Word(ref q, Mechanism::IPv6(range)) => format!("{:?} for IPv6 range {}", q, range),
+                &Word::Word(ref q, Mechanism::IPv4(range)) if range.contains("/") => format!("{:?} for IPv4 range {}", q, range),
+                &Word::Word(ref q, Mechanism::IPv4(range)) => format!("{:?} for IPv4 {}", q, range),
+                &Word::Word(ref q, Mechanism::IPv6(range)) if range.contains("/") => format!("{:?} for IPv6 range {}", q, range),
+                &Word::Word(ref q, Mechanism::IPv6(range)) => format!("{:?} for IPv6 {}", q, range),
                 &Word::Word(ref q, Mechanism::MX) => format!("{:?} for mail exchanges", q),
                 &Word::Word(ref q, Mechanism::PTR) => format!("{:?} for reverse mapping", q),
                 &Word::Word(ref q, Mechanism::Exists(domain)) => format!("{:?} for A/AAAA record according to {}", q, domain),
