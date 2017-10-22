@@ -1,4 +1,5 @@
 use lookup;
+use txt_records::{Spf, Word, Mechanism, Modifier};
 use statistics::Statistics;
 
 use ansi_term::Colour;
@@ -199,8 +200,8 @@ fn fmt_txt(txts: &[String]) -> String {
     let fmts: Vec<_> = txts
         .iter()
         .map(|txt| {
-            if txt.starts_with("v=spf") {
-                fmt_txt_spf(txt)
+            if let Ok(spf) = Spf::from_str(txt) {
+                fmt_txt_spf(&spf)
             } else {
                 format!("{}", txt)
             }
@@ -209,8 +210,25 @@ fn fmt_txt(txts: &[String]) -> String {
     fmts.iter().join("\t* ")
 }
 
-fn fmt_txt_spf(txt: &str) -> String {
-    txt.split(' ').join("\n\t")
+fn fmt_txt_spf(spf: &Spf) -> String {
+    let words: Vec<_> = spf.words
+        .iter()
+        .map(|w| {
+            match w {
+                &Word::Word(ref q, Mechanism::All) => format!("{:?} for all", q),
+                &Word::Word(ref q, Mechanism::A) => format!("{:?} for A/AAAA record", q),
+                &Word::Word(ref q, Mechanism::IPv4(range)) => format!("{:?} for IPv4 range {}", q, range),
+                &Word::Word(ref q, Mechanism::IPv6(range)) => format!("{:?} for IPv6 range {}", q, range),
+                &Word::Word(ref q, Mechanism::MX) => format!("{:?} for mail exchanges", q),
+                &Word::Word(ref q, Mechanism::PTR) => format!("{:?} for reverse mapping", q),
+                &Word::Word(ref q, Mechanism::Exists(domain)) => format!("{:?} for A/AAAA record according to {}", q, domain),
+                &Word::Word(ref q, Mechanism::Include(domain)) => format!("{:?} for include from {}", q, domain),
+                &Word::Modifier(Modifier::Redirect(query)) => format!("redirect to query {}", query),
+                &Word::Modifier(Modifier::Exp(explanation)) => format!("explanation according to {}", explanation),
+            }
+        })
+        .collect();
+    format!("SPF version: {}\n\t* {}", spf.version, words.join("\n\t* "))
 }
 
 pub fn print_error<T: ChainedError>(w: &mut Write, err: &T) -> Result<()> {

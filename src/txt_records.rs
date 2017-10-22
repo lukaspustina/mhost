@@ -2,8 +2,8 @@ use nom::IResult;
 
 #[derive(Debug, PartialEq)]
 pub struct Spf<'a> {
-    version: u32,
-    words: Vec<Word<'a>>,
+    pub version: u32,
+    pub words: Vec<Word<'a>>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -32,7 +32,7 @@ pub enum Mechanism<'a> {
     IPv6(&'a str),
     MX,
     PTR,
-    Exists,
+    Exists(&'a str),
     Include(&'a str),
 }
 
@@ -168,13 +168,18 @@ mod parser {
         tag!("ptr") >> (Mechanism::PTR)
     ));
 
-    named!(spf_mechanism_exists <Mechanism>, do_parse!(
-        tag!("exists") >> (Mechanism::Exists)
-    ));
-
     fn is_domain_spec_char(x: u8) -> bool {
         is_alphanumeric(x) || ".-+,/_=%{}".contains(x as char)
     }
+
+    named!(spf_mechanism_exists <Mechanism>, do_parse!(
+                tag!("exists:") >>
+        exists: map_res!(
+                    take_while!(is_domain_spec_char),
+                    str::from_utf8
+                ) >>
+        (Mechanism::Exists(exists))
+    ));
 
     named!(spf_mechanism_include <Mechanism>, do_parse!(
                 tag!("include:") >>
@@ -232,7 +237,7 @@ mod test {
 
     #[test]
     fn xmas() {
-        let record = b"v=spf1 ip4:192.168.0.0/24 +ip6:fc00::/7 ?a ~mx -ptr exists ?include:_spf.example.com redirect=_spf.example.com exp=explain._spf.%{d} -all";
+        let record = b"v=spf1 ip4:192.168.0.0/24 +ip6:fc00::/7 ?a ~mx -ptr exists:%{ir}.%{l1r+-}._spf.%{d} ?include:_spf.example.com redirect=_spf.example.com exp=explain._spf.%{d} -all";
 
         let spf_parsed = Spf {
             version: 1,
@@ -242,7 +247,7 @@ mod test {
                 Word::Word(Qualifier::Neutral, Mechanism::A),
                 Word::Word(Qualifier::Softfail, Mechanism::MX),
                 Word::Word(Qualifier::Fail, Mechanism::PTR),
-                Word::Word(Qualifier::Pass, Mechanism::Exists),
+                Word::Word(Qualifier::Pass, Mechanism::Exists("%{ir}.%{l1r+-}._spf.%{d}")),
                 Word::Word(Qualifier::Neutral, Mechanism::Include("_spf.example.com")),
                 Word::Modifier(Modifier::Redirect("_spf.example.com")),
                 Word::Modifier(Modifier::Exp("explain._spf.%{d}")),
