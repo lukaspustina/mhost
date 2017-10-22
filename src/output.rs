@@ -202,7 +202,7 @@ fn fmt_record(r: &Record, human: bool) -> String {
         RData::PTR(ref ptr) => format!("PTR:\t{}", ptr.to_string()),
         ref x => {
             format!(
-                " * unclassified answer: {}",
+                "Unsupported RR:\t{}",
                 Colour::Red.paint(format!("{:?}", x))
             )
         }
