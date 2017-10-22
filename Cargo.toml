@@ -20,7 +20,7 @@ travis-ci = { repository = "lukaspustina/mhost", branch = "master" }
 appveyor = { repository = "lukaspustina/mhost", branch = "master" }
 
 [features]
-bin = []
+bin = ["clap", "chrono", "chrono-humanize", "ansi_term", "flexi_logger", "itertools", "resolv-conf", "tabwriter"]
 
 [[bin]]
 name = "mhost"
@@ -33,24 +33,25 @@ name = "mhost"
 path = "src/lib.rs"
 
 [dependencies]
-ansi_term = "^0.9"
-clap = "^2.26"
 error-chain = "^0.11"
-flexi_logger = "^0.6"
 futures = "^0.1.14"
-chrono = "^0.4"
-chrono-humanize = "^0.0.10"
 hyper = "^0.11"
-itertools = "^0.6"
 log = "^0.3"
 nom = "^3.2"
-resolv-conf = "^0.4"
 serde = "^1.0"
 serde_derive = "^1.0"
 serde_json = "^1.0"
-tabwriter = "^1.0"
 tokio-core = "^0.1.9"
 trust-dns = "^0.11"
+
+clap = { version = "^2.26", optional = true }
+chrono = { version = "^0.4", optional = true }
+chrono-humanize = { version = "^0.0.10", optional = true }
+ansi_term = { version = "^0.9", optional = true }
+flexi_logger = { version = "^0.6", optional = true }
+itertools = { version = "^0.6", optional = true }
+resolv-conf = { version = "^0.4", optional = true }
+tabwriter = { version = "^1.0", optional = true }
 
 [dev-dependencies]
 

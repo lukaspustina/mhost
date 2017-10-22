@@ -5,7 +5,9 @@
 
 #[cfg(feature = "bin")]
 extern crate ansi_term;
+#[cfg(feature = "bin")]
 extern crate chrono;
+#[cfg(feature = "bin")]
 extern crate chrono_humanize;
 #[macro_use]
 extern crate error_chain;
@@ -16,6 +18,7 @@ extern crate itertools;
 #[macro_use]
 extern crate nom;
 extern crate tokio_core;
+#[cfg(feature = "bin")]
 extern crate resolv_conf;
 #[macro_use]
 extern crate serde_derive;
