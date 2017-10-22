@@ -233,24 +233,24 @@ fn parse_args(args: &ArgMatches) -> Result<(Query, usize)> {
         .map(Duration::from_secs)
         .unwrap();
 
-    let domain_name = if args.is_present("dont use local search domain") {
-        args.value_of("domain name").unwrap().to_string()
-    } else {
-        let cfg = get::resolv_conf()?;
-        let domain_name_from_args = args.value_of("domain name").unwrap();
-        if domain_name_from_args.ends_with('.') {
-            domain_name_from_args.to_string()
-        } else if !cfg.search.is_empty() && domain_name_from_args.matches('.').count() >= cfg.ndots as usize {
-            format!("{}.", domain_name_from_args)
-        } else {
-            format!("{}.{}.", domain_name_from_args, cfg.search.first().unwrap())
-        }
-    };
-    debug!("domain_name: '{}'", domain_name);
-
-    let query = match IpAddr::from_str(&domain_name) {
+    let query = match IpAddr::from_str(args.value_of("domain name").unwrap() ) {
         Ok(ip) => Query::from(ip, vec![RecordType::PTR]),
         Err(_) => {
+            let domain_name = if args.is_present("dont use local search domain") {
+                args.value_of("domain name").unwrap().to_string()
+            } else {
+                let cfg = get::resolv_conf()?;
+                let domain_name_from_args = args.value_of("domain name").unwrap();
+                if domain_name_from_args.ends_with('.') {
+                    domain_name_from_args.to_string()
+                } else if !cfg.search.is_empty() && domain_name_from_args.matches('.').count() >= cfg.ndots as usize {
+                    format!("{}.", domain_name_from_args)
+                } else {
+                    format!("{}.{}.", domain_name_from_args, cfg.search.first().unwrap())
+                }
+            };
+            debug!("domain_name: '{}'", domain_name);
+
             let record_types = get::record_types(args.values_of_lossy("record types"))
                 .chain_err(|| ErrorKind::CliArgsParsingError)?;
             Query::new(&domain_name, record_types)
