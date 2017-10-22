@@ -17,6 +17,155 @@ pub trait OutputModule {
     fn is_human(&self) -> bool;
 }
 
+pub use self::json::Json;
+
+mod json {
+    use super::*;
+    use lookup;
+
+    use std::io::Write;
+    use trust_dns::rr::RData;
+    use serde_json;
+
+    pub struct Json<'a> {
+        responses: &'a [lookup::Result<lookup::Response>],
+    }
+
+    impl<'a> Json<'a> {
+        pub fn new(responses: &'a [lookup::Result<lookup::Response>]) -> Self {
+            Json { responses }
+        }
+    }
+
+    impl<'a> OutputModule for Json<'a> {
+        fn output(&self, w: &mut Write) -> Result<()> {
+            let ok_responses: Vec<_> = self.responses
+                .iter()
+                .filter_map(|x| x.as_ref().ok())
+                .collect();
+            let rrs: Vec<_> = ok_responses
+                .iter()
+                .map(|response| {
+                    let answers = response.answers
+                        .iter()
+                        .map(|r| {
+                            match *r.rdata() {
+                                RData::A(ip) => Some(RR::A(
+                                    A { ip: format!("{}", ip), ttl: r.ttl() })),
+                                RData::AAAA(ip) => Some(RR::AAAA(
+                                    AAAA { ip: format!("{}", ip), ttl: r.ttl() })),
+                                RData::CNAME(ref name) => Some(RR::CNAME(
+                                    CNAME { name: format!("{}", name), ttl: r.ttl() })),
+                                RData::MX(ref mx) => Some(RR::MX(
+                                    MX { exchange: format!("{}", mx.exchange()), preference: mx.preference(), ttl: r.ttl() })),
+                                RData::NS(ref name) => Some(RR::NS(
+                                    NS { name: format!("{}", name), ttl: r.ttl() })),
+                                RData::SOA(ref soa) => Some(RR::SOA(
+                                    SOA {
+                                        origin_server: format!("{}", soa.mname()),
+                                        responsible_party: format!("{}", soa.rname()),
+                                        serial: format!("{}", soa.serial()),
+                                        refresh: soa.refresh(),
+                                        retry: soa.retry(),
+                                        expire: soa.expire(),
+                                        minimum: soa.minimum(),
+                                        ttl: r.ttl()
+                                    })),
+                                RData::TXT(ref txt) => Some(RR::TXT(
+                                    TXT { txt: txt.txt_data().join(" "), ttl: r.ttl() })),
+                                RData::PTR(ref ptr) => Some(RR::PTR(
+                                    PTR { ptr: ptr.to_string(), ttl: r.ttl() })),
+                                _ => None
+                            }
+                        })
+                        .flat_map(|x| x)
+                        .collect();
+                    Response { server: format!("{}", response.server), answers }
+                })
+                .collect();
+
+            serde_json::to_writer_pretty(w, &rrs).chain_err(|| ErrorKind::OutputError)
+        }
+
+        fn is_human(&self) -> bool {
+            false
+        }
+    }
+
+    #[derive(Serialize)]
+    struct Response {
+        server: String,
+        answers: Vec<RR>,
+    }
+
+    #[derive(Serialize)]
+    enum RR {
+        A(A),
+        AAAA(AAAA),
+        CNAME(CNAME),
+        MX(MX),
+        NS(NS),
+        SOA(SOA),
+        TXT(TXT),
+        PTR(PTR)
+    }
+
+    #[derive(Serialize)]
+    struct A {
+        ip: String,
+        ttl: u32,
+    }
+
+    #[derive(Serialize)]
+    struct AAAA {
+        ip: String,
+        ttl: u32,
+    }
+
+    #[derive(Serialize)]
+    struct CNAME {
+        name: String,
+        ttl: u32,
+    }
+
+    #[derive(Serialize)]
+    struct MX {
+        exchange: String,
+        preference: u16,
+        ttl: u32,
+    }
+
+    #[derive(Serialize)]
+    struct NS {
+        name: String,
+        ttl: u32,
+    }
+
+    #[derive(Serialize)]
+    struct SOA {
+        origin_server: String,
+        responsible_party: String,
+        serial: String,
+        refresh: i32,
+        retry: i32,
+        expire: i32,
+        minimum: u32,
+        ttl: u32,
+    }
+
+    #[derive(Serialize)]
+    struct TXT {
+        txt: String,
+        ttl: u32,
+    }
+
+    #[derive(Serialize)]
+    struct PTR {
+        ptr: String,
+        ttl: u32,
+    }
+}
+
 pub struct DetailsOutput<'a> {
     responses: &'a [lookup::Result<lookup::Response>],
     human: bool,
@@ -187,7 +336,6 @@ fn fmt_record(r: &Record, human: bool) -> String {
                     Colour::Green.paint(format!("{}", soa.expire())),
                     Colour::Green.paint(format!("{}", soa.minimum()))
                 )
-
             }
         }
         RData::TXT(ref txt) => {
@@ -199,7 +347,7 @@ fn fmt_record(r: &Record, human: bool) -> String {
                 }
             ))
         }
-        RData::PTR(ref ptr) => format!("PTR:\t{}", ptr.to_string()),
+        RData::PTR(ref ptr) => format!("PTR:\t{}", ptr),
         ref x => {
             format!(
                 "Unsupported RR:\t{}",
@@ -262,10 +410,10 @@ pub fn print_error<T: ChainedError>(w: &mut Write, err: &T) -> Result<()> {
 }
 
 error_chain! {
-    errors {
-        OutputError {
-            description("Failed to write output")
-            display("Failed to write output")
-        }
-    }
+errors {
+OutputError {
+description("Failed to write output")
+display("Failed to write output")
+}
+}
 }

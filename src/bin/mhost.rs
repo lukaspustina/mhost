@@ -150,6 +150,7 @@ fn build_cli() -> App<'static, 'static> {
                     &[
                         "summary",
                         "details",
+                        "json",
                     ],
                 )
                 .help("Selects output module")
@@ -297,6 +298,7 @@ fn output(responses: &[LookupResult<Response>], outputs: Vec<String>, human: boo
     let mut writer = std::io::stdout();
     for output in outputs {
         match output.as_ref() {
+            "json" => output::Json::new(responses).output(&mut writer)?,
             "details" => output::DetailsOutput::new(responses, human).output(&mut writer)?,
             _ => output::SummaryOutput::new(responses, human).output(&mut writer)?,
         }
