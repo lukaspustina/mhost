@@ -1,6 +1,6 @@
 [package]
 name = "mhost"
-version = "0.0.4"
+version = "0.0.5"
 authors = ["Lukas Pustina <lukas@pustina.net>"]
 description = "Like `host`, but uses multiple DNS servers massively parallel and compares results"
 repository = "https://github.com/lukaspustina/mhost.git"
