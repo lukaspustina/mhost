@@ -171,10 +171,10 @@ fn fmt_record(r: &Record, human: bool) -> String {
                     Colour::Green.paint(format!("{}", soa.mname())),
                     Colour::Green.paint(format!("{}", soa.rname())),
                     Colour::Green.paint(format!("{}", soa.serial())),
-                    Colour::Green.paint(format!("{}", humanize_ttl(soa.refresh() as i64))),
-                    Colour::Green.paint(format!("{}", humanize_ttl(soa.retry() as i64))),
-                    Colour::Green.paint(format!("{}", humanize_ttl(soa.expire() as i64))),
-                    Colour::Green.paint(format!("{}", humanize_ttl(soa.minimum() as i64)))
+                    Colour::Green.paint(humanize_ttl(soa.refresh() as i64)),
+                    Colour::Green.paint(humanize_ttl(soa.retry() as i64)),
+                    Colour::Green.paint(humanize_ttl(soa.expire() as i64)),
+                    Colour::Green.paint(humanize_ttl(soa.minimum() as i64))
                 )
             } else {
                 format!(
@@ -216,7 +216,7 @@ fn fmt_txt(txts: &[String]) -> String {
             if let Ok(spf) = Spf::from_str(txt) {
                 fmt_txt_spf(&spf)
             } else {
-                format!("{}", txt)
+                txt.to_string()
             }
         })
         .collect();
@@ -227,19 +227,19 @@ fn fmt_txt_spf(spf: &Spf) -> String {
     let words: Vec<_> = spf.words
         .iter()
         .map(|w| {
-            match w {
-                &Word::Word(ref q, Mechanism::All) => format!("{:?} for all", q),
-                &Word::Word(ref q, Mechanism::A) => format!("{:?} for A/AAAA record", q),
-                &Word::Word(ref q, Mechanism::IPv4(range)) if range.contains("/") => format!("{:?} for IPv4 range {}", q, range),
-                &Word::Word(ref q, Mechanism::IPv4(range)) => format!("{:?} for IPv4 {}", q, range),
-                &Word::Word(ref q, Mechanism::IPv6(range)) if range.contains("/") => format!("{:?} for IPv6 range {}", q, range),
-                &Word::Word(ref q, Mechanism::IPv6(range)) => format!("{:?} for IPv6 {}", q, range),
-                &Word::Word(ref q, Mechanism::MX) => format!("{:?} for mail exchanges", q),
-                &Word::Word(ref q, Mechanism::PTR) => format!("{:?} for reverse mapping", q),
-                &Word::Word(ref q, Mechanism::Exists(domain)) => format!("{:?} for A/AAAA record according to {}", q, domain),
-                &Word::Word(ref q, Mechanism::Include(domain)) => format!("{:?} for include from {}", q, domain),
-                &Word::Modifier(Modifier::Redirect(query)) => format!("redirect to query {}", query),
-                &Word::Modifier(Modifier::Exp(explanation)) => format!("explanation according to {}", explanation),
+            match *w {
+                Word::Word(ref q, Mechanism::All) => format!("{:?} for all", q),
+                Word::Word(ref q, Mechanism::A) => format!("{:?} for A/AAAA record", q),
+                Word::Word(ref q, Mechanism::IPv4(range)) if range.contains('/') => format!("{:?} for IPv4 range {}", q, range),
+                Word::Word(ref q, Mechanism::IPv4(range)) => format!("{:?} for IPv4 {}", q, range),
+                Word::Word(ref q, Mechanism::IPv6(range)) if range.contains('/') => format!("{:?} for IPv6 range {}", q, range),
+                Word::Word(ref q, Mechanism::IPv6(range)) => format!("{:?} for IPv6 {}", q, range),
+                Word::Word(ref q, Mechanism::MX) => format!("{:?} for mail exchanges", q),
+                Word::Word(ref q, Mechanism::PTR) => format!("{:?} for reverse mapping", q),
+                Word::Word(ref q, Mechanism::Exists(domain)) => format!("{:?} for A/AAAA record according to {}", q, domain),
+                Word::Word(ref q, Mechanism::Include(domain)) => format!("{:?} for include from {}", q, domain),
+                Word::Modifier(Modifier::Redirect(query)) => format!("redirect to query {}", query),
+                Word::Modifier(Modifier::Exp(explanation)) => format!("explanation according to {}", explanation),
             }
         })
         .collect();

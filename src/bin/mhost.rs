@@ -238,9 +238,9 @@ fn parse_args(args: &ArgMatches) -> Result<(Query, usize)> {
     } else {
         let cfg = get::resolv_conf()?;
         let domain_name_from_args = args.value_of("domain name").unwrap();
-        if domain_name_from_args.ends_with(".") {
+        if domain_name_from_args.ends_with('.') {
             domain_name_from_args.to_string()
-        } else if cfg.search.len() > 0 && domain_name_from_args.matches(".").count() >= cfg.ndots as usize {
+        } else if !cfg.search.is_empty() && domain_name_from_args.matches('.').count() >= cfg.ndots as usize {
             format!("{}.", domain_name_from_args)
         } else {
             format!("{}.{}.", domain_name_from_args, cfg.search.first().unwrap())
