@@ -6,7 +6,7 @@ mod integration {
 
     #[test]
     fn mhost_wo_args() {
-        assert_cli::Assert::command(&["cargo", "run", "--features=bin"])
+        mhost()
             .fails()
             .and()
             .stderr().contains("error: The following required arguments were not provided:")
@@ -15,7 +15,7 @@ mod integration {
 
     #[test]
     fn mhost_simple_lookup() {
-        assert_cli::Assert::command(&["cargo", "run", "--features=bin"])
+        mhost()
             .with_args(&["www.example.com"])
             .succeeds()
             .and()
@@ -27,7 +27,7 @@ mod integration {
 
     #[test]
     fn mhost_simple_ipv4_reverse_lookup() {
-        assert_cli::Assert::command(&["cargo", "run", "--features=bin"])
+        mhost()
             .with_args(&["8.8.8.8"])
             .succeeds()
             .and()
@@ -37,11 +37,15 @@ mod integration {
 
     #[test]
     fn mhost_simple_ipv6_reverse_lookup() {
-        assert_cli::Assert::command(&["cargo", "run", "--features=bin"])
+        mhost()
             .with_args(&["2001:4860:4860::8888"])
             .succeeds()
             .and()
             .stdout().contains("* PTR: google-public-dns-a.google.com.")
             .unwrap()
+    }
+
+    fn mhost() -> assert_cli::Assert {
+        assert_cli::Assert::command(&["cargo", "run", "--features=bin"])
     }
 }
