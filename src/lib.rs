@@ -13,7 +13,6 @@ extern crate chrono_humanize;
 extern crate error_chain;
 extern crate futures;
 extern crate hyper;
-#[cfg(feature = "bin")]
 extern crate itertools;
 #[macro_use]
 extern crate log;

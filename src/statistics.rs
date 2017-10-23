@@ -3,9 +3,11 @@
 
 use lookup::{Response, Result as LookupResult, Error as LookupError};
 
+use itertools::Itertools;
 use std::collections::HashMap;
-use trust_dns::rr::Record;
+use trust_dns::rr::{RData, Record};
 
+#[derive(Debug)]
 pub struct Statistics<'a> {
     pub num_of_samples: usize,
     pub num_of_ok_samples: usize,
@@ -14,6 +16,7 @@ pub struct Statistics<'a> {
     pub max_num_of_records: usize,
     pub record_counts: HashMap<String, (&'a Record, u16)>,
     pub failures: Vec<&'a LookupError>,
+    pub alerts: Vec<Alert>
 }
 
 impl<'a> Statistics<'a> {
@@ -54,6 +57,8 @@ impl<'a> Statistics<'a> {
             }
         }
 
+        let alerts = alerts(responses.as_slice());
+
         Statistics {
             num_of_samples,
             num_of_ok_samples,
@@ -62,7 +67,49 @@ impl<'a> Statistics<'a> {
             max_num_of_records,
             record_counts,
             failures,
+            alerts
         }
+    }
+}
+
+#[derive(Debug)]
+pub enum Alert {
+    SoaSnDiverge(HashMap<u32, u32>),
+}
+
+// TODO: &[&T] is totally weird
+fn alerts(responses: &[&Response]) -> Vec<Alert> {
+    let mut alerts = Vec::new();
+    if let Some(serials) = check_soa_serial_numbers(responses) {
+        alerts.push(serials)
+    }
+
+    alerts
+}
+
+// TODO: &[&T] is totally weird
+fn check_soa_serial_numbers(responses: &[&Response]) -> Option<Alert> {
+    let mut serial_counts = HashMap::new();
+    responses
+        .iter()
+        .map(|r| r.answers
+            .iter()
+            .map(|a| match *a.rdata() {
+                RData::SOA(ref soa) => Some(soa.serial()),
+                _ => None
+            })
+        )
+        .flatten()
+        .filter_map(|x| x)
+        .for_each(|key| {
+            let value = serial_counts.entry(key).or_insert(0);
+            *value += 1;
+        });
+
+    if !serial_counts.is_empty() {
+        Some(Alert::SoaSnDiverge(serial_counts))
+    } else {
+        None
     }
 }
 
@@ -73,6 +120,7 @@ mod test {
     use std::net::IpAddr;
     use std::str::FromStr;
     use trust_dns::rr::{domain, RecordType};
+    use trust_dns::rr::rdata::SOA;
 
     #[test]
     fn simple_statistics() {
@@ -131,5 +179,64 @@ mod test {
         assert_eq!(record_counts, vec![1, 2]);
 
         assert_eq!(statistics.failures.len(), 1);
+    }
+
+    #[test]
+    fn test_alert_for_diverging_soa_serials() {
+        let records_1: Vec<Record> = vec![
+            Record::from_rdata(
+                domain::Name::from_str("www.example.com").unwrap(),
+                99,
+                RecordType::SOA,
+                RData::SOA(
+                    SOA::new(
+                        domain::Name::from_str("sns.dns.icann.org.").unwrap(),
+                        domain::Name::from_str("noc.dns.icann.org.").unwrap(),
+                        100,
+                        7200,
+                        3600,
+                        1209600,
+                        3600
+                    )
+                )
+            )
+        ];
+        let response_1 = Response {
+            server: IpAddr::from([127, 0, 0, 1]),
+            answers: records_1,
+        };
+        let records_2: Vec<Record> = vec![
+            Record::from_rdata(
+                domain::Name::from_str("www.example.com").unwrap(),
+                99,
+                RecordType::SOA,
+                RData::SOA(
+                    SOA::new(
+                        domain::Name::from_str("sns.dns.icann.org.").unwrap(),
+                        domain::Name::from_str("noc.dns.icann.org.").unwrap(),
+                        200,
+                        7200,
+                        3600,
+                        1209600,
+                        3600
+                    )
+                )
+            )];
+        let response_2 = Response {
+            server: IpAddr::from([127, 0, 0, 2]),
+            answers: records_2,
+        };
+        let responses: Vec<Response> = vec![response_1, response_2, ];
+
+        let alerts = alerts(&responses.iter().collect::<Vec<_>>());
+
+        assert_eq!(alerts.len(), 1);
+        let &Alert::SoaSnDiverge(ref soa_serials) = alerts.first().unwrap();
+        let mut serials = soa_serials.keys().collect::<Vec<_>>();
+        serials.sort();
+        assert_eq!(serials, vec![&100, &200]);
+        let mut counts = soa_serials.values().collect::<Vec<_>>();
+        counts.sort();
+        assert_eq!(counts, vec![&1, &1]);
     }
 }

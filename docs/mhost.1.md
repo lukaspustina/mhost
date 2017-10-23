@@ -20,7 +20,7 @@ mhost is a not so simple utility for performing DNS lookups. It is designed to u
 
 mhost comes with a predefined set of public DNS servers and can load DNS servers from the ungefiltert-surfen.de project which maintains large lists of public DNS servers per country - see *https://public-dns.info/* for further information. The default of mhost is to use the all local DNS servers listed in */etc/resolv.conf*.
 
-mhost's output is colorized if supported by the terminal and can be controlled by several output modules. Currently, the default is a summary of all received responses. A detailed output shows the answers by each responding servers. These two output modules also support a human-friendly output in which case times and durations are shown as relative times as well as semantic output of certain resource records. Further, JSON output allows for easy automatic processing of the answers from scripts etc.
+mhost's output is colorized if supported by the terminal and can be controlled by several output modules. Currently, the default is a summary of all received responses. It also runs certain checks on the data, i.e., compares the serial numbers of SOA records. A detailed output shows the answers by each responding servers. These two output modules also support a human-friendly output in which case times and durations are shown as relative times as well as semantic output of certain resource records. Further, JSON output allows for easy automatic processing of the answers from scripts etc.
 
 mhost uses UDP as transport protocol. Since UDP is an unreliable protocol, DNS queries and DNS responses may get lost. The likelihood for losses increases with the amount of servers used so it is not uncommon to get way less responses than DNS servers queried. Keep this in mind when using large amount of DNS server, for example, when using ungefiltert-surfen.de lists.
 
@@ -57,13 +57,21 @@ The project home page is *https://github.com/lukaspustina/mhost*.
 -m, --module *module_name* ...
 : Selects the output module to use. Currently three modules are available: summary, details, json. This option can be used multiple times to select multiple modules. It is up to you make any sense of this.
 
-    summary is the default output module and summarizes all received results. The first line shows how many results from how many servers have been received as well as how the minimum and maximum amout of resource record from each server. Each resource record is printed with the amount of received answers in parenthesis. In this example, 20 answers have been received from 20 servers:
+    The summary output module is the default output module and summarizes all received results. The first line shows how many results from how many servers have been received as well as how the minimum and maximum amout of resource record from each server. Each resource record is printed with the amount of received answers in parenthesis. In this example, 20 answers have been received from 20 servers:
 
         Received 20 (min 2, max 2 records) answers from 20 servers
         * IPv4: 93.184.216.34 (20)
         * IPv6: 2606:2800:220:1:248:1893:25c8:1946 (20)
 
-    details presents the received resource records for each server together with the corresponding TTL. In this example, the answers of two servers are printed.
+    The summary output module also prints alerts if certain checks on the collected records fail. Currently, the serial numbers of SOA records are compared and an alert is shown if they diverge like in this example where two different serial numbers have been reported by the queried servers:
+
+        Received 20 (min 1, max 1 records) answers from 20 servers and found 1 alert.
+        * SOA: origin NS sns.dns.icann.org., responsible party noc.dns.icann.org., serial 2017042801, refresh 7200 sec, retry 3600 sec, expire 1209600 sec, min 3600 sec (17)
+        * SOA: origin NS sns.dns.icann.org., responsible party noc.dns.icann.org., serial 2017042802, refresh 7200 sec, retry 3600 sec, expire 1209600 sec, min 3600 sec (3)
+        Alert
+        * SOA serial numbers diverge: {2017042802: 3, 2017042801: 17}
+
+    The details output module presents the received resource records for each server together with the corresponding TTL. In this example, the answers of two servers are printed.
 
         DNS server 8.8.8.8 responded with
         * IPv4: 93.184.216.34 [expires in 3108 sec]
@@ -72,7 +80,7 @@ The project home page is *https://github.com/lukaspustina/mhost*.
         * IPv4: 93.184.216.34 [expires in 4836 sec]
         * IPv6: 2606:2800:220:1:248:1893:25c8:1946 [expires in 16874 sec]
 
-    json is similar to the details module but prints the results list as a JSON array.
+    The json output module is similar to the details module but prints the results list as a JSON array.
 
 -p
 : Adds predefined public DNS servers to list of DNS servers to query. See *https://github.com/lukaspustina/mhost/blob/master/src/defaults.rs*.

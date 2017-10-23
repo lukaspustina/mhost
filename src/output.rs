@@ -1,6 +1,6 @@
 use lookup;
 use txt_records::{Spf, Word, Mechanism, Modifier};
-use statistics::Statistics;
+use statistics::{self, Statistics};
 
 use ansi_term::Colour;
 use chrono::{Local, Duration};
@@ -8,6 +8,7 @@ use chrono_humanize::HumanTime;
 use error_chain::ChainedError;
 use itertools::Itertools;
 use std::cmp::Ordering;
+use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::io::{self, Write};
 use tabwriter::TabWriter;
 use trust_dns::rr::{RData, Record};
@@ -207,12 +208,22 @@ impl<'a> SummaryOutput<'a> {
 impl<'a> OutputModule for SummaryOutput<'a> {
     fn output(&self, mut w: &mut Write) -> Result<()> {
         if self.cfg.show_headers {
-            writeln!(&mut w, "Received {} (min {}, max {} records) answers from {} servers",
-                     self.statistics.num_of_ok_samples,
-                     self.statistics.min_num_of_records,
-                     self.statistics.max_num_of_records,
-                     self.statistics.num_of_samples,
+            write!(&mut w, "Received {} (min {}, max {} records) answers from {} servers",
+                   self.statistics.num_of_ok_samples,
+                   self.statistics.min_num_of_records,
+                   self.statistics.max_num_of_records,
+                   self.statistics.num_of_samples,
             ).chain_err(|| ErrorKind::OutputError)?;
+            if !self.statistics.alerts.is_empty() {
+                let msg = Colour::Red.bold().paint(
+                    if self.statistics.alerts.len() == 1 {
+                        format!("{} alert", self.statistics.alerts.len())
+                    } else {
+                        format!("{} alerts", self.statistics.alerts.len())
+                    });
+                write!(&mut w, " and found {}", msg).chain_err(|| ErrorKind::OutputError)?;
+            }
+            writeln!(&mut w, ".").chain_err(|| ErrorKind::OutputError)?;
         }
         let records: Vec<_> = self.statistics
             .record_counts
@@ -236,10 +247,35 @@ impl<'a> OutputModule for SummaryOutput<'a> {
         let mut tw = TabWriter::new(vec![]).padding(1);
         write!(&mut tw, "{}", records.join("\n")).chain_err(|| ErrorKind::OutputError)?;
         let out_str = String::from_utf8(tw.into_inner().unwrap()).unwrap();
-
         writeln!(&mut w, "{}", out_str).chain_err(|| ErrorKind::OutputError)?;
 
+        if !self.statistics.alerts.is_empty() {
+            writeln!(&mut w, "{}",
+                     if self.statistics.alerts.len() == 1 {
+                         Colour::Red.bold().paint("Alert")
+                     } else {
+                         Colour::Red.bold().paint("Alert")
+                     }
+            ).chain_err(|| ErrorKind::OutputError)?;
+            let alert_msgs: String = self.statistics.alerts
+                .iter()
+                .map(|a| format!("* {}", a))
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            writeln!(&mut w, "{}", alert_msgs).chain_err(|| ErrorKind::OutputError)?;
+        }
+
         Ok(())
+    }
+}
+
+impl Display for statistics::Alert {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        match *self {
+            statistics::Alert::SoaSnDiverge(ref serials) =>
+                write!(f, "SOA serial numbers diverge: {:?}", serials)
+        }
     }
 }
 

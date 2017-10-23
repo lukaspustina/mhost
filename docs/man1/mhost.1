@@ -33,6 +33,8 @@ The default of mhost is to use the all local DNS servers listed in
 mhost\[aq]s output is colorized if supported by the terminal and can be
 controlled by several output modules.
 Currently, the default is a summary of all received responses.
+It also runs certain checks on the data, i.e., compares the serial
+numbers of SOA records.
 A detailed output shows the answers by each responding servers.
 These two output modules also support a human\-friendly output in which
 case times and durations are shown as relative times as well as semantic
@@ -107,8 +109,8 @@ This option can be used multiple times to select multiple modules.
 It is up to you make any sense of this.
 .RS
 .PP
-summary is the default output module and summarizes all received
-results.
+The summary output module is the default output module and summarizes
+all received results.
 The first line shows how many results from how many servers have been
 received as well as how the minimum and maximum amout of resource record
 from each server.
@@ -124,8 +126,24 @@ Received\ 20\ (min\ 2,\ max\ 2\ records)\ answers\ from\ 20\ servers
 \f[]
 .fi
 .PP
-details presents the received resource records for each server together
-with the corresponding TTL.
+The summary output module also prints alerts if certain checks on the
+collected records fail.
+Currently, the serial numbers of SOA records are compared and an alert
+is shown if they diverge like in this example where two different serial
+numbers have been reported by the queried servers:
+.IP
+.nf
+\f[C]
+Received\ 20\ (min\ 1,\ max\ 1\ records)\ answers\ from\ 20\ servers\ and\ found\ 1\ alert.
+*\ SOA:\ origin\ NS\ sns.dns.icann.org.,\ responsible\ party\ noc.dns.icann.org.,\ serial\ 2017042801,\ refresh\ 7200\ sec,\ retry\ 3600\ sec,\ expire\ 1209600\ sec,\ min\ 3600\ sec\ (17)
+*\ SOA:\ origin\ NS\ sns.dns.icann.org.,\ responsible\ party\ noc.dns.icann.org.,\ serial\ 2017042802,\ refresh\ 7200\ sec,\ retry\ 3600\ sec,\ expire\ 1209600\ sec,\ min\ 3600\ sec\ (3)
+Alert
+*\ SOA\ serial\ numbers\ diverge:\ {2017042802:\ 3,\ 2017042801:\ 17}
+\f[]
+.fi
+.PP
+The details output module presents the received resource records for
+each server together with the corresponding TTL.
 In this example, the answers of two servers are printed.
 .IP
 .nf
@@ -139,8 +157,8 @@ DNS\ server\ 8.8.4.4\ responded\ with
 \f[]
 .fi
 .PP
-json is similar to the details module but prints the results list as a
-JSON array.
+The json output module is similar to the details module but prints the
+results list as a JSON array.
 .RE
 .TP
 .B \-p
