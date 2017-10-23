@@ -1,0 +1,32 @@
+// Arbitrary list of public DNS servers
+pub static DEFAULT_DNS_SERVERS: &'static [&str] = &[
+    // "Level3",
+    "209.244.0.3",
+    "209.244.0.4",
+    // "Verisign",
+    "64.6.64.6",
+    "64.6.65.6",
+    // "Google",
+    "8.8.8.8",
+    "8.8.4.4",
+    // "DNS.WATCH",
+    "84.200.69.80",
+    "84.200.70.40",
+    // "OpenDNS Home",
+    "208.67.222.222",
+    "208.67.220.220",
+    // "SafeDNS",
+    "195.46.39.39",
+    "195.46.39.40",
+    // "Dyn",
+    "216.146.35.35",
+    "216.146.36.36",
+    // "FreeDNS",
+    "37.235.1.174",
+    "37.235.1.177",
+    // "Alternate DNS",
+    "198.101.242.72",
+    "23.253.163.53",
+];
+
+pub static DEFAULT_RECORD_TYPES: &'static [&str] = &["a", "aaaa", "mx"];

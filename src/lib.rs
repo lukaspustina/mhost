@@ -28,6 +28,8 @@ extern crate tabwriter;
 extern crate trust_dns;
 
 #[cfg(feature = "bin")]
+pub mod defaults;
+#[cfg(feature = "bin")]
 pub mod get;
 pub mod lookup;
 #[cfg(feature = "bin")]
