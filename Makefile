@@ -18,6 +18,9 @@ clippy:
 fmt:
 	rustup run nightly cargo fmt
 
+prepare_release: all
+	$(MAKE) -C docs
+
 duplicate_libs:
 	cargo tree -d
 

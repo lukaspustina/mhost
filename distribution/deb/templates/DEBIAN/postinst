@@ -1,3 +1,5 @@
 chown root:root /usr/bin/mhost
 chmod 755 /usr/bin/mhost
 
+mandb
+
