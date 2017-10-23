@@ -16,6 +16,8 @@ extern crate hyper;
 #[cfg(feature = "bin")]
 extern crate itertools;
 #[macro_use]
+extern crate log;
+#[macro_use]
 extern crate nom;
 extern crate tokio_core;
 #[cfg(feature = "bin")]

@@ -4,6 +4,7 @@
 use futures::{self, Future, Stream};
 use futures::future::join_all;
 use futures::stream::futures_unordered;
+use log::{LogLevel, max_log_level};
 use std::net::{IpAddr, SocketAddr};
 use std::time::Duration;
 use std::str::FromStr;
@@ -55,7 +56,7 @@ pub fn lookup<T: Into<SocketAddr>>(
     loop_handle: &Handle,
     query: Query,
     server: T,
-) -> Box<Future<Item = Response, Error = Error>> {
+) -> Box<Future<Item=Response, Error=Error>> {
     let socket_addr = server.into();
     let domain_name = query.domain_name;
 
@@ -82,10 +83,18 @@ pub fn lookup<T: Into<SocketAddr>>(
         .collect();
     let all = join_all(lookups).and_then(move |lookups| {
         let all_answers = lookups.into_iter().fold(Vec::new(), |mut acc,
-         mut lookup: Response| {
+                                                                mut lookup: Response| {
             acc.append(&mut lookup.answers);
             acc
         });
+
+        // Don't double log servers with 0 answers in Debug
+        if max_log_level() == LogLevel::Info && all_answers.is_empty() {
+            info!("{} responded with 0 answers.", socket_addr.ip());
+        } else {
+            debug!("{} responded with {} answers.", socket_addr.ip(), all_answers.len());
+        }
+
         futures::future::ok(Response {
             server: socket_addr.ip(),
             answers: all_answers,
@@ -106,7 +115,7 @@ pub fn multiple_lookup<T: Into<SocketAddr>>(
     loop_handle: &Handle,
     query: Query,
     servers: Vec<T>,
-) -> Box<Future<Item = Vec<Result<Response>>, Error = ()>> {
+) -> Box<Future<Item=Vec<Result<Response>>, Error=()>> {
     let futures: Vec<_> = servers
         .into_iter()
         .map(|server| {
