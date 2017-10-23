@@ -14,6 +14,8 @@ use trust_dns::rr::{RData, Record};
 
 pub struct OutputConfig {
     pub human_readable: bool,
+    pub show_headers: bool,
+    pub show_nx_domain: bool,
     pub show_unsupported_rr: bool,
 }
 
@@ -180,7 +182,7 @@ impl<'a> OutputModule for DetailsOutput<'a> {
     fn output(&self, mut w: &mut Write) -> Result<()> {
         for response in self.responses {
             match *response {
-                Ok(ref r) => write_response(&mut w, r, self.cfg.human_readable, self.cfg.show_unsupported_rr)
+                Ok(ref r) => write_response(&mut w, r, self.cfg)
                     .chain_err(|| ErrorKind::OutputError)?,
                 Err(ref e) => print_error(&mut w, e)?,
             }
@@ -204,12 +206,14 @@ impl<'a> SummaryOutput<'a> {
 
 impl<'a> OutputModule for SummaryOutput<'a> {
     fn output(&self, mut w: &mut Write) -> Result<()> {
-        writeln!(&mut w, "Received {} (min {}, max {} records) answers from {} servers",
-                 self.statistics.num_of_ok_samples,
-                 self.statistics.min_num_of_records,
-                 self.statistics.max_num_of_records,
-                 self.statistics.num_of_samples,
-        ).chain_err(|| ErrorKind::OutputError)?;
+        if self.cfg.show_headers {
+            writeln!(&mut w, "Received {} (min {}, max {} records) answers from {} servers",
+                     self.statistics.num_of_ok_samples,
+                     self.statistics.min_num_of_records,
+                     self.statistics.max_num_of_records,
+                     self.statistics.num_of_samples,
+            ).chain_err(|| ErrorKind::OutputError)?;
+        }
         let records: Vec<_> = self.statistics
             .record_counts
             .values()
@@ -239,18 +243,24 @@ impl<'a> OutputModule for SummaryOutput<'a> {
     }
 }
 
-fn write_response(f: &mut Write, r: &lookup::Response, human: bool, show_unsupported: bool) -> io::Result<()> {
+fn write_response(f: &mut Write, r: &lookup::Response, cfg: &OutputConfig) -> io::Result<()> {
     if r.answers.is_empty() {
-        return writeln!(f, "DNS server {} has no records.", r.server);
+        if cfg.show_nx_domain {
+            return writeln!(f, "DNS server {} has no records.", r.server);
+        } else {
+            return ::std::result::Result::Ok(());
+        }
     }
-    let _ = write!(f, "DNS server {} responded with\n", r.server);
+    if cfg.show_headers {
+        let _ = write!(f, "DNS server {} responded with\n", r.server);
+    }
     let answers: Vec<String> = r.answers
         .iter()
         .sorted_by(|a, b| compare_records(a, b))
         .iter()
         .map(|answer|
-            (fmt_record(answer, human, show_unsupported),
-             if human {
+            (fmt_record(answer, cfg.human_readable, cfg.show_unsupported_rr),
+             if cfg.human_readable {
                  humanize_ttl(answer.ttl() as i64)
              } else {
                  format!("in {} sec", answer.ttl())

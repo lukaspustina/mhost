@@ -71,12 +71,15 @@ pub fn lookup<T: Into<SocketAddr>>(
             client
                 .query(domain_name.clone(), DNSClass::IN, rt)
                 .map(move |mut response| {
+                    trace!("{} successfully responded to {}. query for {} with {} answers.",
+                           socket_addr.ip(), index+1, rt, response.answers().len());
                     Response {
                         server: socket_addr.ip(),
                         answers: response.take_answers(),
                     }
                 })
                 .map_err(move |e| {
+                    info!("{} failed {}. query for {} because {}.", socket_addr.ip(), index+1, rt, e);
                     Error::with_chain(e, ErrorKind::QueryError(index + 1, rt, socket_addr.ip()))
                 })
         })

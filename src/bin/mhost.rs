@@ -38,17 +38,14 @@ fn run() -> Result<()> {
         return generate_completion(&args);
     }
 
-    let (query, server_limit) = parse_args(&args)?;
+    let (query, server_limit, output_cfg) = parse_args(&args)?;
     let responses = run_lookup(&args, query, server_limit);
     // TODO: https://github.com/kbknapp/clap-rs/issues/1056
     let output_modules = match args.values_of_lossy("output modules") {
         Some(v) => v,
         None => vec!["summar".to_string()],
     };
-    let output_cfg = OutputConfig {
-        human_readable: args.is_present("human-readable output"),
-        show_unsupported_rr: args.is_present("show unsupported"),
-    };
+
     output(output_modules, &output_cfg, &responses)?;
 
     Ok(())
@@ -169,10 +166,21 @@ fn build_cli() -> App<'static, 'static> {
                 .long("show-unsupported")
                 .help("Shows unsupported resource records")
         )
-        .arg(Arg::with_name("verbosity")
-            .short("v")
-            .multiple(true)
-            .help("Sets level of verbosity")
+        .arg(
+            Arg::with_name("show nxdomain")
+                .long("show-nxdomain")
+                .help("Shows NXDOMAIN responses")
+        )
+        .arg(
+            Arg::with_name("hide headers")
+                .long("hide-headers")
+                .help("Hides output headers")
+        )
+        .arg(
+            Arg::with_name("verbosity")
+                .short("v")
+                .multiple(true)
+                .help("Sets level of verbosity")
         )
         .arg(
             Arg::with_name("completions")
@@ -238,12 +246,12 @@ fn generate_completion(args: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-fn parse_args(args: &ArgMatches) -> Result<(Query, usize)> {
+fn parse_args(args: &ArgMatches) -> Result<(Query, usize, OutputConfig)> {
     let timeout = value_t!(args, "timeout", u64)
         .map(Duration::from_secs)
         .unwrap();
 
-    let query = match IpAddr::from_str(args.value_of("domain name").unwrap() ) {
+    let query = match IpAddr::from_str(args.value_of("domain name").unwrap()) {
         Ok(ip) => Query::from(ip, vec![RecordType::PTR]),
         Err(_) => {
             let domain_name = if args.is_present("dont use local search domain") {
@@ -270,7 +278,14 @@ fn parse_args(args: &ArgMatches) -> Result<(Query, usize)> {
 
     let server_limit = value_t!(args, "limit", usize).unwrap();
 
-    Ok((query, server_limit))
+    let output_cfg = OutputConfig {
+        human_readable: args.is_present("human-readable output"),
+        show_headers: !args.is_present("hide headers"),
+        show_nx_domain: args.is_present("show nxdomain"),
+        show_unsupported_rr: args.is_present("show unsupported"),
+    };
+
+    Ok((query, server_limit, output_cfg))
 }
 
 // TODO: make this a Result
@@ -303,7 +318,7 @@ fn run_lookup(args: &ArgMatches, query: Query, server_limit: usize) -> Vec<Looku
     result.unwrap()
 }
 
-fn output<'a, 'b>(outputs: Vec<String>, output_cfg: &OutputConfig, responses: &'b[LookupResult<Response>]) -> Result<()> {
+fn output<'a, 'b>(outputs: Vec<String>, output_cfg: &OutputConfig, responses: &'b [LookupResult<Response>]) -> Result<()> {
     let mut writer = std::io::stdout();
     for output in outputs {
         match output.as_ref() {

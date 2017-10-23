@@ -95,6 +95,9 @@ The project home page is *https://github.com/lukaspustina/mhost*.
 
 # LESS COMMON OPTIONS
 
+--hide-headers
+: Hides output headers.
+
 -l
 : Limits the amount of servers to query. The default is 100.
 
@@ -106,6 +109,9 @@ The project home page is *https://github.com/lukaspustina/mhost*.
 
 --timeout *timeout*
 : Sets timeout for server responses in sec. The default is 5 sec.
+
+--show-nxdomain
+: Shows NXDOMAIN responses that servers send if no records can be found for a domain name.
 
 --show-unsupported
 : Show unsupported resource records. In case an "any" request is performed and unsupported resource records received, these records will be shown in an unparsed fashion.
