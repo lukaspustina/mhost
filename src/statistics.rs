@@ -106,7 +106,7 @@ fn check_soa_serial_numbers(responses: &[&Response]) -> Option<Alert> {
             *value += 1;
         });
 
-    if !serial_counts.is_empty() {
+    if serial_counts.len() > 1 {
         Some(Alert::SoaSnDiverge(serial_counts))
     } else {
         None
