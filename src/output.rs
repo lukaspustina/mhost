@@ -180,7 +180,7 @@ impl<'a> OutputModule for DetailsOutput<'a> {
     fn output(&self, mut w: &mut Write) -> Result<()> {
         for response in self.responses {
             match *response {
-                Ok(ref r) => write_response(&mut w, r, self.cfg.human_readable)
+                Ok(ref r) => write_response(&mut w, r, self.cfg.human_readable, self.cfg.show_unsupported_rr)
                     .chain_err(|| ErrorKind::OutputError)?,
                 Err(ref e) => print_error(&mut w, e)?,
             }
@@ -219,8 +219,14 @@ impl<'a> OutputModule for SummaryOutput<'a> {
             .map(|rr| {
                 let record = rr.0;
                 let count = rr.1;
-                format!("* {} ({})", fmt_record(record, self.cfg.human_readable), count)
+                (fmt_record(
+                    record, self.cfg.human_readable, self.cfg.show_unsupported_rr),
+                 count)
             })
+            .filter(|&(ref rr, _)| rr.is_some())
+            .map(|(rr, count)|
+                format!("* {} ({})", rr.unwrap(), count)
+            )
             .collect();
 
         let mut tw = TabWriter::new(vec![]).padding(1);
@@ -233,7 +239,7 @@ impl<'a> OutputModule for SummaryOutput<'a> {
     }
 }
 
-fn write_response(f: &mut Write, r: &lookup::Response, human: bool) -> io::Result<()> {
+fn write_response(f: &mut Write, r: &lookup::Response, human: bool, show_unsupported: bool) -> io::Result<()> {
     if r.answers.is_empty() {
         return writeln!(f, "DNS server {} has no records.", r.server);
     }
@@ -243,14 +249,17 @@ fn write_response(f: &mut Write, r: &lookup::Response, human: bool) -> io::Resul
         .sorted_by(|a, b| compare_records(a, b))
         .iter()
         .map(|answer|
-            format!("* {} [expires {}]",
-                    fmt_record(answer, human),
-                    if human {
-                        humanize_ttl(answer.ttl() as i64)
-                    } else {
-                        format!("in {} sec", answer.ttl())
-                    }
+            (fmt_record(answer, human, show_unsupported),
+             if human {
+                 humanize_ttl(answer.ttl() as i64)
+             } else {
+                 format!("in {} sec", answer.ttl())
+             }
             )
+        )
+        .filter(|&(ref rr, _)| rr.is_some())
+        .map(|(rr, ttl)|
+            format!("* {} [expires {}]", rr.unwrap(), ttl)
         )
         .collect();
 
@@ -290,62 +299,87 @@ fn humanize_ttl(ttl: i64) -> String {
     format!("{}", ht)
 }
 
-fn fmt_record(r: &Record, human: bool) -> String {
+fn fmt_record(r: &Record, human: bool, show_unsupported: bool) -> Option<String> {
     match *r.rdata() {
-        RData::A(ip) => format!("IPv4:\t{}", ip),
-        RData::AAAA(ip) => format!("IPv6:\t{}", ip),
+        RData::A(ip) => {
+            Some(
+                format!("IPv4:\t{}", ip)
+            )
+        }
+        RData::AAAA(ip) => {
+            Some(
+                format!("IPv6:\t{}", ip)
+            )
+        }
         RData::CNAME(ref name) => {
-            format!("CNAME:\t{}", Colour::Blue.paint(format!("{}", name)))
+            Some(
+                format!("CNAME:\t{}", Colour::Blue.paint(format!("{}", name)))
+            )
         }
         RData::MX(ref mx) => {
-            format!(
-                "MX:\t{} with preference {}",
-                Colour::Yellow.paint(format!("{}", mx.exchange())),
-                Colour::Yellow.paint(format!("{}", mx.preference()))
+            Some(
+                format!(
+                    "MX:\t{} with preference {}",
+                    Colour::Yellow.paint(format!("{}", mx.exchange())),
+                    Colour::Yellow.paint(format!("{}", mx.preference()))
+                )
             )
         }
-        RData::NS(ref name) => format!("NS:\t{}", Colour::Cyan.paint(format!("{}", name))),
+        RData::NS(ref name) => {
+            Some(
+                format!("NS:\t{}", Colour::Cyan.paint(format!("{}", name)))
+            )
+        }
         RData::SOA(ref soa) => {
-            if human {
-                format!(
-                    "SOA:\torigin NS {}, responsible party {}, serial {}, refresh {}, retry {}, expire {}, min {}",
-                    Colour::Green.paint(format!("{}", soa.mname())),
-                    Colour::Green.paint(format!("{}", soa.rname())),
-                    Colour::Green.paint(format!("{}", soa.serial())),
-                    Colour::Green.paint(humanize_ttl(soa.refresh() as i64)),
-                    Colour::Green.paint(humanize_ttl(soa.retry() as i64)),
-                    Colour::Green.paint(humanize_ttl(soa.expire() as i64)),
-                    Colour::Green.paint(humanize_ttl(soa.minimum() as i64))
-                )
-            } else {
-                format!(
-                    "SOA:\torigin NS {}, responsible party {}, serial {}, refresh {} sec, retry {} sec, expire {} sec, min {} sec",
-                    Colour::Green.paint(format!("{}", soa.mname())),
-                    Colour::Green.paint(format!("{}", soa.rname())),
-                    Colour::Green.paint(format!("{}", soa.serial())),
-                    Colour::Green.paint(format!("{}", soa.refresh())),
-                    Colour::Green.paint(format!("{}", soa.retry())),
-                    Colour::Green.paint(format!("{}", soa.expire())),
-                    Colour::Green.paint(format!("{}", soa.minimum()))
-                )
-            }
+            Some(
+                if human {
+                    format!(
+                        "SOA:\torigin NS {}, responsible party {}, serial {}, refresh {}, retry {}, expire {}, min {}",
+                        Colour::Green.paint(format!("{}", soa.mname())),
+                        Colour::Green.paint(format!("{}", soa.rname())),
+                        Colour::Green.paint(format!("{}", soa.serial())),
+                        Colour::Green.paint(humanize_ttl(soa.refresh() as i64)),
+                        Colour::Green.paint(humanize_ttl(soa.retry() as i64)),
+                        Colour::Green.paint(humanize_ttl(soa.expire() as i64)),
+                        Colour::Green.paint(humanize_ttl(soa.minimum() as i64))
+                    )
+                } else {
+                    format!(
+                        "SOA:\torigin NS {}, responsible party {}, serial {}, refresh {} sec, retry {} sec, expire {} sec, min {} sec",
+                        Colour::Green.paint(format!("{}", soa.mname())),
+                        Colour::Green.paint(format!("{}", soa.rname())),
+                        Colour::Green.paint(format!("{}", soa.serial())),
+                        Colour::Green.paint(format!("{}", soa.refresh())),
+                        Colour::Green.paint(format!("{}", soa.retry())),
+                        Colour::Green.paint(format!("{}", soa.expire())),
+                        Colour::Green.paint(format!("{}", soa.minimum()))
+                    )
+                }
+            )
         }
         RData::TXT(ref txt) => {
-            format!("TXT:\t{}", Colour::Purple.paint(
-                if human {
-                    fmt_txt(txt.txt_data())
-                } else {
-                    txt.txt_data().join(" ")
-                }
-            ))
-        }
-        RData::PTR(ref ptr) => format!("PTR:\t{}", ptr),
-        ref x => {
-            format!(
-                "Unsupported RR:\t{}",
-                Colour::Red.paint(format!("{:?}", x))
+            Some(
+                format!("TXT:\t{}", Colour::Purple.paint(
+                    if human {
+                        fmt_txt(txt.txt_data())
+                    } else {
+                        txt.txt_data().join(" ")
+                    }
+                ))
             )
         }
+        RData::PTR(ref ptr) => {
+            Some(format!("PTR:\t{}", ptr))
+        }
+        ref x if show_unsupported => {
+            Some(
+                format!(
+                    "Unsupported RR:\t{}",
+                    Colour::Red.paint(format!("{:?}", x))
+                )
+            )
+        }
+        _ => None
     }
 }
 

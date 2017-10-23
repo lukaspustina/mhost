@@ -47,7 +47,7 @@ fn run() -> Result<()> {
     };
     let output_cfg = OutputConfig {
         human_readable: args.is_present("human-readable output"),
-        show_unsupported_rr: false,
+        show_unsupported_rr: args.is_present("show unsupported"),
     };
     output(output_modules, &output_cfg, &responses)?;
 
@@ -163,6 +163,11 @@ fn build_cli() -> App<'static, 'static> {
             Arg::with_name("human-readable output")
                 .short("h")
                 .help("Sets human-readable output")
+        )
+        .arg(
+            Arg::with_name("show unsupported")
+                .long("show-unsupported")
+                .help("Shows unsupported resource records")
         )
         .arg(Arg::with_name("verbosity")
             .short("v")
