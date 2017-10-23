@@ -12,9 +12,13 @@ use std::io::{self, Write};
 use tabwriter::TabWriter;
 use trust_dns::rr::{RData, Record};
 
+pub struct OutputConfig {
+    pub human_readable: bool,
+    pub show_unsupported_rr: bool,
+}
+
 pub trait OutputModule {
     fn output(&self, w: &mut Write) -> Result<()>;
-    fn is_human(&self) -> bool;
 }
 
 pub use self::json::Json;
@@ -23,7 +27,6 @@ mod json {
     use super::*;
     use lookup;
 
-    use std::io::Write;
     use trust_dns::rr::RData;
     use serde_json;
 
@@ -38,7 +41,7 @@ mod json {
     }
 
     impl<'a> OutputModule for Json<'a> {
-        fn output(&self, w: &mut Write) -> Result<()> {
+        fn output(&self, mut w: &mut Write) -> Result<()> {
             let ok_responses: Vec<_> = self.responses
                 .iter()
                 .filter_map(|x| x.as_ref().ok())
@@ -84,11 +87,7 @@ mod json {
                 })
                 .collect();
 
-            serde_json::to_writer_pretty(w, &rrs).chain_err(|| ErrorKind::OutputError)
-        }
-
-        fn is_human(&self) -> bool {
-            false
+            serde_json::to_writer_pretty(&mut w, &rrs).chain_err(|| ErrorKind::OutputError)
         }
     }
 
@@ -167,48 +166,45 @@ mod json {
 }
 
 pub struct DetailsOutput<'a> {
+    cfg: &'a OutputConfig,
     responses: &'a [lookup::Result<lookup::Response>],
-    human: bool,
 }
 
 impl<'a> DetailsOutput<'a> {
-    pub fn new(responses: &'a [lookup::Result<lookup::Response>], human: bool) -> Self {
-        DetailsOutput { responses, human }
+    pub fn new(cfg: &'a OutputConfig, responses: &'a [lookup::Result<lookup::Response>]) -> Self {
+        DetailsOutput { cfg, responses }
     }
 }
 
 impl<'a> OutputModule for DetailsOutput<'a> {
-    fn output(&self, w: &mut Write) -> Result<()> {
+    fn output(&self, mut w: &mut Write) -> Result<()> {
         for response in self.responses {
             match *response {
-                Ok(ref r) => write_response(w, r, self.human).chain_err(|| ErrorKind::OutputError)?,
-                Err(ref e) => print_error(w, e)?,
+                Ok(ref r) => write_response(&mut w, r, self.cfg.human_readable)
+                    .chain_err(|| ErrorKind::OutputError)?,
+                Err(ref e) => print_error(&mut w, e)?,
             }
         }
 
         Ok(())
     }
-
-    fn is_human(&self) -> bool {
-        self.human
-    }
 }
 
 pub struct SummaryOutput<'a> {
+    cfg: &'a OutputConfig,
     statistics: Statistics<'a>,
-    human: bool,
 }
 
 impl<'a> SummaryOutput<'a> {
-    pub fn new(responses: &'a [lookup::Result<lookup::Response>], human: bool) -> Self {
+    pub fn new(cfg: &'a OutputConfig, responses: &'a [lookup::Result<lookup::Response>]) -> Self {
         let statistics = Statistics::from(responses);
-        SummaryOutput { statistics, human }
+        SummaryOutput { cfg, statistics }
     }
 }
 
 impl<'a> OutputModule for SummaryOutput<'a> {
-    fn output(&self, w: &mut Write) -> Result<()> {
-        writeln!(w, "Received {} (min {}, max {} records) answers from {} servers",
+    fn output(&self, mut w: &mut Write) -> Result<()> {
+        writeln!(&mut w, "Received {} (min {}, max {} records) answers from {} servers",
                  self.statistics.num_of_ok_samples,
                  self.statistics.min_num_of_records,
                  self.statistics.max_num_of_records,
@@ -223,7 +219,7 @@ impl<'a> OutputModule for SummaryOutput<'a> {
             .map(|rr| {
                 let record = rr.0;
                 let count = rr.1;
-                format!("* {} ({})", fmt_record(record, self.human), count)
+                format!("* {} ({})", fmt_record(record, self.cfg.human_readable), count)
             })
             .collect();
 
@@ -231,13 +227,9 @@ impl<'a> OutputModule for SummaryOutput<'a> {
         write!(&mut tw, "{}", records.join("\n")).chain_err(|| ErrorKind::OutputError)?;
         let out_str = String::from_utf8(tw.into_inner().unwrap()).unwrap();
 
-        writeln!(w, "{}", out_str).chain_err(|| ErrorKind::OutputError)?;
+        writeln!(&mut w, "{}", out_str).chain_err(|| ErrorKind::OutputError)?;
 
         Ok(())
-    }
-
-    fn is_human(&self) -> bool {
-        self.human
     }
 }
 

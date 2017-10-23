@@ -14,7 +14,7 @@ extern crate trust_dns;
 use mhost::{Query, Response, multiple_lookup};
 use mhost::lookup::{self, Result as LookupResult};
 use mhost::get;
-use mhost::output::{self, OutputModule};
+use mhost::output::{self, OutputConfig, OutputModule};
 
 use ansi_term::Colour;
 use clap::{App, Arg, ArgMatches, Shell};
@@ -45,7 +45,11 @@ fn run() -> Result<()> {
         Some(v) => v,
         None => vec!["summar".to_string()],
     };
-    output(&responses, output_modules, args.is_present("human-readable output"))?;
+    let output_cfg = OutputConfig {
+        human_readable: args.is_present("human-readable output"),
+        show_unsupported_rr: false,
+    };
+    output(output_modules, &output_cfg, &responses)?;
 
     Ok(())
 }
@@ -294,13 +298,13 @@ fn run_lookup(args: &ArgMatches, query: Query, server_limit: usize) -> Vec<Looku
     result.unwrap()
 }
 
-fn output(responses: &[LookupResult<Response>], outputs: Vec<String>, human: bool) -> Result<()> {
+fn output<'a, 'b>(outputs: Vec<String>, output_cfg: &OutputConfig, responses: &'b[LookupResult<Response>]) -> Result<()> {
     let mut writer = std::io::stdout();
     for output in outputs {
         match output.as_ref() {
             "json" => output::Json::new(responses).output(&mut writer)?,
-            "details" => output::DetailsOutput::new(responses, human).output(&mut writer)?,
-            _ => output::SummaryOutput::new(responses, human).output(&mut writer)?,
+            "details" => output::DetailsOutput::new(output_cfg, responses).output(&mut writer)?,
+            _ => output::SummaryOutput::new(output_cfg, responses).output(&mut writer)?,
         }
     }
 
