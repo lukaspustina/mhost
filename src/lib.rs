@@ -35,9 +35,9 @@ pub mod get;
 pub mod lookup;
 #[cfg(feature = "bin")]
 pub mod output;
-pub mod statistics;
+pub mod summary;
 pub mod txt_records;
 pub mod ungefiltert_surfen;
 
 pub use lookup::{Query, Response, lookup, multiple_lookup};
-pub use statistics::Statistics;
+pub use summary::Summary;

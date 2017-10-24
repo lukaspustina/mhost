@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use trust_dns::rr::{RData, Record};
 
 #[derive(Debug)]
-pub struct Statistics<'a> {
+pub struct Summary<'a> {
     pub num_of_samples: usize,
     pub num_of_ok_samples: usize,
     pub num_of_err_samples: usize,
@@ -19,7 +19,7 @@ pub struct Statistics<'a> {
     pub alerts: Vec<Alert>
 }
 
-impl<'a> Statistics<'a> {
+impl<'a> Summary<'a> {
     pub fn from(responses: &'a [LookupResult<Response>]) -> Self {
         let num_of_samples = responses.len();
 
@@ -59,7 +59,7 @@ impl<'a> Statistics<'a> {
 
         let alerts = alerts(responses.as_slice());
 
-        Statistics {
+        Summary {
             num_of_samples,
             num_of_ok_samples,
             num_of_err_samples,
@@ -123,7 +123,7 @@ mod test {
     use trust_dns::rr::rdata::SOA;
 
     #[test]
-    fn simple_statistics() {
+    fn simple_summary() {
         let records_1: Vec<Record> = vec![
             Record::with(
                 domain::Name::from_str("www.example.com").unwrap(),
@@ -161,16 +161,16 @@ mod test {
                 ),
             ];
 
-        let statistics = Statistics::from(&responses);
+        let summary = Summary::from(&responses);
 
-        assert_eq!(statistics.num_of_samples, 3);
-        assert_eq!(statistics.num_of_ok_samples, 2);
-        assert_eq!(statistics.num_of_err_samples, 1);
-        assert_eq!(statistics.min_num_of_records, 1);
-        assert_eq!(statistics.max_num_of_records, 2);
-        assert_eq!(statistics.record_counts.len(), 2);
+        assert_eq!(summary.num_of_samples, 3);
+        assert_eq!(summary.num_of_ok_samples, 2);
+        assert_eq!(summary.num_of_err_samples, 1);
+        assert_eq!(summary.min_num_of_records, 1);
+        assert_eq!(summary.max_num_of_records, 2);
+        assert_eq!(summary.record_counts.len(), 2);
 
-        let mut record_counts: Vec<_> = statistics
+        let mut record_counts: Vec<_> = summary
             .record_counts
             .values()
             .map(|&(_, count)| count)
@@ -178,7 +178,7 @@ mod test {
         record_counts.sort();
         assert_eq!(record_counts, vec![1, 2]);
 
-        assert_eq!(statistics.failures.len(), 1);
+        assert_eq!(summary.failures.len(), 1);
     }
 
     #[test]

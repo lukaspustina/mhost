@@ -1,6 +1,6 @@
 use lookup;
 use txt_records::{Spf, Word, Mechanism, Modifier};
-use statistics::{self, Statistics};
+use summary::{self, Summary};
 
 use ansi_term::Colour;
 use chrono::{Local, Duration};
@@ -195,13 +195,13 @@ impl<'a> OutputModule for DetailsOutput<'a> {
 
 pub struct SummaryOutput<'a> {
     cfg: &'a OutputConfig,
-    statistics: Statistics<'a>,
+    summary: Summary<'a>,
 }
 
 impl<'a> SummaryOutput<'a> {
     pub fn new(cfg: &'a OutputConfig, responses: &'a [lookup::Result<lookup::Response>]) -> Self {
-        let statistics = Statistics::from(responses);
-        SummaryOutput { cfg, statistics }
+        let summary = Summary::from(responses);
+        SummaryOutput { cfg, summary }
     }
 }
 
@@ -209,23 +209,23 @@ impl<'a> OutputModule for SummaryOutput<'a> {
     fn output(&self, mut w: &mut Write) -> Result<()> {
         if self.cfg.show_headers {
             write!(&mut w, "Received {} (min {}, max {} records) answers from {} servers",
-                   self.statistics.num_of_ok_samples,
-                   self.statistics.min_num_of_records,
-                   self.statistics.max_num_of_records,
-                   self.statistics.num_of_samples,
+                   self.summary.num_of_ok_samples,
+                   self.summary.min_num_of_records,
+                   self.summary.max_num_of_records,
+                   self.summary.num_of_samples,
             ).chain_err(|| ErrorKind::OutputError)?;
-            if !self.statistics.alerts.is_empty() {
+            if !self.summary.alerts.is_empty() {
                 let msg = Colour::Red.bold().paint(
-                    if self.statistics.alerts.len() == 1 {
-                        format!("{} alert", self.statistics.alerts.len())
+                    if self.summary.alerts.len() == 1 {
+                        format!("{} alert", self.summary.alerts.len())
                     } else {
-                        format!("{} alerts", self.statistics.alerts.len())
+                        format!("{} alerts", self.summary.alerts.len())
                     });
                 write!(&mut w, " and found {}", msg).chain_err(|| ErrorKind::OutputError)?;
             }
             writeln!(&mut w, ".").chain_err(|| ErrorKind::OutputError)?;
         }
-        let records: Vec<_> = self.statistics
+        let records: Vec<_> = self.summary
             .record_counts
             .values()
             // TODO: Why do I need to specify a closure and not just a function?
@@ -249,15 +249,15 @@ impl<'a> OutputModule for SummaryOutput<'a> {
         let out_str = String::from_utf8(tw.into_inner().unwrap()).unwrap();
         writeln!(&mut w, "{}", out_str).chain_err(|| ErrorKind::OutputError)?;
 
-        if !self.statistics.alerts.is_empty() {
+        if !self.summary.alerts.is_empty() {
             writeln!(&mut w, "{}",
-                     if self.statistics.alerts.len() == 1 {
+                     if self.summary.alerts.len() == 1 {
                          Colour::Red.bold().paint("Alert")
                      } else {
                          Colour::Red.bold().paint("Alert")
                      }
             ).chain_err(|| ErrorKind::OutputError)?;
-            let alert_msgs: String = self.statistics.alerts
+            let alert_msgs: String = self.summary.alerts
                 .iter()
                 .map(|a| format!("* {}", a))
                 .collect::<Vec<_>>()
@@ -270,10 +270,10 @@ impl<'a> OutputModule for SummaryOutput<'a> {
     }
 }
 
-impl Display for statistics::Alert {
+impl Display for summary::Alert {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         match *self {
-            statistics::Alert::SoaSnDiverge(ref serials) =>
+            summary::Alert::SoaSnDiverge(ref serials) =>
                 write!(f, "SOA serial numbers diverge: {:?}", serials)
         }
     }
