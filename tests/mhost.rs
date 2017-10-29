@@ -46,6 +46,6 @@ mod integration {
     }
 
     fn mhost() -> assert_cli::Assert {
-        assert_cli::Assert::command(&["cargo", "run", "--features=bin"])
+        assert_cli::Assert::command(&["cargo", "run", "--release", "--features=bin", "--"])
     }
 }
