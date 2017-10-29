@@ -30,7 +30,7 @@ use trust_dns::rr::RecordType;
 fn run() -> Result<()> {
     let args = build_cli().get_matches();
 
-    init_looger(args.occurrences_of("verbosity"))
+    init_looger(args.occurrences_of("debug level"))
         .start()
         .unwrap_or_else(|e| { panic!("Logger initialization failed with {}", e) });
 
@@ -177,10 +177,10 @@ fn build_cli() -> App<'static, 'static> {
                 .help("Hides output headers")
         )
         .arg(
-            Arg::with_name("verbosity")
-                .short("v")
+            Arg::with_name("debug level")
+                .short("d")
                 .multiple(true)
-                .help("Sets level of verbosity")
+                .help("Sets debug level")
         )
         .arg(
             Arg::with_name("completions")
