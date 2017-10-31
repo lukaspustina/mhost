@@ -12,7 +12,7 @@ extern crate tokio_core;
 extern crate trust_dns;
 
 use mhost::{Query, Response, multiple_lookup};
-use mhost::lookup::{self, Result as LookupResult};
+use mhost::dns::{self, Result as LookupResult};
 use mhost::get;
 use mhost::output::{self, OutputConfig, OutputModule};
 
@@ -352,7 +352,7 @@ error_chain! {
 
     links {
         Get(get::Error, get::ErrorKind);
-        Lookup(lookup::Error, lookup::ErrorKind);
+        Dns(dns::Error, dns::ErrorKind);
         Output(output::Error, output::ErrorKind);
     }
 }

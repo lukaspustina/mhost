@@ -1,5 +1,5 @@
 use defaults::{DEFAULT_DNS_SERVERS, DEFAULT_RECORD_TYPES};
-use lookup::{Source, Server};
+use dns::{Source, Server};
 use ungefiltert_surfen::{self, Server as UngefiltertServer};
 
 use futures::{Future, future};

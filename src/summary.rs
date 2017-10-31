@@ -1,7 +1,7 @@
 // TODO: deny missing docs
 #![allow(missing_docs)]
 
-use lookup::{Response, Result as LookupResult, Error as LookupError, Source};
+use dns::{Response, Result as LookupResult, Error as LookupError, Source};
 
 use itertools::Itertools;
 use std::collections::HashMap;

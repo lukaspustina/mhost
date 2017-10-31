@@ -32,12 +32,12 @@ extern crate trust_dns;
 pub mod defaults;
 #[cfg(feature = "bin")]
 pub mod get;
-pub mod lookup;
+pub mod dns;
 #[cfg(feature = "bin")]
 pub mod output;
 pub mod summary;
 pub mod txt_records;
 pub mod ungefiltert_surfen;
 
-pub use lookup::{Query, Response, lookup, multiple_lookup};
+pub use dns::{Query, Response, Server, Source, lookup, multiple_lookup};
 pub use summary::Summary;

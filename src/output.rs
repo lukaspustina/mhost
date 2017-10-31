@@ -1,4 +1,4 @@
-use lookup;
+use dns;
 use txt_records::{Spf, Word, Mechanism, Modifier};
 use summary::{self, Summary};
 
@@ -29,17 +29,18 @@ pub use self::json::Json;
 
 mod json {
     use super::*;
-    use lookup;
+
+    use dns;
 
     use trust_dns::rr::RData;
     use serde_json;
 
     pub struct Json<'a> {
-        responses: &'a [lookup::Result<lookup::Response>],
+        responses: &'a [dns::Result<dns::Response>],
     }
 
     impl<'a> Json<'a> {
-        pub fn new(responses: &'a [lookup::Result<lookup::Response>]) -> Self {
+        pub fn new(responses: &'a [dns::Result<dns::Response>]) -> Self {
             Json { responses }
         }
     }
@@ -171,11 +172,11 @@ mod json {
 
 pub struct DetailsOutput<'a> {
     cfg: &'a OutputConfig,
-    responses: &'a [lookup::Result<lookup::Response>],
+    responses: &'a [dns::Result<dns::Response>],
 }
 
 impl<'a> DetailsOutput<'a> {
-    pub fn new(cfg: &'a OutputConfig, responses: &'a [lookup::Result<lookup::Response>]) -> Self {
+    pub fn new(cfg: &'a OutputConfig, responses: &'a [dns::Result<dns::Response>]) -> Self {
         DetailsOutput { cfg, responses }
     }
 }
@@ -200,7 +201,7 @@ pub struct SummaryOutput<'a> {
 }
 
 impl<'a> SummaryOutput<'a> {
-    pub fn new(cfg: &'a OutputConfig, responses: &'a [lookup::Result<lookup::Response>]) -> Self {
+    pub fn new(cfg: &'a OutputConfig, responses: &'a [dns::Result<dns::Response>]) -> Self {
         let summary = Summary::from(responses);
         SummaryOutput { cfg, summary }
     }
@@ -280,7 +281,7 @@ impl Display for summary::Alert {
     }
 }
 
-fn write_response(f: &mut Write, r: &lookup::Response, cfg: &OutputConfig) -> io::Result<()> {
+fn write_response(f: &mut Write, r: &dns::Response, cfg: &OutputConfig) -> io::Result<()> {
     let source_str = if cfg.verbosity > 0 {
         format!(" ({:?})", r.server.source)
     } else {
@@ -472,7 +473,7 @@ fn fmt_txt_spf(spf: &Spf) -> String {
     format!("SPF version: {}\n\t* {}", spf.version, words.join("\n\t* "))
 }
 
-fn fmt_sources(sources: &[lookup::Source]) -> String {
+fn fmt_sources(sources: &[dns::Source]) -> String {
     let mut additional = 0;
     let mut local = 0;
     let mut predefined = 0;
@@ -480,10 +481,10 @@ fn fmt_sources(sources: &[lookup::Source]) -> String {
 
     for s in sources {
         match *s {
-            lookup::Source::Additional => additional += 1,
-            lookup::Source::Local => local += 1,
-            lookup::Source::Predefined => predefined += 1,
-            lookup::Source::Ungefiltert => ungefiltert += 1,
+            dns::Source::Additional => additional += 1,
+            dns::Source::Local => local += 1,
+            dns::Source::Predefined => predefined += 1,
+            dns::Source::Ungefiltert => ungefiltert += 1,
         }
     }
 
