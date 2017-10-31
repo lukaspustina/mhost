@@ -10,7 +10,7 @@ check:
 	cargo check --features bin
 
 test:
-	cargo test
+	cargo test --features bin
 
 clippy:
 	rustup run nightly cargo clippy --features bin

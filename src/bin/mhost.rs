@@ -118,7 +118,7 @@ fn build_cli() -> App<'static, 'static> {
                 .require_delimiter(true)
                 .number_of_values(1)
                 .help(
-                    "Sets DNS servers to use"
+                    "Sets DNS servers to use; use <ip:port> to set remote port"
                 )
         )
         .arg(

@@ -24,15 +24,19 @@ pub fn dns_servers(
         if let Some(servers) = servers {
             dns_servers.extend(servers.into_iter()
                 .map(|server| {
+                    let (server, port_opt) = parse_server_port(&server).unwrap();
+                    let port = port_opt.unwrap_or_else(|| 53u16);
                     let ip_addr = IpAddr::from_str(&server).unwrap();
-                    Server::udp_from_with_port(ip_addr, 53u16, Source::Additional)
+                    Server::udp_from_with_port(ip_addr, port, Source::Additional)
                 }));
         }
         if use_predefined_server {
             dns_servers.extend(DEFAULT_DNS_SERVERS.iter()
                 .map(|server| {
-                    let ip_addr = IpAddr::from_str(server).unwrap();
-                    Server::udp_from_with_port(ip_addr, 53u16, Source::Predefined)
+                    let (server, port_opt) = parse_server_port(&server).unwrap();
+                    let port = port_opt.unwrap_or_else(|| 53u16);
+                    let ip_addr = IpAddr::from_str(&server).unwrap();
+                    Server::udp_from_with_port(ip_addr, port, Source::Predefined)
                 }));
         }
         if !dont_use_local_servers {
@@ -111,8 +115,79 @@ pub fn record_types(record_types: Option<Vec<String>>) -> Result<Vec<RecordType>
     Ok(record_types)
 }
 
+fn parse_server_port(server_port: &str) -> Result<(&str, Option<u16>)> {
+    let mut splits: Vec<&str> = server_port.split(':').collect();
+    match splits.len() {
+        1 => Ok((splits.pop().unwrap(), None)),
+        2 => {
+            let port = splits.pop().unwrap().parse::<u16>()
+                .chain_err(|| ErrorKind::ServerParsingError(server_port.to_string()))?;
+            let server = splits.pop().unwrap();
+            Ok((server, Some(port)))
+        },
+        _ => Err(Error::from_kind(ErrorKind::ServerParsingError(server_port.to_string())))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn parse_server_port_server_only() {
+        let srv_str = "192.168.0.1";
+
+        let (server, port_opt) = parse_server_port(srv_str).unwrap();
+
+        assert_eq!(server, srv_str);
+        assert_eq!(port_opt, None)
+    }
+
+    #[test]
+    fn parse_server_port_server_n_port() {
+        let srv_str = "192.168.0.1:53";
+
+        let (server, port_opt) = parse_server_port(srv_str).unwrap();
+
+        assert_eq!(server, "192.168.0.1");
+        assert_eq!(port_opt, Some(53))
+    }
+
+    #[test]
+    fn parse_server_port_server_server_n_port() {
+        let srv_str = ":xx";
+
+        let result = parse_server_port(srv_str);
+
+        assert!(result.is_err())
+    }
+
+    #[test]
+    fn parse_server_port_server_n_failed_port_1() {
+        let srv_str = "192.168.0.1:xx";
+
+        let result = parse_server_port(srv_str);
+
+        assert!(result.is_err())
+    }
+
+    #[test]
+    fn parse_server_port_server_n_failed_port_2() {
+        let srv_str = "192.168.0.1:";
+
+        let result = parse_server_port(srv_str);
+
+        assert!(result.is_err())
+    }
+
+}
+
 error_chain! {
     errors {
+        ServerParsingError(srv_str: String) {
+            description("failed to parse server string")
+            display("failed to parse server string '{}'", srv_str)
+        }
         ResolvConfError {
             description("failed to parse /etc/resolv.conf")
             display("failed to parse /etc/resolv.cons")

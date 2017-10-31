@@ -85,8 +85,8 @@ The project home page is *https://github.com/lukaspustina/mhost*.
 -p
 : Adds predefined public DNS servers to list of DNS servers to query. See *https://github.com/lukaspustina/mhost/blob/master/src/defaults.rs*.
 
--s, --server *ip_address*
-: Adds DNS servers to list of DNS servers to query. This option can be used multiple times to select multiple servers.
+-s, --server *ip_address[:port]*
+: Adds DNS servers to list of DNS servers to query. In order to specify the remote port, add `:<port>`. This option can be used multiple times to select multiple servers.
 
 -t, --type *record_type*
 : Select resource record types to query.

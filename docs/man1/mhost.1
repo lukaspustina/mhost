@@ -102,7 +102,7 @@ Prints help information
 .RS
 .RE
 .TP
-.B \-m, \-\-module \f[I]module_name\f[] ...
+.B \-o, \-\-output \f[I]module_name\f[] ...
 Selects the output module to use.
 Currently three modules are available: summary, details, json.
 This option can be used multiple times to select multiple modules.
@@ -168,8 +168,9 @@ See
 .RS
 .RE
 .TP
-.B \-s, \-\-server \f[I]ip_address\f[]
+.B \-s, \-\-server \f[I]ip_address[:port]\f[]
 Adds DNS servers to list of DNS servers to query.
+In order to specify the remote port, add \f[C]:<port>\f[].
 This option can be used multiple times to select multiple servers.
 .RS
 .RE
@@ -199,6 +200,12 @@ For example for Germany and the Czech Republic:
 .fi
 .RE
 .SH LESS COMMON OPTIONS
+.TP
+.B \-d
+Sets debug level.
+Can be used to up to three times to increase debug level.
+.RS
+.RE
 .TP
 .B \-\-hide\-headers
 Hides output headers.

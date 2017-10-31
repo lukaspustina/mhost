@@ -115,15 +115,16 @@ pub fn lookup<T: Into<Server>>(
             client
                 .query(domain_name.clone(), DNSClass::IN, rt)
                 .map(move |mut response| {
-                    trace!("{} successfully responded to {}. query for {} with {} answers.",
-                           socket_addr.ip(), index + 1, rt, response.answers().len());
+                    trace!("{}:{} successfully responded to {}. query for {} with {} answers.",
+                           socket_addr.ip(), socket_addr.port(), index + 1, rt, response.answers().len());
                     Response {
                         server: server,
                         answers: response.take_answers(),
                     }
                 })
                 .map_err(move |e| {
-                    info!("{} failed {}. query for {} because {}.", socket_addr.ip(), index + 1, rt, e);
+                    info!("{}:{} failed {}. query for {} because {}.",
+                          socket_addr.ip(), socket_addr.port(), index + 1, rt, e);
                     Error::with_chain(e, ErrorKind::QueryError(index + 1, rt, socket_addr.ip()))
                 })
         })
