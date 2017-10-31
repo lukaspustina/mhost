@@ -136,7 +136,7 @@ fn check_soa_serial_numbers(responses: &[&Response]) -> Option<Alert> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use lookup::{ErrorKind as LookupErrorKind, Server, Source};
+    use dns::{ErrorKind as LookupErrorKind, Server, Source};
     use std::net::IpAddr;
     use std::str::FromStr;
     use trust_dns::rr::{domain, RecordType};

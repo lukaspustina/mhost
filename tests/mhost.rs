@@ -47,6 +47,6 @@ mod integration {
 
     fn mhost() -> assert_cli::Assert {
         ::std::env::set_var("RUST_BACKTRACE", "1");
-        assert_cli::Assert::command(&["cargo", "run", "--release", "--features=bin", "--"])
+        assert_cli::Assert::command(&["./target/debug/mhost"])
     }
 }
