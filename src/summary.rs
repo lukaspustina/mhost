@@ -1,11 +1,31 @@
 // TODO: deny missing docs
 #![allow(missing_docs)]
 
-use lookup::{Response, Result as LookupResult, Error as LookupError};
+use lookup::{Response, Result as LookupResult, Error as LookupError, Source};
 
 use itertools::Itertools;
 use std::collections::HashMap;
 use trust_dns::rr::{RData, Record};
+
+#[derive(Debug)]
+pub struct RecordCount<'a> {
+    record: &'a Record,
+    sources: Vec<Source>,
+}
+
+impl<'a> RecordCount<'a> {
+    pub fn count(&self) -> usize {
+        self.sources.len()
+    }
+
+    pub fn record(&self) -> &Record {
+        self.record
+    }
+
+    pub fn sources(&self) -> &Vec<Source> {
+        &self.sources
+    }
+}
 
 #[derive(Debug)]
 pub struct Summary<'a> {
@@ -14,7 +34,7 @@ pub struct Summary<'a> {
     pub num_of_err_samples: usize,
     pub min_num_of_records: usize,
     pub max_num_of_records: usize,
-    pub record_counts: HashMap<String, (&'a Record, u16)>,
+    pub record_counts: HashMap<String, RecordCount<'a>>,
     pub failures: Vec<&'a LookupError>,
     pub alerts: Vec<Alert>
 }
@@ -25,17 +45,17 @@ impl<'a> Summary<'a> {
 
         let (responses, failures): (Vec<_>, Vec<_>) =
             responses.into_iter().partition(|x| x.is_ok());
-        let responses: Vec<&Response> =
+        let successes: Vec<&Response> =
             responses.into_iter().map(|x| x.as_ref().unwrap()).collect();
         let failures: Vec<&LookupError> = failures
             .into_iter()
             .map(|x| x.as_ref().unwrap_err())
             .collect();
 
-        let num_of_ok_samples = responses.len();
+        let num_of_ok_samples = successes.len();
         let num_of_err_samples = failures.len();
 
-        let (min_num_of_records, max_num_of_records) = responses
+        let (min_num_of_records, max_num_of_records) = successes
             .iter()
             .map(|x| x.answers.len())
             .fold((::std::usize::MAX, 0), |(mut min, mut max), x| {
@@ -49,15 +69,15 @@ impl<'a> Summary<'a> {
             });
 
         let mut record_counts = HashMap::new();
-        for response in &responses {
-            for rr in &response.answers {
-                let key = format!("{:?}-{:?}", rr.rr_type(), rr.rdata());
-                let value = record_counts.entry(key).or_insert((rr, 0u16));
-                value.1 += 1
+        for response in &successes {
+            for record in &response.answers {
+                let key = format!("{:?}-{:?}", record.rr_type(), record.rdata());
+                let value = record_counts.entry(key).or_insert( RecordCount{ record, sources: Vec::new() } );
+                value.sources.push(response.server.source);
             }
         }
 
-        let alerts = alerts(responses.as_slice());
+        let alerts = alerts(successes.as_slice());
 
         Summary {
             num_of_samples,
@@ -116,7 +136,7 @@ fn check_soa_serial_numbers(responses: &[&Response]) -> Option<Alert> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use lookup::ErrorKind as LookupErrorKind;
+    use lookup::{ErrorKind as LookupErrorKind, Server, Source};
     use std::net::IpAddr;
     use std::str::FromStr;
     use trust_dns::rr::{domain, RecordType};
@@ -137,7 +157,7 @@ mod test {
             ),
         ];
         let response_1 = Response {
-            server: IpAddr::from([127, 0, 0, 1]),
+            server: Server::udp_from(IpAddr::from([127, 0, 0, 1]), Source::Additional),
             answers: records_1,
         };
         let records_2: Vec<Record> = vec![
@@ -148,7 +168,7 @@ mod test {
             ),
         ];
         let response_2 = Response {
-            server: IpAddr::from([127, 0, 0, 2]),
+            server: Server::udp_from(IpAddr::from([127, 0, 0, 2]), Source::Additional),
             answers: records_2,
         };
         let responses: Vec<LookupResult<Response>> =
@@ -173,7 +193,7 @@ mod test {
         let mut record_counts: Vec<_> = summary
             .record_counts
             .values()
-            .map(|&(_, count)| count)
+            .map(|ref rc| rc.count())
             .collect();
         record_counts.sort();
         assert_eq!(record_counts, vec![1, 2]);
@@ -202,7 +222,7 @@ mod test {
             )
         ];
         let response_1 = Response {
-            server: IpAddr::from([127, 0, 0, 1]),
+            server: Server::udp_from(IpAddr::from([127, 0, 0, 1]), Source::Additional),
             answers: records_1,
         };
         let records_2: Vec<Record> = vec![
@@ -223,7 +243,7 @@ mod test {
                 )
             )];
         let response_2 = Response {
-            server: IpAddr::from([127, 0, 0, 2]),
+            server: Server::udp_from(IpAddr::from([127, 0, 0, 2]), Source::Additional),
             answers: records_2,
         };
         let responses: Vec<Response> = vec![response_1, response_2, ];

@@ -14,6 +14,49 @@ use trust_dns::rr::domain;
 use trust_dns::rr::{DNSClass, Record, RecordType};
 use trust_dns::udp::UdpClientStream;
 
+#[derive(Debug, Clone, Copy)]
+pub enum Protocol {
+    Udp,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Source {
+    Additional,
+    Local,
+    Predefined,
+    Ungefiltert,
+}
+
+
+#[derive(Debug, Clone, Copy)]
+pub struct Server {
+    pub ip_addr: IpAddr,
+    pub port: u16,
+    pub protocol: Protocol,
+    pub source: Source
+}
+
+impl Server {
+    pub fn udp_from<T: Into<IpAddr>>(ip_addr: T, from: Source) -> Server {
+        Server::udp_from_with_port(ip_addr, 53, from)
+    }
+
+    pub fn udp_from_with_port<T: Into<IpAddr>>(ip_addr: T, port: u16, from: Source) -> Server {
+        Server { ip_addr: ip_addr.into(), port: port, protocol: Protocol::Udp, source: from }
+    }
+
+    pub fn as_socket_addr(&self) -> SocketAddr {
+        (self.ip_addr, self.port).into()
+    }
+}
+
+impl From<(IpAddr, Source)> for Server {
+    fn from(from: (IpAddr, Source)) -> Self {
+        let (ip, source) = from;
+        Server::udp_from_with_port(ip, 53, source)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Query {
     domain_name: domain::Name,
@@ -48,16 +91,17 @@ impl Query {
 
 #[derive(Debug)]
 pub struct Response {
-    pub server: IpAddr,
+    pub server: Server,
     pub answers: Vec<Record>,
 }
 
-pub fn lookup<T: Into<SocketAddr>>(
+pub fn lookup<T: Into<Server>>(
     loop_handle: &Handle,
     query: Query,
     server: T,
 ) -> Box<Future<Item=Response, Error=Error>> {
-    let socket_addr = server.into();
+    let server = server.into();
+    let socket_addr = server.as_socket_addr();
     let domain_name = query.domain_name;
 
     let (stream, sender) = UdpClientStream::new(socket_addr, loop_handle);
@@ -72,14 +116,14 @@ pub fn lookup<T: Into<SocketAddr>>(
                 .query(domain_name.clone(), DNSClass::IN, rt)
                 .map(move |mut response| {
                     trace!("{} successfully responded to {}. query for {} with {} answers.",
-                           socket_addr.ip(), index+1, rt, response.answers().len());
+                           socket_addr.ip(), index + 1, rt, response.answers().len());
                     Response {
-                        server: socket_addr.ip(),
+                        server: server,
                         answers: response.take_answers(),
                     }
                 })
                 .map_err(move |e| {
-                    info!("{} failed {}. query for {} because {}.", socket_addr.ip(), index+1, rt, e);
+                    info!("{} failed {}. query for {} because {}.", socket_addr.ip(), index + 1, rt, e);
                     Error::with_chain(e, ErrorKind::QueryError(index + 1, rt, socket_addr.ip()))
                 })
         })
@@ -99,7 +143,7 @@ pub fn lookup<T: Into<SocketAddr>>(
         }
 
         futures::future::ok(Response {
-            server: socket_addr.ip(),
+            server: server,
             answers: all_answers,
         })
     });
@@ -114,7 +158,7 @@ pub fn lookup<T: Into<SocketAddr>>(
 /// In this way, this function does not abort when single lookups fail, but wait for all queries / Futures to finish.
 /// The library user than can distinguish between successful and failed lookups.
 #[allow(needless_pass_by_value)]
-pub fn multiple_lookup<T: Into<SocketAddr>>(
+pub fn multiple_lookup<T: Into<Server>>(
     loop_handle: &Handle,
     query: Query,
     servers: Vec<T>,
@@ -160,13 +204,13 @@ mod test {
         let mut io_loop = Core::new().unwrap();
         let domain_name = "example.com";
         let query = Query::new(domain_name, vec![RecordType::A]);
-        let server = (Ipv4Addr::from_str("8.8.8.8").unwrap(), 53);
+        let server = Server::udp_from(Ipv4Addr::from_str("8.8.8.8").unwrap(), Source::Additional);
 
         let lookup = lookup(&io_loop.handle(), query, server);
         let result = io_loop.run(lookup).unwrap();
         let response: Response = result;
 
-        assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
+        assert_eq!(response.server.ip_addr, Ipv4Addr::from_str("8.8.8.8").unwrap());
         assert_eq!(response.answers.len(), 1);
         if let RData::A(ip) = *response.answers[0].rdata() {
             assert_eq!(ip, Ipv4Addr::new(93, 184, 216, 34));
@@ -180,13 +224,13 @@ mod test {
         let mut io_loop = Core::new().unwrap();
         let ip_addr = IpAddr::from_str("8.8.8.8").unwrap();
         let query = Query::from(ip_addr, vec![RecordType::PTR]);
-        let server = (Ipv4Addr::from_str("8.8.8.8").unwrap(), 53);
+        let server = Server::udp_from(Ipv4Addr::from_str("8.8.8.8").unwrap(), Source::Additional);
 
         let lookup = lookup(&io_loop.handle(), query, server);
         let result = io_loop.run(lookup).unwrap();
         let response: Response = result;
 
-        assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
+        assert_eq!(response.server.ip_addr, Ipv4Addr::from_str("8.8.8.8").unwrap());
         assert_eq!(response.answers.len(), 1);
         if let RData::PTR(ref ptr) = *response.answers[0].rdata() {
             assert_eq!(
@@ -204,8 +248,8 @@ mod test {
         let domain_name = "example.com";
         let query = Query::new(domain_name, vec![RecordType::A]);
         let servers = vec![
-            (Ipv4Addr::from_str("8.8.4.4").unwrap(), 53),
-            (Ipv4Addr::from_str("8.8.8.8").unwrap(), 53),
+            Server::udp_from(Ipv4Addr::from_str("8.8.4.4").unwrap(), Source::Additional),
+            Server::udp_from(Ipv4Addr::from_str("8.8.8.8").unwrap(), Source::Additional),
         ];
 
         let lookup = multiple_lookup(&io_loop.handle(), query, servers);
@@ -216,10 +260,10 @@ mod test {
         let mut responses = results.unwrap();
 
         assert_eq!(responses.len(), 2);
-        responses.sort_by(|a, b| a.server.cmp(&b.server));
+        responses.sort_by(|a, b| a.server.ip_addr.cmp(&b.server.ip_addr));
 
         let response = responses.pop().unwrap();
-        assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
+        assert_eq!(response.server.ip_addr, Ipv4Addr::from_str("8.8.8.8").unwrap());
         assert_eq!(response.answers.len(), 1);
         if let RData::A(ip) = *response.answers[0].rdata() {
             assert_eq!(ip, Ipv4Addr::new(93, 184, 216, 34));
@@ -228,7 +272,7 @@ mod test {
         }
 
         let response = responses.pop().unwrap();
-        assert_eq!(response.server, Ipv4Addr::from_str("8.8.4.4").unwrap());
+        assert_eq!(response.server.ip_addr, Ipv4Addr::from_str("8.8.4.4").unwrap());
         assert_eq!(response.answers.len(), 1);
         if let RData::A(ip) = *response.answers[0].rdata() {
             assert_eq!(ip, Ipv4Addr::new(93, 184, 216, 34));
@@ -245,9 +289,9 @@ mod test {
         let query =
             Query::new(domain_name, vec![RecordType::A]).set_timeout(Duration::from_millis(500));
         let servers = vec![
-            (Ipv4Addr::from_str("8.8.8.8").unwrap(), 53),
+            Server::udp_from(Ipv4Addr::from_str("8.8.4.4").unwrap(), Source::Additional),
             // This one does not exists and should lead to a timeout
-            (Ipv4Addr::from_str("8.8.5.5").unwrap(), 53),
+            Server::udp_from(Ipv4Addr::from_str("8.8.5.5").unwrap(), Source::Additional),
         ];
 
         let lookup = multiple_lookup(&io_loop.handle(), query, servers);
@@ -258,7 +302,7 @@ mod test {
         assert!(response.is_err());
 
         let response = responses.pop().unwrap().unwrap();
-        assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
+        assert_eq!(response.server.ip_addr, Ipv4Addr::from_str("8.8.4.4").unwrap());
         assert_eq!(response.answers.len(), 1);
         if let RData::A(ip) = *response.answers[0].rdata() {
             assert_eq!(ip, Ipv4Addr::new(93, 184, 216, 34));
@@ -270,7 +314,7 @@ mod test {
     #[test]
     fn multi_record_type_lookup() {
         let mut io_loop = Core::new().unwrap();
-        let server = (Ipv4Addr::from_str("8.8.8.8").unwrap(), 53);
+        let server = Server::udp_from(Ipv4Addr::from_str("8.8.8.8").unwrap(), Source::Additional);
 
         let record_types = vec![RecordType::A, RecordType::AAAA, RecordType::MX];
         let domain_name = "example.com";
@@ -280,7 +324,7 @@ mod test {
         let result = io_loop.run(lookup).unwrap();
         let response: Response = result;
 
-        assert_eq!(response.server, Ipv4Addr::from_str("8.8.8.8").unwrap());
+        assert_eq!(response.server.ip_addr, Ipv4Addr::from_str("8.8.8.8").unwrap());
         assert_eq!(response.answers.len(), 2);
         if let RData::A(ip) = *response.answers[0].rdata() {
             assert_eq!(ip, Ipv4Addr::new(93, 184, 216, 34));

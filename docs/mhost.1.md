@@ -103,6 +103,9 @@ The project home page is *https://github.com/lukaspustina/mhost*.
 
 # LESS COMMON OPTIONS
 
+-d
+: Sets debug level. Can be used to up to three times to increase debug level.
+
 --hide-headers
 : Hides output headers.
 

@@ -18,6 +18,7 @@ pub struct OutputConfig {
     pub show_headers: bool,
     pub show_nx_domain: bool,
     pub show_unsupported_rr: bool,
+    pub verbosity: u64,
 }
 
 pub trait OutputModule {
@@ -86,7 +87,7 @@ mod json {
                         })
                         .flat_map(|x| x)
                         .collect();
-                    Response { server: format!("{}", response.server), answers }
+                    Response { server: format!("{}", response.server.ip_addr), answers }
                 })
                 .collect();
 
@@ -229,18 +230,18 @@ impl<'a> OutputModule for SummaryOutput<'a> {
             .record_counts
             .values()
             // TODO: Why do I need to specify a closure and not just a function?
-            .sorted_by(|a, b| compare_records(a.0, b.0))
+            .sorted_by(|a, b| compare_records(a.record(), b.record()))
             .iter()
-            .map(|rr| {
-                let record = rr.0;
-                let count = rr.1;
-                (fmt_record(
-                    record, self.cfg.human_readable, self.cfg.show_unsupported_rr),
-                 count)
+            .map(|rc| {
+                (fmt_record(rc.record(), self.cfg), rc)
             })
-            .filter(|&(ref rr, _)| rr.is_some())
-            .map(|(rr, count)|
-                format!("* {} ({})", rr.unwrap(), count)
+            .filter(|&(ref rr_str, _)| rr_str.is_some())
+            .map(|(rr_str, rc)|
+                if self.cfg.verbosity > 0 {
+                    format!("* {} ({})", rr_str.unwrap(), fmt_sources(rc.sources()))
+                } else {
+                    format!("* {} ({})", rr_str.unwrap(), rc.count())
+                }
             )
             .collect();
 
@@ -280,22 +281,27 @@ impl Display for summary::Alert {
 }
 
 fn write_response(f: &mut Write, r: &lookup::Response, cfg: &OutputConfig) -> io::Result<()> {
+    let source_str = if cfg.verbosity > 0 {
+        format!(" ({:?})", r.server.source)
+    } else {
+        "".to_string()
+    };
     if r.answers.is_empty() {
         if cfg.show_nx_domain {
-            return writeln!(f, "DNS server {} has no records.", r.server);
+            return writeln!(f, "DNS server {}{} has no records.", r.server.ip_addr, source_str);
         } else {
             return ::std::result::Result::Ok(());
         }
     }
     if cfg.show_headers {
-        let _ = write!(f, "DNS server {} responded with\n", r.server);
+        let _ = write!(f, "DNS server {}{} responded with\n", r.server.ip_addr, source_str);
     }
     let answers: Vec<String> = r.answers
         .iter()
         .sorted_by(|a, b| compare_records(a, b))
         .iter()
         .map(|answer|
-            (fmt_record(answer, cfg.human_readable, cfg.show_unsupported_rr),
+            (fmt_record(answer, cfg),
              if cfg.human_readable {
                  humanize_ttl(answer.ttl() as i64)
              } else {
@@ -345,7 +351,7 @@ fn humanize_ttl(ttl: i64) -> String {
     format!("{}", ht)
 }
 
-fn fmt_record(r: &Record, human: bool, show_unsupported: bool) -> Option<String> {
+fn fmt_record(r: &Record, cfg: &OutputConfig) -> Option<String> {
     match *r.rdata() {
         RData::A(ip) => {
             Some(
@@ -378,7 +384,7 @@ fn fmt_record(r: &Record, human: bool, show_unsupported: bool) -> Option<String>
         }
         RData::SOA(ref soa) => {
             Some(
-                if human {
+                if cfg.human_readable {
                     format!(
                         "SOA:\torigin NS {}, responsible party {}, serial {}, refresh {}, retry {}, expire {}, min {}",
                         Colour::Green.paint(format!("{}", soa.mname())),
@@ -406,7 +412,7 @@ fn fmt_record(r: &Record, human: bool, show_unsupported: bool) -> Option<String>
         RData::TXT(ref txt) => {
             Some(
                 format!("TXT:\t{}", Colour::Purple.paint(
-                    if human {
+                    if cfg.human_readable {
                         fmt_txt(txt.txt_data())
                     } else {
                         txt.txt_data().join(" ")
@@ -417,7 +423,7 @@ fn fmt_record(r: &Record, human: bool, show_unsupported: bool) -> Option<String>
         RData::PTR(ref ptr) => {
             Some(format!("PTR:\t{}", ptr))
         }
-        ref x if show_unsupported => {
+        ref x if cfg.show_unsupported_rr => {
             Some(
                 format!(
                     "Unsupported RR:\t{}",
@@ -464,6 +470,30 @@ fn fmt_txt_spf(spf: &Spf) -> String {
         })
         .collect();
     format!("SPF version: {}\n\t* {}", spf.version, words.join("\n\t* "))
+}
+
+fn fmt_sources(sources: &[lookup::Source]) -> String {
+    let mut additional = 0;
+    let mut local = 0;
+    let mut predefined = 0;
+    let mut ungefiltert = 0;
+
+    for s in sources {
+        match *s {
+            lookup::Source::Additional => additional += 1,
+            lookup::Source::Local => local += 1,
+            lookup::Source::Predefined => predefined += 1,
+            lookup::Source::Ungefiltert => ungefiltert += 1,
+        }
+    }
+
+    let mut strs = Vec::new();
+    if local > 0 { strs.push(format!("{} local", local)); }
+    if predefined > 0 { strs.push(format!("{} predefined", predefined)); }
+    if ungefiltert > 0 { strs.push(format!("{} ungefiltert", ungefiltert)); }
+    if additional > 0 { strs.push(format!("{} additional", additional)); }
+
+    strs.join(", ")
 }
 
 pub fn print_error<T: ChainedError>(w: &mut Write, err: &T) -> Result<()> {

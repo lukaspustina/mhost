@@ -105,7 +105,7 @@ fn build_cli() -> App<'static, 'static> {
                 .short("S")
                 .help("Ignore local search domains from /etc/resolv.conf")
         )
-        .arg(Arg::with_name("predefined server").short("p").help(
+        .arg(Arg::with_name("predefined servers").short("p").help(
             "Uses predefined DNS servers set"
         ))
         .arg(
@@ -181,6 +181,12 @@ fn build_cli() -> App<'static, 'static> {
                 .short("d")
                 .multiple(true)
                 .help("Sets debug level")
+        )
+        .arg(
+            Arg::with_name("verbosity level")
+                .short("v")
+                .multiple(true)
+                .help("Sets level of verbosity")
         )
         .arg(
             Arg::with_name("completions")
@@ -283,6 +289,7 @@ fn parse_args(args: &ArgMatches) -> Result<(Query, usize, OutputConfig)> {
         show_headers: !args.is_present("hide headers"),
         show_nx_domain: args.is_present("show nxdomain"),
         show_unsupported_rr: args.is_present("show unsupported"),
+        verbosity: args.occurrences_of("verbosity level"),
     };
 
     Ok((query, server_limit, output_cfg))
@@ -295,7 +302,7 @@ fn run_lookup(args: &ArgMatches, query: Query, server_limit: usize) -> Vec<Looku
     let lookup = get::dns_servers(
         &handle,
         args.values_of_lossy("DNS servers"),
-        args.is_present("predefined server"),
+        args.is_present("predefined servers"),
         args.is_present("dont use local dns servers"),
         args.values_of_lossy("ungefiltert ids"),
     )
@@ -304,7 +311,6 @@ fn run_lookup(args: &ArgMatches, query: Query, server_limit: usize) -> Vec<Looku
             debug!("DNS Server set: {:?}", servers);
             let dns_endpoints = servers
                 .into_iter()
-                .map(|s| (s, 53))
                 .take(server_limit)
                 .collect();
             multiple_lookup(&handle, query, dns_endpoints).map_err(

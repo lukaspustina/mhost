@@ -1,4 +1,5 @@
 use defaults::{DEFAULT_DNS_SERVERS, DEFAULT_RECORD_TYPES};
+use lookup::{Source, Server};
 use ungefiltert_surfen::{self, Server as UngefiltertServer};
 
 use futures::{Future, future};
@@ -10,27 +11,36 @@ use std::str::FromStr;
 use tokio_core::reactor::Handle;
 use trust_dns::rr::RecordType;
 
+
 pub fn dns_servers(
     loop_handle: &Handle,
     servers: Option<Vec<String>>,
     use_predefined_server: bool,
     dont_use_local_servers: bool,
     ungefiltert_surfen_ids: Option<Vec<String>>,
-) -> Box<Future<Item = Vec<IpAddr>, Error = Error>> {
-    let from_args = future::ok::<Vec<IpAddr>, Error>({
-        let mut dns_servers: Vec<IpAddr> = Vec::new();
+) -> Box<Future<Item=Vec<Server>, Error=Error>> {
+    let from_args = future::ok::<Vec<Server>, Error>({
+        let mut dns_servers: Vec<Server> = Vec::new();
         if let Some(servers) = servers {
-            dns_servers.extend(servers.into_iter().map(|server| {
-                IpAddr::from_str(&server).unwrap()
-            }));
+            dns_servers.extend(servers.into_iter()
+                .map(|server| {
+                    let ip_addr = IpAddr::from_str(&server).unwrap();
+                    Server::udp_from_with_port(ip_addr, 53u16, Source::Additional)
+                }));
         }
         if use_predefined_server {
-            dns_servers.extend(DEFAULT_DNS_SERVERS.iter().map(|server| {
-                IpAddr::from_str(server).unwrap()
-            }));
+            dns_servers.extend(DEFAULT_DNS_SERVERS.iter()
+                .map(|server| {
+                    let ip_addr = IpAddr::from_str(server).unwrap();
+                    Server::udp_from_with_port(ip_addr, 53u16, Source::Predefined)
+                }));
         }
         if !dont_use_local_servers {
-            dns_servers.extend(dns_servers_from_resolv_conf().unwrap());
+            dns_servers.extend(dns_servers_from_resolv_conf().unwrap().into_iter()
+                .map(|ip_addr| {
+                    Server::udp_from_with_port(ip_addr, 53u16, Source::Local)
+                })
+            );
         }
 
         dns_servers
@@ -52,7 +62,10 @@ pub fn dns_servers(
                     acc
                 })
                 .iter()
-                .map(|server| IpAddr::from_str(&server.ip).unwrap())
+                .map(|server| {
+                    let ip_addr = IpAddr::from_str(&server.ip).unwrap();
+                    Server::udp_from_with_port(ip_addr, 53u16, Source::Ungefiltert)
+                })
                 .collect()
         })
         .map_err(move |e| e.into());
@@ -66,7 +79,6 @@ pub fn dns_servers(
 }
 
 pub fn resolv_conf() -> Result<resolv_conf::Config> {
-
     let mut buf = Vec::with_capacity(4096);
     let mut f = File::open("/etc/resolv.conf").chain_err(
         || ErrorKind::ResolvConfError,
