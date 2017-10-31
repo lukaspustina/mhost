@@ -140,8 +140,8 @@ fn build_cli() -> App<'static, 'static> {
         )
         .arg(
             Arg::with_name("output modules")
-                .long("module")
-                .short("m")
+                .long("output")
+                .short("o")
                 .takes_value(true)
                 .value_name("output module")
                 .multiple(true)

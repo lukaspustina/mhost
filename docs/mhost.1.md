@@ -54,7 +54,7 @@ The project home page is *https://github.com/lukaspustina/mhost*.
 --help
 : Prints help information
 
--m, --module *module_name* ...
+-o, --output *module_name* ...
 : Selects the output module to use. Currently three modules are available: summary, details, json. This option can be used multiple times to select multiple modules. It is up to you make any sense of this.
 
     The summary output module is the default output module and summarizes all received results. The first line shows how many results from how many servers have been received as well as how the minimum and maximum amout of resource record from each server. Each resource record is printed with the amount of received answers in parenthesis. In this example, 20 answers have been received from 20 servers:
