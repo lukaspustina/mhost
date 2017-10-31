@@ -45,8 +45,18 @@ mod integration {
             .unwrap()
     }
 
+    // Since local development uses `cargo test` and Travis CI uses `cargo test --release` we need to distinguish,
+    // which binary to call -- `#[cfg(debug_assertions)]` to the rescue.
+
+    #[cfg(debug_assertions)]
     fn mhost() -> assert_cli::Assert {
         ::std::env::set_var("RUST_BACKTRACE", "1");
         assert_cli::Assert::command(&["./target/debug/mhost"])
+    }
+
+    #[cfg(not(debug_assertions))]
+    fn mhost() -> assert_cli::Assert {
+        ::std::env::set_var("RUST_BACKTRACE", "1");
+        assert_cli::Assert::command(&["./target/release/mhost"])
     }
 }
