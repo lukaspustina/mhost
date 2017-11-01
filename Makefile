@@ -12,6 +12,18 @@ check:
 test:
 	cargo test --features bin
 
+test_env_build:
+	cd tests; docker build . -t mhost-dnsmasq
+
+test_env_start: test_env_build
+	docker run -d -p 127.0.0.1:53:53/tcp -p 127.0.0.1:53:53/udp -v "$$(pwd)/tests/dnsmasq.d/":/etc/dnsmasq.d:ro --cap-add=NET_ADMIN --name mhost-dnsmasq mhost-dnsmasq:latest 
+
+test_env_stop:
+	-docker kill $$(docker ps -q -f name=mhost-dnsmasq)
+	-docker rm $$(docker ps -a -q -f name=mhost-dnsmasq)
+
+test_env_restart: test_env_stop test_env_start
+
 clippy:
 	rustup run nightly cargo clippy --features bin
 
