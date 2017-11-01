@@ -139,6 +139,11 @@ fn build_cli() -> App<'static, 'static> {
                 .takes_value(true)
         )
         .arg(
+            Arg::with_name("service discovery")
+                .long("--service")
+                .help("Interprets domain name as service description <service name>:[protocol]:<domain>; sets -t srv")
+        )
+        .arg(
             Arg::with_name("output modules")
                 .long("output")
                 .short("o")
@@ -257,14 +262,22 @@ fn parse_args(args: &ArgMatches) -> Result<(Query, usize, OutputConfig)> {
         .map(Duration::from_secs)
         .unwrap();
 
-    let query = match IpAddr::from_str(args.value_of("domain name").unwrap()) {
+    let mut cli_domain_name = args.value_of("domain name").unwrap().to_string();
+    let mut record_types = get::record_types(args.values_of_lossy("record types"))
+        .chain_err(|| ErrorKind::CliArgsParsingError)?;
+
+    if args.is_present("service discovery") {
+        cli_domain_name = get::domain_name_from_service_description(&cli_domain_name)?;
+        record_types = vec![RecordType::SRV, RecordType::TXT];
+    }
+    let query = match IpAddr::from_str(&cli_domain_name) {
         Ok(ip) => Query::from(ip, vec![RecordType::PTR]),
         Err(_) => {
             let domain_name = if args.is_present("dont use local search domain") {
-                args.value_of("domain name").unwrap().to_string()
+                cli_domain_name.to_string()
             } else {
                 let cfg = get::resolv_conf()?;
-                let domain_name_from_args = args.value_of("domain name").unwrap();
+                let domain_name_from_args = cli_domain_name;
                 if domain_name_from_args.ends_with('.') {
                     domain_name_from_args.to_string()
                 } else if !cfg.search.is_empty() && domain_name_from_args.matches('.').count() >= cfg.ndots as usize {
@@ -275,8 +288,6 @@ fn parse_args(args: &ArgMatches) -> Result<(Query, usize, OutputConfig)> {
             };
             debug!("domain_name: '{}'", domain_name);
 
-            let record_types = get::record_types(args.values_of_lossy("record types"))
-                .chain_err(|| ErrorKind::CliArgsParsingError)?;
             Query::new(&domain_name, record_types)
         }
     }.set_timeout(timeout);

@@ -77,7 +77,7 @@ Enabled human\-readable output for output modules supporting this
 setting.
 Currently, their us human\-readable support for SPF records as well as
 all times and durations as relative times.
-This examples show the output with and without human\-readable output
+This examples shows the output with and without human\-readable output
 enabled:
 .RS
 .IP
@@ -166,6 +166,24 @@ Adds predefined public DNS servers to list of DNS servers to query.
 See
 \f[I]https://github.com/lukaspustina/mhost/blob/master/src/defaults.rs\f[].
 .RS
+.RE
+.TP
+.B \-\-service
+Interprets domain name as service description and derives the real
+domain name for this service automatically.
+Further, sets record type to \f[C]srv\f[].
+.RS
+.PP
+The service description adheres to the following syntax:
+\f[C]<service\ name>:[protocol\ name]:<domain>\f[].
+If protocol name is omitted, tcp is assumed.
+Example:
+.IP
+.nf
+\f[C]
+smtp::example.com\ translates\ to\ _smtp._tcp.example.com
+\f[]
+.fi
 .RE
 .TP
 .B \-s, \-\-server \f[I]ip_address[:port]\f[]

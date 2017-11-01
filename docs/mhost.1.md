@@ -38,7 +38,7 @@ The project home page is *https://github.com/lukaspustina/mhost*.
 : Sets a dotted-decimal IPv4 address or a colon-delimited IPv6 address to lookup in which case a PTR query is performed.
 
 -h
-: Enabled human-readable output for output modules supporting this setting. Currently, their us human-readable support for SPF records as well as all times and durations as relative times. This examples show the output with and without human-readable output enabled:
+: Enabled human-readable output for output modules supporting this setting. Currently, their us human-readable support for SPF records as well as all times and durations as relative times. This examples shows the output with and without human-readable output enabled:
 
         Received 2 (min 3, max 3 records) answers from 2 servers
         * SOA: origin NS sns.dns.icann.org., responsible party noc.dns.icann.org., serial 2017042799, refresh in 2 hours, retry in an hour, expire in 2 weeks, min in an hour (2)
@@ -84,6 +84,13 @@ The project home page is *https://github.com/lukaspustina/mhost*.
 
 -p
 : Adds predefined public DNS servers to list of DNS servers to query. See *https://github.com/lukaspustina/mhost/blob/master/src/defaults.rs*.
+
+--service
+: Interprets domain name as service description and derives the real domain name for this service automatically. Further, sets record type to `srv`.
+
+    The service description adheres to the following syntax: `<service name>:[protocol name]:<domain>`. If protocol name is omitted, tcp is assumed. Example:
+
+        smtp::example.com translates to _smtp._tcp.example.com
 
 -s, --server *ip_address[:port]*
 : Adds DNS servers to list of DNS servers to query. In order to specify the remote port, add `:<port>`. This option can be used multiple times to select multiple servers.

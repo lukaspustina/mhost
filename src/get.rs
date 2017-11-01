@@ -124,14 +124,70 @@ fn parse_server_port(server_port: &str) -> Result<(&str, Option<u16>)> {
                 .chain_err(|| ErrorKind::ServerParsingError(server_port.to_string()))?;
             let server = splits.pop().unwrap();
             Ok((server, Some(port)))
-        },
+        }
         _ => Err(Error::from_kind(ErrorKind::ServerParsingError(server_port.to_string())))
     }
+}
+
+pub fn domain_name_from_service_description(desc: &str) -> Result<String> {
+    let splits: Vec<_> = desc.split(':').collect();
+
+    // cf. https://github.com/rust-lang/rust/issues/23121
+    let (service, proto, domain) = match splits.len() {
+        2 => {
+            let (service, domain) = (splits[0], splits[1]);
+            (service, "tcp", domain)
+        },
+        3 => {
+            let (service, mut proto, domain) = (splits[0], splits[1], splits[2]);
+            proto = if proto.is_empty() { "tcp" } else { proto };
+            (service, proto, domain)
+        },
+        _ => return Err(Error::from_kind(ErrorKind::ServiceDescriptionParsingError(desc.to_string())))
+    };
+
+    Ok(format!("_{}._{}.{}", service, proto, domain))
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn domain_name_from_service_description_full() {
+        let service_desc = "smtp:tcp:example.com";
+
+        let domain_name = domain_name_from_service_description(service_desc).unwrap();
+
+        assert_eq!(domain_name, "_smtp._tcp.example.com")
+    }
+
+    #[test]
+    fn domain_name_from_service_description_wo_protocol() {
+        let service_desc = "smtp::example.com";
+
+        let domain_name = domain_name_from_service_description(service_desc).unwrap();
+
+        assert_eq!(domain_name, "_smtp._tcp.example.com")
+    }
+
+    #[test]
+    fn domain_name_from_service_description_omitting_protocol() {
+        let service_desc = "smtp:example.com";
+
+        let domain_name = domain_name_from_service_description(service_desc).unwrap();
+
+        assert_eq!(domain_name, "_smtp._tcp.example.com")
+    }
+
+    #[test]
+    fn domain_name_from_service_description_fails() {
+        let service_desc = "smtp_example.com";
+
+        let domain_name = domain_name_from_service_description(service_desc);
+
+        assert!(domain_name.is_err());
+    }
 
     #[test]
     fn parse_server_port_server_only() {
@@ -179,15 +235,10 @@ mod test {
 
         assert!(result.is_err())
     }
-
 }
 
 error_chain! {
     errors {
-        ServerParsingError(srv_str: String) {
-            description("failed to parse server string")
-            display("failed to parse server string '{}'", srv_str)
-        }
         ResolvConfError {
             description("failed to parse /etc/resolv.conf")
             display("failed to parse /etc/resolv.cons")
@@ -196,6 +247,16 @@ error_chain! {
         ServerIpAddrParsingError {
             description("failed to parse server IP address")
             display("failed to parse server IP address")
+        }
+
+        ServerParsingError(srv_str: String) {
+            description("failed to parse server string")
+            display("failed to parse server string '{}'", srv_str)
+        }
+
+        ServiceDescriptionParsingError(serv_desc: String) {
+            description("failed to parse service decription")
+            display("failed to parse service decription '{}'", serv_desc)
         }
 
         ResoureRecordTypeParsingError {

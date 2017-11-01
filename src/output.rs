@@ -79,6 +79,13 @@ mod json {
                                         minimum: soa.minimum(),
                                         ttl: r.ttl()
                                     })),
+                                RData::SRV(ref srv) => Some(RR::SRV(
+                                    SRV {
+                                        priority: srv.priority(),
+                                        weight: srv.weight(),
+                                        port: srv.port(),
+                                        target: srv.target().to_string(),
+                                    })),
                                 RData::TXT(ref txt) => Some(RR::TXT(
                                     TXT { txt: txt.txt_data().join(" "), ttl: r.ttl() })),
                                 RData::PTR(ref ptr) => Some(RR::PTR(
@@ -110,6 +117,7 @@ mod json {
         MX(MX),
         NS(NS),
         SOA(SOA),
+        SRV(SRV),
         TXT(TXT),
         PTR(PTR)
     }
@@ -155,6 +163,14 @@ mod json {
         expire: i32,
         minimum: u32,
         ttl: u32,
+    }
+
+    #[derive(Serialize)]
+    struct SRV {
+        priority: u16,
+        weight: u16,
+        port: u16,
+        target: String,
     }
 
     #[derive(Serialize)]
@@ -323,7 +339,6 @@ fn write_response(f: &mut Write, r: &dns::Response, cfg: &OutputConfig) -> io::R
     writeln!(f, "{}", out_str)
 }
 
-
 fn compare_records(a: &Record, b: &Record) -> Ordering {
     let a = record_type_to_ordinal(a);
     let b = record_type_to_ordinal(b);
@@ -336,11 +351,12 @@ fn record_type_to_ordinal(r: &Record) -> u16 {
         RData::SOA(_) => 1000,
         RData::NS(_) => 2000,
         RData::MX(ref mx) => 3000 + mx.preference(),
-        RData::TXT(_) => 4000,
-        RData::CNAME(_) => 5000,
-        RData::A(_) => 6000,
-        RData::AAAA(_) => 7000,
-        RData::PTR(_) => 8000,
+        RData::SRV(ref srv) => 4000 + srv.priority() + srv.weight(),
+        RData::TXT(_) => 5000,
+        RData::CNAME(_) => 6000,
+        RData::A(_) => 7000,
+        RData::AAAA(_) => 8000,
+        RData::PTR(_) => 9000,
         _ => ::std::u16::MAX,
     }
 }
@@ -408,6 +424,17 @@ fn fmt_record(r: &Record, cfg: &OutputConfig) -> Option<String> {
                         Colour::Green.paint(format!("{}", soa.minimum()))
                     )
                 }
+            )
+        }
+        RData::SRV(ref srv) => {
+            Some(
+                format!(
+                    "SRV:\t{} on port {} with priority {} and weight {}",
+                    Colour::Blue.paint(format!("{}", srv.target())),
+                    Colour::Blue.paint(format!("{}", srv.port())),
+                    Colour::Blue.paint(format!("{}", srv.priority())),
+                    Colour::Blue.paint(format!("{}", srv.weight())),
+                )
             )
         }
         RData::TXT(ref txt) => {
