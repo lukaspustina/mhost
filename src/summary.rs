@@ -97,7 +97,7 @@ pub enum Alert {
     SoaSnDiverge(HashMap<u32, u32>),
 }
 
-// TODO: &[&T] is totally weird
+// TODO: &[&T] is totally weird -- cf. https://users.rust-lang.org/t/solved-function-taking-slice-of-objects-as-well-as-slice-of-references-to-objects/13553/9
 fn alerts(responses: &[&Response]) -> Vec<Alert> {
     let mut alerts = Vec::new();
     if let Some(serials) = check_soa_serial_numbers(responses) {
