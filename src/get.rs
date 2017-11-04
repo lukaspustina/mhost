@@ -32,17 +32,21 @@ pub fn dns_servers(
         }
         if use_predefined_server {
             dns_servers.extend(DEFAULT_DNS_SERVERS.iter()
-                .map(|server| {
+                .map(|&(server, desc)| {
                     let (server, port_opt) = parse_server_port(&server).unwrap();
                     let port = port_opt.unwrap_or_else(|| 53u16);
                     let ip_addr = IpAddr::from_str(&server).unwrap();
-                    Server::udp_from_with_port(ip_addr, port, Source::Predefined)
+                    let mut s = Server::udp_from_with_port(ip_addr, port, Source::Predefined);
+                    s.set_description(desc.to_string());
+                    s
                 }));
         }
         if !dont_use_local_servers {
             dns_servers.extend(dns_servers_from_resolv_conf().unwrap().into_iter()
                 .map(|ip_addr| {
-                    Server::udp_from_with_port(ip_addr, 53u16, Source::Local)
+                    let mut s = Server::udp_from_with_port(ip_addr, 53u16, Source::Local);
+                    s.set_description("local".to_string());
+                    s
                 })
             );
         }
@@ -68,7 +72,13 @@ pub fn dns_servers(
                 .iter()
                 .map(|server| {
                     let ip_addr = IpAddr::from_str(&server.ip).unwrap();
-                    Server::udp_from_with_port(ip_addr, 53u16, Source::Ungefiltert)
+                    let mut s = Server::udp_from_with_port(ip_addr, 53u16, Source::Ungefiltert);
+                    s.set_description(
+                        format!("version={}, reliability={:.2}",
+                                server.version.as_ref().map(String::as_ref).unwrap_or("unknown"),
+                                server.reliability)
+                    );
+                    s
                 })
                 .collect()
         })

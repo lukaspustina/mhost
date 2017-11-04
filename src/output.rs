@@ -95,7 +95,7 @@ mod json {
                         })
                         .flat_map(|x| x)
                         .collect();
-                    Response { server: format!("{}", response.server.ip_addr), answers }
+                    Response { server: response.server.clone(), answers }
                 })
                 .collect();
 
@@ -105,7 +105,7 @@ mod json {
 
     #[derive(Serialize)]
     struct Response {
-        server: String,
+        server: dns::Server,
         answers: Vec<RR>,
     }
 
@@ -303,15 +303,20 @@ fn write_response(f: &mut Write, r: &dns::Response, cfg: &OutputConfig) -> io::R
     } else {
         "".to_string()
     };
+    let desc_str: String = if let Some(ref desc) = r.server.desc {
+        format!(" ({})", desc)
+    } else {
+        "".to_string()
+    };
     if r.answers.is_empty() {
         if cfg.show_nx_domain {
-            return writeln!(f, "DNS server {}{} has no records.", r.server.ip_addr, source_str);
+            return writeln!(f, "DNS server {}{}{} has no records.", r.server.ip_addr, source_str, desc_str);
         } else {
             return ::std::result::Result::Ok(());
         }
     }
     if cfg.show_headers {
-        let _ = write!(f, "DNS server {}{} responded with\n", r.server.ip_addr, source_str);
+        let _ = write!(f, "DNS server {}{}{} responded with\n", r.server.ip_addr, source_str, desc_str);
     }
     let answers: Vec<String> = r.answers
         .iter()
@@ -328,7 +333,7 @@ fn write_response(f: &mut Write, r: &dns::Response, cfg: &OutputConfig) -> io::R
         )
         .filter(|&(ref rr, _)| rr.is_some())
         .map(|(rr, ttl)|
-            format!("* {} [expires {}]", rr.unwrap(), ttl)
+            format!("* {}\t[expires {}]", rr.unwrap(), ttl)
         )
         .collect();
 

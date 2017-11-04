@@ -14,12 +14,12 @@ use trust_dns::rr::domain;
 use trust_dns::rr::{DNSClass, Record, RecordType};
 use trust_dns::udp::UdpClientStream;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize)]
 pub enum Protocol {
     Udp,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize)]
 pub enum Source {
     Additional,
     Local,
@@ -28,12 +28,13 @@ pub enum Source {
 }
 
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Server {
     pub ip_addr: IpAddr,
     pub port: u16,
     pub protocol: Protocol,
-    pub source: Source
+    pub source: Source,
+    pub desc: Option<String>,
 }
 
 impl Server {
@@ -42,11 +43,19 @@ impl Server {
     }
 
     pub fn udp_from_with_port<T: Into<IpAddr>>(ip_addr: T, port: u16, from: Source) -> Server {
-        Server { ip_addr: ip_addr.into(), port: port, protocol: Protocol::Udp, source: from }
+        Server { ip_addr: ip_addr.into(), port: port, protocol: Protocol::Udp, source: from, desc: None }
     }
 
     pub fn as_socket_addr(&self) -> SocketAddr {
         (self.ip_addr, self.port).into()
+    }
+
+    pub fn set_description(&mut self, desc: String) {
+        self.desc = Some(desc)
+    }
+
+    pub fn description(&self) -> Option<&String> {
+       self.desc.as_ref()
     }
 }
 
@@ -111,16 +120,13 @@ pub fn lookup<T: Into<Server>>(
         .record_types
         .into_iter()
         .enumerate()
-        .map(|(index, rt)| {
+        .map(move|(index, rt)| {
             client
                 .query(domain_name.clone(), DNSClass::IN, rt)
                 .map(move |mut response| {
                     trace!("{}:{} successfully responded to {}. query for {} with {} answers.",
                            socket_addr.ip(), socket_addr.port(), index + 1, rt, response.answers().len());
-                    Response {
-                        server: server,
-                        answers: response.take_answers(),
-                    }
+                    response.take_answers()
                 })
                 .map_err(move |e| {
                     info!("{}:{} failed {}. query for {} because {}.",
@@ -131,8 +137,8 @@ pub fn lookup<T: Into<Server>>(
         .collect();
     let all = join_all(lookups).and_then(move |lookups| {
         let all_answers = lookups.into_iter().fold(Vec::new(), |mut acc,
-                                                                mut lookup: Response| {
-            acc.append(&mut lookup.answers);
+                                                                mut answers: Vec<Record>| {
+            acc.append(&mut answers);
             acc
         });
 
@@ -144,7 +150,7 @@ pub fn lookup<T: Into<Server>>(
         }
 
         futures::future::ok(Response {
-            server: server,
+            server,
             answers: all_answers,
         })
     });
