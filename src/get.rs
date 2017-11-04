@@ -125,6 +125,7 @@ pub fn record_types(record_types: Option<Vec<String>>) -> Result<Vec<RecordType>
     Ok(record_types)
 }
 
+// TODO: Does not work for IPv6
 fn parse_server_port(server_port: &str) -> Result<(&str, Option<u16>)> {
     let mut splits: Vec<&str> = server_port.split(':').collect();
     match splits.len() {
