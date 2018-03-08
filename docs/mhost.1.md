@@ -157,5 +157,5 @@ host(1), dig(1), resolver(5)
 
 # COPYRIGHT AND LICENSE
 
-Copyright (c) 2017 Lukas Pustina. Licensed under the MIT License. See *https://github.com/lukaspustina/mhost/blob/master/LICENSE* for details.
+Copyright (c) 2017-18 Lukas Pustina. Licensed under the MIT License. See *https://github.com/lukaspustina/mhost/blob/master/LICENSE* for details.
 
