@@ -110,7 +110,8 @@ fn alerts(responses: &[&Response]) -> Vec<Alert> {
 // TODO: &[&T] is totally weird
 fn check_soa_serial_numbers(responses: &[&Response]) -> Option<Alert> {
     let mut serial_counts = HashMap::new();
-    responses
+    Itertools::flatten(
+        responses
         .iter()
         .map(|r| r.answers
             .iter()
@@ -119,12 +120,12 @@ fn check_soa_serial_numbers(responses: &[&Response]) -> Option<Alert> {
                 _ => None
             })
         )
-        .flatten()
-        .filter_map(|x| x)
-        .for_each(|key| {
-            let value = serial_counts.entry(key).or_insert(0);
-            *value += 1;
-        });
+    )
+    .filter_map(|x| x)
+    .for_each(|key| {
+        let value = serial_counts.entry(key).or_insert(0);
+        *value += 1;
+    });
 
     if serial_counts.len() > 1 {
         Some(Alert::SoaSnDiverge(serial_counts))
