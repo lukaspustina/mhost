@@ -1,0 +1,3 @@
+# stable options
+edition = "2018"
+max_width = 120
