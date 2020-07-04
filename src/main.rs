@@ -2,7 +2,6 @@ use futures::stream::{self, StreamExt};
 use futures::Future;
 use log::{self, *};
 use std::io::Write;
-use std::thread;
 use tokio::task;
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::lookup::Lookup;
@@ -88,7 +87,9 @@ fn main() -> Result<()> {
     env_logger::Builder::from_default_env()
         .format(move |buf, rec| {
             let t = start.elapsed().as_secs_f32();
-            writeln!(buf, "{:.03} [{}] ({:?})- {}", t, rec.level(), thread::current().id(), rec.args())
+            let thread_id_string = format!("{:?}", std::thread::current().id());
+            let thread_id = &thread_id_string[9..thread_id_string.len()-1];
+            writeln!(buf, "{:.03} [{:5}] ({:}) - {}", t, rec.level(), thread_id, rec.args())
         })
         .init();
 
