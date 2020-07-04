@@ -2,6 +2,7 @@ use futures::stream::{self, StreamExt};
 use futures::Future;
 use log::{self, *};
 use std::io::Write;
+use std::thread;
 use tokio::task;
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::lookup::Lookup;
@@ -67,16 +68,12 @@ fn lookup_futures() -> Vec<impl Future<Output = Result<Vec<Lookup>>>> {
 }
 
 /// Spawn the futures -- work is started
-fn lookups_spawns() -> Vec<task::JoinHandle<Result<Vec<Lookup>>>> {
-    let tasks: Vec<_> = lookup_futures().into_iter().map(task::spawn).collect();
-
-    tasks
+fn lookups_spawns(lookup_futures: Vec<impl Future<Output = Result<Vec<Lookup>>> + Send + 'static>) -> Vec<task::JoinHandle<Result<Vec<Lookup>>>> {
+    lookup_futures.into_iter().map(task::spawn).collect()
 }
 
 /// Wait asyncly for the work to finish
-async fn lookups() -> Result<Vec<Lookup>> {
-    let tasks: Vec<_> = lookups_spawns();
-
+async fn lookups(tasks: Vec<task::JoinHandle<Result<Vec<Lookup>>>>) -> Result<Vec<Lookup>> {
     let mut res = Vec::new();
     for t in tasks {
         let r = t.await??;
@@ -86,20 +83,28 @@ async fn lookups() -> Result<Vec<Lookup>> {
     Ok(res.into_iter().flatten().collect())
 }
 
-fn main() {
+fn main() -> Result<()> {
     let start = std::time::Instant::now();
     env_logger::Builder::from_default_env()
         .format(move |buf, rec| {
             let t = start.elapsed().as_secs_f32();
-            writeln!(buf, "{:.03} [{}] - {}", t, rec.level(), rec.args())
+            writeln!(buf, "{:.03} [{}] ({:?})- {}", t, rec.level(), thread::current().id(), rec.args())
         })
         .init();
 
-    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let mut rt = tokio::runtime::Runtime::new()
+        .expect("Failed to create runtime.");
 
-    match rt.block_on(lookups()) {
-        //Ok(lookup) => info!("Lookup: {:#?}", lookup),
-        Ok(_) => info!("Done."),
-        Err(e) => error!("An error occurred: {}", e),
-    };
+    rt.block_on(async {
+        let futures = lookup_futures();
+        let tasks = lookups_spawns(futures);
+        let lookups = lookups(tasks).await;
+        match lookups {
+            //Ok(lookup) => info!("Lookup: {:#?}", lookup),
+            Ok(_) => info!("Done."),
+            Err(e) => error!("An error occurred: {}", e),
+        }
+    });
+
+    Ok(())
 }
