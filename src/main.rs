@@ -8,6 +8,7 @@ use trust_dns_resolver::lookup::Lookup;
 use trust_dns_resolver::proto::rr::RecordType;
 use trust_dns_resolver::proto::xfer::DnsRequestOptions;
 use trust_dns_resolver::TokioAsyncResolver;
+use std::future::Future;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -34,12 +35,14 @@ impl MyResolver {
     }
 
     /// Async lookup algorithm -- no work is done
-    pub async fn lookup(self, query: Arc<Query>) -> Result<Vec<Lookup>> {
-        let resolver = Arc::clone(&self.inner);
+    pub fn lookup(&self, query: Arc<Query>) -> impl Future<Output = Result<Vec<Lookup>>> {
+        Self::inner_lookup(self.clone(), query)
+    }
 
+    async fn inner_lookup(resolver: Self, query: Arc<Query>) -> Result<Vec<Lookup>> {
         let futures: Vec<_> = query.record_types
             .iter()
-            .map(|x| make_lookup(&self.name, &resolver, x.clone()))
+            .map(|x| make_lookup(&resolver.name, &resolver.inner, x.clone()))
             .collect();
 
         let mut res = Vec::new();
@@ -84,9 +87,9 @@ async fn do_main(query: Query) -> Result<Vec<Lookup>> {
     let quad6 = MyResolver::new(3).await?;
     debug!("Created all the resolvers");
 
-    let google_l = google.clone().lookup(Arc::clone(&query));
-    let cloudflare_l = cloudflare.clone().lookup(Arc::clone(&query));
-    let quad6_l = quad6.clone().lookup(Arc::clone(&query));
+    let google_l = google.lookup(Arc::clone(&query));
+    let cloudflare_l = cloudflare.lookup(Arc::clone(&query));
+    let quad6_l = quad6.lookup(Arc::clone(&query));
     debug!("Created all the futures");
 
     let tasks: Vec<task::JoinHandle<Result<Vec<Lookup>>>> = vec![google_l, cloudflare_l, quad6_l]
