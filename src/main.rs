@@ -98,8 +98,11 @@ fn main() -> Result<()> {
 
     rt.block_on(async {
         let futures = lookup_futures();
+        debug!("Created all the futures");
         let tasks = lookups_spawns(futures);
+        debug!("Spawned all the futures");
         let lookups = lookups(tasks).await;
+        debug!("Awaited all the futures");
         match lookups {
             //Ok(lookup) => info!("Lookup: {:#?}", lookup),
             Ok(_) => info!("Done."),
