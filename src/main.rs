@@ -2,6 +2,7 @@ use futures::stream::{self, StreamExt};
 use futures::Future;
 use log::{self, *};
 use std::io::Write;
+use std::sync::Arc;
 use tokio::task;
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::lookup::Lookup;
@@ -11,8 +12,12 @@ use trust_dns_resolver::TokioAsyncResolver;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
-/// Async lookup algorithm -- no work is done
-async fn lookup(i: usize) -> Result<Vec<Lookup>> {
+pub struct Resolver {
+    inner: TokioAsyncResolver,
+    name: String,
+}
+
+async fn create_resolver(i: usize) -> Result<TokioAsyncResolver> {
     let config = match i {
         1 => ResolverConfig::google(),
         2 => ResolverConfig::cloudflare(),
@@ -21,19 +26,16 @@ async fn lookup(i: usize) -> Result<Vec<Lookup>> {
     let resolver = TokioAsyncResolver::tokio(config, ResolverOpts::default()).await?;
     debug!("Created {} Resolver.", i);
 
-    let futures: Vec<_> = vec![
-        RecordType::A,
-        RecordType::A,
-        RecordType::A,
-        RecordType::AAAA,
-        RecordType::AAAA,
-        RecordType::AAAA,
-        RecordType::TXT,
-        RecordType::TXT,
-        RecordType::TXT,
-    ]
-    .into_iter()
-    .map(|x| make_lookup(i, &resolver, x))
+    Ok(resolver)
+}
+
+/// Async lookup algorithm -- no work is done
+async fn lookup(i: usize, query: Arc<Query>) -> Result<Vec<Lookup>> {
+    let resolver = create_resolver(i).await?;
+
+    let futures: Vec<_> = query.record_types
+    .iter()
+    .map(|x| make_lookup(i, &resolver, x.clone()))
     .collect();
 
     let mut res = Vec::new();
@@ -58,10 +60,10 @@ async fn make_lookup(i: usize, resolver: &TokioAsyncResolver, record_type: Recor
 }
 
 /// Create the futures -- no work is done
-fn lookup_futures() -> Vec<impl Future<Output = Result<Vec<Lookup>>>> {
-    let google = lookup(1);
-    let cloudflare = lookup(2);
-    let quad6 = lookup(3);
+fn lookup_futures(query: Arc<Query>) -> Vec<impl Future<Output = Result<Vec<Lookup>>>> {
+    let google = lookup(1, Arc::clone(&query));
+    let cloudflare = lookup(2, Arc::clone(&query));
+    let quad6 = lookup(3, Arc::clone(&query));
 
     vec![google, cloudflare, quad6]
 }
@@ -82,6 +84,25 @@ async fn lookups(tasks: Vec<task::JoinHandle<Result<Vec<Lookup>>>>) -> Result<Ve
     Ok(res.into_iter().flatten().collect())
 }
 
+async fn do_main(query: Query) -> Result<Vec<Lookup>> {
+    let query = Arc::new(query);
+
+    let futures = lookup_futures(query);
+    debug!("Created all the futures");
+    let tasks = lookups_spawns(futures);
+    debug!("Spawned all the futures");
+    let lookups = lookups(tasks).await;
+    debug!("Awaited all the futures");
+
+    lookups
+}
+
+#[derive(Debug)]
+pub struct Query {
+    name: String,
+    record_types: Vec<RecordType>,
+}
+
 fn main() -> Result<()> {
     let start = std::time::Instant::now();
     env_logger::Builder::from_default_env()
@@ -93,16 +114,26 @@ fn main() -> Result<()> {
         })
         .init();
 
+    let query = Query {
+        name: "www.example.com".to_string(),
+        record_types: vec![
+            RecordType::A,
+            RecordType::A,
+            RecordType::A,
+            RecordType::AAAA,
+            RecordType::AAAA,
+            RecordType::AAAA,
+            RecordType::TXT,
+            RecordType::TXT,
+            RecordType::TXT,
+        ]
+    };
+
     let mut rt = tokio::runtime::Runtime::new()
         .expect("Failed to create runtime.");
 
     rt.block_on(async {
-        let futures = lookup_futures();
-        debug!("Created all the futures");
-        let tasks = lookups_spawns(futures);
-        debug!("Spawned all the futures");
-        let lookups = lookups(tasks).await;
-        debug!("Awaited all the futures");
+        let lookups = do_main(query).await;
         match lookups {
             //Ok(lookup) => info!("Lookup: {:#?}", lookup),
             Ok(_) => info!("Done."),
