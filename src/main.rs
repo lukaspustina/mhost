@@ -9,6 +9,7 @@ use trust_dns_resolver::proto::rr::RecordType;
 use trust_dns_resolver::proto::xfer::DnsRequestOptions;
 use trust_dns_resolver::TokioAsyncResolver;
 use std::future::Future;
+use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -16,6 +17,27 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>
 pub struct MyResolver {
     inner: Arc<TokioAsyncResolver>,
     name: String,
+}
+
+#[derive(Debug)]
+pub enum MyLookup {
+    Lookup(Lookup),
+    NxDomain,
+    Timeout,
+    Error,
+}
+
+impl From<std::result::Result<Lookup, ResolveError>> for MyLookup {
+    fn from(res: std::result::Result<Lookup, ResolveError>) -> Self {
+        match res {
+            Ok(lookup) => MyLookup::Lookup(lookup),
+            Err(err) => match err.kind() {
+                ResolveErrorKind::NoRecordsFound {..} => MyLookup::NxDomain,
+                ResolveErrorKind::Timeout => MyLookup::Timeout,
+                _ => MyLookup::Error,
+            }
+        }
+    }
 }
 
 impl MyResolver {
@@ -35,51 +57,48 @@ impl MyResolver {
     }
 
     /// Async lookup algorithm -- no work is done
-    pub fn lookup(&self, query: Arc<Query>) -> impl Future<Output = Result<Vec<Lookup>>> {
+    pub fn lookup(&self, query: Arc<Query>) -> impl Future<Output = Vec<MyLookup>> {
         Self::inner_lookup(self.clone(), query)
     }
 
-    async fn inner_lookup(resolver: Self, query: Arc<Query>) -> Result<Vec<Lookup>> {
+    async fn inner_lookup(resolver: Self, query: Arc<Query>) -> Vec<MyLookup> {
         let futures: Vec<_> = query.record_types
             .iter()
             .map(|x| make_lookup(&resolver.name, &resolver.inner, x.clone()))
             .collect();
 
-        let mut res = Vec::new();
-        let stream = stream::iter(futures);
-        let mut buffered_stream = stream.buffer_unordered(2);
-        // TODO: https://rust-lang.github.io/async-book/05_streams/02_iteration_and_concurrency.html
-        while let Some(f) = buffered_stream.next().await {
-            trace!("Received lookup {:?}", f);
-            let f = f?;
-            res.push(f)
-        }
-
-        Ok(res)
+         stream::iter(futures)
+            .buffer_unordered(2)
+            .inspect(|lookup|
+                 trace!("Received lookup {:?}", lookup)
+            )
+            .collect::<Vec<MyLookup>>()
+            .await
     }
 }
 
-async fn make_lookup(i: &str, resolver: &TokioAsyncResolver, record_type: RecordType) -> Result<Lookup> {
+async fn make_lookup(i: &str, resolver: &TokioAsyncResolver, record_type: RecordType) -> MyLookup {
     let lookup = resolver
         .lookup("www.example.com.", record_type, DnsRequestOptions::default())
-        .await?;
+        .await
+        .into();
     debug!("Received {} Lookup for record type {}.", i, record_type);
 
-    Ok(lookup)
+    lookup
 }
 
 /// Wait asyncly for the work to finish
-async fn lookups(tasks: Vec<task::JoinHandle<Result<Vec<Lookup>>>>) -> Result<Vec<Lookup>> {
+async fn lookups(tasks: Vec<task::JoinHandle<Vec<MyLookup>>>) -> Vec<MyLookup> {
     let mut res = Vec::new();
     for t in tasks {
-        let r = t.await??;
+        let r = t.await;
         res.push(r);
     }
 
-    Ok(res.into_iter().flatten().collect())
+    res.into_iter().flatten().flatten().collect()
 }
 
-async fn do_main(query: Query) -> Result<Vec<Lookup>> {
+async fn do_main(query: Query) -> Result<Vec<MyLookup>> {
     let query = Arc::new(query);
 
     let google = MyResolver::new(1).await?;
@@ -87,19 +106,16 @@ async fn do_main(query: Query) -> Result<Vec<Lookup>> {
     let quad6 = MyResolver::new(3).await?;
     debug!("Created all the resolvers");
 
-    let google_l = google.lookup(Arc::clone(&query));
-    let cloudflare_l = cloudflare.lookup(Arc::clone(&query));
-    let quad6_l = quad6.lookup(Arc::clone(&query));
-    debug!("Created all the futures");
-
-    let tasks: Vec<task::JoinHandle<Result<Vec<Lookup>>>> = vec![google_l, cloudflare_l, quad6_l]
-        .into_iter().map(task::spawn).collect();
-    debug!("Spawned all the futures");
+    let tasks: Vec<task::JoinHandle<Vec<MyLookup>>> = vec![google, cloudflare, quad6]
+        .iter()
+        .map(|resolver| resolver.lookup(query.clone()))
+        .map(task::spawn).collect();
+    debug!("Created and spawned all the futures");
 
     let lookups = lookups(tasks).await;
     debug!("Awaited all the futures");
 
-    lookups
+    Ok(lookups)
 }
 
 #[derive(Debug)]
@@ -126,7 +142,7 @@ fn main() -> Result<()> {
             RecordType::A,
             RecordType::A,
             RecordType::AAAA,
-            RecordType::AAAA,
+            RecordType::MX,
             RecordType::AAAA,
             RecordType::TXT,
             RecordType::TXT,
@@ -140,7 +156,7 @@ fn main() -> Result<()> {
     rt.block_on(async {
         let lookups = do_main(query).await;
         match lookups {
-            //Ok(lookup) => info!("Lookup: {:#?}", lookup),
+            // Ok(lookups) => info!("Lookup: {:#?}", lookups),
             Ok(_) => info!("Done."),
             Err(e) => error!("An error occurred: {}", e),
         }

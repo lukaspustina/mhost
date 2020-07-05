@@ -3,6 +3,18 @@ name = "mhost"
 version = "0.2.0"
 authors = ["Lukas Pustina <lukas@pustina.de>"]
 edition = "2018"
+description = "More than host - uses multiple DNS servers massively parallel and compares results"
+repository = "https://github.com/lukaspustina/mhost.git"
+documentation = "http://lukaspustina.github.io/mhost"
+readme = "README.md"
+license = "MIT"
+keywords = ["network", "dns", "host", "dig", "cli"]
+include = [
+  "README.md",
+  "LICENSE",
+  "**/*.rs",
+  "Cargo.toml",
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
