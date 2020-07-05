@@ -1,15 +1,15 @@
 use futures::stream::{self, StreamExt};
 use log::{self, *};
+use std::future::Future;
 use std::io::Write;
 use std::sync::Arc;
 use tokio::task;
 use trust_dns_resolver::config::*;
+use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
 use trust_dns_resolver::lookup::Lookup;
 use trust_dns_resolver::proto::rr::RecordType;
 use trust_dns_resolver::proto::xfer::DnsRequestOptions;
 use trust_dns_resolver::TokioAsyncResolver;
-use std::future::Future;
-use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -32,10 +32,10 @@ impl From<std::result::Result<Lookup, ResolveError>> for MyLookup {
         match res {
             Ok(lookup) => MyLookup::Lookup(lookup),
             Err(err) => match err.kind() {
-                ResolveErrorKind::NoRecordsFound {..} => MyLookup::NxDomain,
+                ResolveErrorKind::NoRecordsFound { .. } => MyLookup::NxDomain,
                 ResolveErrorKind::Timeout => MyLookup::Timeout,
                 _ => MyLookup::Error,
-            }
+            },
         }
     }
 }
@@ -47,7 +47,11 @@ impl MyResolver {
             2 => ResolverConfig::cloudflare(),
             _ => ResolverConfig::quad9(),
         };
-        let resolver = TokioAsyncResolver::tokio(config, ResolverOpts::default()).await?;
+        let opts = ResolverOpts {
+            //validate: true,
+            ..ResolverOpts::default()
+        };
+        let resolver = TokioAsyncResolver::tokio(config, opts).await?;
         debug!("Created {} Resolver.", i);
 
         Ok(MyResolver {
@@ -62,16 +66,15 @@ impl MyResolver {
     }
 
     async fn inner_lookup(resolver: Self, query: Arc<Query>) -> Vec<MyLookup> {
-        let futures: Vec<_> = query.record_types
+        let futures: Vec<_> = query
+            .record_types
             .iter()
             .map(|x| make_lookup(&resolver.name, &resolver.inner, x.clone()))
             .collect();
 
-         stream::iter(futures)
+        stream::iter(futures)
             .buffer_unordered(2)
-            .inspect(|lookup|
-                 trace!("Received lookup {:?}", lookup)
-            )
+            .inspect(|lookup| trace!("Received lookup {:?}", lookup))
             .collect::<Vec<MyLookup>>()
             .await
     }
@@ -109,7 +112,8 @@ async fn do_main(query: Query) -> Result<Vec<MyLookup>> {
     let tasks: Vec<task::JoinHandle<Vec<MyLookup>>> = vec![google, cloudflare, quad6]
         .iter()
         .map(|resolver| resolver.lookup(query.clone()))
-        .map(task::spawn).collect();
+        .map(task::spawn)
+        .collect();
     debug!("Created and spawned all the futures");
 
     let lookups = lookups(tasks).await;
@@ -130,7 +134,7 @@ fn main() -> Result<()> {
         .format(move |buf, rec| {
             let t = start.elapsed().as_secs_f32();
             let thread_id_string = format!("{:?}", std::thread::current().id());
-            let thread_id = &thread_id_string[9..thread_id_string.len()-1];
+            let thread_id = &thread_id_string[9..thread_id_string.len() - 1];
             writeln!(buf, "{:.03} [{:5}] ({:}) - {}", t, rec.level(), thread_id, rec.args())
         })
         .init();
@@ -147,16 +151,15 @@ fn main() -> Result<()> {
             RecordType::TXT,
             RecordType::TXT,
             RecordType::TXT,
-        ]
+        ],
     };
 
-    let mut rt = tokio::runtime::Runtime::new()
-        .expect("Failed to create runtime.");
+    let mut rt = tokio::runtime::Runtime::new().expect("Failed to create runtime.");
 
     rt.block_on(async {
         let lookups = do_main(query).await;
         match lookups {
-            // Ok(lookups) => info!("Lookup: {:#?}", lookups),
+            //Ok(lookups) => info!("Lookup: {:#?}", lookups),
             Ok(_) => info!("Done."),
             Err(e) => error!("An error occurred: {}", e),
         }

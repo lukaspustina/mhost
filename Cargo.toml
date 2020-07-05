@@ -16,7 +16,15 @@ include = [
   "Cargo.toml",
 ]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "mhost"
+path = "src/main.rs"
+doc = false
+required-features = ["bin"]
+
+[lib]
+name = "mhost"
+path = "src/lib.rs"
 
 [dependencies]
 anyhow = "1"
@@ -24,4 +32,8 @@ env_logger = "0.7.*"
 futures = { version = "0.3.*"}
 log = "0.4.*"
 tokio = { version = "0.2.*", features = ["full"] }
-trust-dns-resolver = { version = "0.19", features = ["dns-over-rustls"] }
+thiserror = "1"
+trust-dns-resolver = { version = "0.19", features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls", "dnssec-ring", "mdns", "system-config"] }
+
+[features]
+bin = []
