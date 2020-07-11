@@ -5,7 +5,7 @@ use trust_dns_resolver::proto::rr::RecordType;
 use trust_dns_resolver::IntoName;
 use trust_dns_resolver::Name;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Query {
     pub(crate) name: Name,
     pub(crate) record_type: RecordType,
@@ -39,7 +39,7 @@ impl From<Query> for MultiQuery {
 /// let query = Query::new("www.example.com", RecordType::A).unwrap();
 /// let multi_query: MultiQuery = query.into();
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MultiQuery {
     pub(crate) name: Name,
     pub(crate) record_types: Vec<RecordType>,
