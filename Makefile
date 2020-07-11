@@ -7,6 +7,7 @@ build:
 	cargo build --bins --tests --benches --examples --all-features
 
 test:
+	cargo test --doc
 	cargo test --bins --tests --benches --examples --all-features
 
 secure:

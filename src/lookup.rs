@@ -1,5 +1,6 @@
 use crate::error::Error;
 use crate::resolver::Resolver;
+use crate::{MultiQuery, Query};
 use futures::stream::{self, StreamExt};
 use log::{debug, trace};
 use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
@@ -29,11 +30,12 @@ impl From<std::result::Result<trust_dns_resolver::lookup::Lookup, ResolveError>>
 }
 
 impl Lookup {
-    pub(crate) async fn lookup(resolver: Resolver, name: Name, record_type: RecordType) -> Lookup {
-        do_lookup(&resolver, name, record_type).await
+    pub(crate) async fn lookup(resolver: Resolver, q: Query) -> Lookup {
+        do_lookup(&resolver, q.name, q.record_type).await
     }
 
-    pub(crate) async fn multi_lookups(resolver: Resolver, name: Name, record_types: Vec<RecordType>) -> Vec<Lookup> {
+    pub(crate) async fn multi_lookups(resolver: Resolver, mq: MultiQuery) -> Vec<Lookup> {
+        let MultiQuery { name, record_types } = mq;
         let lookups: Vec<_> = record_types
             .into_iter()
             .map(|record_type| do_lookup(&resolver, name.clone(), record_type))

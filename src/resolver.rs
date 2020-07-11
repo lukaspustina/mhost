@@ -1,12 +1,10 @@
 use crate::error::Error;
 use crate::lookup::Lookup;
 use crate::nameserver::NameServerConfig;
-use crate::Result;
+use crate::{MultiQuery, Query, Result};
 
 use futures::TryFutureExt;
 use std::sync::Arc;
-use trust_dns_resolver::proto::rr::RecordType;
-use trust_dns_resolver::IntoName;
 
 pub struct ResolverConfig {
     name_server_config: NameServerConfig,
@@ -50,23 +48,12 @@ impl Resolver {
         })
     }
 
-    pub async fn lookup<N: IntoName>(&self, name: N, record_type: RecordType) -> Result<Lookup> {
-        let name = name.into_name().map_err(Error::from)?;
-        let lookup = Lookup::lookup(self.clone(), name, record_type).await;
-
-        Ok(lookup)
+    pub async fn lookup(&self, q: Query) -> Lookup {
+        Lookup::lookup(self.clone(), q).await
     }
 
-    pub async fn multi_lookups<N: IntoName, T: Into<Vec<RecordType>>>(
-        &self,
-        name: N,
-        record_types: T,
-    ) -> Result<Vec<Lookup>> {
-        let name = name.into_name().map_err(Error::from)?;
-        let record_types = record_types.into();
-        let lookups = Lookup::multi_lookups(self.clone(), name, record_types).await;
-
-        Ok(lookups)
+    pub async fn multi_lookup(&self, mq: MultiQuery) -> Vec<Lookup> {
+        Lookup::multi_lookups(self.clone(), mq).await
     }
 }
 
