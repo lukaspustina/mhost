@@ -4,14 +4,55 @@ use crate::{MultiQuery, Query};
 use futures::stream::{self, StreamExt};
 use log::{debug, trace};
 use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
-use trust_dns_resolver::proto::rr::RecordType;
 use trust_dns_resolver::proto::xfer::DnsRequestOptions;
-use trust_dns_resolver::Name;
+use crate::nameserver::NameServerConfig;
+use std::sync::Arc;
+use std::time::Instant;
+
+#[derive(Debug)]
+pub struct LookupResult {
+    query: Query,
+    name_server: Arc<NameServerConfig>,
+    result: Lookup,
+}
+
+impl LookupResult {
+    pub(crate) async fn lookup(resolver: Resolver, q: Query) -> LookupResult {
+        do_lookup(&resolver, q).await
+    }
+
+    pub(crate) async fn multi_lookups(resolver: Resolver, mq: MultiQuery) -> Vec<LookupResult> {
+        let MultiQuery { name, record_types } = mq;
+        let lookups: Vec<_> = record_types
+            .into_iter()
+            .map(|record_type| Query { name: name.clone(), record_type: record_type.clone() })
+            .map(|q| do_lookup(&resolver, q))
+            .collect();
+
+        stream::iter(lookups)
+            .buffer_unordered(resolver.opts.max_concurrent)
+            .inspect(|lookup| trace!("Received lookup {:?}", lookup))
+            .collect::<Vec<LookupResult>>()
+            .await
+    }
+
+    pub fn query(&self) -> &Query {
+        &self.query
+    }
+
+    pub fn name_server(&self) -> &NameServerConfig {
+        &self.name_server
+    }
+
+    pub fn result(&self) -> &Lookup {
+        &self.result
+    }
+}
 
 #[derive(Debug)]
 pub enum Lookup {
     Lookup(trust_dns_resolver::lookup::Lookup),
-    NxDomain,
+    NxDomain { valid_until: Option<Instant> },
     Timeout,
     Error(Error),
 }
@@ -19,9 +60,10 @@ pub enum Lookup {
 impl From<std::result::Result<trust_dns_resolver::lookup::Lookup, ResolveError>> for Lookup {
     fn from(res: std::result::Result<trust_dns_resolver::lookup::Lookup, ResolveError>) -> Self {
         match res {
+            // TODO: Transform trustdns::lookup into mhost::Records
             Ok(lookup) => Lookup::Lookup(lookup),
             Err(err) => match err.kind() {
-                ResolveErrorKind::NoRecordsFound { .. } => Lookup::NxDomain,
+                ResolveErrorKind::NoRecordsFound { valid_until, .. } => Lookup::NxDomain { valid_until: *valid_until },
                 ResolveErrorKind::Timeout => Lookup::Timeout,
                 _ => Lookup::Error(Error::from(err)),
             },
@@ -29,36 +71,21 @@ impl From<std::result::Result<trust_dns_resolver::lookup::Lookup, ResolveError>>
     }
 }
 
-impl Lookup {
-    pub(crate) async fn lookup(resolver: Resolver, q: Query) -> Lookup {
-        do_lookup(&resolver, q.name, q.record_type).await
-    }
-
-    pub(crate) async fn multi_lookups(resolver: Resolver, mq: MultiQuery) -> Vec<Lookup> {
-        let MultiQuery { name, record_types } = mq;
-        let lookups: Vec<_> = record_types
-            .into_iter()
-            .map(|record_type| do_lookup(&resolver, name.clone(), record_type))
-            .collect();
-
-        stream::iter(lookups)
-            .buffer_unordered(resolver.opts.max_concurrent)
-            .inspect(|lookup| trace!("Received lookup {:?}", lookup))
-            .collect::<Vec<Lookup>>()
-            .await
-    }
-}
-
-async fn do_lookup(resolver: &Resolver, name: Name, record_type: RecordType) -> Lookup {
-    let lookup = resolver
+async fn do_lookup(resolver: &Resolver, q: Query) -> LookupResult {
+    let query = q.clone();
+    let result = resolver
         .inner
-        .lookup(name, record_type, DnsRequestOptions::default())
+        .lookup(q.name, q.record_type, DnsRequestOptions::default())
         .await
         .into();
     debug!(
-        "Received Lookup for record type {} at {:?}.",
-        record_type, resolver.name
+        "Received Lookup for '{}', record type {} from {:?}.",
+        &query.name, &query.record_type, resolver.name()
     );
 
-    lookup
+    LookupResult {
+        query,
+        name_server: resolver.name_server.clone(),
+        result,
+    }
 }

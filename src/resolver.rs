@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::lookup::Lookup;
+use crate::lookup::LookupResult;
 use crate::nameserver::NameServerConfig;
 use crate::{MultiQuery, Query, Result};
 
@@ -33,12 +33,13 @@ impl Default for ResolverOpts {
 #[derive(Clone)]
 pub struct Resolver {
     pub(crate) inner: Arc<trust_dns_resolver::TokioAsyncResolver>,
-    pub(crate) name: Arc<Option<String>>,
     pub(crate) opts: Arc<ResolverOpts>,
+    pub(crate) name_server: Arc<NameServerConfig>,
 }
 
 impl Resolver {
     pub async fn new(config: ResolverConfig, opts: ResolverOpts) -> Result<Self> {
+        let name_server = config.name_server_config.clone();
         let tr_opts = trust_dns_resolver::config::ResolverOpts::default();
         let tr_resolver = trust_dns_resolver::TokioAsyncResolver::tokio(config.into(), tr_opts)
             .map_err(Error::from)
@@ -46,17 +47,21 @@ impl Resolver {
 
         Ok(Resolver {
             inner: Arc::new(tr_resolver),
-            name: Arc::new(None),
             opts: Arc::new(opts),
+            name_server: Arc::new(name_server),
         })
     }
 
-    pub async fn lookup(&self, q: Query) -> Lookup {
-        Lookup::lookup(self.clone(), q).await
+    pub async fn lookup(&self, q: Query) -> LookupResult {
+        LookupResult::lookup(self.clone(), q).await
     }
 
-    pub async fn multi_lookup(&self, mq: MultiQuery) -> Vec<Lookup> {
-        Lookup::multi_lookups(self.clone(), mq).await
+    pub async fn multi_lookup(&self, mq: MultiQuery) -> Vec<LookupResult> {
+        LookupResult::multi_lookups(self.clone(), mq).await
+    }
+
+    pub fn name(&self) -> String {
+         self.name_server.to_string()
     }
 }
 
@@ -106,7 +111,7 @@ impl ResolverGroup {
         Ok(Self::new(resolvers, opts))
     }
 
-    pub async fn lookup(&self, q: Query) -> Vec<Lookup> {
+    pub async fn lookup(&self, q: Query) -> Vec<LookupResult> {
         // TODO: q.clone should be cheap -> Use Arc
         let futures: Vec<_> = self.resolvers.iter().map(|resolver| resolver.lookup(q.clone())).collect();
 
@@ -118,7 +123,7 @@ impl ResolverGroup {
         lookups
     }
 
-    pub async fn multi_lookup(&self, mq: MultiQuery) -> Vec<Lookup> {
+    pub async fn multi_lookup(&self, mq: MultiQuery) -> Vec<LookupResult> {
         // TODO: q.clone should be cheap -> Use Arc
         let futures: Vec<_> = self.resolvers.iter().map(|resolver| resolver.multi_lookup(mq.clone())).collect();
 

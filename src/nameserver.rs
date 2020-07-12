@@ -1,12 +1,8 @@
+use std::fmt;
 use std::net::IpAddr;
 
-pub enum Protocol {
-    Udp,
-    Tcp,
-    Tls,
-    Https,
-}
 
+#[derive(Clone, Debug)]
 pub enum NameServerConfig {
     Udp { ip_addr: IpAddr, port: u16 },
     Tcp { ip_addr: IpAddr, port: u16 },
@@ -40,6 +36,22 @@ impl NameServerConfig {
             port,
             spki,
         }
+    }
+}
+
+impl fmt::Display for NameServerConfig {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        let str = match self {
+            NameServerConfig::Udp { ip_addr, port } =>
+                format!("udp:{}:{}", ip_addr, port),
+            NameServerConfig::Tcp { ip_addr, port } =>
+                format!("tcp:{}:{}", ip_addr, port),
+            NameServerConfig::Tls { ip_addr, port, spki } =>
+                format!("tls:{}:{},{}", ip_addr, port, spki),
+            NameServerConfig::Https { ip_addr, port, spki } =>
+                format!("tls:{}:{},{}", ip_addr, port, spki),
+        };
+        fmt.write_str(&str)
     }
 }
 
