@@ -27,9 +27,9 @@ name = "mhost"
 path = "src/lib.rs"
 
 [dependencies]
-anyhow = "1"
+anyhow = { version = "1", optional = true }
 chrono = { version = "0.4", features = ["serde"] }
-env_logger = "0.7.*"
+env_logger = { version = "0.7.*", optional = true }
 futures = { version = "0.3.*"}
 log = "0.4.*"
 tokio = { version = "0.2.*", features = ["full"] }
@@ -38,4 +38,4 @@ thiserror = "1"
 trust-dns-resolver = { version = "0.19", features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls", "dnssec-ring", "mdns", "system-config", "serde-config"] }
 
 [features]
-bin = []
+bin = ["anyhow", "env_logger"]
