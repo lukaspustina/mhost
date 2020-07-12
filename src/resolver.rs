@@ -52,12 +52,12 @@ impl Resolver {
         })
     }
 
-    pub async fn lookup(&self, q: Query) -> LookupResult {
-        LookupResult::lookup(self.clone(), q).await
+    pub async fn lookup(&self, query: Query) -> LookupResult {
+        LookupResult::lookup(self.clone(), query).await
     }
 
-    pub async fn multi_lookup(&self, mq: MultiQuery) -> Vec<LookupResult> {
-        LookupResult::multi_lookups(self.clone(), mq).await
+    pub async fn multi_lookup(&self, multi_query: MultiQuery) -> Vec<LookupResult> {
+        LookupResult::multi_lookups(self.clone(), multi_query).await
     }
 
     pub fn name(&self) -> String {
@@ -111,9 +111,9 @@ impl ResolverGroup {
         Ok(Self::new(resolvers, opts))
     }
 
-    pub async fn lookup(&self, q: Query) -> Vec<LookupResult> {
+    pub async fn lookup(&self, query: Query) -> Vec<LookupResult> {
         // TODO: q.clone should be cheap -> Use Arc
-        let futures: Vec<_> = self.resolvers.iter().map(|resolver| resolver.lookup(q.clone())).collect();
+        let futures: Vec<_> = self.resolvers.iter().map(|resolver| resolver.lookup(query.clone())).collect();
 
         let lookups: Vec<_> = stream::iter(futures)
             .buffer_unordered(self.opts.max_concurrent)
@@ -123,9 +123,9 @@ impl ResolverGroup {
         lookups
     }
 
-    pub async fn multi_lookup(&self, mq: MultiQuery) -> Vec<LookupResult> {
+    pub async fn multi_lookup(&self, multi_query: MultiQuery) -> Vec<LookupResult> {
         // TODO: q.clone should be cheap -> Use Arc
-        let futures: Vec<_> = self.resolvers.iter().map(|resolver| resolver.multi_lookup(mq.clone())).collect();
+        let futures: Vec<_> = self.resolvers.iter().map(|resolver| resolver.multi_lookup(multi_query.clone())).collect();
 
         let lookups: Vec<_> = stream::iter(futures)
             .buffer_unordered(self.opts.max_concurrent)

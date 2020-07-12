@@ -17,12 +17,12 @@ pub struct LookupResult {
 }
 
 impl LookupResult {
-    pub(crate) async fn lookup(resolver: Resolver, q: Query) -> LookupResult {
-        do_lookup(&resolver, q).await
+    pub(crate) async fn lookup(resolver: Resolver, query: Query) -> LookupResult {
+        do_lookup(&resolver, query).await
     }
 
-    pub(crate) async fn multi_lookups(resolver: Resolver, mq: MultiQuery) -> Vec<LookupResult> {
-        let MultiQuery { name, record_types } = mq;
+    pub(crate) async fn multi_lookups(resolver: Resolver, multi_query: MultiQuery) -> Vec<LookupResult> {
+        let MultiQuery { name, record_types } = multi_query;
         let lookups: Vec<_> = record_types
             .into_iter()
             .map(|record_type| Query { name: name.clone(), record_type: record_type.clone() })
@@ -71,8 +71,8 @@ impl From<std::result::Result<trust_dns_resolver::lookup::Lookup, ResolveError>>
     }
 }
 
-async fn do_lookup(resolver: &Resolver, q: Query) -> LookupResult {
-    let query = q.clone();
+async fn do_lookup(resolver: &Resolver, query: Query) -> LookupResult {
+    let q = query.clone();
     let result = resolver
         .inner
         .lookup(q.name, q.record_type, DnsRequestOptions::default())

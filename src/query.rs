@@ -20,10 +20,10 @@ impl Query {
 }
 
 impl From<Query> for MultiQuery {
-    fn from(q: Query) -> MultiQuery {
+    fn from(query: Query) -> MultiQuery {
         MultiQuery {
-            name: q.name,
-            record_types: vec![q.record_type],
+            name: query.name,
+            record_types: vec![query.record_type],
         }
     }
 }
