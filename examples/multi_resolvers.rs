@@ -1,5 +1,5 @@
 use mhost::nameserver::NameServerConfig;
-use mhost::resolver::{Resolver, ResolverConfig, ResolverOpts, ResolverGroup};
+use mhost::resolver::{Resolver, ResolverConfig, ResolverGroup, ResolverOpts};
 use mhost::{MultiQuery, RecordType};
 use std::net::{IpAddr, Ipv4Addr};
 
@@ -18,7 +18,8 @@ async fn main() {
     let config = ResolverConfig::new(name_server_config);
     let opts = ResolverOpts::default();
 
-    let resolvers_2 = ResolverGroup::from_configs(vec![config], opts, Default::default()).await
+    let resolvers_2 = ResolverGroup::from_configs(vec![config], opts, Default::default())
+        .await
         .expect("Failed to create 2. resolver group");
 
     resolvers.merge(resolvers_2);

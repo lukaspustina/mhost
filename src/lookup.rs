@@ -1,13 +1,13 @@
 use crate::error::Error;
+use crate::nameserver::NameServerConfig;
 use crate::resolver::Resolver;
 use crate::{MultiQuery, Query};
 use futures::stream::{self, StreamExt};
 use log::{debug, trace};
-use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
-use trust_dns_resolver::proto::xfer::DnsRequestOptions;
-use crate::nameserver::NameServerConfig;
 use std::sync::Arc;
 use std::time::Instant;
+use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
+use trust_dns_resolver::proto::xfer::DnsRequestOptions;
 
 #[derive(Debug)]
 pub struct LookupResult {
@@ -25,7 +25,10 @@ impl LookupResult {
         let MultiQuery { name, record_types } = multi_query;
         let lookups: Vec<_> = record_types
             .into_iter()
-            .map(|record_type| Query { name: name.clone(), record_type: record_type.clone() })
+            .map(|record_type| Query {
+                name: name.clone(),
+                record_type,
+            })
             .map(|q| do_lookup(&resolver, q))
             .collect();
 
@@ -63,7 +66,9 @@ impl From<std::result::Result<trust_dns_resolver::lookup::Lookup, ResolveError>>
             // TODO: Transform trustdns::lookup into mhost::Records
             Ok(lookup) => Lookup::Lookup(lookup),
             Err(err) => match err.kind() {
-                ResolveErrorKind::NoRecordsFound { valid_until, .. } => Lookup::NxDomain { valid_until: *valid_until },
+                ResolveErrorKind::NoRecordsFound { valid_until, .. } => Lookup::NxDomain {
+                    valid_until: *valid_until,
+                },
                 ResolveErrorKind::Timeout => Lookup::Timeout,
                 _ => Lookup::Error(Error::from(err)),
             },
@@ -80,7 +85,9 @@ async fn do_lookup(resolver: &Resolver, query: Query) -> LookupResult {
         .into();
     debug!(
         "Received Lookup for '{}', record type {} from {:?}.",
-        &query.name, &query.record_type, resolver.name()
+        &query.name,
+        &query.record_type,
+        resolver.name()
     );
 
     LookupResult {

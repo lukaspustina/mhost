@@ -3,9 +3,9 @@ use crate::lookup::LookupResult;
 use crate::nameserver::NameServerConfig;
 use crate::{MultiQuery, Query, Result};
 
-use futures::TryFutureExt;
 use futures::future::join_all;
 use futures::stream::{self, StreamExt};
+use futures::TryFutureExt;
 use std::sync::Arc;
 
 pub struct ResolverConfig {
@@ -61,7 +61,7 @@ impl Resolver {
     }
 
     pub fn name(&self) -> String {
-         self.name_server.to_string()
+        self.name_server.to_string()
     }
 }
 
@@ -77,7 +77,6 @@ impl Default for ResolverGroupOpts {
     }
 }
 
-
 pub struct ResolverGroup {
     resolvers: Vec<Resolver>,
     opts: ResolverGroupOpts,
@@ -91,19 +90,19 @@ impl ResolverGroup {
         }
     }
 
-    pub async fn from_configs<T: IntoIterator<Item=ResolverConfig>>(configs: T, resolver_opts: ResolverOpts, opts: ResolverGroupOpts) -> Result<Self> {
+    pub async fn from_configs<T: IntoIterator<Item = ResolverConfig>>(
+        configs: T,
+        resolver_opts: ResolverOpts,
+        opts: ResolverGroupOpts,
+    ) -> Result<Self> {
         // Create resolver futures
-        let futures: Vec<_> = configs.into_iter()
-            .map(|config|
-                Resolver::new(config, resolver_opts.clone())
-            )
+        let futures: Vec<_> = configs
+            .into_iter()
+            .map(|config| Resolver::new(config, resolver_opts.clone()))
             .collect();
 
         // Wait all futures
-        let resolvers: Result<Vec<_>> = join_all(futures)
-            .await
-            .into_iter()
-            .collect();
+        let resolvers: Result<Vec<_>> = join_all(futures).await.into_iter().collect();
 
         // Check for Err
         let resolvers = resolvers?;
@@ -113,7 +112,11 @@ impl ResolverGroup {
 
     pub async fn lookup(&self, query: Query) -> Vec<LookupResult> {
         // TODO: q.clone should be cheap -> Use Arc
-        let futures: Vec<_> = self.resolvers.iter().map(|resolver| resolver.lookup(query.clone())).collect();
+        let futures: Vec<_> = self
+            .resolvers
+            .iter()
+            .map(|resolver| resolver.lookup(query.clone()))
+            .collect();
 
         let lookups: Vec<_> = stream::iter(futures)
             .buffer_unordered(self.opts.max_concurrent)
@@ -125,7 +128,11 @@ impl ResolverGroup {
 
     pub async fn multi_lookup(&self, multi_query: MultiQuery) -> Vec<LookupResult> {
         // TODO: q.clone should be cheap -> Use Arc
-        let futures: Vec<_> = self.resolvers.iter().map(|resolver| resolver.multi_lookup(multi_query.clone())).collect();
+        let futures: Vec<_> = self
+            .resolvers
+            .iter()
+            .map(|resolver| resolver.multi_lookup(multi_query.clone()))
+            .collect();
 
         let lookups: Vec<_> = stream::iter(futures)
             .buffer_unordered(self.opts.max_concurrent)
@@ -157,7 +164,6 @@ impl ResolverGroup {
         &self.opts
     }
 }
-
 
 mod internal {
     use super::ResolverConfig;
