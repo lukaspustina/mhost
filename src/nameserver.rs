@@ -2,7 +2,7 @@ use std::fmt;
 use std::net::{IpAddr, SocketAddr};
 use trust_dns_resolver::config::Protocol;
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub enum NameServerConfig {
     Udp { ip_addr: IpAddr, port: u16 },
     Tcp { ip_addr: IpAddr, port: u16 },

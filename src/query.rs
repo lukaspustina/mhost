@@ -4,10 +4,10 @@ use crate::{RecordType, Result};
 use trust_dns_resolver::IntoName;
 use trust_dns_resolver::Name;
 
-#[derive(Debug, Clone)]
 /// Query
 ///
 /// Name's labels are all Rc, so clone is cheap
+#[derive(Debug, Clone)]
 pub struct Query {
     pub(crate) name: Name,
     pub(crate) record_type: RecordType,

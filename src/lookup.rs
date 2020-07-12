@@ -10,7 +10,7 @@ use std::time::Instant;
 use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
 use trust_dns_resolver::proto::xfer::DnsRequestOptions;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LookupResult {
     query: Query,
     name_server: Arc<NameServerConfig>,
@@ -53,7 +53,7 @@ impl LookupResult {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Lookup {
     Lookup { records: Vec<Record>, valid_until: Instant },
     NxDomain { valid_until: Option<Instant> },

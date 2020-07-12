@@ -8,6 +8,7 @@ use futures::stream::{self, StreamExt};
 use futures::TryFutureExt;
 use std::sync::Arc;
 
+#[derive(Debug)]
 pub struct ResolverConfig {
     name_server_config: NameServerConfig,
 }
@@ -18,7 +19,7 @@ impl ResolverConfig {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ResolverOpts {
     /// Maximum number of concurrent queries send with this resolver
     pub max_concurrent: usize,
@@ -30,7 +31,7 @@ impl Default for ResolverOpts {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Resolver {
     pub(crate) inner: Arc<trust_dns_resolver::TokioAsyncResolver>,
     pub(crate) opts: Arc<ResolverOpts>,
@@ -65,7 +66,7 @@ impl Resolver {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ResolverGroupOpts {
     /// Maximum number of concurrent active resolvers
     pub max_concurrent: usize,
@@ -77,6 +78,7 @@ impl Default for ResolverGroupOpts {
     }
 }
 
+#[derive(Debug)]
 pub struct ResolverGroup {
     resolvers: Vec<Resolver>,
     opts: ResolverGroupOpts,
