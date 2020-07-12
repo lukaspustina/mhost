@@ -27,6 +27,7 @@ pub enum RData {
     ZERO,
 }
 
+#[doc(hidden)]
 impl From<trust_dns_resolver::proto::rr::RData> for RData {
     fn from(rdata: trust_dns_resolver::proto::rr::RData) -> Self {
         use trust_dns_resolver::proto::rr::RData as TRData;

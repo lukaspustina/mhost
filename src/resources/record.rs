@@ -9,6 +9,7 @@ pub struct Record {
     rdata: RData,
 }
 
+#[doc(hidden)]
 impl From<&trust_dns_resolver::proto::rr::Record> for Record {
     fn from(record: &trust_dns_resolver::proto::rr::Record) -> Self {
         Record {

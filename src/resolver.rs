@@ -163,15 +163,12 @@ impl ResolverGroup {
     }
 }
 
-mod internal {
-    use super::ResolverConfig;
+#[doc(hidden)]
+impl From<ResolverConfig> for trust_dns_resolver::config::ResolverConfig {
+    fn from(rc: ResolverConfig) -> Self {
+        let mut config = Self::new();
+        config.add_name_server(rc.name_server_config.into());
 
-    impl From<ResolverConfig> for trust_dns_resolver::config::ResolverConfig {
-        fn from(rc: ResolverConfig) -> Self {
-            let mut config = Self::new();
-            config.add_name_server(rc.name_server_config.into());
-
-            config
-        }
+        config
     }
 }

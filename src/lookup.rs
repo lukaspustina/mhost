@@ -18,11 +18,11 @@ pub struct LookupResult {
 }
 
 impl LookupResult {
-    pub(crate) async fn lookup(resolver: Resolver, query: Query) -> LookupResult {
+    pub async fn lookup(resolver: Resolver, query: Query) -> LookupResult {
         do_lookup(&resolver, query).await
     }
 
-    pub(crate) async fn multi_lookups(resolver: Resolver, multi_query: MultiQuery) -> Vec<LookupResult> {
+    pub async fn multi_lookups(resolver: Resolver, multi_query: MultiQuery) -> Vec<LookupResult> {
         let MultiQuery { name, record_types } = multi_query;
         let lookups: Vec<_> = record_types
             .into_iter()
@@ -61,6 +61,7 @@ pub enum Lookup {
     Error(Error),
 }
 
+#[doc(hidden)]
 impl From<std::result::Result<trust_dns_resolver::lookup::Lookup, ResolveError>> for Lookup {
     fn from(res: std::result::Result<trust_dns_resolver::lookup::Lookup, ResolveError>) -> Self {
         match res {

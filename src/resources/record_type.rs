@@ -57,6 +57,7 @@ impl RecordType {
     }
 }
 
+#[doc(hidden)]
 impl From<RecordType> for trust_dns_resolver::proto::rr::RecordType {
     fn from(rt: RecordType) -> Self {
         use trust_dns_resolver::proto::rr::RecordType as Trt;
@@ -89,6 +90,7 @@ impl From<RecordType> for trust_dns_resolver::proto::rr::RecordType {
     }
 }
 
+#[doc(hidden)]
 impl From<trust_dns_resolver::proto::rr::RecordType> for RecordType {
     fn from(rt: trust_dns_resolver::proto::rr::RecordType) -> Self {
         use trust_dns_resolver::proto::rr::RecordType as Trt;

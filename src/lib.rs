@@ -12,4 +12,4 @@ pub use resources::RecordType;
 pub use trust_dns_resolver::IntoName;
 pub use trust_dns_resolver::Name;
 
-type Result<T> = std::result::Result<T, error::Error>;
+pub type Result<T> = std::result::Result<T, error::Error>;

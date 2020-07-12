@@ -1,5 +1,6 @@
 use std::fmt;
 use std::net::{IpAddr, SocketAddr};
+use trust_dns_resolver::config::Protocol;
 
 #[derive(Clone, Debug)]
 pub enum NameServerConfig {
@@ -54,39 +55,35 @@ impl fmt::Display for NameServerConfig {
     }
 }
 
-mod internal {
-    use super::NameServerConfig;
-    use std::net::SocketAddr;
-    use trust_dns_resolver::config::Protocol;
 
-    impl From<NameServerConfig> for trust_dns_resolver::config::NameServerConfig {
-        fn from(config: NameServerConfig) -> Self {
-            match config {
-                NameServerConfig::Udp { ip_addr, port } => trust_dns_resolver::config::NameServerConfig {
-                    socket_addr: SocketAddr::new(ip_addr, port),
-                    protocol: Protocol::Udp,
-                    tls_dns_name: None,
-                    tls_config: None,
-                },
-                NameServerConfig::Tcp { ip_addr, port } => trust_dns_resolver::config::NameServerConfig {
-                    socket_addr: SocketAddr::new(ip_addr, port),
-                    protocol: Protocol::Tcp,
-                    tls_dns_name: None,
-                    tls_config: None,
-                },
-                NameServerConfig::Tls { ip_addr, port, spki } => trust_dns_resolver::config::NameServerConfig {
-                    socket_addr: SocketAddr::new(ip_addr, port),
-                    protocol: Protocol::Tls,
-                    tls_dns_name: Some(spki),
-                    tls_config: None,
-                },
-                NameServerConfig::Https { ip_addr, port, spki } => trust_dns_resolver::config::NameServerConfig {
-                    socket_addr: SocketAddr::new(ip_addr, port),
-                    protocol: Protocol::Https,
-                    tls_dns_name: Some(spki),
-                    tls_config: None,
-                },
-            }
+#[doc(hidden)]
+impl From<NameServerConfig> for trust_dns_resolver::config::NameServerConfig {
+    fn from(config: NameServerConfig) -> Self {
+        match config {
+            NameServerConfig::Udp { ip_addr, port } => trust_dns_resolver::config::NameServerConfig {
+                socket_addr: SocketAddr::new(ip_addr, port),
+                protocol: Protocol::Udp,
+                tls_dns_name: None,
+                tls_config: None,
+            },
+            NameServerConfig::Tcp { ip_addr, port } => trust_dns_resolver::config::NameServerConfig {
+                socket_addr: SocketAddr::new(ip_addr, port),
+                protocol: Protocol::Tcp,
+                tls_dns_name: None,
+                tls_config: None,
+            },
+            NameServerConfig::Tls { ip_addr, port, spki } => trust_dns_resolver::config::NameServerConfig {
+                socket_addr: SocketAddr::new(ip_addr, port),
+                protocol: Protocol::Tls,
+                tls_dns_name: Some(spki),
+                tls_config: None,
+            },
+            NameServerConfig::Https { ip_addr, port, spki } => trust_dns_resolver::config::NameServerConfig {
+                socket_addr: SocketAddr::new(ip_addr, port),
+                protocol: Protocol::Https,
+                tls_dns_name: Some(spki),
+                tls_config: None,
+            },
         }
     }
 }
