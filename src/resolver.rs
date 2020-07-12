@@ -111,7 +111,6 @@ impl ResolverGroup {
     }
 
     pub async fn lookup(&self, query: Query) -> Vec<LookupResult> {
-        // TODO: q.clone should be cheap -> Use Arc
         let futures: Vec<_> = self
             .resolvers
             .iter()
@@ -127,7 +126,6 @@ impl ResolverGroup {
     }
 
     pub async fn multi_lookup(&self, multi_query: MultiQuery) -> Vec<LookupResult> {
-        // TODO: q.clone should be cheap -> Use Arc
         let futures: Vec<_> = self
             .resolvers
             .iter()
