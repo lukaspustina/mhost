@@ -4,6 +4,7 @@ pub mod nameserver;
 pub mod query;
 pub mod resolver;
 pub mod resources;
+mod serialize;
 
 pub use error::Error;
 pub use query::{MultiQuery, Query};

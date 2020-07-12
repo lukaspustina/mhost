@@ -1,8 +1,8 @@
 use mhost::nameserver::NameServerConfig;
 use mhost::resolver::{Resolver, ResolverConfig};
 use mhost::{MultiQuery, Query, RecordType};
-use std::net::SocketAddr;
 use std::env;
+use std::net::SocketAddr;
 
 #[tokio::main]
 async fn main() {

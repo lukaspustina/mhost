@@ -1,13 +1,14 @@
 use crate::error::Error;
 use crate::{RecordType, Result};
 
+use serde::Serialize;
 use trust_dns_resolver::IntoName;
 use trust_dns_resolver::Name;
 
 /// Query
 ///
 /// Name's labels are all Rc, so clone is cheap
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Query {
     pub(crate) name: Name,
     pub(crate) record_type: RecordType,

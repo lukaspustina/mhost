@@ -2,17 +2,21 @@ use crate::error::Error;
 use crate::nameserver::NameServerConfig;
 use crate::resolver::Resolver;
 use crate::resources::Record;
+use crate::serialize::{ser_arc_nameserver_config, ser_error};
 use crate::{MultiQuery, Query};
 use futures::stream::{self, StreamExt};
 use log::{debug, trace};
+use serde::Serialize;
 use std::sync::Arc;
-use std::time::Instant;
 use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
 use trust_dns_resolver::proto::xfer::DnsRequestOptions;
+use chrono::{DateTime, Utc, Duration};
+use std::time::Instant;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct LookupResult {
     query: Query,
+    #[serde(serialize_with = "ser_arc_nameserver_config")]
     name_server: Arc<NameServerConfig>,
     result: Lookup,
 }
@@ -53,11 +57,17 @@ impl LookupResult {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum Lookup {
-    Lookup { records: Vec<Record>, valid_until: Instant },
-    NxDomain { valid_until: Option<Instant> },
+    Lookup {
+        records: Vec<Record>,
+        valid_until: DateTime<Utc>,
+    },
+    NxDomain {
+        valid_until: Option<DateTime<Utc>>,
+    },
     Timeout,
+    #[serde(serialize_with = "ser_error")]
     Error(Error),
 }
 
@@ -69,12 +79,12 @@ impl From<std::result::Result<trust_dns_resolver::lookup::Lookup, ResolveError>>
                 let records: Vec<Record> = lookup.record_iter().map(Record::from).collect();
                 Lookup::Lookup {
                     records,
-                    valid_until: lookup.valid_until(),
+                    valid_until: instant_to_utc(lookup.valid_until()),
                 }
             }
             Err(err) => match err.kind() {
                 ResolveErrorKind::NoRecordsFound { valid_until, .. } => Lookup::NxDomain {
-                    valid_until: *valid_until,
+                    valid_until: valid_until.map(instant_to_utc)
                 },
                 ResolveErrorKind::Timeout => Lookup::Timeout,
                 _ => Lookup::Error(Error::from(err)),
@@ -102,4 +112,11 @@ async fn do_lookup(resolver: &Resolver, query: Query) -> LookupResult {
         name_server: resolver.name_server.clone(),
         result,
     }
+}
+
+fn instant_to_utc(instant: Instant) -> DateTime<Utc> {
+    let now = Instant::now();
+    let duration = instant.duration_since(now);
+
+    Utc::now() + Duration::from_std(duration).unwrap() // Safe, because I know this is a valid duration
 }

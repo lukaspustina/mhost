@@ -1,11 +1,13 @@
 use crate::{Error, Result};
 
+use serde::Serialize;
 use std::fmt;
 use std::str::FromStr;
 use trust_dns_resolver::proto::rr::dnssec::rdata::DNSSECRecordType;
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 #[allow(dead_code)]
+#[derive(Serialize)]
 pub enum RecordType {
     A,
     AAAA,
@@ -27,7 +29,8 @@ pub enum RecordType {
     SSHFP,
     TLSA,
     TXT,
-    DNSSEC(DNSSECRecordType),
+    // TODO: DNSSEC(DNSSECRecordType),
+    DNSSEC,
     Unknown(u16),
     ZERO,
 }
@@ -83,7 +86,8 @@ impl From<RecordType> for trust_dns_resolver::proto::rr::RecordType {
             RecordType::SSHFP => Trt::SSHFP,
             RecordType::TLSA => Trt::TLSA,
             RecordType::TXT => Trt::TXT,
-            RecordType::DNSSEC(dnssec_rt) => Trt::DNSSEC(dnssec_rt),
+            // TODO: RecordType::DNSSEC(dnssec_rt) => Trt::DNSSEC(dnssec_rt),
+            RecordType::DNSSEC => Trt::DNSSEC(DNSSECRecordType::Unknown(0)),
             RecordType::Unknown(value) => Trt::Unknown(value),
             RecordType::ZERO => Trt::ZERO,
         }
@@ -116,7 +120,8 @@ impl From<trust_dns_resolver::proto::rr::RecordType> for RecordType {
             Trt::SSHFP => RecordType::SSHFP,
             Trt::TLSA => RecordType::TLSA,
             Trt::TXT => RecordType::TXT,
-            Trt::DNSSEC(dnssec_rt) => RecordType::DNSSEC(dnssec_rt),
+            // TODO: Trt::DNSSEC(dnssec_rt) => RecordType::DNSSEC(dnssec_rt),
+            Trt::DNSSEC(_) => RecordType::DNSSEC,
             Trt::Unknown(value) => RecordType::Unknown(value),
             Trt::ZERO => RecordType::ZERO,
         }
@@ -147,7 +152,8 @@ impl FromStr for RecordType {
             "ANY" | "*" => Ok(RecordType::ANY),
             "AXFR" => Ok(RecordType::AXFR),
             "DNSKEY" | "DS" | "KEY" | "NSEC" | "NSEC3" | "NSEC3PARAM" | "RRSIG" | "SIG" => {
-                Ok(RecordType::DNSSEC(str.parse()?))
+                // TODO: Ok(RecordType::DNSSEC(str.parse()?))
+                Ok(RecordType::DNSSEC)
             }
             _ => Err(Error::ParserError {
                 what: "record type from str",
@@ -180,7 +186,8 @@ impl From<RecordType> for &'static str {
             RecordType::SSHFP => "SSHFP",
             RecordType::TLSA => "TLSA",
             RecordType::TXT => "TXT",
-            RecordType::DNSSEC(rt) => rt.into(),
+            // TODO: RecordType::DNSSEC(rt) => rt.into(),
+            RecordType::DNSSEC => "DNSSEC",
             RecordType::Unknown(_) => "Unknown",
         }
     }

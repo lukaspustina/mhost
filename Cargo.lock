@@ -125,6 +125,7 @@ checksum = "f0fee792e164f78f5fe0c296cc2eb3688a2ca2b70cdff33040922d298203f0c4"
 dependencies = [
  "num-integer",
  "num-traits",
+ "serde",
  "time",
 ]
 
@@ -510,6 +511,7 @@ name = "mhost"
 version = "0.2.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "env_logger",
  "futures",
  "log",

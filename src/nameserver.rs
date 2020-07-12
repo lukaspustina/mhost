@@ -1,8 +1,9 @@
+use serde::Serialize;
 use std::fmt;
 use std::net::{IpAddr, SocketAddr};
 use trust_dns_resolver::config::Protocol;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum NameServerConfig {
     Udp { ip_addr: IpAddr, port: u16 },
     Tcp { ip_addr: IpAddr, port: u16 },
@@ -54,7 +55,6 @@ impl fmt::Display for NameServerConfig {
         fmt.write_str(&str)
     }
 }
-
 
 #[doc(hidden)]
 impl From<NameServerConfig> for trust_dns_resolver::config::NameServerConfig {
