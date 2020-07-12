@@ -1,19 +1,25 @@
 use mhost::nameserver::NameServerConfig;
-use mhost::resolver::{Resolver, ResolverConfig, ResolverOpts};
+use mhost::resolver::{Resolver, ResolverConfig};
 use mhost::{MultiQuery, Query, RecordType};
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::SocketAddr;
+use std::env;
 
 #[tokio::main]
 async fn main() {
-    let ip_addr: IpAddr = Ipv4Addr::new(8, 8, 8, 8).into();
-    let name_server_config = NameServerConfig::udp(ip_addr, 53);
+    let name = env::args()
+        .skip(1)
+        .next()
+        .unwrap_or_else(|| "www.example.com".to_string());
+
+    let sock_addr: SocketAddr = "8.8.8.8:53".parse().unwrap();
+    let name_server_config = NameServerConfig::udp(sock_addr);
     let config = ResolverConfig::new(name_server_config);
 
-    let opts = ResolverOpts::default();
+    let resolver = Resolver::new(config, Default::default())
+        .await
+        .expect("Failed to create resolver");
 
-    let resolver = Resolver::new(config, opts).await.expect("Failed to create resolver");
-
-    let query = Query::new("www.example.com", RecordType::A).expect("Failed to create query");
+    let query = Query::new(name, RecordType::A).expect("Failed to create query");
     let _one_lookup = resolver.lookup(query).await;
     println!("Lookup result: 1");
 

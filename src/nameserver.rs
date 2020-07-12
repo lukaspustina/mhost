@@ -1,5 +1,5 @@
 use std::fmt;
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 
 #[derive(Clone, Debug)]
 pub enum NameServerConfig {
@@ -10,29 +10,33 @@ pub enum NameServerConfig {
 }
 
 impl NameServerConfig {
-    pub fn udp<T: Into<IpAddr>>(ip_addr: T, port: u16) -> Self {
+    pub fn udp<T: Into<SocketAddr>>(socket_addr: T) -> Self {
+        let socket_addr = socket_addr.into();
         NameServerConfig::Udp {
-            ip_addr: ip_addr.into(),
-            port,
+            ip_addr: socket_addr.ip(),
+            port: socket_addr.port(),
         }
     }
-    pub fn tcp<T: Into<IpAddr>>(ip_addr: T, port: u16) -> Self {
+    pub fn tcp<T: Into<SocketAddr>>(socket_addr: T) -> Self {
+        let socket_addr = socket_addr.into();
         NameServerConfig::Tcp {
-            ip_addr: ip_addr.into(),
-            port,
+            ip_addr: socket_addr.ip(),
+            port: socket_addr.port(),
         }
     }
-    pub fn tls<T: Into<IpAddr>>(ip_addr: T, port: u16, spki: String) -> Self {
+    pub fn tls<T: Into<SocketAddr>>(socket_addr: T, spki: String) -> Self {
+        let socket_addr = socket_addr.into();
         NameServerConfig::Tls {
-            ip_addr: ip_addr.into(),
-            port,
+            ip_addr: socket_addr.ip(),
+            port: socket_addr.port(),
             spki,
         }
     }
-    pub fn https<T: Into<IpAddr>>(ip_addr: T, port: u16, spki: String) -> Self {
+    pub fn https<T: Into<SocketAddr>>(socket_addr: T, spki: String) -> Self {
+        let socket_addr = socket_addr.into();
         NameServerConfig::Https {
-            ip_addr: ip_addr.into(),
-            port,
+            ip_addr: socket_addr.ip(),
+            port: socket_addr.port(),
             spki,
         }
     }
