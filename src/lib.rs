@@ -3,11 +3,12 @@ pub mod lookup;
 pub mod nameserver;
 pub mod query;
 pub mod resolver;
+pub mod resources;
 
 pub use error::Error;
 pub use query::{MultiQuery, Query};
+pub use resources::RecordType;
 
-pub use trust_dns_resolver::proto::rr::RecordType;
 pub use trust_dns_resolver::IntoName;
 pub use trust_dns_resolver::Name;
 

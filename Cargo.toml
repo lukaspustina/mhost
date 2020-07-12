@@ -32,8 +32,9 @@ env_logger = "0.7.*"
 futures = { version = "0.3.*"}
 log = "0.4.*"
 tokio = { version = "0.2.*", features = ["full"] }
+serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = "1"
-trust-dns-resolver = { version = "0.19", features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls", "dnssec-ring", "mdns", "system-config"] }
+trust-dns-resolver = { version = "0.19", features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls", "dnssec-ring", "mdns", "system-config", "serde-config"] }
 
 [features]
 bin = []

@@ -1,7 +1,6 @@
 use crate::error::Error;
-use crate::Result;
+use crate::{Result, RecordType};
 
-use trust_dns_resolver::proto::rr::RecordType;
 use trust_dns_resolver::IntoName;
 use trust_dns_resolver::Name;
 

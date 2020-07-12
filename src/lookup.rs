@@ -80,7 +80,7 @@ async fn do_lookup(resolver: &Resolver, query: Query) -> LookupResult {
     let q = query.clone();
     let result = resolver
         .inner
-        .lookup(q.name, q.record_type, DnsRequestOptions::default())
+        .lookup(q.name, q.record_type.into(), DnsRequestOptions::default())
         .await
         .into();
     debug!(

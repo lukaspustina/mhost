@@ -1,10 +1,16 @@
 use mhost::nameserver::NameServerConfig;
 use mhost::resolver::{Resolver, ResolverConfig, ResolverGroup, ResolverOpts};
 use mhost::{MultiQuery, RecordType};
+use std::env;
 use std::net::{IpAddr, Ipv4Addr};
 
 #[tokio::main]
 async fn main() {
+    let name = env::args()
+        .skip(1)
+        .next()
+        .unwrap_or_else(|| "www.example.com".to_string());
+
     let ip_addr: IpAddr = Ipv4Addr::new(8, 8, 8, 8).into();
     let name_server_config = NameServerConfig::udp(ip_addr, 53);
     let config = ResolverConfig::new(name_server_config);
@@ -23,7 +29,7 @@ async fn main() {
         .expect("Failed to create 2. resolver group");
 
     resolvers.merge(resolvers_2);
-    let mq = MultiQuery::new("www.example.com", [RecordType::A, RecordType::AAAA, RecordType::TXT])
+    let mq = MultiQuery::new(name, [RecordType::A, RecordType::AAAA, RecordType::TXT])
         .expect("Failed to create multi-query");
     let multi_lookup = resolvers.multi_lookup(mq).await;
     //println!("Multi-Lookup results: {:#?}", multi_lookup.len());
