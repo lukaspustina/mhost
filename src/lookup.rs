@@ -1,6 +1,7 @@
 use crate::error::Error;
 use crate::nameserver::NameServerConfig;
 use crate::resolver::Resolver;
+use crate::resources::Record;
 use crate::{MultiQuery, Query};
 use futures::stream::{self, StreamExt};
 use log::{debug, trace};
@@ -54,7 +55,7 @@ impl LookupResult {
 
 #[derive(Debug)]
 pub enum Lookup {
-    Lookup(trust_dns_resolver::lookup::Lookup),
+    Lookup { records: Vec<Record>, valid_until: Instant },
     NxDomain { valid_until: Option<Instant> },
     Timeout,
     Error(Error),
@@ -63,8 +64,13 @@ pub enum Lookup {
 impl From<std::result::Result<trust_dns_resolver::lookup::Lookup, ResolveError>> for Lookup {
     fn from(res: std::result::Result<trust_dns_resolver::lookup::Lookup, ResolveError>) -> Self {
         match res {
-            // TODO: Transform trustdns::lookup into mhost::Records
-            Ok(lookup) => Lookup::Lookup(lookup),
+            Ok(lookup) => {
+                let records: Vec<Record> = lookup.record_iter().map(Record::from).collect();
+                Lookup::Lookup {
+                    records,
+                    valid_until: lookup.valid_until(),
+                }
+            }
             Err(err) => match err.kind() {
                 ResolveErrorKind::NoRecordsFound { valid_until, .. } => Lookup::NxDomain {
                     valid_until: *valid_until,

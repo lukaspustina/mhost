@@ -13,7 +13,5 @@ pub enum Error {
         source: trust_dns_resolver::proto::error::ProtoError,
     },
     #[error("failed to parse {what}")]
-    ParserError {
-        what: &'static str,
-    },
+    ParserError { what: &'static str },
 }

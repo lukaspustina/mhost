@@ -89,6 +89,38 @@ impl From<RecordType> for trust_dns_resolver::proto::rr::RecordType {
     }
 }
 
+impl From<trust_dns_resolver::proto::rr::RecordType> for RecordType {
+    fn from(rt: trust_dns_resolver::proto::rr::RecordType) -> Self {
+        use trust_dns_resolver::proto::rr::RecordType as Trt;
+
+        match rt {
+            Trt::A => RecordType::A,
+            Trt::AAAA => RecordType::AAAA,
+            Trt::ANAME => RecordType::ANAME,
+            Trt::ANY => RecordType::ANY,
+            Trt::AXFR => RecordType::AXFR,
+            Trt::CAA => RecordType::CAA,
+            Trt::CNAME => RecordType::CNAME,
+            Trt::IXFR => RecordType::IXFR,
+            Trt::MX => RecordType::MX,
+            Trt::NAPTR => RecordType::NAPTR,
+            Trt::NS => RecordType::NS,
+            Trt::NULL => RecordType::NULL,
+            Trt::OPENPGPKEY => RecordType::OPENPGPKEY,
+            Trt::OPT => RecordType::OPT,
+            Trt::PTR => RecordType::PTR,
+            Trt::SOA => RecordType::SOA,
+            Trt::SRV => RecordType::SRV,
+            Trt::SSHFP => RecordType::SSHFP,
+            Trt::TLSA => RecordType::TLSA,
+            Trt::TXT => RecordType::TXT,
+            Trt::DNSSEC(dnssec_rt) => RecordType::DNSSEC(dnssec_rt),
+            Trt::Unknown(value) => RecordType::Unknown(value),
+            Trt::ZERO => RecordType::ZERO,
+        }
+    }
+}
+
 impl FromStr for RecordType {
     type Err = Error;
 
@@ -115,7 +147,9 @@ impl FromStr for RecordType {
             "DNSKEY" | "DS" | "KEY" | "NSEC" | "NSEC3" | "NSEC3PARAM" | "RRSIG" | "SIG" => {
                 Ok(RecordType::DNSSEC(str.parse()?))
             }
-            _ => Err(Error::ParserError { what: "record type from str" }),
+            _ => Err(Error::ParserError {
+                what: "record type from str",
+            }),
         }
     }
 }

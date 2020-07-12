@@ -26,3 +26,32 @@ pub enum RData {
     Unknown { code: u16, rdata: NULL },
     ZERO,
 }
+
+impl From<trust_dns_resolver::proto::rr::RData> for RData {
+    fn from(rdata: trust_dns_resolver::proto::rr::RData) -> Self {
+        use trust_dns_resolver::proto::rr::RData as TRData;
+
+        match rdata {
+            TRData::A(value) => RData::A(value),
+            TRData::AAAA(value) => RData::AAAA(value),
+            TRData::ANAME(value) => RData::ANAME(value),
+            TRData::CAA(value) => RData::CAA(value),
+            TRData::CNAME(value) => RData::CNAME(value),
+            TRData::MX(value) => RData::MX(value),
+            TRData::NAPTR(value) => RData::NAPTR(value),
+            TRData::NULL(value) => RData::NULL(value),
+            TRData::NS(value) => RData::NS(value),
+            TRData::OPENPGPKEY(value) => RData::OPENPGPKEY(value),
+            TRData::OPT(value) => RData::OPT(value),
+            TRData::PTR(value) => RData::PTR(value),
+            TRData::SOA(value) => RData::SOA(value),
+            TRData::SRV(value) => RData::SRV(value),
+            TRData::SSHFP(value) => RData::SSHFP(value),
+            TRData::TLSA(value) => RData::TLSA(value),
+            TRData::TXT(value) => RData::TXT(value),
+            TRData::DNSSEC(value) => RData::DNSSEC(value),
+            TRData::Unknown { code, rdata } => RData::Unknown { code, rdata },
+            TRData::ZERO => RData::ZERO,
+        }
+    }
+}
