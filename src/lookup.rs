@@ -2,16 +2,16 @@ use crate::error::Error;
 use crate::nameserver::NameServerConfig;
 use crate::resolver::Resolver;
 use crate::resources::Record;
-use crate::serialize::{ser_arc_nameserver_config, ser_error};
+use crate::serialize::ser_arc_nameserver_config;
 use crate::{MultiQuery, Query};
+use chrono::{DateTime, Duration, Utc};
 use futures::stream::{self, StreamExt};
 use log::{debug, trace};
 use serde::Serialize;
 use std::sync::Arc;
+use std::time::Instant;
 use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
 use trust_dns_resolver::proto::xfer::DnsRequestOptions;
-use chrono::{DateTime, Utc, Duration};
-use std::time::Instant;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LookupResult {
@@ -38,7 +38,7 @@ impl LookupResult {
             .collect();
 
         stream::iter(lookups)
-            .buffer_unordered(resolver.opts.max_concurrent)
+            .buffer_unordered(resolver.opts.max_concurrent_requests)
             .inspect(|lookup| trace!("Received lookup {:?}", lookup))
             .collect::<Vec<LookupResult>>()
             .await
@@ -67,8 +67,7 @@ pub enum Lookup {
         valid_until: Option<DateTime<Utc>>,
     },
     Timeout,
-    #[serde(serialize_with = "ser_error")]
-    Error(Error),
+    Error(String),
 }
 
 #[doc(hidden)]
@@ -84,10 +83,10 @@ impl From<std::result::Result<trust_dns_resolver::lookup::Lookup, ResolveError>>
             }
             Err(err) => match err.kind() {
                 ResolveErrorKind::NoRecordsFound { valid_until, .. } => Lookup::NxDomain {
-                    valid_until: valid_until.map(instant_to_utc)
+                    valid_until: valid_until.map(instant_to_utc),
                 },
                 ResolveErrorKind::Timeout => Lookup::Timeout,
-                _ => Lookup::Error(Error::from(err)),
+                _ => Lookup::Error(Error::from(err).to_string()),
             },
         }
     }

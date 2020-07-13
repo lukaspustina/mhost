@@ -1,5 +1,4 @@
 use crate::nameserver::NameServerConfig;
-use crate::Error;
 
 use serde::Serializer;
 use std::sync::Arc;
@@ -10,11 +9,3 @@ where
 {
     serializer.serialize_str(&data.to_string())
 }
-
-pub(crate) fn ser_error<S>(data: &Error, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    serializer.serialize_str(&data.to_string())
-}
-

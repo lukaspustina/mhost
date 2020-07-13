@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Error)]
 pub enum Error {
     #[error("DNS resolver error")]
     DnsResolverError {
@@ -14,4 +14,9 @@ pub enum Error {
     },
     #[error("failed to parse '{what}' to {to}")]
     ParserError { what: String, to: &'static str },
+    #[error("failed to load system configuration")]
+    SystemConfigError {
+        #[from]
+        source: crate::system_config::SystemConfigError,
+    },
 }

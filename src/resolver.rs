@@ -1,12 +1,14 @@
 use crate::error::Error;
 use crate::lookup::LookupResult;
 use crate::nameserver::NameServerConfig;
+use crate::system_config;
 use crate::{MultiQuery, Query, Result};
 
 use futures::future::join_all;
 use futures::stream::{self, StreamExt};
 use futures::TryFutureExt;
 use std::sync::Arc;
+use std::time::Duration;
 
 #[derive(Debug)]
 pub struct ResolverConfig {
@@ -21,13 +23,33 @@ impl ResolverConfig {
 
 #[derive(Debug, Clone)]
 pub struct ResolverOpts {
+    pub attempts: usize,
     /// Maximum number of concurrent queries send with this resolver
-    pub max_concurrent: usize,
+    pub max_concurrent_requests: usize,
+    pub ndots: usize,
+    pub preserve_intermediates: bool,
+    pub timeout: Duration,
+}
+
+impl ResolverOpts {
+    /// Creates `ResolverOpts` from local system configuration.
+    ///
+    /// Unix: Parses `/etc/resolv.conf`.
+    pub fn from_system_config() -> Result<ResolverOpts> {
+        let opts = system_config::load_from_system_config()?;
+        Ok(opts)
+    }
 }
 
 impl Default for ResolverOpts {
     fn default() -> Self {
-        ResolverOpts { max_concurrent: 2 }
+        ResolverOpts {
+            attempts: 2,
+            max_concurrent_requests: 2,
+            ndots: 1,
+            preserve_intermediates: false,
+            timeout: Duration::from_secs(5),
+        }
     }
 }
 
@@ -41,7 +63,7 @@ pub struct Resolver {
 impl Resolver {
     pub async fn new(config: ResolverConfig, opts: ResolverOpts) -> Result<Self> {
         let name_server = config.name_server_config.clone();
-        let tr_opts = trust_dns_resolver::config::ResolverOpts::default();
+        let tr_opts = opts.clone().into();
         let tr_resolver = trust_dns_resolver::TokioAsyncResolver::tokio(config.into(), tr_opts)
             .map_err(Error::from)
             .await?;
@@ -112,6 +134,15 @@ impl ResolverGroup {
         Ok(Self::new(resolvers, opts))
     }
 
+    pub async fn from_system_config(opts: ResolverGroupOpts) -> Result<Self> {
+        let resolver_opts = ResolverOpts::from_system_config()?;
+        let configs: Vec<_> = NameServerConfig::from_system_config()?
+            .into_iter()
+            .map(|name_server_config| ResolverConfig { name_server_config })
+            .collect();
+        ResolverGroup::from_configs(configs, resolver_opts, opts).await
+    }
+
     pub async fn lookup(&self, query: Query) -> Vec<LookupResult> {
         let futures: Vec<_> = self
             .resolvers
@@ -162,6 +193,31 @@ impl ResolverGroup {
 
     pub fn opts(&self) -> &ResolverGroupOpts {
         &self.opts
+    }
+}
+
+#[doc(hidden)]
+impl From<resolv_conf::Config> for ResolverOpts {
+    fn from(config: resolv_conf::Config) -> Self {
+        ResolverOpts {
+            ndots: config.ndots as usize,
+            timeout: Duration::from_secs(config.timeout as u64),
+            ..Default::default()
+        }
+    }
+}
+
+#[doc(hidden)]
+impl From<ResolverOpts> for trust_dns_resolver::config::ResolverOpts {
+    fn from(opts: ResolverOpts) -> Self {
+        trust_dns_resolver::config::ResolverOpts {
+            attempts: opts.attempts,
+            ndots: opts.ndots,
+            num_concurrent_reqs: opts.max_concurrent_requests,
+            preserve_intermediates: opts.preserve_intermediates,
+            timeout: opts.timeout,
+            ..Default::default()
+        }
     }
 }
 

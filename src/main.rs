@@ -9,7 +9,6 @@ fn main() -> Result<()> {
         })
         .init();
 
-
     rt.block_on(async {});
 
     Ok(())

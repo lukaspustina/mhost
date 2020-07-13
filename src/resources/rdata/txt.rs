@@ -28,6 +28,7 @@ impl TXT {
 
 #[doc(hidden)]
 impl From<trust_dns_resolver::proto::rr::rdata::TXT> for TXT {
+    #[allow(clippy::map_clone)]
     fn from(txt: trust_dns_resolver::proto::rr::rdata::TXT) -> Self {
         let txt_data = txt.iter().map(|s| s.clone()).collect::<Vec<_>>().into_boxed_slice();
         TXT { txt_data }

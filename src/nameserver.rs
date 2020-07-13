@@ -1,3 +1,6 @@
+use crate::system_config;
+use crate::Result;
+use resolv_conf::ScopedIp;
 use serde::Serialize;
 use std::fmt;
 use std::net::{IpAddr, SocketAddr};
@@ -42,6 +45,11 @@ impl NameServerConfig {
             spki,
         }
     }
+
+    pub fn from_system_config() -> Result<Vec<Self>> {
+        let servers: NameServerGroup = system_config::load_from_system_config()?;
+        Ok(servers.0)
+    }
 }
 
 impl fmt::Display for NameServerConfig {
@@ -53,6 +61,28 @@ impl fmt::Display for NameServerConfig {
             NameServerConfig::Https { ip_addr, port, spki } => format!("tls:{}:{},{}", ip_addr, port, spki),
         };
         fmt.write_str(&str)
+    }
+}
+
+#[doc(hidden)]
+struct NameServerGroup(Vec<NameServerConfig>);
+
+#[doc(hidden)]
+impl From<resolv_conf::Config> for NameServerGroup {
+    fn from(config: resolv_conf::Config) -> Self {
+        let tcp = config.use_vc;
+        let namesservers = config
+            .nameservers
+            .into_iter()
+            .map(|x| match x {
+                ScopedIp::V4(ipv4) if tcp => NameServerConfig::tcp((ipv4, 53)),
+                ScopedIp::V4(ipv4) => NameServerConfig::udp((ipv4, 53)),
+                ScopedIp::V6(ipv6, _) if tcp => NameServerConfig::tcp((ipv6, 53)),
+                ScopedIp::V6(ipv6, _) => NameServerConfig::udp((ipv6, 53)),
+            })
+            .collect();
+
+        NameServerGroup(namesservers)
     }
 }
 
