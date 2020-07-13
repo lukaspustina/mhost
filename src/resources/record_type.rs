@@ -156,7 +156,8 @@ impl FromStr for RecordType {
                 Ok(RecordType::DNSSEC)
             }
             _ => Err(Error::ParserError {
-                what: "record type from str",
+                what: str.to_string(),
+                to: "RecordType",
             }),
         }
     }
