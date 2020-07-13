@@ -5,8 +5,8 @@ use resolv_conf::ScopedIp;
 use serde::Serialize;
 use trust_dns_resolver::config::Protocol;
 
-use crate::Result;
 use crate::system_config;
+use crate::Result;
 
 pub mod predefined;
 
@@ -108,10 +108,8 @@ impl NameServerConfig {
 impl fmt::Display for NameServerConfig {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         let str = match self {
-            NameServerConfig::Udp { ip_addr, port, name } =>
-                format!("udp:{}:{}{}", ip_addr, port, format_name(name)),
-            NameServerConfig::Tcp { ip_addr, port, name } =>
-                format!("tcp:{}:{}{}", ip_addr, port, format_name(name)),
+            NameServerConfig::Udp { ip_addr, port, name } => format!("udp:{}:{}{}", ip_addr, port, format_name(name)),
+            NameServerConfig::Tcp { ip_addr, port, name } => format!("tcp:{}:{}{}", ip_addr, port, format_name(name)),
             NameServerConfig::Tls {
                 ip_addr,
                 port,
@@ -130,8 +128,7 @@ impl fmt::Display for NameServerConfig {
 }
 
 fn format_name(name: &Option<String>) -> String {
-    name
-        .as_ref()
+    name.as_ref()
         .map(|name| format!(",name={}", name))
         .unwrap_or_else(|| "".to_string())
 }

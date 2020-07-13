@@ -10,6 +10,8 @@ use futures::TryFutureExt;
 use std::sync::Arc;
 use std::time::Duration;
 
+pub mod predefined;
+
 #[derive(Debug)]
 pub struct ResolverConfig {
     name_server_config: NameServerConfig,
@@ -24,7 +26,7 @@ impl ResolverConfig {
 impl From<NameServerConfig> for ResolverConfig {
     fn from(ns_config: NameServerConfig) -> Self {
         ResolverConfig {
-            name_server_config: ns_config
+            name_server_config: ns_config,
         }
     }
 }

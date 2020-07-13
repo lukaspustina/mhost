@@ -70,6 +70,15 @@ pub enum Lookup {
     Error(String),
 }
 
+impl Lookup {
+    pub fn is_ok(&self) -> bool {
+        match self {
+            Lookup::Lookup { .. } => true,
+            _ => false,
+        }
+    }
+}
+
 #[doc(hidden)]
 impl From<std::result::Result<trust_dns_resolver::lookup::Lookup, ResolveError>> for Lookup {
     fn from(res: std::result::Result<trust_dns_resolver::lookup::Lookup, ResolveError>) -> Self {
