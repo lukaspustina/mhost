@@ -21,6 +21,14 @@ impl ResolverConfig {
     }
 }
 
+impl From<NameServerConfig> for ResolverConfig {
+    fn from(ns_config: NameServerConfig) -> Self {
+        ResolverConfig {
+            name_server_config: ns_config
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ResolverOpts {
     pub attempts: usize,
