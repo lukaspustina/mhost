@@ -22,16 +22,15 @@ async fn main() {
         nameserver::predefined::quad9::udp(),
         nameserver::predefined::quad9::tcp(),
     ]
-        .into_iter()
-        .map(|x| ResolverConfig::new(x))
-        .collect();
+    .into_iter()
+    .map(|x| ResolverConfig::new(x))
+    .collect();
 
     let resolvers = ResolverGroup::from_configs(resolver_configs, Default::default(), Default::default())
         .await
         .expect("failed to create resolvers");
 
-    let q = Query::new(name, RecordType::A)
-        .expect("Failed to create multi-query");
+    let q = Query::new(name, RecordType::A).expect("Failed to create multi-query");
     let lookups = resolvers.lookup(q).await;
     //println!("Multi-Lookup results: {:#?}", lookups.len());
     println!("Multi-Lookup results: {:#?}", lookups);

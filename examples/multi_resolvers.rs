@@ -1,9 +1,9 @@
 use std::env;
 use std::net::{Ipv4Addr, SocketAddr};
 
-use mhost::{MultiQuery, RecordType};
 use mhost::nameserver::NameServerConfig;
 use mhost::resolver::{Resolver, ResolverConfig, ResolverGroup, ResolverOpts};
+use mhost::{MultiQuery, RecordType};
 
 #[tokio::main]
 async fn main() {
