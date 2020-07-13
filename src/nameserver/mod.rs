@@ -6,6 +6,8 @@ use std::fmt;
 use std::net::{IpAddr, SocketAddr};
 use trust_dns_resolver::config::Protocol;
 
+pub mod predefined;
+
 #[derive(Debug, Clone, Serialize)]
 pub enum NameServerConfig {
     Udp { ip_addr: IpAddr, port: u16 },
@@ -29,20 +31,20 @@ impl NameServerConfig {
             port: socket_addr.port(),
         }
     }
-    pub fn tls<T: Into<SocketAddr>>(socket_addr: T, spki: String) -> Self {
+    pub fn tls<T: Into<SocketAddr>, S: Into<String>>(socket_addr: T, spki: S) -> Self {
         let socket_addr = socket_addr.into();
         NameServerConfig::Tls {
             ip_addr: socket_addr.ip(),
             port: socket_addr.port(),
-            spki,
+            spki: spki.into(),
         }
     }
-    pub fn https<T: Into<SocketAddr>>(socket_addr: T, spki: String) -> Self {
+    pub fn https<T: Into<SocketAddr>, S: Into<String>>(socket_addr: T, spki: S) -> Self {
         let socket_addr = socket_addr.into();
         NameServerConfig::Https {
             ip_addr: socket_addr.ip(),
             port: socket_addr.port(),
-            spki,
+            spki: spki.into(),
         }
     }
 
