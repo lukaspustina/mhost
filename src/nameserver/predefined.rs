@@ -8,10 +8,13 @@ pub fn name_server_configs() -> Vec<NameServerConfig> {
         cloudflare::tls(),
         google::udp(),
         google::tcp(),
+        google::https(),
+        google::tls(),
         opennic::udp(),
         opennic::tcp(),
         quad9::udp(),
         quad9::tcp(),
+        quad9::https(),
         quad9::tls(),
     ]
 }
@@ -56,11 +59,11 @@ pub mod google {
     }
 
     pub fn https() -> NameServerConfig {
-        NameServerConfig::https_with_name((IPV4, 443), "dns.google", "Cloudflare".to_string())
+        NameServerConfig::https_with_name((IPV4, 443), "dns.google", "Google".to_string())
     }
 
     pub fn tls() -> NameServerConfig {
-        NameServerConfig::tls_with_name((IPV4, 853), "dns.google", "Cloudflare".to_string())
+        NameServerConfig::tls_with_name((IPV4, 853), "dns.google", "Google".to_string())
     }
 }
 
@@ -95,7 +98,11 @@ pub mod quad9 {
         NameServerConfig::tcp_with_name((IPV4, 53), "Quad9".to_string())
     }
 
+    pub fn https() -> NameServerConfig {
+        NameServerConfig::https_with_name((IPV4, 443), "dns.quad9.net", "Quad9".to_string())
+    }
+
     pub fn tls() -> NameServerConfig {
-        NameServerConfig::tls_with_name((IPV4, 853), "cloudflare-dns.com", "Cloudflare".to_string())
+        NameServerConfig::tls_with_name((IPV4, 853), "dns.quad9.net", "Quad9".to_string())
     }
 }
