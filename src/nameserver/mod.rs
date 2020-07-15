@@ -144,10 +144,10 @@ impl From<resolv_conf::Config> for NameServerGroup {
             .nameservers
             .into_iter()
             .map(|x| match x {
-                ScopedIp::V4(ipv4) if tcp => NameServerConfig::tcp((ipv4, 53)),
-                ScopedIp::V4(ipv4) => NameServerConfig::udp((ipv4, 53)),
-                ScopedIp::V6(ipv6, _) if tcp => NameServerConfig::tcp((ipv6, 53)),
-                ScopedIp::V6(ipv6, _) => NameServerConfig::udp((ipv6, 53)),
+                ScopedIp::V4(ipv4) if tcp => NameServerConfig::tcp_with_name((ipv4, 53), "System".to_string()),
+                ScopedIp::V4(ipv4) => NameServerConfig::udp_with_name((ipv4, 53), "System".to_string()),
+                ScopedIp::V6(ipv6, _) if tcp => NameServerConfig::tcp_with_name((ipv6, 53), "System".to_string()),
+                ScopedIp::V6(ipv6, _) => NameServerConfig::udp_with_name((ipv6, 53), "System".to_string()),
             })
             .collect();
 
