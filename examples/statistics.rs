@@ -24,17 +24,17 @@ async fn main() {
 
     //println!("Multi-Lookup results: {:#?}", lookups);
 
-    let successes = lookups.iter().filter(|x| x.result().is_lookup()).count();
+    let successes = lookups.iter().filter(|x| x.result().is_response()).count();
     println!("Multi-Lookup successful results: {}/{}", successes, lookups.len());
 
-    let failures: Vec<_> = lookups.iter().filter(|x| !x.result().is_lookup()).collect();
+    let failures: Vec<_> = lookups.iter().filter(|x| !x.result().is_response()).collect();
     println!("Multi-Lookup failed results: {:#?}", failures.len());
 
     let statistics = lookups.statistics();
     println!("Statistics: {:#?}", statistics);
 
     println!("Received {num_rr} RR [???], {num_nx} Nx, {num_to} TO, {num_err} Err in [min {min_time}, max {max_time}] ms from {num_srvs} server within {total_time} ms total runtime.",
-             num_rr = statistics.lookups,
+             num_rr = statistics.responses,
              num_nx = statistics.nxdomains,
              num_to = statistics.timeouts,
              num_err = statistics.errors,

@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::lookup::LookupResult;
+use crate::lookup::Lookup;
 use crate::nameserver::NameServerConfig;
 use crate::system_config;
 use crate::{MultiQuery, Query, Result};
@@ -85,12 +85,12 @@ impl Resolver {
         })
     }
 
-    pub async fn lookup(&self, query: Query) -> LookupResult {
-        LookupResult::lookup(self.clone(), query).await
+    pub async fn lookup(&self, query: Query) -> Lookup {
+        Lookup::lookup(self.clone(), query).await
     }
 
-    pub async fn multi_lookup(&self, multi_query: MultiQuery) -> Vec<LookupResult> {
-        LookupResult::multi_lookups(self.clone(), multi_query).await
+    pub async fn multi_lookup(&self, multi_query: MultiQuery) -> Vec<Lookup> {
+        Lookup::multi_lookup(self.clone(), multi_query).await
     }
 
     pub fn name(&self) -> String {
@@ -153,7 +153,7 @@ impl ResolverGroup {
         ResolverGroup::from_configs(configs, resolver_opts, opts).await
     }
 
-    pub async fn lookup(&self, query: Query) -> Vec<LookupResult> {
+    pub async fn lookup(&self, query: Query) -> Vec<Lookup> {
         let futures: Vec<_> = self
             .resolvers
             .iter()
@@ -168,7 +168,7 @@ impl ResolverGroup {
         lookups
     }
 
-    pub async fn multi_lookup(&self, multi_query: MultiQuery) -> Vec<LookupResult> {
+    pub async fn multi_lookup(&self, multi_query: MultiQuery) -> Vec<Lookup> {
         let futures: Vec<_> = self
             .resolvers
             .iter()
