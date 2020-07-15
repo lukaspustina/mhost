@@ -4,12 +4,12 @@ use crate::resolver::Resolver;
 use crate::resources::Record;
 use crate::serialize::ser_arc_nameserver_config;
 use crate::{MultiQuery, Query};
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use futures::stream::{self, StreamExt};
 use log::{debug, trace};
 use serde::Serialize;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Instant, Duration};
 use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
 use trust_dns_resolver::proto::xfer::DnsRequestOptions;
 
@@ -61,9 +61,11 @@ impl LookupResult {
 pub enum Lookup {
     Lookup {
         records: Vec<Record>,
+        response_time: Duration,
         valid_until: DateTime<Utc>,
     },
     NxDomain {
+        response_time: Duration,
         valid_until: Option<DateTime<Utc>>,
     },
     Timeout,
@@ -79,35 +81,14 @@ impl Lookup {
     }
 }
 
-#[doc(hidden)]
-impl From<std::result::Result<trust_dns_resolver::lookup::Lookup, ResolveError>> for Lookup {
-    fn from(res: std::result::Result<trust_dns_resolver::lookup::Lookup, ResolveError>) -> Self {
-        match res {
-            Ok(lookup) => {
-                let records: Vec<Record> = lookup.record_iter().map(Record::from).collect();
-                Lookup::Lookup {
-                    records,
-                    valid_until: instant_to_utc(lookup.valid_until()),
-                }
-            }
-            Err(err) => match err.kind() {
-                ResolveErrorKind::NoRecordsFound { valid_until, .. } => Lookup::NxDomain {
-                    valid_until: valid_until.map(instant_to_utc),
-                },
-                ResolveErrorKind::Timeout => Lookup::Timeout,
-                _ => Lookup::Error(Error::from(err).to_string()),
-            },
-        }
-    }
-}
-
 async fn do_lookup(resolver: &Resolver, query: Query) -> LookupResult {
     let q = query.clone();
+    let start_time = Instant::now();
     let result = resolver
         .inner
         .lookup(q.name, q.record_type.into(), DnsRequestOptions::default())
         .await
-        .into();
+        .into_lookup(start_time);
     debug!(
         "Received Lookup for '{}', record type {} from {:?}.",
         &query.name,
@@ -122,9 +103,38 @@ async fn do_lookup(resolver: &Resolver, query: Query) -> LookupResult {
     }
 }
 
+#[doc(hidden)]
+trait IntoLookup {
+    fn into_lookup(self, start_time: Instant) -> Lookup;
+}
+
+#[doc(hidden)]
+impl IntoLookup for std::result::Result<trust_dns_resolver::lookup::Lookup, ResolveError> {
+    fn into_lookup(self, start_time: Instant) -> Lookup {
+        match self {
+            Ok(lookup) => {
+                let records: Vec<Record> = lookup.record_iter().map(Record::from).collect();
+                Lookup::Lookup {
+                    records,
+                    response_time: Instant::now() - start_time,
+                    valid_until: instant_to_utc(lookup.valid_until()),
+                }
+            }
+            Err(err) => match err.kind() {
+                ResolveErrorKind::NoRecordsFound { valid_until, .. } => Lookup::NxDomain {
+                    response_time: Instant::now() - start_time,
+                    valid_until: valid_until.map(instant_to_utc),
+                },
+                ResolveErrorKind::Timeout => Lookup::Timeout,
+                _ => Lookup::Error(Error::from(err).to_string()),
+            },
+        }
+    }
+}
+
 fn instant_to_utc(instant: Instant) -> DateTime<Utc> {
     let now = Instant::now();
     let duration = instant.duration_since(now);
 
-    Utc::now() + Duration::from_std(duration).unwrap() // Safe, because I know this is a valid duration
+    Utc::now() + chrono::Duration::from_std(duration).unwrap() // Safe, because I know this is a valid duration
 }
