@@ -5,6 +5,7 @@ pub mod query;
 pub mod resolver;
 pub mod resources;
 mod serialize;
+pub mod statistics;
 pub mod system_config;
 
 pub use error::Error;

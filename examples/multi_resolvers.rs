@@ -35,9 +35,9 @@ async fn main() {
 
     //println!("Multi-Lookup results: {:#?}", multi_lookup);
 
-    let successes = lookups.iter().filter(|x| x.result().is_ok()).count();
+    let successes = lookups.iter().filter(|x| x.result().is_lookup()).count();
     println!("Multi-Lookup successful results: {}/{}", successes, lookups.len());
 
-    let failures: Vec<_> = lookups.iter().filter(|x| !x.result().is_ok()).collect();
+    let failures: Vec<_> = lookups.iter().filter(|x| !x.result().is_lookup()).collect();
     println!("Multi-Lookup failed results: {:#?}", failures);
 }

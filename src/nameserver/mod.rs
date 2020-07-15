@@ -10,7 +10,7 @@ use crate::Result;
 
 pub mod predefined;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize)]
 pub enum NameServerConfig {
     Udp {
         ip_addr: IpAddr,
