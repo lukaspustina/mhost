@@ -4,27 +4,27 @@ use crate::lookup::Lookup;
 use crate::lookup::LookupResult;
 use crate::RecordType;
 
-pub trait Statistics {
+pub trait Statistics<'a> {
     type StatsOut;
 
-    fn statistics(&self) -> Self::StatsOut;
+    fn statistics(&'a self) -> Self::StatsOut;
 }
 
 #[derive(Debug)]
-pub struct LookupsStats {
+pub struct LookupsStats<'a> {
     pub responses: usize,
     pub nxdomains: usize,
     pub timeouts: usize,
     pub errors: usize,
-    pub rr_type_counts: BTreeMap<RecordType, usize>,
+    pub rr_type_counts: BTreeMap<&'a RecordType, usize>,
     pub responding_servers: usize,
     pub response_time_summary: Summary,
 }
 
-impl Statistics for Vec<Lookup> {
-    type StatsOut = LookupsStats;
+impl<'a> Statistics<'a> for Vec<Lookup> {
+    type StatsOut = LookupsStats<'a>;
 
-    fn statistics(&self) -> Self::StatsOut {
+    fn statistics(&'a self) -> Self::StatsOut {
         let (responses, nxdomains, timeouts, errors) = count_result_types(&self);
         let rr_type_counts = count_rr_types(&self);
         let responding_servers = count_responding_servers(&self);
@@ -63,13 +63,13 @@ impl Summary {
     }
 }
 
-fn count_rr_types(lookups: &[Lookup]) -> BTreeMap<RecordType, usize> {
+fn count_rr_types(lookups: &[Lookup]) -> BTreeMap<&RecordType, usize> {
     let mut type_counts = BTreeMap::new();
 
     for l in lookups {
         if let Some(response) = l.result().response() {
             for r in response.records() {
-                let type_count = type_counts.entry(r.rr_type).or_insert(0);
+                let type_count = type_counts.entry(&r.rr_type).or_insert(0);
                 *type_count += 1;
             }
         }
