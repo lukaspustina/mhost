@@ -1,6 +1,7 @@
-use mhost::resolver::ResolverGroup;
-use mhost::{MultiQuery, RecordType};
 use std::env;
+
+use mhost::resolver::{MultiQuery, ResolverGroup};
+use mhost::RecordType;
 
 #[tokio::main]
 async fn main() {

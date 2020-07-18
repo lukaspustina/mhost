@@ -1,8 +1,7 @@
 use crate::error::Error;
-use crate::lookup::Lookup;
 use crate::nameserver::NameServerConfig;
 use crate::system_config;
-use crate::{MultiQuery, Query, Result};
+use crate::Result;
 
 use futures::future::join_all;
 use futures::stream::{self, StreamExt};
@@ -10,7 +9,12 @@ use futures::TryFutureExt;
 use std::sync::Arc;
 use std::time::Duration;
 
+pub mod lookup;
 pub mod predefined;
+pub mod query;
+
+pub use lookup::Lookup;
+pub use query::{MultiQuery, Query};
 
 #[derive(Debug)]
 pub struct ResolverConfig {

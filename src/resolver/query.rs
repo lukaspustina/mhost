@@ -37,7 +37,7 @@ impl From<Query> for MultiQuery {
 ///
 /// # Example
 /// ```
-/// # use mhost::{Query, MultiQuery};
+/// # use mhost::resolver::{Query, MultiQuery};
 /// # use mhost::RecordType;
 /// let query = Query::new("www.example.com", RecordType::A).unwrap();
 /// let multi_query: MultiQuery = query.into();

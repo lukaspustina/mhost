@@ -1,9 +1,9 @@
 use std::env;
 use std::time::Instant;
 
-use mhost::resolver::ResolverGroup;
+use mhost::resolver::{MultiQuery, ResolverGroup};
 use mhost::statistics::Statistics;
-use mhost::{MultiQuery, RecordType};
+use mhost::RecordType;
 
 #[tokio::main]
 async fn main() {

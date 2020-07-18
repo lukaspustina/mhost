@@ -1,5 +1,5 @@
-use mhost::resolver::{predefined, ResolverGroup};
-use mhost::{Query, RecordType};
+use mhost::resolver::{predefined, Query, ResolverGroup};
+use mhost::RecordType;
 use std::env;
 
 #[tokio::main]

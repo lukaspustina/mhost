@@ -10,10 +10,9 @@ use trust_dns_resolver::proto::xfer::DnsRequestOptions;
 
 use crate::error::Error;
 use crate::nameserver::NameServerConfig;
-use crate::resolver::Resolver;
+use crate::resolver::{MultiQuery, Query, Resolver};
 use crate::resources::Record;
 use crate::serialize::ser_arc_nameserver_config;
-use crate::{MultiQuery, Query};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Lookup {

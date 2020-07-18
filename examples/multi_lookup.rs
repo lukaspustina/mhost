@@ -1,6 +1,6 @@
 use mhost::nameserver::NameServerConfig;
-use mhost::resolver::{Resolver, ResolverConfig};
-use mhost::{MultiQuery, Query, RecordType};
+use mhost::resolver::{MultiQuery, Query, Resolver, ResolverConfig};
+use mhost::RecordType;
 use std::env;
 use std::net::SocketAddr;
 

@@ -2,8 +2,7 @@ use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 use std::marker::PhantomData;
 
-use crate::lookup::Lookup;
-use crate::lookup::LookupResult;
+use crate::resolver::lookup::{Lookup, LookupResult};
 use crate::RecordType;
 
 pub trait Statistics<'a> {
