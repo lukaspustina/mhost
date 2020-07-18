@@ -89,12 +89,8 @@ impl Resolver {
         })
     }
 
-    pub async fn lookup(&self, query: Query) -> Lookup {
+    pub async fn lookup<T: Into<MultiQuery>>(&self, query: T) -> Vec<Lookup> {
         Lookup::lookup(self.clone(), query).await
-    }
-
-    pub async fn multi_lookup(&self, multi_query: MultiQuery) -> Vec<Lookup> {
-        Lookup::multi_lookup(self.clone(), multi_query).await
     }
 
     pub fn name(&self) -> String {
@@ -157,26 +153,12 @@ impl ResolverGroup {
         ResolverGroup::from_configs(configs, resolver_opts, opts).await
     }
 
-    pub async fn lookup(&self, query: Query) -> Vec<Lookup> {
+    pub async fn lookup<T: Into<MultiQuery>>(&self, query: T) -> Vec<Lookup> {
+        let multi_query = query.into();
         let futures: Vec<_> = self
             .resolvers
             .iter()
-            .map(|resolver| resolver.lookup(query.clone()))
-            .collect();
-
-        let lookups: Vec<_> = stream::iter(futures)
-            .buffer_unordered(self.opts.max_concurrent)
-            .collect()
-            .await;
-
-        lookups
-    }
-
-    pub async fn multi_lookup(&self, multi_query: MultiQuery) -> Vec<Lookup> {
-        let futures: Vec<_> = self
-            .resolvers
-            .iter()
-            .map(|resolver| resolver.multi_lookup(multi_query.clone()))
+            .map(|resolver| resolver.lookup(multi_query.clone()))
             .collect();
 
         let lookups: Vec<_> = stream::iter(futures)

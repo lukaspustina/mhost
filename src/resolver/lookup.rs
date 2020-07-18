@@ -23,12 +23,8 @@ pub struct Lookup {
 }
 
 impl Lookup {
-    pub async fn lookup(resolver: Resolver, query: Query) -> Lookup {
-        do_lookup(&resolver, query).await
-    }
-
-    pub async fn multi_lookup(resolver: Resolver, multi_query: MultiQuery) -> Vec<Lookup> {
-        let MultiQuery { name, record_types } = multi_query;
+    pub async fn lookup<T: Into<MultiQuery>>(resolver: Resolver, query: T) -> Vec<Lookup> {
+        let MultiQuery { name, record_types } = query.into();
         let lookups: Vec<_> = record_types
             .into_iter()
             .map(|record_type| Query {

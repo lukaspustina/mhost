@@ -19,7 +19,7 @@ async fn main() {
     let mq = MultiQuery::new(name, [RecordType::A, RecordType::AAAA, RecordType::TXT])
         .expect("failed to create multi-query");
     let start_time = Instant::now();
-    let lookups = resolvers.multi_lookup(mq).await;
+    let lookups = resolvers.lookup(mq).await;
     let total_run_time = Instant::now() - start_time;
 
     //println!("Multi-Lookup results: {:#?}", lookups);

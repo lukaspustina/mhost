@@ -31,7 +31,7 @@ async fn main() {
 
     let mq = MultiQuery::new(name, [RecordType::A, RecordType::AAAA, RecordType::TXT])
         .expect("Failed to create multi-query");
-    let lookups = resolvers.multi_lookup(mq).await;
+    let lookups = resolvers.lookup(mq).await;
 
     //println!("Multi-Lookup results: {:#?}", multi_lookup);
 
