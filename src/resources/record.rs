@@ -4,10 +4,28 @@ use trust_dns_resolver::Name;
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize)]
 pub struct Record {
-    pub name_labels: Name,
-    pub rr_type: RecordType,
-    pub ttl: u32,
-    pub rdata: RData,
+    name_labels: Name,
+    rr_type: RecordType,
+    ttl: u32,
+    rdata: RData,
+}
+
+impl Record {
+    pub fn name_labels(&self) -> &Name {
+        &self.name_labels
+    }
+
+    pub fn rr_type(&self) -> RecordType {
+        self.rr_type
+    }
+
+    pub fn ttl(&self) -> u32 {
+        self.ttl
+    }
+
+    pub fn rdata(&self) -> &RData {
+        &self.rdata
+    }
 }
 
 #[doc(hidden)]

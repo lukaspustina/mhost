@@ -1,4 +1,6 @@
 use std::collections::{BTreeMap, HashSet};
+use std::fmt;
+use std::marker::PhantomData;
 
 use crate::lookup::Lookup;
 use crate::lookup::LookupResult;
@@ -16,9 +18,11 @@ pub struct LookupsStats<'a> {
     pub nxdomains: usize,
     pub timeouts: usize,
     pub errors: usize,
-    pub rr_type_counts: BTreeMap<&'a RecordType, usize>,
+    pub rr_type_counts: BTreeMap<RecordType, usize>,
     pub responding_servers: usize,
     pub response_time_summary: Summary,
+    // This is used to please the borrow checker as we currently don't know use a borrowed value with lifetime 'a
+    phantom: PhantomData<&'a usize>,
 }
 
 impl<'a> Statistics<'a> for Vec<Lookup> {
@@ -44,7 +48,28 @@ impl<'a> Statistics<'a> for Vec<Lookup> {
             rr_type_counts,
             responding_servers,
             response_time_summary,
+            phantom: PhantomData,
         }
+    }
+}
+
+impl<'a> fmt::Display for LookupsStats<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let rr_types = rr_types_as_str(&self.rr_type_counts);
+        let num_rr = count_rrs(&self.rr_type_counts);
+        let str = format!("{num_resp} responses with {num_rr} RR [{rr_types}], {num_nx} Nx, {num_to} TO, {num_err} Err in (min {min_time}, max {max_time}) ms from {num_srvs} server{servers}",
+                          num_resp = self.responses,
+                          num_rr = num_rr,
+                          rr_types = rr_types,
+                          num_nx = self.nxdomains,
+                          num_to = self.timeouts,
+                          num_err = self.errors,
+                          min_time = self.response_time_summary.min.map(|x| x.to_string()).unwrap_or_else(|| "-".to_string()),
+                          max_time = self.response_time_summary.max.map(|x| x.to_string()).unwrap_or_else(|| "-".to_string()),
+                          num_srvs = self.responding_servers,
+                          servers = if self.responding_servers == 1 { "" } else { "s" },
+        );
+        f.write_str(&str)
     }
 }
 
@@ -63,13 +88,13 @@ impl Summary {
     }
 }
 
-fn count_rr_types(lookups: &[Lookup]) -> BTreeMap<&RecordType, usize> {
+fn count_rr_types(lookups: &[Lookup]) -> BTreeMap<RecordType, usize> {
     let mut type_counts = BTreeMap::new();
 
     for l in lookups {
         if let Some(response) = l.result().response() {
             for r in response.records() {
-                let type_count = type_counts.entry(&r.rr_type).or_insert(0);
+                let type_count = type_counts.entry(r.rr_type()).or_insert(0);
                 *type_count += 1;
             }
         }
@@ -100,4 +125,17 @@ fn count_result_types(lookups: &[Lookup]) -> (usize, usize, usize, usize) {
     }
 
     (responses, nxdomains, timeouts, errors)
+}
+
+fn rr_types_as_str(rr_type_counts: &BTreeMap<RecordType, usize>) -> String {
+    rr_type_counts
+        .iter()
+        .map(|x| format!("{} {}", x.1, x.0))
+        .collect::<Vec<_>>()
+        .as_slice()
+        .join(", ")
+}
+
+fn count_rrs(rr_type_counts: &BTreeMap<RecordType, usize>) -> usize {
+    rr_type_counts.values().fold(0, |acc, count| acc + count)
 }

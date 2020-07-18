@@ -33,24 +33,9 @@ async fn main() {
     let statistics = lookups.statistics();
     println!("Statistics: {:#?}", statistics);
 
-    let rr_types = statistics
-        .rr_type_counts
-        .iter()
-        .map(|x| format!("{} {}", x.1, x.0))
-        .collect::<Vec<_>>()
-        .as_slice()
-        .join(", ");
-    let num_rr = statistics.rr_type_counts.values().fold(0, |acc, count| acc + count);
-    println!("Received {num_resp} responses with {num_rr} RR [{rr_types}], {num_nx} Nx, {num_to} TO, {num_err} Err in (min {min_time}, max {max_time}) ms from {num_srvs} server within {total_time} ms total runtime.",
-             num_resp = statistics.responses,
-             num_rr = num_rr,
-             rr_types = rr_types,
-             num_nx = statistics.nxdomains,
-             num_to = statistics.timeouts,
-             num_err = statistics.errors,
-             min_time = statistics.response_time_summary.min.map(|x| x.to_string()).unwrap_or_else(|| "-".to_string()),
-             max_time = statistics.response_time_summary.max.map(|x| x.to_string()).unwrap_or_else(|| "-".to_string()),
-             num_srvs = statistics.responding_servers,
-             total_time = total_run_time.as_millis(),
+    println!(
+        "Received {} within {} ms of total run time.",
+        statistics,
+        total_run_time.as_millis()
     );
 }
