@@ -25,7 +25,7 @@ impl Query {
 impl From<Query> for MultiQuery {
     fn from(query: Query) -> MultiQuery {
         MultiQuery {
-            name: query.name,
+            names: vec![query.name],
             record_types: vec![query.record_type],
         }
     }
@@ -44,15 +44,17 @@ impl From<Query> for MultiQuery {
 /// ```
 #[derive(Debug, Clone)]
 pub struct MultiQuery {
-    pub(crate) name: Name,
+    pub(crate) names: Vec<Name>,
     pub(crate) record_types: Vec<RecordType>,
 }
 
 impl MultiQuery {
-    pub fn new<N: IntoName, T: Into<Vec<RecordType>>>(name: N, record_types: T) -> Result<MultiQuery> {
-        let name = name.into_name().map_err(Error::from)?;
+    pub fn new<N: IntoName, S: Into<Vec<N>>, T: Into<Vec<RecordType>>>(names: S, record_types: T) -> Result<MultiQuery> {
+        let names: Vec<_> = names.into().into_iter().map(|name| name.into_name().map_err(Error::from)).collect();
+        let names: Result<Vec<_>> = names.into_iter().collect();
+        let names = names?;
         let record_types = record_types.into();
 
-        Ok(MultiQuery { name, record_types })
+        Ok(MultiQuery { names, record_types })
     }
 }

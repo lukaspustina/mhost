@@ -2,7 +2,8 @@ use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 use std::marker::PhantomData;
 
-use crate::resolver::lookup::{Lookup, LookupResult};
+use crate::resolver::lookup::LookupResult;
+use crate::resolver::Lookups;
 use crate::RecordType;
 
 pub trait Statistics<'a> {
@@ -24,7 +25,7 @@ pub struct LookupsStats<'a> {
     phantom: PhantomData<&'a usize>,
 }
 
-impl<'a> Statistics<'a> for Vec<Lookup> {
+impl<'a> Statistics<'a> for Lookups {
     type StatsOut = LookupsStats<'a>;
 
     fn statistics(&'a self) -> Self::StatsOut {
@@ -87,10 +88,10 @@ impl Summary {
     }
 }
 
-fn count_rr_types(lookups: &[Lookup]) -> BTreeMap<RecordType, usize> {
+fn count_rr_types(lookups: &Lookups) -> BTreeMap<RecordType, usize> {
     let mut type_counts = BTreeMap::new();
 
-    for l in lookups {
+    for l in lookups.iter() {
         if let Some(response) = l.result().response() {
             for r in response.records() {
                 let type_count = type_counts.entry(r.rr_type()).or_insert(0);
@@ -102,19 +103,19 @@ fn count_rr_types(lookups: &[Lookup]) -> BTreeMap<RecordType, usize> {
     type_counts
 }
 
-fn count_responding_servers(lookups: &[Lookup]) -> usize {
+fn count_responding_servers(lookups: &Lookups) -> usize {
     let server_set: HashSet<_> = lookups.iter().map(|x| x.name_server().to_string()).collect();
 
     server_set.len()
 }
 
-fn count_result_types(lookups: &[Lookup]) -> (usize, usize, usize, usize) {
+fn count_result_types(lookups: &Lookups) -> (usize, usize, usize, usize) {
     let mut responses: usize = 0;
     let mut nxdomains: usize = 0;
     let mut timeouts: usize = 0;
     let mut errors: usize = 0;
 
-    for l in lookups {
+    for l in lookups.iter() {
         match l.result() {
             LookupResult::Response { .. } => responses += 1,
             LookupResult::NxDomain { .. } => nxdomains += 1,

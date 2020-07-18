@@ -13,7 +13,7 @@ pub mod lookup;
 pub mod predefined;
 pub mod query;
 
-pub use lookup::Lookup;
+pub use lookup::{Lookup, Lookups};
 pub use query::{MultiQuery, Query};
 
 #[derive(Debug)]
@@ -89,8 +89,8 @@ impl Resolver {
         })
     }
 
-    pub async fn lookup<T: Into<MultiQuery>>(&self, query: T) -> Vec<Lookup> {
-        Lookup::lookup(self.clone(), query).await
+    pub async fn lookup<T: Into<MultiQuery>>(&self, query: T) -> Lookups {
+        lookup::lookup(self.clone(), query).await
     }
 
     pub fn name(&self) -> String {
@@ -153,7 +153,7 @@ impl ResolverGroup {
         ResolverGroup::from_configs(configs, resolver_opts, opts).await
     }
 
-    pub async fn lookup<T: Into<MultiQuery>>(&self, query: T) -> Vec<Lookup> {
+    pub async fn lookup<T: Into<MultiQuery>>(&self, query: T) -> Lookups {
         let multi_query = query.into();
         let futures: Vec<_> = self
             .resolvers
@@ -161,7 +161,7 @@ impl ResolverGroup {
             .map(|resolver| resolver.lookup(multi_query.clone()))
             .collect();
 
-        let lookups: Vec<_> = stream::iter(futures)
+        let lookups: Vec<Lookup> = stream::iter(futures)
             .buffer_unordered(self.opts.max_concurrent)
             .collect::<Vec<_>>()
             .await
@@ -169,7 +169,7 @@ impl ResolverGroup {
             .flatten()
             .collect();
 
-        lookups
+        lookups.into()
     }
 
     /// Merges this `ResolverGroup` with another

@@ -44,6 +44,29 @@ pub enum RData {
     ZERO,
 }
 
+impl RData {
+    pub fn a(&self) -> Option<&Ipv4Addr> {
+        match self {
+            RData::A(ref ip_addr) => Some(ip_addr),
+            _ => None,
+        }
+    }
+
+    pub fn ns(&self) -> Option<&Name> {
+        match self {
+            RData::NS(ref name) => Some(name),
+            _ => None,
+        }
+    }
+
+    pub fn soa(&self) -> Option<&SOA> {
+        match self {
+            RData::SOA(ref soa) => Some(soa),
+            _ => None,
+        }
+    }
+}
+
 #[doc(hidden)]
 #[allow(unused_variables)]
 impl From<trust_dns_resolver::proto::rr::RData> for RData {

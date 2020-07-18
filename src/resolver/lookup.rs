@@ -13,6 +13,92 @@ use crate::nameserver::NameServerConfig;
 use crate::resolver::{MultiQuery, Query, Resolver};
 use crate::resources::Record;
 use crate::serialize::ser_arc_nameserver_config;
+use std::slice::Iter;
+use crate::Name;
+use std::collections::HashSet;
+use std::net::Ipv4Addr;
+use std::hash::Hash;
+use crate::resources::rdata::SOA;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Lookups {
+    inner: Vec<Lookup>,
+}
+
+impl Lookups {
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    pub fn iter(&self) -> Iter<Lookup> {
+        self.inner.iter()
+    }
+
+    pub fn a(&self) -> Vec<Ipv4Addr> {
+        self.inner
+            .iter()
+            .map(|x| x.result().response())
+            .flatten()
+            .map(|x| x.records())
+            .flatten()
+            .map(|x| x.rdata().a())
+            .flatten()
+            .cloned()
+            .collect()
+    }
+
+    pub fn ns(&self) -> Vec<Name> {
+        self.inner
+            .iter()
+            .map(|x| x.result().response())
+            .flatten()
+            .map(|x| x.records())
+            .flatten()
+            .map(|x| x.rdata().ns())
+            .flatten()
+            .cloned()
+            .collect()
+    }
+
+    pub fn soa(&self) -> Vec<SOA> {
+        self.inner
+            .iter()
+            .map(|x| x.result().response())
+            .flatten()
+            .map(|x| x.records())
+            .flatten()
+            .map(|x| x.rdata().soa())
+            .flatten()
+            .cloned()
+            .collect()
+    }
+}
+
+pub trait Uniquify<T> {
+    fn unique(self) -> Vec<T>;
+}
+
+impl<S, T> Uniquify<T> for S where S: std::marker::Sized + IntoIterator<Item = T>, T: Eq + Hash {
+    fn unique(self) -> Vec<T> {
+        let set: HashSet<T> = self.into_iter().collect();
+        set.into_iter().collect()
+    }
+}
+
+impl IntoIterator for Lookups {
+    type Item = Lookup;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.inner.into_iter()
+    }
+}
+
+impl From<Vec<Lookup>> for Lookups {
+    fn from(lookups: Vec<Lookup>) -> Self {
+        Lookups { inner: lookups }
+    }
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Lookup {
@@ -23,24 +109,6 @@ pub struct Lookup {
 }
 
 impl Lookup {
-    pub async fn lookup<T: Into<MultiQuery>>(resolver: Resolver, query: T) -> Vec<Lookup> {
-        let MultiQuery { name, record_types } = query.into();
-        let lookups: Vec<_> = record_types
-            .into_iter()
-            .map(|record_type| Query {
-                name: name.clone(),
-                record_type,
-            })
-            .map(|q| do_lookup(&resolver, q))
-            .collect();
-
-        stream::iter(lookups)
-            .buffer_unordered(resolver.opts.max_concurrent_requests)
-            .inspect(|lookup| trace!("Received lookup {:?}", lookup))
-            .collect::<Vec<Lookup>>()
-            .await
-    }
-
     pub fn query(&self) -> &Query {
         &self.query
     }
@@ -140,7 +208,28 @@ impl LookupResult {
     }
 }
 
-async fn do_lookup(resolver: &Resolver, query: Query) -> Lookup {
+pub async fn lookup<T: Into<MultiQuery>>(resolver: Resolver, query: T) -> Lookups {
+    let MultiQuery { names, record_types } = query.into();
+
+    let mut lookup_futures = Vec::new();
+    for name in names.iter() {
+        for record_type in record_types.iter() {
+            let q = Query { name: name.clone(), record_type: record_type.clone() };
+            let f = single_lookup(&resolver, q);
+            lookup_futures.push(f);
+        }
+    }
+
+    let lookups = stream::iter(lookup_futures)
+        .buffer_unordered(resolver.opts.max_concurrent_requests)
+        .inspect(|lookup| trace!("Received lookup {:?}", lookup))
+        .collect::<Vec<Lookup>>()
+        .await;
+
+    lookups.into()
+}
+
+async fn single_lookup(resolver: &Resolver, query: Query) -> Lookup {
     let q = query.clone();
     let start_time = Instant::now();
     let result = resolver
