@@ -8,12 +8,12 @@ use serde::Serialize;
 use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
 use trust_dns_resolver::proto::xfer::DnsRequestOptions;
 
-use crate::{MultiQuery, Query};
 use crate::error::Error;
 use crate::nameserver::NameServerConfig;
 use crate::resolver::Resolver;
 use crate::resources::Record;
 use crate::serialize::ser_arc_nameserver_config;
+use crate::{MultiQuery, Query};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Lookup {

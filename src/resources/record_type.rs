@@ -5,7 +5,7 @@ use std::fmt;
 use std::str::FromStr;
 use trust_dns_resolver::proto::rr::dnssec::rdata::DNSSECRecordType;
 
-#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Copy, Clone)]
 #[allow(dead_code)]
 #[derive(Serialize)]
 pub enum RecordType {
