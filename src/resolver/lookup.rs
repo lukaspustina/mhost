@@ -10,15 +10,15 @@ use trust_dns_resolver::proto::xfer::DnsRequestOptions;
 
 use crate::error::Error;
 use crate::nameserver::NameServerConfig;
-use crate::resolver::{MultiQuery, Query, Resolver};
+use crate::resolver::{MultiQuery, Resolver, UniQuery};
+use crate::resources::rdata::SOA;
 use crate::resources::Record;
 use crate::serialize::ser_arc_nameserver_config;
-use std::slice::Iter;
 use crate::Name;
 use std::collections::HashSet;
-use std::net::Ipv4Addr;
 use std::hash::Hash;
-use crate::resources::rdata::SOA;
+use std::net::Ipv4Addr;
+use std::slice::Iter;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Lookups {
@@ -28,6 +28,10 @@ pub struct Lookups {
 impl Lookups {
     pub fn len(&self) -> usize {
         self.inner.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
     }
 
     pub fn iter(&self) -> Iter<Lookup> {
@@ -78,7 +82,11 @@ pub trait Uniquify<T> {
     fn unique(self) -> Vec<T>;
 }
 
-impl<S, T> Uniquify<T> for S where S: std::marker::Sized + IntoIterator<Item = T>, T: Eq + Hash {
+impl<S, T> Uniquify<T> for S
+where
+    S: std::marker::Sized + IntoIterator<Item = T>,
+    T: Eq + Hash,
+{
     fn unique(self) -> Vec<T> {
         let set: HashSet<T> = self.into_iter().collect();
         set.into_iter().collect()
@@ -102,14 +110,14 @@ impl From<Vec<Lookup>> for Lookups {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Lookup {
-    query: Query,
+    query: UniQuery,
     #[serde(serialize_with = "ser_arc_nameserver_config")]
     name_server: Arc<NameServerConfig>,
     result: LookupResult,
 }
 
 impl Lookup {
-    pub fn query(&self) -> &Query {
+    pub fn query(&self) -> &UniQuery {
         &self.query
     }
 
@@ -214,7 +222,10 @@ pub async fn lookup<T: Into<MultiQuery>>(resolver: Resolver, query: T) -> Lookup
     let mut lookup_futures = Vec::new();
     for name in names.iter() {
         for record_type in record_types.iter() {
-            let q = Query { name: name.clone(), record_type: record_type.clone() };
+            let q = UniQuery {
+                name: name.clone(),
+                record_type: *record_type,
+            };
             let f = single_lookup(&resolver, q);
             lookup_futures.push(f);
         }
@@ -229,7 +240,7 @@ pub async fn lookup<T: Into<MultiQuery>>(resolver: Resolver, query: T) -> Lookup
     lookups.into()
 }
 
-async fn single_lookup(resolver: &Resolver, query: Query) -> Lookup {
+async fn single_lookup(resolver: &Resolver, query: UniQuery) -> Lookup {
     let q = query.clone();
     let start_time = Instant::now();
     let result = resolver

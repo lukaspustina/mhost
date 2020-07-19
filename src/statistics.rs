@@ -137,5 +137,5 @@ fn rr_types_as_str(rr_type_counts: &BTreeMap<RecordType, usize>) -> String {
 }
 
 fn count_rrs(rr_type_counts: &BTreeMap<RecordType, usize>) -> usize {
-    rr_type_counts.values().fold(0, |acc, count| acc + count)
+    rr_type_counts.values().sum()
 }

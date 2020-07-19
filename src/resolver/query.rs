@@ -9,21 +9,21 @@ use trust_dns_resolver::Name;
 ///
 /// Name's labels are all Rc, so clone is cheap
 #[derive(Debug, Clone, Serialize)]
-pub struct Query {
+pub struct UniQuery {
     pub(crate) name: Name,
     pub(crate) record_type: RecordType,
 }
 
-impl Query {
-    pub fn new<N: IntoName>(name: N, record_type: RecordType) -> Result<Query> {
+impl UniQuery {
+    pub fn new<N: IntoName>(name: N, record_type: RecordType) -> Result<UniQuery> {
         let name = name.into_name().map_err(Error::from)?;
 
-        Ok(Query { name, record_type })
+        Ok(UniQuery { name, record_type })
     }
 }
 
-impl From<Query> for MultiQuery {
-    fn from(query: Query) -> MultiQuery {
+impl From<UniQuery> for MultiQuery {
+    fn from(query: UniQuery) -> MultiQuery {
         MultiQuery {
             names: vec![query.name],
             record_types: vec![query.record_type],
@@ -31,15 +31,15 @@ impl From<Query> for MultiQuery {
     }
 }
 
-/// MultiQuery allows to specify multiple record lookups an once.
+/// MultiQuery allows to lookup multiple names for multiple record types
 ///
-/// It can be easily constructed from a simple `Query`
+/// It can be easily constructed from a simple `UniQuery`
 ///
 /// # Example
 /// ```
-/// # use mhost::resolver::{Query, MultiQuery};
+/// # use mhost::resolver::{UniQuery, MultiQuery};
 /// # use mhost::RecordType;
-/// let query = Query::new("www.example.com", RecordType::A).unwrap();
+/// let query = UniQuery::new("www.example.com", RecordType::A).unwrap();
 /// let multi_query: MultiQuery = query.into();
 /// ```
 #[derive(Debug, Clone)]
@@ -49,12 +49,27 @@ pub struct MultiQuery {
 }
 
 impl MultiQuery {
-    pub fn new<N: IntoName, S: Into<Vec<N>>, T: Into<Vec<RecordType>>>(names: S, record_types: T) -> Result<MultiQuery> {
-        let names: Vec<_> = names.into().into_iter().map(|name| name.into_name().map_err(Error::from)).collect();
+    pub fn new<N: IntoName, S: Into<Vec<N>>, T: Into<Vec<RecordType>>>(
+        names: S,
+        record_types: T,
+    ) -> Result<MultiQuery> {
+        let names: Vec<_> = names
+            .into()
+            .into_iter()
+            .map(|name| name.into_name().map_err(Error::from))
+            .collect();
         let names: Result<Vec<_>> = names.into_iter().collect();
         let names = names?;
         let record_types = record_types.into();
 
         Ok(MultiQuery { names, record_types })
+    }
+
+    pub fn multi_name<N: IntoName, S: Into<Vec<N>>>(names: S, record_type: RecordType) -> Result<MultiQuery> {
+        MultiQuery::new(names, [record_type])
+    }
+
+    pub fn multi_record<N: IntoName, T: Into<Vec<RecordType>>>(name: N, record_types: T) -> Result<MultiQuery> {
+        MultiQuery::new([name], record_types)
     }
 }

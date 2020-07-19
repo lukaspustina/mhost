@@ -7,16 +7,13 @@ use mhost::RecordType;
 
 #[tokio::main]
 async fn main() {
-    let name = env::args()
-        .skip(1)
-        .next()
-        .unwrap_or_else(|| "www.example.com".to_string());
+    let name = env::args().nth(1).unwrap_or_else(|| "www.example.com".to_string());
 
     let resolvers = ResolverGroup::from_system_config(Default::default())
         .await
         .expect("failed to create system resolvers");
 
-    let mq = MultiQuery::new(name, [RecordType::A, RecordType::AAAA, RecordType::TXT])
+    let mq = MultiQuery::multi_record(name, [RecordType::A, RecordType::AAAA, RecordType::TXT])
         .expect("failed to create multi-query");
     let start_time = Instant::now();
     let lookups = resolvers.lookup(mq).await;

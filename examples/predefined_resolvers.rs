@@ -1,13 +1,10 @@
-use mhost::resolver::{predefined, Query, ResolverGroup};
+use mhost::resolver::{predefined, ResolverGroup, UniQuery};
 use mhost::RecordType;
 use std::env;
 
 #[tokio::main]
 async fn main() {
-    let name = env::args()
-        .skip(1)
-        .next()
-        .unwrap_or_else(|| "www.example.com".to_string());
+    let name = env::args().nth(1).unwrap_or_else(|| "www.example.com".to_string());
 
     let resolver_configs = predefined::resolver_configs();
 
@@ -15,9 +12,8 @@ async fn main() {
         .await
         .expect("failed to create resolvers");
 
-    let q = Query::new(name, RecordType::A).expect("Failed to create multi-query");
+    let q = UniQuery::new(name, RecordType::A).expect("Failed to create multi-query");
     let lookups = resolvers.lookup(q).await;
-
     //println!("Multi-Lookup results: {:#?}", lookups);
 
     let successes = lookups.iter().filter(|x| x.result().is_response()).count();

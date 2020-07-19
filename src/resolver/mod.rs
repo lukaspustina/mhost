@@ -14,7 +14,7 @@ pub mod predefined;
 pub mod query;
 
 pub use lookup::{Lookup, Lookups};
-pub use query::{MultiQuery, Query};
+pub use query::{MultiQuery, UniQuery};
 
 #[derive(Debug)]
 pub struct ResolverConfig {

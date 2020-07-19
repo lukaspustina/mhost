@@ -1,15 +1,12 @@
 use mhost::nameserver::NameServerConfig;
-use mhost::resolver::{MultiQuery, Query, Resolver, ResolverConfig};
+use mhost::resolver::{MultiQuery, Resolver, ResolverConfig, UniQuery};
 use mhost::RecordType;
 use std::env;
 use std::net::SocketAddr;
 
 #[tokio::main]
 async fn main() {
-    let name = env::args()
-        .skip(1)
-        .next()
-        .unwrap_or_else(|| "www.example.com".to_string());
+    let name = env::args().nth(1).unwrap_or_else(|| "www.example.com".to_string());
 
     let sock_addr: SocketAddr = "8.8.8.8:53".parse().unwrap();
     let name_server_config = NameServerConfig::udp(sock_addr);
@@ -19,11 +16,11 @@ async fn main() {
         .await
         .expect("Failed to create resolver");
 
-    let query = Query::new(name, RecordType::A).expect("Failed to create query");
+    let query = UniQuery::new(name, RecordType::A).expect("Failed to create query");
     let one_lookup = resolver.lookup(query).await;
     println!("Lookup result: #{} {:?}", one_lookup.len(), &one_lookup);
 
-    let mq = MultiQuery::new("www.example.com", [RecordType::A, RecordType::AAAA, RecordType::TXT])
+    let mq = MultiQuery::multi_record("www.example.com", [RecordType::A, RecordType::AAAA, RecordType::TXT])
         .expect("Failed to create multi-query");
     let lookups = resolver.lookup(mq).await;
 
