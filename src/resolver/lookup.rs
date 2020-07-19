@@ -11,18 +11,25 @@ use trust_dns_resolver::proto::xfer::DnsRequestOptions;
 use crate::error::Error;
 use crate::nameserver::NameServerConfig;
 use crate::resolver::{MultiQuery, Resolver, UniQuery};
-use crate::resources::rdata::SOA;
-use crate::resources::Record;
+use crate::resources::rdata::{Name, MX, NULL, SOA, SRV, TXT, UNKNOWN};
+use crate::resources::{RData, Record};
 use crate::serialize::ser_arc_nameserver_config;
-use crate::Name;
 use std::collections::HashSet;
 use std::hash::Hash;
-use std::net::Ipv4Addr;
+use std::net::{Ipv4Addr, Ipv6Addr};
 use std::slice::Iter;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Lookups {
     inner: Vec<Lookup>,
+}
+
+macro_rules! accessor {
+    ($method:ident, $out_type:ty) => {
+        pub fn $method(&self) -> Vec<$out_type> {
+            self.filter_record_type(|rdata| rdata.$method())
+        }
+    };
 }
 
 impl Lookups {
@@ -38,40 +45,27 @@ impl Lookups {
         self.inner.iter()
     }
 
-    pub fn a(&self) -> Vec<Ipv4Addr> {
-        self.inner
-            .iter()
-            .map(|x| x.result().response())
-            .flatten()
-            .map(|x| x.records())
-            .flatten()
-            .map(|x| x.rdata().a())
-            .flatten()
-            .cloned()
-            .collect()
-    }
+    accessor!(a, Ipv4Addr);
+    accessor!(aaaa, Ipv6Addr);
+    accessor!(aname, Name);
+    accessor!(cname, Name);
+    accessor!(mx, MX);
+    accessor!(null, NULL);
+    accessor!(ns, Name);
+    accessor!(ptr, Name);
+    accessor!(soa, SOA);
+    accessor!(srv, SRV);
+    accessor!(txt, TXT);
+    accessor!(unknown, UNKNOWN);
 
-    pub fn ns(&self) -> Vec<Name> {
+    fn filter_record_type<T: Clone, F: Fn(&RData) -> Option<&T>>(&self, filter: F) -> Vec<T> {
         self.inner
             .iter()
             .map(|x| x.result().response())
             .flatten()
             .map(|x| x.records())
             .flatten()
-            .map(|x| x.rdata().ns())
-            .flatten()
-            .cloned()
-            .collect()
-    }
-
-    pub fn soa(&self) -> Vec<SOA> {
-        self.inner
-            .iter()
-            .map(|x| x.result().response())
-            .flatten()
-            .map(|x| x.records())
-            .flatten()
-            .map(|x| x.rdata().soa())
+            .map(|x| filter(x.rdata()))
             .flatten()
             .cloned()
             .collect()

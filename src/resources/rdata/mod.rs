@@ -1,17 +1,21 @@
-use serde::Serialize;
 use std::net::{Ipv4Addr, Ipv6Addr};
-use trust_dns_resolver::Name;
+
+use serde::Serialize;
+
+pub use mx::MX;
+pub use null::NULL;
+pub use soa::SOA;
+pub use srv::SRV;
+pub use trust_dns_resolver::{IntoName, Name};
+pub use txt::TXT;
+pub use unknown::UNKNOWN;
 
 mod mx;
-pub use mx::MX;
 mod null;
-pub use null::NULL;
 mod soa;
-pub use soa::SOA;
 mod srv;
-pub use srv::SRV;
 mod txt;
-pub use txt::TXT;
+mod unknown;
 
 #[derive(Debug, PartialEq, Clone, Eq, Serialize)]
 pub enum RData {
@@ -40,31 +44,34 @@ pub enum RData {
     TXT(TXT),
     // TODO: DNSSEC(DNSSECRData),
     DNSSEC,
-    Unknown { code: u16, rdata: NULL },
+    Unknown(UNKNOWN),
     ZERO,
 }
 
+macro_rules! accessor {
+    ($variant:ident, $method:ident, $out_type:ty) => {
+        pub fn $method(&self) -> Option<&$out_type> {
+            match self {
+                RData::$variant(ref inner) => Some(inner),
+                _ => None,
+            }
+        }
+    };
+}
+
 impl RData {
-    pub fn a(&self) -> Option<&Ipv4Addr> {
-        match self {
-            RData::A(ref ip_addr) => Some(ip_addr),
-            _ => None,
-        }
-    }
-
-    pub fn ns(&self) -> Option<&Name> {
-        match self {
-            RData::NS(ref name) => Some(name),
-            _ => None,
-        }
-    }
-
-    pub fn soa(&self) -> Option<&SOA> {
-        match self {
-            RData::SOA(ref soa) => Some(soa),
-            _ => None,
-        }
-    }
+    accessor!(A, a, Ipv4Addr);
+    accessor!(AAAA, aaaa, Ipv6Addr);
+    accessor!(ANAME, aname, Name);
+    accessor!(CNAME, cname, Name);
+    accessor!(MX, mx, MX);
+    accessor!(NULL, null, NULL);
+    accessor!(NS, ns, Name);
+    accessor!(PTR, ptr, Name);
+    accessor!(SOA, soa, SOA);
+    accessor!(SRV, srv, SRV);
+    accessor!(TXT, txt, TXT);
+    accessor!(Unknown, unknown, UNKNOWN);
 }
 
 #[doc(hidden)]
@@ -92,10 +99,7 @@ impl From<trust_dns_resolver::proto::rr::RData> for RData {
             TRData::TLSA(value) => RData::TLSA,
             TRData::TXT(value) => RData::TXT(value.into()),
             TRData::DNSSEC(value) => RData::DNSSEC,
-            TRData::Unknown { code, rdata } => RData::Unknown {
-                code,
-                rdata: rdata.into(),
-            },
+            TRData::Unknown { code, rdata } => RData::Unknown((code, rdata).into()),
             TRData::ZERO => RData::ZERO,
         }
     }
