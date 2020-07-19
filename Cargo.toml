@@ -38,5 +38,8 @@ serde = { version = "1.0", features = ["derive"] }
 thiserror = "1"
 trust-dns-resolver = { version = "0.19", features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls", "dnssec-ring", "mdns", "system-config", "serde-config"] }
 
+[dev-dependencies]
+spectral = "0.6"
+
 [features]
 bin = ["anyhow", "env_logger"]
