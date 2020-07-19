@@ -112,8 +112,8 @@ impl Default for ResolverGroupOpts {
 
 #[derive(Debug)]
 pub struct ResolverGroup {
-    resolvers: Vec<Resolver>,
-    opts: ResolverGroupOpts,
+    pub (crate) resolvers: Vec<Resolver>,
+    pub (crate) opts: ResolverGroupOpts,
 }
 
 impl ResolverGroup {

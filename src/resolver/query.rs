@@ -5,7 +5,7 @@ use serde::Serialize;
 use trust_dns_resolver::IntoName;
 use trust_dns_resolver::Name;
 
-/// Query
+/// UniQuery
 ///
 /// Name's labels are all Rc, so clone is cheap
 #[derive(Debug, Clone, Serialize)]
