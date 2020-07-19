@@ -31,6 +31,7 @@ anyhow = { version = "1", optional = true }
 chrono = { version = "0.4", features = ["serde"] }
 env_logger = { version = "0.7.*", optional = true }
 futures = { version = "0.3.*"}
+indexmap = "1.5"
 log = "0.4.*"
 resolv-conf = "0.6"
 tokio = { version = "0.2.*", features = ["full"] }

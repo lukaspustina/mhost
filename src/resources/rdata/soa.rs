@@ -1,7 +1,7 @@
 use serde::Serialize;
 use trust_dns_resolver::Name;
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize)]
 pub struct SOA {
     mname: Name,
     rname: Name,

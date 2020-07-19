@@ -1,7 +1,7 @@
-use crate::diff::{Difference, Differ};
+use crate::diff::{Differ, Difference};
 use crate::resources::rdata::SOA;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Field {
     MName,
     RName,
@@ -15,7 +15,7 @@ pub enum Field {
 impl Differ for SOA {
     type FieldType = Field;
 
-    fn difference(&self, other: &Self) -> Difference<Self::FieldType> {
+    fn difference(&self, other: &Self) -> Option<Difference<Self::FieldType>> {
         let mut diffs = Vec::new();
 
         if self.mname() != other.mname() {
@@ -40,7 +40,12 @@ impl Differ for SOA {
             diffs.push(Field::Minimum)
         }
 
-        Difference { fields: diffs }
+        if diffs.is_empty() {
+            return None;
+        }
+        diffs.sort();
+
+        Some(Difference { fields: diffs })
     }
 }
 
@@ -66,7 +71,7 @@ mod tests {
 
         let diff = left.difference(&left);
 
-        assert_that(&diff).map(|x| &x.fields).is_empty();
+        assert_that(&diff).is_none();
     }
 
     #[test]
@@ -93,7 +98,7 @@ mod tests {
 
         let diff = left.difference(&right);
 
-        assert_that(&diff).map(|x| &x.fields).is_equal_to(&vec![
+        assert_that(&diff).is_some().map(|x| &x.fields).is_equal_to(&vec![
             Field::MName,
             Field::RName,
             Field::Serial,
