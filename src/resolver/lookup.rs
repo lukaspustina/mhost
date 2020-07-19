@@ -211,19 +211,12 @@ impl LookupResult {
 }
 
 pub async fn lookup<T: Into<MultiQuery>>(resolver: Resolver, query: T) -> Lookups {
-    let MultiQuery { names, record_types } = query.into();
+    let query = query.into();
 
-    let mut lookup_futures = Vec::new();
-    for name in names.iter() {
-        for record_type in record_types.iter() {
-            let q = UniQuery {
-                name: name.clone(),
-                record_type: *record_type,
-            };
-            let f = single_lookup(&resolver, q);
-            lookup_futures.push(f);
-        }
-    }
+    let lookup_futures = query
+        .into_uni_queries()
+        .into_iter()
+        .map(|q| single_lookup(&resolver, q));
 
     let lookups = stream::iter(lookup_futures)
         .buffer_unordered(resolver.opts.max_concurrent_requests)

@@ -1,6 +1,6 @@
 use crate::resolver::{MultiQuery, Resolver, ResolverGroup};
-use std::ops::Add;
 use std::fmt;
+use std::ops::Add;
 
 pub trait Estimate {
     fn estimate(&self, query: &MultiQuery) -> Estimation;

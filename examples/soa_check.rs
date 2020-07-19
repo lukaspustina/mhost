@@ -1,10 +1,10 @@
 use std::env;
 
+use mhost::estimate::Estimate;
 use mhost::nameserver::NameServerConfig;
 use mhost::resolver::lookup::Uniquify;
 use mhost::resolver::{MultiQuery, ResolverConfig, ResolverGroup, UniQuery};
 use mhost::RecordType;
-use mhost::estimate::Estimate;
 
 #[tokio::main]
 async fn main() {
@@ -15,13 +15,19 @@ async fn main() {
         .expect("failed to create system resolvers");
 
     let q = UniQuery::new(name.clone(), RecordType::NS).expect("failed to create NS query");
-    println!("Sending {} requests for names of authoritative name servers.", resolvers.estimate(&q.clone().into()));
+    println!(
+        "Sending {} requests for names of authoritative name servers.",
+        resolvers.estimate(&q.clone().into())
+    );
     let authoritative_name_server_names = resolvers.lookup(q).await.ns().unique();
     // println!("Authoritative name server names: {:#?}", &authoritative_name_server_names);
 
     let q =
         MultiQuery::multi_name(authoritative_name_server_names, RecordType::A).expect("failed to create NS IP query");
-    println!("Sending {} requests for IPv4 addresses of authoritative name servers.", resolvers.estimate(&q));
+    println!(
+        "Sending {} requests for IPv4 addresses of authoritative name servers.",
+        resolvers.estimate(&q)
+    );
     let authoritative_name_server_ips = resolvers.lookup(q).await.a().unique();
     // println!("Authoritative name server name IPs: {:#?}", &authoritative_name_server_ips);
 
@@ -34,7 +40,10 @@ async fn main() {
         .expect("failed to create authoritative resolvers");
 
     let q = UniQuery::new(name, RecordType::SOA).expect("failed to create SOA query");
-    println!("Sending {} requests for SOA records of authoritative name servers.", resolvers.estimate(&q.clone().into()));
+    println!(
+        "Sending {} requests for SOA records of authoritative name servers.",
+        resolvers.estimate(&q.clone().into())
+    );
     let soas = resolvers.lookup(q).await.soa().unique();
     println!("SOAs -- should be exactly one: {:#?}", &soas);
 }

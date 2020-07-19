@@ -1,9 +1,9 @@
-use crate::error::Error;
-use crate::{RecordType, Result};
-
 use serde::Serialize;
 use trust_dns_resolver::IntoName;
 use trust_dns_resolver::Name;
+
+use crate::error::Error;
+use crate::{RecordType, Result};
 
 /// UniQuery
 ///
@@ -71,5 +71,19 @@ impl MultiQuery {
 
     pub fn multi_record<N: IntoName, T: Into<Vec<RecordType>>>(name: N, record_types: T) -> Result<MultiQuery> {
         MultiQuery::new([name], record_types)
+    }
+
+    pub fn into_uni_queries(self) -> Vec<UniQuery> {
+        let mut queries = Vec::new();
+        for name in self.names.iter() {
+            for record_type in self.record_types.iter() {
+                queries.push(UniQuery {
+                    name: name.clone(),
+                    record_type: *record_type,
+                });
+            }
+        }
+
+        queries
     }
 }
