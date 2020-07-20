@@ -9,11 +9,15 @@ pub struct UNKNOWN {
 
 #[allow(dead_code)]
 impl UNKNOWN {
-    fn code(&self) -> u16 {
+    pub fn new(code: u16, rdata: NULL) -> UNKNOWN {
+        UNKNOWN { code, rdata }
+    }
+
+    pub fn code(&self) -> u16 {
         self.code
     }
 
-    fn rdata(&self) -> &NULL {
+    pub fn rdata(&self) -> &NULL {
         &self.rdata
     }
 }
