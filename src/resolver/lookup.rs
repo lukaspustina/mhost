@@ -33,6 +33,12 @@ macro_rules! accessor {
 }
 
 impl Lookups {
+    #[allow(dead_code)]
+    #[doc(hidden)]
+    pub(crate) fn new(inner: Vec<Lookup>) -> Lookups {
+        Lookups { inner }
+    }
+
     pub fn len(&self) -> usize {
         self.inner.len()
     }
