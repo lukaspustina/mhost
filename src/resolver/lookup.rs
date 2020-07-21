@@ -26,7 +26,7 @@ pub struct Lookups {
 
 macro_rules! accessor {
     ($method:ident, $out_type:ty) => {
-        pub fn $method(&self) -> Vec<$out_type> {
+        pub fn $method(&self) -> Vec<&$out_type> {
             self.filter_record_type(|rdata| rdata.$method())
         }
     };
@@ -64,7 +64,7 @@ impl Lookups {
     accessor!(txt, TXT);
     accessor!(unknown, UNKNOWN);
 
-    fn filter_record_type<T: Clone, F: Fn(&RData) -> Option<&T>>(&self, filter: F) -> Vec<T> {
+    fn filter_record_type<T, F: Fn(&RData) -> Option<&T>>(&self, filter: F) -> Vec<&T> {
         self.inner
             .iter()
             .map(|x| x.result().response())
@@ -73,7 +73,6 @@ impl Lookups {
             .flatten()
             .map(|x| filter(x.rdata()))
             .flatten()
-            .cloned()
             .collect()
     }
 }
