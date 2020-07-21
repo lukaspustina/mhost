@@ -1,3 +1,7 @@
+use std::collections::HashSet;
+use std::hash::Hash;
+use std::net::{Ipv4Addr, Ipv6Addr};
+use std::slice::Iter;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -14,10 +18,6 @@ use crate::resolver::{MultiQuery, Resolver, UniQuery};
 use crate::resources::rdata::{Name, MX, NULL, SOA, SRV, TXT, UNKNOWN};
 use crate::resources::{RData, Record};
 use crate::serialize::ser_arc_nameserver_config;
-use std::collections::HashSet;
-use std::hash::Hash;
-use std::net::{Ipv4Addr, Ipv6Addr};
-use std::slice::Iter;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Lookups {
@@ -72,18 +72,44 @@ impl Lookups {
     }
 }
 
-pub trait Uniquify<T> {
-    fn unique(self) -> Vec<T>;
+pub trait Uniquify<'a, T: Clone + Eq + Hash> {
+    fn unique(self) -> Uniquified<'a, T>;
 }
 
-impl<S, T> Uniquify<T> for S
+// It's impossible to impl ToOwned fpr HashSet<&Name>, because of Borrow<Self>, thus I use the
+// new-type pattern to add a to_owned method by myself. Not perfect, but it is what it is.
+#[derive(Debug)]
+pub struct Uniquified<'a, T: Clone + Eq + Hash> {
+    inner: HashSet<&'a T>,
+}
+
+impl<'a, T: Clone + Eq + Hash> Uniquified<'a, T> {
+    pub fn set(&'a self) -> &'a HashSet<&'a T> {
+        &self.inner
+    }
+
+    pub fn to_owned(&self) -> HashSet<T> {
+        self.inner.iter().map(|x| (*x).clone()).collect()
+    }
+
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+}
+
+impl<'a, S, T> Uniquify<'a, T> for S
 where
-    S: std::marker::Sized + IntoIterator<Item = T>,
-    T: Eq + Hash,
+    S: std::marker::Sized + IntoIterator<Item = &'a T> + 'a,
+    T: Clone + Eq + Hash + 'a,
 {
-    fn unique(self) -> Vec<T> {
-        let set: HashSet<T> = self.into_iter().collect();
-        set.into_iter().collect()
+    fn unique(self) -> Uniquified<'a, T> {
+        Uniquified {
+            inner: self.into_iter().collect(),
+        }
     }
 }
 

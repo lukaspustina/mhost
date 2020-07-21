@@ -19,7 +19,7 @@ async fn main() {
         "Sending {} requests for names of authoritative name servers.",
         resolvers.estimate(&q.clone().into())
     );
-    let authoritative_name_server_names = resolvers.lookup(q).await.ns().unique();
+    let authoritative_name_server_names = resolvers.lookup(q).await.ns().unique().to_owned();
     // println!("Authoritative name server names: {:#?}", &authoritative_name_server_names);
 
     let q =
@@ -28,7 +28,7 @@ async fn main() {
         "Sending {} requests for IPv4 addresses of authoritative name servers.",
         resolvers.estimate(&q)
     );
-    let authoritative_name_server_ips = resolvers.lookup(q).await.a().unique();
+    let authoritative_name_server_ips = resolvers.lookup(q).await.a().unique().to_owned();
     // println!("Authoritative name server name IPs: {:#?}", &authoritative_name_server_ips);
 
     let authoritative_name_servers = authoritative_name_server_ips
@@ -44,6 +44,6 @@ async fn main() {
         "Sending {} requests for SOA records of authoritative name servers.",
         resolvers.estimate(&q.clone().into())
     );
-    let soas = resolvers.lookup(q).await.soa().unique();
+    let soas = resolvers.lookup(q).await.soa().unique().to_owned();
     println!("SOAs -- should be exactly one: {:#?}", &soas);
 }

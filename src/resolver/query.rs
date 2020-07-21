@@ -49,28 +49,30 @@ pub struct MultiQuery {
 }
 
 impl MultiQuery {
-    pub fn new<N: IntoName, S: Into<Vec<N>>, T: Into<Vec<RecordType>>>(
+    pub fn new<N: IntoName, S: IntoIterator<Item = N>, T: IntoIterator<Item = RecordType>>(
         names: S,
         record_types: T,
     ) -> Result<MultiQuery> {
         let names: Vec<_> = names
-            .into()
             .into_iter()
             .map(|name| name.into_name().map_err(Error::from))
             .collect();
         let names: Result<Vec<_>> = names.into_iter().collect();
         let names = names?;
-        let record_types = record_types.into();
+        let record_types = record_types.into_iter().collect();
 
         Ok(MultiQuery { names, record_types })
     }
 
-    pub fn multi_name<N: IntoName, S: Into<Vec<N>>>(names: S, record_type: RecordType) -> Result<MultiQuery> {
-        MultiQuery::new(names, [record_type])
+    pub fn multi_name<N: IntoName, S: IntoIterator<Item = N>>(names: S, record_type: RecordType) -> Result<MultiQuery> {
+        MultiQuery::new(names, vec![record_type])
     }
 
-    pub fn multi_record<N: IntoName, T: Into<Vec<RecordType>>>(name: N, record_types: T) -> Result<MultiQuery> {
-        MultiQuery::new([name], record_types)
+    pub fn multi_record<N: IntoName, T: IntoIterator<Item = RecordType>>(
+        name: N,
+        record_types: T,
+    ) -> Result<MultiQuery> {
+        MultiQuery::new(vec![name], record_types)
     }
 
     pub fn into_uni_queries(self) -> Vec<UniQuery> {

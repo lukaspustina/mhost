@@ -26,7 +26,7 @@ async fn main() {
 
     resolvers.merge(resolvers_2);
 
-    let mq = MultiQuery::multi_record(name, [RecordType::A, RecordType::AAAA, RecordType::TXT])
+    let mq = MultiQuery::multi_record(name, vec![RecordType::A, RecordType::AAAA, RecordType::TXT])
         .expect("Failed to create multi-query");
     let lookups = resolvers.lookup(mq).await;
 

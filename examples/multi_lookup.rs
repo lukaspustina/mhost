@@ -20,8 +20,11 @@ async fn main() {
     let one_lookup = resolver.lookup(query).await;
     println!("Lookup result: #{} {:?}", one_lookup.len(), &one_lookup);
 
-    let mq = MultiQuery::multi_record("www.example.com", [RecordType::A, RecordType::AAAA, RecordType::TXT])
-        .expect("Failed to create multi-query");
+    let mq = MultiQuery::multi_record(
+        "www.example.com",
+        vec![RecordType::A, RecordType::AAAA, RecordType::TXT],
+    )
+    .expect("Failed to create multi-query");
     let lookups = resolver.lookup(mq).await;
 
     //println!("Multi-Lookup results: {:#?}", multi_lookup);

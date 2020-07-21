@@ -13,7 +13,7 @@ async fn main() {
         .await
         .expect("failed to create system resolvers");
 
-    let mq = MultiQuery::multi_record(name, [RecordType::A, RecordType::AAAA, RecordType::TXT])
+    let mq = MultiQuery::multi_record(name, vec![RecordType::A, RecordType::AAAA, RecordType::TXT])
         .expect("failed to create multi-query");
     let start_time = Instant::now();
     let lookups = resolvers.lookup(mq).await;
