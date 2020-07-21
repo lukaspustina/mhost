@@ -32,13 +32,16 @@ chrono = { version = "0.4", features = ["serde"] }
 env_logger = { version = "0.7.*", optional = true }
 futures = { version = "0.3.*"}
 indexmap = "1.5"
+lazy_static = "1.4"
 log = "0.4.*"
 resolv-conf = "0.6"
 tokio = { version = "0.2.*", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+tabwriter = "1.2"
 thiserror = "1"
 trust-dns-resolver = { version = "0.19", features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls", "dnssec-ring", "mdns", "system-config", "serde-config"] }
+yansi = "0.5"
 
 [dev-dependencies]
 spectral = "0.6"

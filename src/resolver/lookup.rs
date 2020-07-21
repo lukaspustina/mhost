@@ -18,6 +18,7 @@ use crate::resolver::{MultiQuery, Resolver, UniQuery};
 use crate::resources::rdata::{Name, MX, NULL, SOA, SRV, TXT, UNKNOWN};
 use crate::resources::{RData, Record};
 use crate::serialize::ser_arc_nameserver_config;
+use crate::RecordType;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Lookups {
@@ -73,6 +74,17 @@ impl Lookups {
             .flatten()
             .map(|x| filter(x.rdata()))
             .flatten()
+            .collect()
+    }
+
+    pub fn record_types(&self) -> HashSet<RecordType> {
+        self.inner
+            .iter()
+            .map(|x| x.result().response())
+            .flatten()
+            .map(|x| x.records())
+            .flatten()
+            .map(|x| x.rr_type())
             .collect()
     }
 }

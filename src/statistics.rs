@@ -21,7 +21,7 @@ pub struct LookupsStats<'a> {
     pub rr_type_counts: BTreeMap<RecordType, usize>,
     pub responding_servers: usize,
     pub response_time_summary: Summary,
-    // This is used to please the borrow checker as we currently don't know use a borrowed value with lifetime 'a
+    // This is used to please the borrow checker as we currently don't use a borrowed value with lifetime 'a
     phantom: PhantomData<&'a usize>,
 }
 
