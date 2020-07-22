@@ -25,10 +25,18 @@ pub struct Lookups {
     inner: Vec<Lookup>,
 }
 
-macro_rules! accessor {
+macro_rules! data_accessor {
     ($method:ident, $out_type:ty) => {
         pub fn $method(&self) -> Vec<&$out_type> {
-            self.filter_record_type(|rdata| rdata.$method())
+            self.map_data(|rdata| rdata.$method())
+        }
+    };
+}
+
+macro_rules! record_accessor {
+    ($method:ident, $record_type:expr) => {
+        pub fn $method(&self) -> Vec<&Record> {
+            self.map_rr_record(|record| record.rr_type() == $record_type)
         }
     };
 }
@@ -52,40 +60,61 @@ impl Lookups {
         self.inner.iter()
     }
 
-    accessor!(a, Ipv4Addr);
-    accessor!(aaaa, Ipv6Addr);
-    accessor!(aname, Name);
-    accessor!(cname, Name);
-    accessor!(mx, MX);
-    accessor!(null, NULL);
-    accessor!(ns, Name);
-    accessor!(ptr, Name);
-    accessor!(soa, SOA);
-    accessor!(srv, SRV);
-    accessor!(txt, TXT);
-    accessor!(unknown, UNKNOWN);
+    data_accessor!(a, Ipv4Addr);
+    data_accessor!(aaaa, Ipv6Addr);
+    data_accessor!(aname, Name);
+    data_accessor!(cname, Name);
+    data_accessor!(mx, MX);
+    data_accessor!(null, NULL);
+    data_accessor!(ns, Name);
+    data_accessor!(ptr, Name);
+    data_accessor!(soa, SOA);
+    data_accessor!(srv, SRV);
+    data_accessor!(txt, TXT);
+    data_accessor!(unknown, UNKNOWN);
 
-    fn filter_record_type<T, F: Fn(&RData) -> Option<&T>>(&self, filter: F) -> Vec<&T> {
-        self.inner
-            .iter()
-            .map(|x| x.result().response())
-            .flatten()
-            .map(|x| x.records())
-            .flatten()
-            .map(|x| filter(x.rdata()))
+    fn map_data<T, F: Fn(&RData) -> Option<&T>>(&self, mapper: F) -> Vec<&T> {
+        self.map_response_records()
+            .map(|x| mapper(x.rdata()))
             .flatten()
             .collect()
     }
 
+    record_accessor!(rr_a, RecordType::A);
+    record_accessor!(rr_aaaa, RecordType::AAAA);
+    record_accessor!(rr_aname, RecordType::ANAME);
+    record_accessor!(rr_cname, RecordType::CNAME);
+    record_accessor!(rr_mx, RecordType::MX);
+    record_accessor!(rr_null, RecordType::NULL);
+    record_accessor!(rr_ns, RecordType::NS);
+    record_accessor!(rr_ptr, RecordType::PTR);
+    record_accessor!(rr_soa, RecordType::SOA);
+    record_accessor!(rr_srv, RecordType::SRV);
+    record_accessor!(rr_txt, RecordType::TXT);
+
+    pub fn rr_unknown(&self) -> Vec<&Record> {
+        self.map_rr_record(|record| record.rr_type().is_unknown())
+    }
+
+    fn map_rr_record<F: Fn(&Record) -> bool>(&self, filter: F) -> Vec<&Record> {
+        self.map_response_records()
+            .filter(|x| filter(x))
+            .collect()
+    }
+
     pub fn record_types(&self) -> HashSet<RecordType> {
+            self.map_response_records()
+            .map(|x| x.rr_type())
+            .collect()
+    }
+
+    fn map_response_records(&self) -> impl Iterator<Item = &Record> {
         self.inner
             .iter()
             .map(|x| x.result().response())
             .flatten()
             .map(|x| x.records())
             .flatten()
-            .map(|x| x.rr_type())
-            .collect()
     }
 }
 
