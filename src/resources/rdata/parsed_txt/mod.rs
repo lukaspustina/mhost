@@ -45,8 +45,8 @@ mod parser {
 
     pub fn parsed_txt(input: &str) -> IResult<&str, ParsedTxt> {
         let (input, parsed_txt) = alt((
-            spf,
             domain_verification,
+            spf,
         ))(input)?;
 
         Ok((input, parsed_txt))

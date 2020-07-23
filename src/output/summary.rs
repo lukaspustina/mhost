@@ -142,7 +142,7 @@ impl Rendering for Name {
 impl Rendering for MX {
     fn render(&self, _: &SummaryOptions) -> String {
         format!(
-            "{}\twith preference {}",
+            "{}\twith preference {:2}",
             styles::MX.paint(self.exchange()),
             styles::MX.paint(self.preference()),
         )
