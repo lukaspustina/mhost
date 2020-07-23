@@ -1,3 +1,4 @@
+use std::time::Instant;
 use std::{env, io};
 
 use mhost::output::summary::SummaryOptions;
@@ -5,7 +6,6 @@ use mhost::output::{Output, OutputConfig, OutputFormat};
 use mhost::resolver::{MultiQuery, ResolverGroup};
 use mhost::statistics::Statistics;
 use mhost::RecordType;
-use std::time::Instant;
 
 #[tokio::main]
 async fn main() {
@@ -15,8 +15,18 @@ async fn main() {
         .await
         .expect("failed to create system resolvers");
 
-    let mq = MultiQuery::multi_record(name, vec![RecordType::A, RecordType::MX, RecordType::TXT])
-        .expect("Failed to create multi-query");
+    let mq = MultiQuery::multi_record(
+        name,
+        vec![
+            RecordType::SOA,
+            RecordType::A,
+            RecordType::AAAA,
+            RecordType::CNAME,
+            RecordType::MX,
+            RecordType::TXT,
+        ],
+    )
+    .expect("Failed to create multi-query");
     let start_time = Instant::now();
     let lookups = resolvers.lookup(mq).await;
     let total_run_time = Instant::now() - start_time;

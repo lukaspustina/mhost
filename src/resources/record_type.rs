@@ -58,6 +58,14 @@ impl RecordType {
             _ => false,
         }
     }
+
+    #[inline]
+    pub fn is_unknown(self) -> bool {
+        match self {
+            RecordType::Unknown(_) => true,
+            _ => false,
+        }
+    }
 }
 
 #[doc(hidden)]

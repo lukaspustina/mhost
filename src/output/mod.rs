@@ -7,6 +7,8 @@ pub mod summary;
 
 #[derive(Debug, Error)]
 pub enum OutputError {
+    #[error("internal error: {msg}")]
+    InternalError { msg: &'static str },
     #[error("failed to write")]
     IoError {
         #[from]

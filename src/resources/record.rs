@@ -2,7 +2,7 @@ use crate::resources::{RData, RecordType};
 use serde::Serialize;
 use trust_dns_resolver::Name;
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
 pub struct Record {
     name_labels: Name,
     rr_type: RecordType,

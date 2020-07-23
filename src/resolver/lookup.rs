@@ -36,7 +36,7 @@ macro_rules! data_accessor {
 macro_rules! record_accessor {
     ($method:ident, $record_type:expr) => {
         pub fn $method(&self) -> Vec<&Record> {
-            self.map_rr_record(|record| record.rr_type() == $record_type)
+            self.records_by_type($record_type)
         }
     };
 }
@@ -80,6 +80,10 @@ impl Lookups {
             .collect()
     }
 
+    pub fn records_by_type(&self, record_type: RecordType) -> Vec<&Record> {
+        self.filter_rr_record(|record| record.rr_type() == record_type)
+    }
+
     record_accessor!(rr_a, RecordType::A);
     record_accessor!(rr_aaaa, RecordType::AAAA);
     record_accessor!(rr_aname, RecordType::ANAME);
@@ -93,19 +97,15 @@ impl Lookups {
     record_accessor!(rr_txt, RecordType::TXT);
 
     pub fn rr_unknown(&self) -> Vec<&Record> {
-        self.map_rr_record(|record| record.rr_type().is_unknown())
+        self.filter_rr_record(|record| record.rr_type().is_unknown())
     }
 
-    fn map_rr_record<F: Fn(&Record) -> bool>(&self, filter: F) -> Vec<&Record> {
-        self.map_response_records()
-            .filter(|x| filter(x))
-            .collect()
+    fn filter_rr_record<F: Fn(&Record) -> bool>(&self, filter: F) -> Vec<&Record> {
+        self.map_response_records().filter(|x| filter(x)).collect()
     }
 
     pub fn record_types(&self) -> HashSet<RecordType> {
-            self.map_response_records()
-            .map(|x| x.rr_type())
-            .collect()
+        self.map_response_records().map(|x| x.rr_type()).collect()
     }
 
     fn map_response_records(&self) -> impl Iterator<Item = &Record> {

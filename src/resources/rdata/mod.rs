@@ -17,7 +17,7 @@ mod srv;
 mod txt;
 mod unknown;
 
-#[derive(Debug, PartialEq, Clone, Eq, Serialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
 pub enum RData {
     A(Ipv4Addr),
     AAAA(Ipv6Addr),
