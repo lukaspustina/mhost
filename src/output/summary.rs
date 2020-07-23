@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use tabwriter::TabWriter;
 
-use crate::resources::rdata::parsed_txt::{Mechanism, Modifier, Word, ParsedTxt};
+use crate::resources::rdata::parsed_txt::{Mechanism, Modifier, Word, ParsedTxt, DomainVerification};
 use crate::resources::rdata::{parsed_txt::Spf, Name, MX, SOA, TXT};
 use crate::resources::Record;
 use crate::RecordType;
@@ -216,6 +216,7 @@ impl TXT {
 
         match ParsedTxt::from_str(&txt) {
             Ok(ParsedTxt::Spf(ref spf)) => TXT::format_spf(spf, suffix),
+            Ok(ParsedTxt::DomainVerification(ref dv)) => TXT::format_dv(dv, suffix),
             _ => format!("'{}'{}", styles::TXT.paint(&txt), suffix)
         }
     }
@@ -348,6 +349,11 @@ impl TXT {
                 format!("explanation according to {}", style.paint(explanation))
             }
         }
+    }
+
+    fn format_dv(dv: &DomainVerification, suffix: &str) -> String {
+        use styles::TXT as style;
+        format!("{} verification for {} with {}{}", style.paint(dv.scope()), style.paint(dv.verifier()), style.paint(dv.id()), suffix)
     }
 
     fn plain<'a, T: Into<Option<&'a str>>>(&self, suffix: T, _: &SummaryOptions) -> String {
