@@ -14,8 +14,12 @@ secure:
 	cargo audit 
 	cargo outdated
 
-lint:
+lint: clippy fmt-check
+
+clippy:
 	cargo clippy --bins --tests --benches --examples --all-features
+
+fmt-check:
 	cargo fmt -- --check
 
 fmt:

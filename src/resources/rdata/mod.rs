@@ -12,6 +12,7 @@ pub use unknown::UNKNOWN;
 
 mod mx;
 mod null;
+pub mod parsed_txt;
 mod soa;
 mod srv;
 mod txt;
