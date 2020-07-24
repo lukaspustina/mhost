@@ -430,8 +430,6 @@ mod styles {
 
 #[cfg(test)]
 mod tests {
-    use std::io;
-
     use spectral::prelude::*;
 
     use super::*;
@@ -443,9 +441,8 @@ mod tests {
         let output = Output::new(config);
         let lookups = Lookups::new(Vec::new());
 
-        let stdout = io::stdout();
-        let mut handle = stdout.lock();
-        let res = output.output(&mut handle, &lookups);
+        let mut buf = Vec::new();
+        let res = output.output(&mut buf, &lookups);
 
         assert_that(&res).is_ok();
     }

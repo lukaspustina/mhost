@@ -8,6 +8,7 @@ use trust_dns_resolver::config::Protocol;
 use crate::system_config;
 use crate::Result;
 
+mod parser;
 pub mod predefined;
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize)]
