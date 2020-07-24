@@ -94,7 +94,7 @@ fn count_rr_types(lookups: &Lookups) -> BTreeMap<RecordType, usize> {
     for l in lookups.iter() {
         if let Some(response) = l.result().response() {
             for r in response.records() {
-                let type_count = type_counts.entry(r.rr_type()).or_insert(0);
+                let type_count = type_counts.entry(r.record_type()).or_insert(0);
                 *type_count += 1;
             }
         }

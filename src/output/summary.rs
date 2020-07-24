@@ -109,7 +109,7 @@ impl Rendering for Record {
             format!(", TTL={} {}", self.ttl(), suffix)
         };
 
-        match self.rr_type() {
+        match self.record_type() {
             RecordType::A => format!("A:\t{}{}", self.rdata().a().unwrap().render(opts), ttl),
             RecordType::AAAA => format!("AAAA:\t{}{}", self.rdata().aaaa().unwrap().render(opts), ttl),
             RecordType::CNAME => format!("CNAME:\t{}{}", self.rdata().cname().unwrap().render(opts), ttl),

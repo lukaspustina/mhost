@@ -15,7 +15,7 @@ impl Record {
         &self.name_labels
     }
 
-    pub fn rr_type(&self) -> RecordType {
+    pub fn record_type(&self) -> RecordType {
         self.rr_type
     }
 

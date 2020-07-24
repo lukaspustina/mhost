@@ -20,6 +20,14 @@ impl UniQuery {
 
         Ok(UniQuery { name, record_type })
     }
+
+    pub fn name(&self) -> &Name {
+        &self.name
+    }
+
+    pub fn record_type(&self) -> RecordType {
+        self.record_type
+    }
 }
 
 impl From<UniQuery> for MultiQuery {

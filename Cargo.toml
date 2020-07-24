@@ -33,6 +33,7 @@ env_logger = { version = "0.7.*", optional = true }
 futures = { version = "0.3.*"}
 humantime = "2"
 indexmap = "1.5"
+ipnetwork = "0.17"
 lazy_static = "1.4"
 log = "0.4.*"
 nom = "5"
