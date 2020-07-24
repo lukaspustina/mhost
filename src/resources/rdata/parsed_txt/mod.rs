@@ -18,7 +18,7 @@ type Result<'a, T> = std::result::Result<T, ParserError<'a>>;
 #[derive(Debug)]
 pub enum ParsedTxt<'a> {
     DomainVerification(DomainVerification<'a>),
-    Spf(Spf<'a>)
+    Spf(Spf<'a>),
 }
 
 #[allow(clippy::should_implement_trait)]
@@ -39,15 +39,12 @@ impl<'a> ParsedTxt<'a> {
 }
 
 mod parser {
-    use nom::IResult;
+    use crate::resources::rdata::parsed_txt::{domain_verification, spf, ParsedTxt};
     use nom::branch::alt;
-    use crate::resources::rdata::parsed_txt::{ParsedTxt, domain_verification, spf};
+    use nom::IResult;
 
     pub fn parsed_txt(input: &str) -> IResult<&str, ParsedTxt> {
-        let (input, parsed_txt) = alt((
-            domain_verification,
-            spf,
-        ))(input)?;
+        let (input, parsed_txt) = alt((domain_verification, spf))(input)?;
 
         Ok((input, parsed_txt))
     }

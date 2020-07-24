@@ -101,18 +101,19 @@ impl Lookups {
     }
 
     fn filter_rr_record<F: Fn(&Record) -> bool>(&self, filter: F) -> Vec<&Record> {
-        map_response_records(self.map_responses()).filter(|x| filter(x)).collect()
+        map_response_records(self.map_responses())
+            .filter(|x| filter(x))
+            .collect()
     }
 
     pub fn record_types(&self) -> HashSet<RecordType> {
-        map_response_records(self.map_responses()).map(|x| x.record_type()).collect()
+        map_response_records(self.map_responses())
+            .map(|x| x.record_type())
+            .collect()
     }
 
     fn map_responses(&self) -> impl Iterator<Item = &Response> {
-        self.inner
-            .iter()
-            .map(|x| x.result().response())
-            .flatten()
+        self.inner.iter().map(|x| x.result().response()).flatten()
     }
 }
 
@@ -183,10 +184,10 @@ pub struct Lookup {
 macro_rules! lookup_data_accessor {
     ($method:ident, $out_type:ty) => {
         pub fn $method(&self) -> Vec<&$out_type> {
-        map_response_records(self.result().response().into_iter())
-            .map(|x| x.rdata().$method())
-            .flatten()
-            .collect()
+            map_response_records(self.result().response().into_iter())
+                .map(|x| x.rdata().$method())
+                .flatten()
+                .collect()
         }
     };
 }
@@ -194,9 +195,9 @@ macro_rules! lookup_data_accessor {
 macro_rules! lookup_record_accessor {
     ($method:ident, $record_type:expr) => {
         pub fn $method(&self) -> Vec<&Record> {
-        map_response_records(self.result().response().into_iter())
-            .filter(|x| x.record_type() == $record_type)
-            .collect()
+            map_response_records(self.result().response().into_iter())
+                .filter(|x| x.record_type() == $record_type)
+                .collect()
         }
     };
 }

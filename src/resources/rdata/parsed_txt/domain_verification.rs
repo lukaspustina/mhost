@@ -38,29 +38,24 @@ impl<'a> DomainVerification<'a> {
     }
 }
 
-
 pub(crate) mod parser {
     use super::DomainVerification;
-    use nom::error::ErrorKind;
-    use nom::{Err, IResult};
     use nom::branch::alt;
     use nom::bytes::complete::tag;
     use nom::character::complete::{alphanumeric1, not_line_ending};
+    use nom::error::ErrorKind;
+    use nom::{Err, IResult};
 
     pub fn domain_verification(input: &str) -> IResult<&str, DomainVerification> {
-        alt((
-            three_tuple_with_id,
-            ms_office_365,
-            zoom,
-        ))(input)
+        alt((three_tuple_with_id, ms_office_365, zoom))(input)
     }
 
     fn three_tuple_with_id(input: &str) -> IResult<&str, DomainVerification> {
-        let left = input.find("=").unwrap_or(0);
-        let parts: Vec<&str> = (&input[..left]).rsplitn(3, "-").collect();
-        match parts.as_slice() {
-            &[_, scope, verifier] => {
-                let id = &input[left+1..];
+        let left = input.find('=').unwrap_or(0);
+        let parts: Vec<&str> = (&input[..left]).rsplitn(3, '-').collect();
+        match *parts.as_slice() {
+            [_, scope, verifier] => {
+                let id = &input[left + 1..];
                 Ok(("", DomainVerification { verifier, scope, id }))
             }
             _ => Err(Err::Error((input, ErrorKind::ParseTo))),
@@ -72,7 +67,14 @@ pub(crate) mod parser {
         let (input, _) = tag("MS=")(input)?;
         let (input, id) = alphanumeric1(input)?;
 
-        Ok((input, DomainVerification { verifier: "Microsoft Office 365", scope: "domain", id } ))
+        Ok((
+            input,
+            DomainVerification {
+                verifier: "Microsoft Office 365",
+                scope: "domain",
+                id,
+            },
+        ))
     }
 
     // https://support.zoom.us/hc/en-us/articles/203395207-Associated-domains
@@ -80,7 +82,14 @@ pub(crate) mod parser {
         let (input, _) = tag("ZOOM_verify_")(input)?;
         let (input, id) = not_line_ending(input)?;
 
-        Ok((input, DomainVerification { verifier: "Zoom", scope: "domain", id } ))
+        Ok((
+            input,
+            DomainVerification {
+                verifier: "Zoom",
+                scope: "domain",
+                id,
+            },
+        ))
     }
 
     #[cfg(test)]
@@ -102,7 +111,6 @@ pub(crate) mod parser {
 
             assert_eq!(result, expected);
         }
-
 
         #[test]
         fn some_page() {
@@ -148,6 +156,5 @@ pub(crate) mod parser {
 
             assert_eq!(result, expected);
         }
-
     }
 }

@@ -4,8 +4,8 @@ use std::time::Duration;
 
 use tabwriter::TabWriter;
 
-use crate::resources::rdata::parsed_txt::{Mechanism, Modifier, Word, ParsedTxt, DomainVerification};
-use crate::resources::rdata::{parsed_txt::Spf, Name, MX, SOA, TXT, NULL, UNKNOWN, SRV};
+use crate::resources::rdata::parsed_txt::{DomainVerification, Mechanism, Modifier, ParsedTxt, Word};
+use crate::resources::rdata::{parsed_txt::Spf, Name, MX, NULL, SOA, SRV, TXT, UNKNOWN};
 use crate::resources::Record;
 use crate::RecordType;
 
@@ -157,7 +157,10 @@ impl Rendering for MX {
 
 impl Rendering for NULL {
     fn render(&self, _: &SummaryOptions) -> String {
-        let data = self.anything().map(String::from_utf8_lossy).unwrap_or_else(|| std::borrow::Cow::Borrowed("<no data attached>"));
+        let data = self
+            .anything()
+            .map(String::from_utf8_lossy)
+            .unwrap_or_else(|| std::borrow::Cow::Borrowed("<no data attached>"));
         format!("data: {}", data)
     }
 }
@@ -205,10 +208,11 @@ impl SOA {
 }
 
 impl Rendering for SRV {
-    fn render(&self, opts: &SummaryOptions) -> String {
+    fn render(&self, _: &SummaryOptions) -> String {
         use styles::SRV as style;
-        format!("{}:{} with priority {} and weight {}",
-            self.target().render(opts),
+        format!(
+            "{} on port {} with priority {} and weight {}",
+            style.paint(self.target()),
             style.paint(self.port()),
             style.paint(self.priority()),
             style.paint(self.weight())
@@ -237,12 +241,16 @@ impl Rendering for TXT {
 impl TXT {
     fn human<'a, T: Into<Option<&'a str>>>(&self, suffix: T, _: &SummaryOptions) -> String {
         let suffix = suffix.into().unwrap_or("");
-        let txt = self.iter().map(|x| String::from_utf8_lossy(x)).collect::<Vec<_>>().join("");
+        let txt = self
+            .iter()
+            .map(|x| String::from_utf8_lossy(x))
+            .collect::<Vec<_>>()
+            .join("");
 
         match ParsedTxt::from_str(&txt) {
             Ok(ParsedTxt::Spf(ref spf)) => TXT::format_spf(spf, suffix),
             Ok(ParsedTxt::DomainVerification(ref dv)) => TXT::format_dv(dv, suffix),
-            _ => format!("'{}'{}", styles::TXT.paint(&txt), suffix)
+            _ => format!("'{}'{}", styles::TXT.paint(&txt), suffix),
         }
     }
 
@@ -378,7 +386,13 @@ impl TXT {
 
     fn format_dv(dv: &DomainVerification, suffix: &str) -> String {
         use styles::TXT as style;
-        format!("{} verification for {} with {}{}", style.paint(dv.scope()), style.paint(dv.verifier()), style.paint(dv.id()), suffix)
+        format!(
+            "{} verification for {} with {}{}",
+            style.paint(dv.scope()),
+            style.paint(dv.verifier()),
+            style.paint(dv.id()),
+            suffix
+        )
     }
 
     fn plain<'a, T: Into<Option<&'a str>>>(&self, suffix: T, _: &SummaryOptions) -> String {

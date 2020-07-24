@@ -20,11 +20,14 @@ async fn main() {
         vec![
             RecordType::A,
             RecordType::AAAA,
+            RecordType::ANAME,
             RecordType::CNAME,
             RecordType::MX,
+            RecordType::NULL,
             RecordType::NS,
             RecordType::PTR,
             RecordType::SOA,
+            RecordType::SRV,
             RecordType::TXT,
         ],
     )

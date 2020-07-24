@@ -1,8 +1,8 @@
 use crate::resolver::Lookups;
-use std::io::Write;
-use thiserror::Error;
 use crate::RecordType;
 use std::cmp::Ordering;
+use std::io::Write;
+use thiserror::Error;
 
 pub mod json;
 pub mod summary;
