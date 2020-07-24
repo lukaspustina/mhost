@@ -23,6 +23,7 @@ async fn main() {
             RecordType::CNAME,
             RecordType::MX,
             RecordType::NS,
+            RecordType::PTR,
             RecordType::SOA,
             RecordType::TXT,
         ],

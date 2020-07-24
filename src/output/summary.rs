@@ -5,7 +5,7 @@ use std::time::Duration;
 use tabwriter::TabWriter;
 
 use crate::resources::rdata::parsed_txt::{Mechanism, Modifier, Word, ParsedTxt, DomainVerification};
-use crate::resources::rdata::{parsed_txt::Spf, Name, MX, SOA, TXT};
+use crate::resources::rdata::{parsed_txt::Spf, Name, MX, SOA, TXT, NULL, UNKNOWN, SRV};
 use crate::resources::Record;
 use crate::RecordType;
 
@@ -112,10 +112,16 @@ impl Rendering for Record {
         match self.record_type() {
             RecordType::A => format!("A:\t{}{}", self.rdata().a().unwrap().render(opts), ttl),
             RecordType::AAAA => format!("AAAA:\t{}{}", self.rdata().aaaa().unwrap().render(opts), ttl),
+            RecordType::ANAME => format!("ANAME:\t{}{}", self.rdata().cname().unwrap().render(opts), ttl),
             RecordType::CNAME => format!("CNAME:\t{}{}", self.rdata().cname().unwrap().render(opts), ttl),
             RecordType::MX => format!("MX:\t{}{}", self.rdata().mx().unwrap().render(opts), ttl),
+            RecordType::NULL => format!("NULL:\t{}{}", self.rdata().null().unwrap().render(opts), ttl),
+            RecordType::NS => format!("NS:\t{}{}", self.rdata().ns().unwrap().render(opts), ttl),
+            RecordType::PTR => format!("PTR:\t{}{}", self.rdata().ptr().unwrap().render(opts), ttl),
             RecordType::SOA => format!("SOA:\t{}{}", self.rdata().soa().unwrap().render(opts), ttl),
+            RecordType::SRV => format!("SRV:\t{}{}", self.rdata().srv().unwrap().render(opts), ttl),
             RecordType::TXT => format!("TXT:\t{}", self.rdata().txt().unwrap().render_with_suffix(&ttl, opts)),
+            RecordType::Unknown(_) => format!("Unknown:\t{}{}", self.rdata().unknown().unwrap().render(opts), ttl),
             rr_type => format!("{}:\t<not yet implemented>{}", rr_type, ttl),
         }
     }
@@ -146,6 +152,13 @@ impl Rendering for MX {
             styles::MX.paint(self.exchange()),
             styles::MX.paint(self.preference()),
         )
+    }
+}
+
+impl Rendering for NULL {
+    fn render(&self, _: &SummaryOptions) -> String {
+        let data = self.anything().map(String::from_utf8_lossy).unwrap_or_else(|| std::borrow::Cow::Borrowed("<no data attached>"));
+        format!("data: {}", data)
     }
 }
 
@@ -187,6 +200,18 @@ impl SOA {
             styles::SOA.paint(self.retry()),
             styles::SOA.paint(self.expire()),
             styles::SOA.paint(self.minimum()),
+        )
+    }
+}
+
+impl Rendering for SRV {
+    fn render(&self, opts: &SummaryOptions) -> String {
+        use styles::SRV as style;
+        format!("{}:{} with priority {} and weight {}",
+            self.target().render(opts),
+            style.paint(self.port()),
+            style.paint(self.priority()),
+            style.paint(self.weight())
         )
     }
 }
@@ -368,6 +393,12 @@ impl TXT {
     }
 }
 
+impl Rendering for UNKNOWN {
+    fn render(&self, opts: &SummaryOptions) -> String {
+        format!("code: {}, {}", self.code(), self.rdata().render(opts))
+    }
+}
+
 mod styles {
     use lazy_static::lazy_static;
     use yansi::{Color, Style};
@@ -378,6 +409,7 @@ mod styles {
         pub static ref MX: Style = Style::new(Color::Yellow);
         pub static ref NAME: Style = Style::new(Color::Blue);
         pub static ref SOA: Style = Style::new(Color::Green);
+        pub static ref SRV: Style = Style::new(Color::Red);
         pub static ref TXT: Style = Style::new(Color::Magenta);
     }
 }
