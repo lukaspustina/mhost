@@ -44,7 +44,7 @@ impl Default for SummaryFormat {
 impl OutputFormat for SummaryFormat {
     fn output<W: Write>(&self, writer: &mut W, lookups: &Lookups) -> Result<()> {
         let mut rr_types: Vec<_> = lookups.record_types().into_iter().collect();
-        rr_types.sort();
+        rr_types.sort_by(order_by_ordinal);
 
         let mut tw = TabWriter::new(vec![]);
 

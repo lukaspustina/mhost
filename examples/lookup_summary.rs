@@ -18,11 +18,12 @@ async fn main() {
     let mq = MultiQuery::multi_record(
         name,
         vec![
-            RecordType::SOA,
             RecordType::A,
             RecordType::AAAA,
             RecordType::CNAME,
             RecordType::MX,
+            RecordType::NS,
+            RecordType::SOA,
             RecordType::TXT,
         ],
     )
