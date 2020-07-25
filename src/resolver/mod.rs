@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::nameserver::NameServerConfig;
+use crate::nameserver::{NameServerConfig, NameServerConfigGroup};
 use crate::system_config;
 use crate::Result;
 
@@ -64,6 +64,35 @@ impl Default for ResolverOpts {
             preserve_intermediates: false,
             timeout: Duration::from_secs(5),
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct ResolverConfigGroup {
+    resolver_configs: Vec<ResolverConfig>,
+}
+
+impl ResolverConfigGroup {
+    pub fn new(resolver_configs: Vec<ResolverConfig>) -> ResolverConfigGroup {
+        ResolverConfigGroup {
+            resolver_configs,
+        }
+    }
+}
+
+impl From<NameServerConfigGroup> for ResolverConfigGroup {
+    fn from(configs: NameServerConfigGroup) -> Self {
+        let resolver_confings: Vec<_> = configs.into_iter().map(From::from).collect();
+        ResolverConfigGroup::new(resolver_confings)
+    }
+}
+
+impl IntoIterator for ResolverConfigGroup {
+    type Item = ResolverConfig;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.resolver_configs.into_iter()
     }
 }
 
@@ -146,10 +175,7 @@ impl ResolverGroup {
 
     pub async fn from_system_config(opts: ResolverGroupOpts) -> Result<Self> {
         let resolver_opts = ResolverOpts::from_system_config()?;
-        let configs: Vec<_> = NameServerConfig::from_system_config()?
-            .into_iter()
-            .map(|name_server_config| ResolverConfig { name_server_config })
-            .collect();
+        let configs: ResolverConfigGroup = NameServerConfigGroup::from_system_config()?.into();
         ResolverGroup::from_configs(configs, resolver_opts, opts).await
     }
 

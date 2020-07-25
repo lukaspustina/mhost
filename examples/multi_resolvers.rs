@@ -2,7 +2,7 @@ use std::env;
 use std::net::{Ipv4Addr, SocketAddr};
 
 use mhost::nameserver::NameServerConfig;
-use mhost::resolver::{MultiQuery, Resolver, ResolverConfig, ResolverGroup, ResolverOpts};
+use mhost::resolver::{MultiQuery, Resolver, ResolverGroup};
 use mhost::RecordType;
 
 #[tokio::main]
@@ -10,16 +10,12 @@ async fn main() {
     let name = env::args().nth(1).unwrap_or_else(|| "www.example.com".to_string());
 
     let sock_addr: SocketAddr = "8.8.8.8:53".parse().unwrap();
-    let name_server_config = NameServerConfig::udp(sock_addr);
-    let config = ResolverConfig::new(name_server_config);
-    let opts = ResolverOpts::default();
-    let resolver = Resolver::new(config, opts).await.expect("Failed to create resolver");
+    let config = NameServerConfig::udp(sock_addr).into();
+    let resolver = Resolver::new(config, Default::default()).await.expect("Failed to create resolver");
 
     let mut resolvers = ResolverGroup::new([resolver], Default::default());
 
-    let name_server_config = NameServerConfig::udp((Ipv4Addr::new(8, 8, 8, 8), 53));
-    let config = ResolverConfig::new(name_server_config);
-
+    let config = NameServerConfig::udp((Ipv4Addr::new(8, 8, 8, 8), 53)).into();
     let resolvers_2 = ResolverGroup::from_configs(vec![config], Default::default(), Default::default())
         .await
         .expect("Failed to create 2. resolver group");

@@ -99,11 +99,6 @@ impl NameServerConfig {
             name: name.into(),
         }
     }
-
-    pub fn from_system_config() -> Result<Vec<Self>> {
-        let servers: NameServerGroup = system_config::load_from_system_config()?;
-        Ok(servers.0)
-    }
 }
 
 impl fmt::Display for NameServerConfig {
@@ -134,11 +129,35 @@ fn format_name(name: &Option<String>) -> String {
         .unwrap_or_else(|| "".to_string())
 }
 
-#[doc(hidden)]
-struct NameServerGroup(Vec<NameServerConfig>);
+#[derive(Debug)]
+pub struct NameServerConfigGroup {
+    configs: Vec<NameServerConfig>,
+}
+
+impl NameServerConfigGroup {
+    pub fn new(configs: Vec<NameServerConfig>) -> NameServerConfigGroup {
+        NameServerConfigGroup {
+            configs,
+        }
+    }
+
+    pub fn from_system_config() -> Result<Self> {
+        let config_group: NameServerConfigGroup = system_config::load_from_system_config()?;
+        Ok(config_group)
+    }
+}
+
+impl IntoIterator for NameServerConfigGroup {
+    type Item = NameServerConfig;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.configs.into_iter()
+    }
+}
 
 #[doc(hidden)]
-impl From<resolv_conf::Config> for NameServerGroup {
+impl From<resolv_conf::Config> for NameServerConfigGroup {
     fn from(config: resolv_conf::Config) -> Self {
         let tcp = config.use_vc;
         let namesservers = config
@@ -152,7 +171,7 @@ impl From<resolv_conf::Config> for NameServerGroup {
             })
             .collect();
 
-        NameServerGroup(namesservers)
+        NameServerConfigGroup::new(namesservers)
     }
 }
 
