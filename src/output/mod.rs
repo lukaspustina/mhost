@@ -1,6 +1,6 @@
-use crate::Result;
 use crate::resolver::Lookups;
 use crate::RecordType;
+use crate::Result;
 use std::cmp::Ordering;
 use std::io::Write;
 

@@ -1,6 +1,6 @@
 use nom::Err;
 
-use crate::{Result, Error};
+use crate::{Error, Result};
 
 #[derive(Debug, PartialEq)]
 pub struct DomainVerification<'a> {

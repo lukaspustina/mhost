@@ -1,22 +1,26 @@
+use std::time::{Duration, Instant};
 use std::{env, io};
-use std::time::{Instant, Duration};
 
 use mhost::nameserver::NameServerConfigGroup;
-use mhost::output::{Output, OutputConfig, OutputFormat};
 use mhost::output::summary::SummaryOptions;
-use mhost::RecordType;
+use mhost::output::{Output, OutputConfig, OutputFormat};
 use mhost::resolver::{MultiQuery, ResolverConfigGroup, ResolverGroup, ResolverGroupOpts, ResolverOpts};
 use mhost::statistics::Statistics;
+use mhost::RecordType;
 
 #[tokio::main]
 async fn main() {
-    let path = env::args().nth(1).unwrap_or_else(|| "contrib/resolvers.txt".to_string());
+    let path = env::args()
+        .nth(1)
+        .unwrap_or_else(|| "contrib/resolvers.txt".to_string());
     let name = env::args().nth(2).unwrap_or_else(|| "www.example.com".to_string());
 
-    let system_resolvers = ResolverGroup::from_system_config(Default::default()).await
+    let system_resolvers = ResolverGroup::from_system_config(Default::default())
+        .await
         .expect("failed to create system resolvers");
 
-    let configs = NameServerConfigGroup::from_file(&system_resolvers, path).await
+    let configs = NameServerConfigGroup::from_file(&system_resolvers, path)
+        .await
         .expect("failed to read name server configs from file");
     println!("Loaded {} name servers", configs.len());
     let resolver_configs: ResolverConfigGroup = configs.into();
@@ -27,11 +31,10 @@ async fn main() {
         timeout: Duration::from_secs(1),
         ..Default::default()
     };
-    let group_opts = ResolverGroupOpts {
-        max_concurrent: 1000,
-    };
+    let group_opts = ResolverGroupOpts { max_concurrent: 1000 };
 
-    let resolvers = ResolverGroup::from_configs(resolver_configs, resolver_opts, group_opts).await
+    let resolvers = ResolverGroup::from_configs(resolver_configs, resolver_opts, group_opts)
+        .await
         .expect("failed to create resolvers");
     println!("Created {} resolvers", resolvers.len());
 

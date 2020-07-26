@@ -8,12 +8,12 @@ use clap::{App, Arg, ArgMatches, Values};
 use futures::future::join_all;
 use log::{debug, LevelFilter};
 
-use mhost::{IpNetwork, RecordType};
 use mhost::nameserver::{self, NameServerConfig, NameServerConfigGroup};
-use mhost::output::{Output, OutputConfig, OutputFormat};
 use mhost::output::summary::SummaryOptions;
-use mhost::resolver::{MultiQuery, predefined, ResolverConfigGroup, ResolverGroup, ResolverOpts};
+use mhost::output::{Output, OutputConfig, OutputFormat};
+use mhost::resolver::{predefined, MultiQuery, ResolverConfigGroup, ResolverGroup, ResolverOpts};
 use mhost::statistics::Statistics;
+use mhost::{IpNetwork, RecordType};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -66,9 +66,9 @@ fn setup_clap() -> App<'static, 'static> {
             .value_name("NAME | IP ADDR | CIDR block")
             .help("domain name, IP address, or CIDR block")
             .long_help(
-                "* DOMAIN NAME may be any valid DNS name, e.g. lukas.pustina.de
-* IP ADDR may be any valid IPv4 or IPv4 address, e.g. 192.168.0.1
-* CIDR block may be any valid IPv4 or IPv6 subnet in CIDR notation, e.g. 192.168.0.1/24
+                "* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de
+* IP ADDR may be any valid IPv4 or IPv4 address, e.g., 192.168.0.1
+* CIDR block may be any valid IPv4 or IPv6 subnet in CIDR notation, e.g., 192.168.0.1/24
   all valid IP addresses of a CIDR block will be queried for a reverse lookup"
             )
         )
@@ -125,22 +125,23 @@ fn setup_clap() -> App<'static, 'static> {
         )
 }
 
-async fn run<'a>(args: ArgMatches<'a>) -> Result<()> {
+async fn run(args: ArgMatches<'_>) -> Result<()> {
     if args.is_present("list-predefined") {
         list_predefined_nameservers();
-        return Ok(())
+        return Ok(());
     }
 
     let ignore_system_resolv_opt = args.is_present("no-system-resolv-opt");
     let ignore_system_nameservers = args.is_present("no-system-nameservers");
 
-    let domain_name = args.value_of("domain name")
+    let domain_name = args
+        .value_of("domain name")
         .context("No domain name to lookup specified")?;
-
     let query = if let Ok(ip_network) = IpNetwork::from_str(domain_name) {
         ptr_query(ip_network)?
     } else {
-        let record_types_arg = args.values_of("record types")
+        let record_types_arg = args
+            .values_of("record types")
             .context("No record types for name lookup specified")?;
         name_query(domain_name, record_types_arg)?
     };
@@ -148,52 +149,51 @@ async fn run<'a>(args: ArgMatches<'a>) -> Result<()> {
     let system_resolver_ops = if ignore_system_resolv_opt {
         Default::default()
     } else {
-        ResolverOpts::from_system_config()
-            .context("Failed to load system resolver options")?
+        ResolverOpts::from_system_config().context("Failed to load system resolver options")?
     };
     debug!("Set system resolver opts.");
 
-    let additional_system_nameservers: NameServerConfigGroup = if let Some(configs) = args.values_of("system nameservers") {
-        let configs: Vec<_> = configs
-            .into_iter()
-            .map(NameServerConfig::from_str)
-            .collect();
-        let configs: std::result::Result<Vec<_>, _> = configs.into_iter().collect();
-        let nameservers: Vec<_> = configs
-            .context("Failed to parse IP address for system nameserver")?;
-        NameServerConfigGroup::new(nameservers)
-    } else {
-        NameServerConfigGroup::new(Vec::new())
-    };
-    debug!("Prepared {} additional system nameservers.", additional_system_nameservers.len());
+    let additional_system_nameservers: NameServerConfigGroup =
+        if let Some(configs) = args.values_of("system nameservers") {
+            let configs: Vec<_> = configs.map(NameServerConfig::from_str).collect();
+            let configs: std::result::Result<Vec<_>, _> = configs.into_iter().collect();
+            let nameservers: Vec<_> = configs.context("Failed to parse IP address for system nameserver")?;
+            NameServerConfigGroup::new(nameservers)
+        } else {
+            NameServerConfigGroup::new(Vec::new())
+        };
+    debug!(
+        "Prepared {} additional system nameservers.",
+        additional_system_nameservers.len()
+    );
 
     let system_nameservers: ResolverConfigGroup = if ignore_system_nameservers {
         additional_system_nameservers.into()
     } else {
-        let mut system_nameservers = NameServerConfigGroup::from_system_config()
-            .context("Failed to load system name servers")?;
+        let mut system_nameservers =
+            NameServerConfigGroup::from_system_config().context("Failed to load system name servers")?;
         system_nameservers.merge(additional_system_nameservers);
         debug!("Loaded {} system nameservers.", system_nameservers.len());
         system_nameservers.into()
     };
 
-    let mut system_resolvers = ResolverGroup::from_configs(system_nameservers, system_resolver_ops, Default::default()).await
+    let mut system_resolvers = ResolverGroup::from_configs(system_nameservers, system_resolver_ops, Default::default())
+        .await
         .context("Failed to create system resolvers")?;
     debug!("Created {} system resolvers.", system_resolvers.len());
 
     let nameservers: ResolverConfigGroup = if let Some(configs) = args.values_of("nameservers") {
         let configs: Vec<_> = configs
-            .into_iter()
             .map(|str| NameServerConfig::from_str_with_resolution(&system_resolvers, str))
             .collect();
         let configs: mhost::Result<Vec<_>> = join_all(configs).await.into_iter().collect();
-        let nameservers: Vec<_> = configs
-            .context("Failed to parse IP address for system nameserver")?;
+        let nameservers: Vec<_> = configs.context("Failed to parse IP address for system nameserver")?;
         NameServerConfigGroup::new(nameservers).into()
     } else {
         NameServerConfigGroup::new(Vec::new()).into()
     };
-    let resolvers = ResolverGroup::from_configs(nameservers, Default::default(), Default::default()).await
+    let resolvers = ResolverGroup::from_configs(nameservers, Default::default(), Default::default())
+        .await
         .context("Failed to load resolvers")?;
     debug!("Created {} resolvers.", resolvers.len());
 
@@ -201,12 +201,12 @@ async fn run<'a>(args: ArgMatches<'a>) -> Result<()> {
 
     if args.is_present("predefined") {
         let configs = predefined::resolver_configs();
-        let predefined = ResolverGroup::from_configs(configs, Default::default(), Default::default()).await
+        let predefined = ResolverGroup::from_configs(configs, Default::default(), Default::default())
+            .await
             .context("Failed to load predefined resolvers")?;
         debug!("Created {} predefined resolvers.", predefined.len());
         system_resolvers.merge(predefined);
     }
-
 
     let start_time = Instant::now();
     let lookups = if args.is_present("randomized-lookup") {
@@ -242,25 +242,21 @@ fn list_predefined_nameservers() {
 }
 
 fn ptr_query(ip_network: IpNetwork) -> Result<MultiQuery> {
-    let q = MultiQuery::multi_name(ip_network.iter(), RecordType::PTR)
-        .context("Failed to create query")?;
+    let q = MultiQuery::multi_name(ip_network.iter(), RecordType::PTR).context("Failed to create query")?;
     debug!("Prepared query for reverse lookups.");
     Ok(q)
 }
 
 fn name_query(name: &str, record_types: Values) -> Result<MultiQuery> {
     let record_types: Vec<_> = record_types
-        .into_iter()
         .map(str::to_uppercase)
         .map(|x| RecordType::from_str(&x))
         .collect();
     let record_types: std::result::Result<Vec<_>, _> = record_types.into_iter().collect();
-    let record_types = record_types
-        .context("Failed to parse record type")?;
+    let record_types = record_types.context("Failed to parse record type")?;
     let record_types_len = record_types.len();
 
-    let q = MultiQuery::multi_record(name, record_types)
-        .context("Failed to build query")?;
+    let q = MultiQuery::multi_record(name, record_types).context("Failed to build query")?;
     debug!("Prepared query for name lookup for {} record types.", record_types_len);
     Ok(q)
 }

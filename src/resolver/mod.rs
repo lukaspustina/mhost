@@ -5,8 +5,7 @@ use crate::Result;
 
 use futures::future::join_all;
 use futures::stream::{self, StreamExt};
-use futures::{TryFutureExt, Future};
-use rand;
+use futures::{Future, TryFutureExt};
 use rand::seq::SliceRandom;
 use std::sync::Arc;
 use std::time::Duration;
@@ -202,7 +201,8 @@ impl ResolverGroup {
         let multi_query = query.into();
         let resolvers = self.resolvers.as_slice();
 
-        let futures: Vec<_> = multi_query.into_uni_queries()
+        let futures: Vec<_> = multi_query
+            .into_uni_queries()
             .into_iter()
             .map(|q| resolvers.choose(&mut rng).unwrap().lookup(q)) // Safe unwrap: we know, there are resolvers
             .collect();
@@ -210,7 +210,7 @@ impl ResolverGroup {
         self.run_lookups(futures).await
     }
 
-    async fn run_lookups(&self, futures: Vec<impl Future<Output=Lookups>>) -> Lookups {
+    async fn run_lookups(&self, futures: Vec<impl Future<Output = Lookups>>) -> Lookups {
         let lookups: Vec<Lookup> = stream::iter(futures)
             .buffer_unordered(self.opts.max_concurrent)
             .collect::<Vec<_>>()

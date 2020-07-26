@@ -3,8 +3,8 @@ use nom::Err;
 mod domain_verification;
 mod spf;
 
-use crate::Result;
 use crate::Error;
+use crate::Result;
 pub use domain_verification::DomainVerification;
 pub use spf::{Mechanism, Modifier, Qualifier, Spf, Word};
 

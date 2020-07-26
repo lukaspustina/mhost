@@ -137,9 +137,7 @@ pub struct NameServerConfigGroup {
 
 impl NameServerConfigGroup {
     pub fn new(configs: Vec<NameServerConfig>) -> NameServerConfigGroup {
-        NameServerConfigGroup {
-            configs,
-        }
+        NameServerConfigGroup { configs }
     }
 
     pub fn from_system_config() -> Result<Self> {
@@ -154,6 +152,10 @@ impl NameServerConfigGroup {
 
     pub fn len(&self) -> usize {
         self.configs.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.configs.is_empty()
     }
 }
 

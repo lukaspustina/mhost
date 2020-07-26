@@ -5,10 +5,10 @@ use std::time::Duration;
 
 use tabwriter::TabWriter;
 
-use crate::{Error, RecordType};
-use crate::resources::rdata::{MX, Name, NULL, parsed_txt::Spf, SOA, SRV, TXT, UNKNOWN};
 use crate::resources::rdata::parsed_txt::{DomainVerification, Mechanism, Modifier, ParsedTxt, Word};
+use crate::resources::rdata::{parsed_txt::Spf, Name, MX, NULL, SOA, SRV, TXT, UNKNOWN};
 use crate::resources::Record;
+use crate::{Error, RecordType};
 
 use super::*;
 use std::hash::{Hash, Hasher};
@@ -87,10 +87,13 @@ fn summarize_records(records: Vec<&Record>) -> HashMap<&Record, Vec<&Record>> {
     let mut records_set: HashMap<&NotTtlHashRecord, Vec<&NotTtlHashRecord>> = HashMap::new();
     let nthrs: Vec<_> = records.into_iter().map(|x| NotTtlHashRecord(x)).collect();
     for r in nthrs.iter() {
-        let set = records_set.entry(r).or_insert(Vec::new());
+        let set = records_set.entry(r).or_insert_with(Vec::new);
         set.push(r)
     }
-    records_set.into_iter().map(|(k, v)| (k.0, v.into_iter().map(|r| r.0).collect())).collect()
+    records_set
+        .into_iter()
+        .map(|(k, v)| (k.0, v.into_iter().map(|r| r.0).collect()))
+        .collect()
 }
 
 /// Newtype for Record to implement individual Hash algorithm
@@ -113,14 +116,10 @@ impl PartialEq for NotTtlHashRecord<'_> {
     fn eq(&self, other: &Self) -> bool {
         let r = self.0;
         let other = other.0;
-        if r.name_labels() == other.name_labels() &&
+        r.name_labels() == other.name_labels() &&
             r.record_type() == other.record_type() &&
             // Does not take r.ttl() into account
-            r.rdata() == other.rdata() {
-            true
-        } else {
-            false
-        }
+            r.rdata() == other.rdata()
     }
 }
 
@@ -129,15 +128,15 @@ fn format_ttl_summary(summary: &crate::statistics::Summary<u32>, opts: &SummaryO
     let ttl_max = summary.max.unwrap_or(0) as u64;
 
     match (opts.human, ttl_min == ttl_max) {
-        (true, true) =>
-            format!("expires in {}",
-                    humantime::format_duration(Duration::from_secs(ttl_min))
-            ),
-        (true, false) =>
-            format!("expires in [min {}, max {}]",
-                    humantime::format_duration(Duration::from_secs(ttl_min)),
-                    humantime::format_duration(Duration::from_secs(ttl_max)),
-            ),
+        (true, true) => format!(
+            "expires in {}",
+            humantime::format_duration(Duration::from_secs(ttl_min))
+        ),
+        (true, false) => format!(
+            "expires in [min {}, max {}]",
+            humantime::format_duration(Duration::from_secs(ttl_min)),
+            humantime::format_duration(Duration::from_secs(ttl_max)),
+        ),
         (false, true) => format!("TTL={}", ttl_min),
         (false, false) => format!("TTL=[{}, {}]", ttl_min, ttl_max),
     }

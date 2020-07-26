@@ -1,5 +1,4 @@
 use thiserror::Error;
-use serde_json;
 
 #[derive(Debug, Error)]
 /// Main Error type of this crate.

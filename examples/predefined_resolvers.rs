@@ -1,7 +1,6 @@
 use mhost::resolver::{predefined, ResolverGroup, UniQuery};
 use mhost::RecordType;
 use std::env;
-use env_logger;
 
 #[tokio::main]
 async fn main() {

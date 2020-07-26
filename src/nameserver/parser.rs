@@ -2,11 +2,11 @@ use std::net::IpAddr;
 
 use nom::Err;
 
-use crate::{Result, Error};
 use crate::nameserver::NameServerConfig;
-use crate::resolver::{ResolverGroup, MultiQuery};
-use crate::RecordType;
 use crate::resolver::lookup::Uniquify;
+use crate::resolver::{MultiQuery, ResolverGroup};
+use crate::RecordType;
+use crate::{Error, Result};
 
 #[allow(clippy::should_implement_trait)]
 impl NameServerConfig {
@@ -15,7 +15,7 @@ impl NameServerConfig {
             Ok((_, result)) => {
                 let ip = target_to_ip(resolvers, &result.target).await?;
                 result.try_into(ip)
-            },
+            }
             Err(Err::Incomplete(_)) => Err(Error::ParserError {
                 what: str.to_string(),
                 to: "NameServerConfig",
@@ -31,22 +31,20 @@ impl NameServerConfig {
 
     pub fn from_str(str: &str) -> Result<NameServerConfig> {
         match parser::parsed_name_server_config(str) {
-            Ok((_, result)) => {
-                match &result.target {
-                    parser::Target::Ipv4(ip) => {
-                        let ip = ip.clone();
-                        result.try_into(IpAddr::V4(ip))
-                    },
-                    parser::Target::Ipv6(ip) => {
-                        let ip = ip.clone();
-                        result.try_into(IpAddr::V6(ip))
-                    },
-                    parser::Target::Name(name) => Err(Error::ParserError {
-                        what: name.to_string(),
-                        to: "NameServerConfig",
-                        why: "IP address required, name given".to_string(),
-                    }),
+            Ok((_, result)) => match &result.target {
+                parser::Target::Ipv4(ip) => {
+                    let ip = *ip;
+                    result.try_into(IpAddr::V4(ip))
                 }
+                parser::Target::Ipv6(ip) => {
+                    let ip = *ip;
+                    result.try_into(IpAddr::V6(ip))
+                }
+                parser::Target::Name(name) => Err(Error::ParserError {
+                    what: name.to_string(),
+                    to: "NameServerConfig",
+                    why: "IP address required, name given".to_string(),
+                }),
             },
             Err(Err::Incomplete(_)) => Err(Error::ParserError {
                 what: str.to_string(),
@@ -74,55 +72,117 @@ impl<'a> parser::NameServerConfig<'a> {
     }
 }
 
-fn try_udp_from<'a>(ip: IpAddr, config: parser::NameServerConfig<'a>) -> Result<NameServerConfig> {
+fn try_udp_from(ip: IpAddr, config: parser::NameServerConfig) -> Result<NameServerConfig> {
     use parser::NameServerConfig;
     match config {
-        NameServerConfig { protocol: _, target: _, port, spki: Option::None, name } => {
-            Ok(crate::nameserver::NameServerConfig::udp_with_name((ip, port), name.map(ToString::to_string)))
-        }
-        NameServerConfig { protocol: _, target: _, port: _, spki: Some(spki), name: _ } => {
-            Err(Error::ParserError {what: format!("spki={}", spki), to: "NameServerConfig", why: format!("illegal parameter 'spki' for udp")})
-        }
+        NameServerConfig {
+            protocol: _,
+            target: _,
+            port,
+            spki: Option::None,
+            name,
+        } => Ok(crate::nameserver::NameServerConfig::udp_with_name(
+            (ip, port),
+            name.map(ToString::to_string),
+        )),
+        NameServerConfig {
+            protocol: _,
+            target: _,
+            port: _,
+            spki: Some(spki),
+            name: _,
+        } => Err(Error::ParserError {
+            what: spki.to_string(),
+            to: "NameServerConfig",
+            why: "illegal parameter 'spki' for udp".to_string(),
+        }),
     }
 }
 
-fn try_tcp_from<'a>(ip: IpAddr, config: parser::NameServerConfig<'a>) -> Result<NameServerConfig> {
+fn try_tcp_from(ip: IpAddr, config: parser::NameServerConfig) -> Result<NameServerConfig> {
     use parser::NameServerConfig;
     match config {
-        NameServerConfig { protocol: _, target: _, port, spki: Option::None, name } => {
-            Ok(crate::nameserver::NameServerConfig::tcp_with_name((ip, port), name.map(ToString::to_string)))
-        }
-        NameServerConfig { protocol: _, target: _, port: _, spki: Some(spki), name: _ } => {
-            Err(Error::ParserError { what: format!("spki={}", spki), to: "NameServerConfig", why: format!("illegal parameter 'spki' for tcp") })
-        }
+        NameServerConfig {
+            protocol: _,
+            target: _,
+            port,
+            spki: Option::None,
+            name,
+        } => Ok(crate::nameserver::NameServerConfig::tcp_with_name(
+            (ip, port),
+            name.map(ToString::to_string),
+        )),
+        NameServerConfig {
+            protocol: _,
+            target: _,
+            port: _,
+            spki: Some(spki),
+            name: _,
+        } => Err(Error::ParserError {
+            what: spki.to_string(),
+            to: "NameServerConfig",
+            why: "illegal parameter 'spki' for tcp".to_string(),
+        }),
     }
 }
 
-fn try_tls_from<'a>(ip: IpAddr, config: parser::NameServerConfig<'a>) -> Result<NameServerConfig> {
+fn try_tls_from(ip: IpAddr, config: parser::NameServerConfig) -> Result<NameServerConfig> {
     use parser::NameServerConfig;
     match config {
-        NameServerConfig { protocol: _, target: _, port, spki: Some(spki), name } => {
-            Ok(crate::nameserver::NameServerConfig::tls_with_name((ip, port), spki, name.map(ToString::to_string)))
-        }
-        NameServerConfig { protocol: _, target: _, port: _, spki: Option::None, name: _ } => {
-            Err(Error::ParserError { what: format!("spki"), to: "NameServerConfig", why: format!("missing parameter 'spki' for tls") })
-        }
+        NameServerConfig {
+            protocol: _,
+            target: _,
+            port,
+            spki: Some(spki),
+            name,
+        } => Ok(crate::nameserver::NameServerConfig::tls_with_name(
+            (ip, port),
+            spki,
+            name.map(ToString::to_string),
+        )),
+        NameServerConfig {
+            protocol: _,
+            target: _,
+            port: _,
+            spki: Option::None,
+            name: _,
+        } => Err(Error::ParserError {
+            what: "spki".to_string(),
+            to: "NameServerConfig",
+            why: "missing parameter 'spki' for tls".to_string(),
+        }),
     }
 }
 
-fn try_https_from<'a>(ip: IpAddr, config: parser::NameServerConfig<'a>) -> Result<NameServerConfig> {
+fn try_https_from(ip: IpAddr, config: parser::NameServerConfig) -> Result<NameServerConfig> {
     use parser::NameServerConfig;
     match config {
-        NameServerConfig { protocol: _, target: _, port, spki: Some(spki), name } => {
-            Ok(crate::nameserver::NameServerConfig::https_with_name((ip, port), spki, name.map(ToString::to_string)))
-        }
-        NameServerConfig { protocol: _, target: _, port: _, spki: Option::None, name: _ } => {
-            Err(Error::ParserError { what: format!("spki"), to: "NameServerConfig", why: format!("missing parameter 'spki' for https") })
-        }
+        NameServerConfig {
+            protocol: _,
+            target: _,
+            port,
+            spki: Some(spki),
+            name,
+        } => Ok(crate::nameserver::NameServerConfig::https_with_name(
+            (ip, port),
+            spki,
+            name.map(ToString::to_string),
+        )),
+        NameServerConfig {
+            protocol: _,
+            target: _,
+            port: _,
+            spki: Option::None,
+            name: _,
+        } => Err(Error::ParserError {
+            what: "spki".to_string(),
+            to: "NameServerConfig",
+            why: "missing parameter 'spki' for https".to_string(),
+        }),
     }
 }
 
-async fn target_to_ip<'a>(resolvers: &ResolverGroup, target: &parser::Target<'a>) -> Result<IpAddr> {
+async fn target_to_ip(resolvers: &ResolverGroup, target: &parser::Target<'_>) -> Result<IpAddr> {
     use parser::Target;
     match *target {
         Target::Ipv4(ip) => Ok(IpAddr::V4(ip)),
@@ -132,26 +192,50 @@ async fn target_to_ip<'a>(resolvers: &ResolverGroup, target: &parser::Target<'a>
 }
 
 async fn resolve_name(resolvers: &ResolverGroup, name: &str) -> Result<IpAddr> {
-    let query = MultiQuery::multi_record(name, vec![RecordType::A, RecordType::AAAA])
-        .map_err(|_| Error::ParserError {what: name.to_string(), to: "IpAddr", why: "failed to resolve name".to_string()})?;
+    let query =
+        MultiQuery::multi_record(name, vec![RecordType::A, RecordType::AAAA]).map_err(|_| Error::ParserError {
+            what: name.to_string(),
+            to: "IpAddr",
+            why: "failed to resolve name".to_string(),
+        })?;
     let lookups = resolvers.lookup(query).await;
-    let ipv4 = lookups.a().unique().to_owned().into_iter().nth(0).map(|ip| IpAddr::V4(ip));
-    let ipv6 = lookups.aaaa().unique().to_owned().into_iter().nth(0).map(|ip| IpAddr::V6(ip));
-    vec![ipv4, ipv6].into_iter().flatten().nth(0)
-        .ok_or_else(|| Error::ParserError {what: name.to_string(), to: "IpAddr", why: "no A or AAAA record found".to_string()})
+    let ipv4 = lookups
+        .a()
+        .unique()
+        .to_owned()
+        .into_iter()
+        .next()
+        .map(IpAddr::V4);
+    let ipv6 = lookups
+        .aaaa()
+        .unique()
+        .to_owned()
+        .into_iter()
+        .nth(0)
+        .map(IpAddr::V6);
+    vec![ipv4, ipv6]
+        .into_iter()
+        .flatten()
+        .next()
+        .ok_or_else(|| Error::ParserError {
+            what: name.to_string(),
+            to: "IpAddr",
+            why: "no A or AAAA record found".to_string(),
+        })
 }
 
 #[cfg(test)]
 mod test {
     use crate::nameserver::NameServerConfig;
-    use std::net::{Ipv4Addr, Ipv6Addr};
-    use spectral::prelude::*;
-    use std::str::FromStr;
     use crate::resolver::ResolverGroup;
+    use spectral::prelude::*;
+    use std::net::{Ipv4Addr, Ipv6Addr};
+    use std::str::FromStr;
 
     #[tokio::test]
     async fn ipv4_8_8_8_8() {
-        let resolvers = ResolverGroup::from_system_config(Default::default()).await
+        let resolvers = ResolverGroup::from_system_config(Default::default())
+            .await
             .expect("failed to create system resolver");
         let str = "8.8.8.8";
         let expected = NameServerConfig::udp((Ipv4Addr::new(8, 8, 8, 8), 53));
@@ -163,7 +247,8 @@ mod test {
 
     #[tokio::test]
     async fn tcp_8_8_8_8() {
-        let resolvers = ResolverGroup::from_system_config(Default::default()).await
+        let resolvers = ResolverGroup::from_system_config(Default::default())
+            .await
             .expect("failed to create system resolver");
         let str = "tcp:8.8.8.8";
         let expected = NameServerConfig::tcp((Ipv4Addr::new(8, 8, 8, 8), 53));
@@ -175,7 +260,8 @@ mod test {
 
     #[tokio::test]
     async fn ipv4_8_8_8_8_port() {
-        let resolvers = ResolverGroup::from_system_config(Default::default()).await
+        let resolvers = ResolverGroup::from_system_config(Default::default())
+            .await
             .expect("failed to create system resolver");
         let str = "8.8.8.8:35";
         let expected = NameServerConfig::udp((Ipv4Addr::new(8, 8, 8, 8), 35));
@@ -187,7 +273,8 @@ mod test {
 
     #[tokio::test]
     async fn tcp_8_8_8_8_port() {
-        let resolvers = ResolverGroup::from_system_config(Default::default()).await
+        let resolvers = ResolverGroup::from_system_config(Default::default())
+            .await
             .expect("failed to create system resolver");
         let str = "tcp:8.8.8.8:35";
         let expected = NameServerConfig::tcp((Ipv4Addr::new(8, 8, 8, 8), 35));
@@ -199,7 +286,8 @@ mod test {
 
     #[tokio::test]
     async fn tcp_8_8_8_8_port_name() {
-        let resolvers = ResolverGroup::from_system_config(Default::default()).await
+        let resolvers = ResolverGroup::from_system_config(Default::default())
+            .await
             .expect("failed to create system resolver");
         let str = "tcp:8.8.8.8:35,name=Google DNS";
         let expected = NameServerConfig::tcp_with_name((Ipv4Addr::new(8, 8, 8, 8), 35), "Google DNS".to_string());
@@ -211,7 +299,8 @@ mod test {
 
     #[tokio::test]
     async fn tcp_8_8_8_8_port_spki() {
-        let resolvers = ResolverGroup::from_system_config(Default::default()).await
+        let resolvers = ResolverGroup::from_system_config(Default::default())
+            .await
             .expect("failed to create system resolver");
         let str = "tcp:8.8.8.8:35,spki=dns.google";
 
@@ -223,7 +312,8 @@ mod test {
     #[tokio::test]
     #[allow(non_snake_case)]
     async fn ipv4_2606_4700__6810_f9f9() {
-        let resolvers = ResolverGroup::from_system_config(Default::default()).await
+        let resolvers = ResolverGroup::from_system_config(Default::default())
+            .await
             .expect("failed to create system resolver");
         let str = "2606:4700::6810:f9f9";
         let expected = NameServerConfig::udp((Ipv6Addr::from_str("2606:4700::6810:f9f9").unwrap(), 53));
@@ -235,7 +325,8 @@ mod test {
 
     #[tokio::test]
     async fn dns_google() {
-        let resolvers = ResolverGroup::from_system_config(Default::default()).await
+        let resolvers = ResolverGroup::from_system_config(Default::default())
+            .await
             .expect("failed to create system resolver");
         let str = "dns.google";
         let expected1 = NameServerConfig::udp((Ipv4Addr::new(8, 8, 8, 8), 53));
@@ -249,11 +340,18 @@ mod test {
 
     #[tokio::test]
     async fn tls_cloudflare_dns_com_spki() {
-        let resolvers = ResolverGroup::from_system_config(Default::default()).await
+        let resolvers = ResolverGroup::from_system_config(Default::default())
+            .await
             .expect("failed to create system resolver");
         let str = "tls:cloudflare-dns.com,spki=cloudflare-dns.com";
-        let expected1 = NameServerConfig::tls((Ipv4Addr::new(104, 16, 248, 249), 853), "cloudflare-dns.com".to_string());
-        let expected2 = NameServerConfig::tls((Ipv4Addr::new(104, 16, 249, 249), 853), "cloudflare-dns.com".to_string());
+        let expected1 = NameServerConfig::tls(
+            (Ipv4Addr::new(104, 16, 248, 249), 853),
+            "cloudflare-dns.com".to_string(),
+        );
+        let expected2 = NameServerConfig::tls(
+            (Ipv4Addr::new(104, 16, 249, 249), 853),
+            "cloudflare-dns.com".to_string(),
+        );
 
         let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
 
@@ -263,10 +361,15 @@ mod test {
 
     #[tokio::test]
     async fn tls_104_16_249_249_spki_name() {
-        let resolvers = ResolverGroup::from_system_config(Default::default()).await
+        let resolvers = ResolverGroup::from_system_config(Default::default())
+            .await
             .expect("failed to create system resolver");
         let str = "tls:104.16.249.249,spki=cloudflare-dns.com,name=Cloudflare";
-        let expected = NameServerConfig::tls_with_name((Ipv4Addr::new(104, 16, 249, 249), 853), "cloudflare-dns.com".to_string(), "Cloudflare".to_string());
+        let expected = NameServerConfig::tls_with_name(
+            (Ipv4Addr::new(104, 16, 249, 249), 853),
+            "cloudflare-dns.com".to_string(),
+            "Cloudflare".to_string(),
+        );
 
         let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
 
@@ -276,10 +379,15 @@ mod test {
     #[tokio::test]
     #[allow(non_snake_case)]
     async fn https_slash_slash_2606_4700__6810_f8f9_spki_name() {
-        let resolvers = ResolverGroup::from_system_config(Default::default()).await
+        let resolvers = ResolverGroup::from_system_config(Default::default())
+            .await
             .expect("failed to create system resolver");
         let str = "https://2606:4700::6810:f8f9,spki=cloudflare-dns.com,name=Cloudflare";
-        let expected = NameServerConfig::https_with_name((Ipv6Addr::from_str("2606:4700::6810:f8f9").unwrap(), 443), "cloudflare-dns.com".to_string(), "Cloudflare".to_string());
+        let expected = NameServerConfig::https_with_name(
+            (Ipv6Addr::from_str("2606:4700::6810:f8f9").unwrap(), 443),
+            "cloudflare-dns.com".to_string(),
+            "Cloudflare".to_string(),
+        );
 
         let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
 
@@ -287,15 +395,16 @@ mod test {
     }
 }
 
+#[allow(clippy::module_inception)]
 pub(crate) mod parser {
     use std::net::{Ipv4Addr, Ipv6Addr};
     use std::str::FromStr;
 
-    use nom::{AsChar, IResult};
     use nom::branch::alt;
     use nom::bytes::complete::{tag, take_while};
     use nom::character::complete::digit1;
     use nom::combinator::{map_res, opt};
+    use nom::{AsChar, IResult};
 
     #[derive(Debug, PartialEq, Eq)]
     pub(crate) struct NameServerConfig<'a> {
@@ -414,9 +523,7 @@ pub(crate) mod parser {
     }
 
     fn name(input: &str) -> IResult<&str, Target> {
-        let (input, name) = take_while(
-            |c: char| c.is_alphanumeric() || c == '.' || c == '-'
-        )(input)?;
+        let (input, name) = take_while(|c: char| c.is_alphanumeric() || c == '.' || c == '-')(input)?;
         let target = if name == "localhost" {
             Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1))
         } else {
@@ -465,8 +572,7 @@ pub(crate) mod parser {
             let str = "127.0.0.1";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 53);
 
-            let (_, config) = parsed_name_server_config(&str)
-                .expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -476,8 +582,7 @@ pub(crate) mod parser {
             let str = "udp:127.0.0.1";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 53);
 
-            let (_, config) = parsed_name_server_config(&str)
-                .expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -487,8 +592,7 @@ pub(crate) mod parser {
             let str = "127.0.0.1:35";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 35);
 
-            let (_, config) = parsed_name_server_config(&str)
-                .expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -504,8 +608,7 @@ pub(crate) mod parser {
                 "localhost",
             );
 
-            let (_, config) = parsed_name_server_config(&str)
-                .expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -515,8 +618,7 @@ pub(crate) mod parser {
             let str = "udp:127.0.0.1:35";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 35);
 
-            let (_, config) = parsed_name_server_config(&str)
-                .expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -526,8 +628,7 @@ pub(crate) mod parser {
             let str = "udp://127.0.0.1";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 53);
 
-            let (_, config) = parsed_name_server_config(&str)
-                .expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -537,8 +638,7 @@ pub(crate) mod parser {
             let str = "udp://127.0.0.1:35";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 35);
 
-            let (_, config) = parsed_name_server_config(&str)
-                .expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -548,8 +648,7 @@ pub(crate) mod parser {
             let str = "tcp:127.0.0.1";
             let expected = NameServerConfig::new(Protocol::Tcp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 53);
 
-            let (_, config) = parsed_name_server_config(&str)
-                .expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -559,8 +658,7 @@ pub(crate) mod parser {
             let str = "tcp://127.0.0.1";
             let expected = NameServerConfig::new(Protocol::Tcp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 53);
 
-            let (_, config) = parsed_name_server_config(&str)
-                .expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -571,8 +669,7 @@ pub(crate) mod parser {
             let str = "::1";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv6(Ipv6Addr::from_str(&str).unwrap()), 53);
 
-            let (_, config) = parsed_name_server_config(&str)
-                .expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -582,8 +679,7 @@ pub(crate) mod parser {
             let str = "localhost";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 53);
 
-            let (_, config) = parsed_name_server_config(&str)
-                .expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -593,8 +689,7 @@ pub(crate) mod parser {
             let str = "dns.google";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Name("dns.google"), 53);
 
-            let (_, config) = parsed_name_server_config(&str)
-                .expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -605,8 +700,7 @@ pub(crate) mod parser {
             let expected =
                 NameServerConfig::new_with_spki_and_name(Protocol::Udp, Target::Name("dns.google"), 53, None, "Google");
 
-            let (_, config) = parsed_name_server_config(&str)
-                .expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -622,8 +716,7 @@ pub(crate) mod parser {
                 None,
             );
 
-            let (_, config) = parsed_name_server_config(&str)
-                .expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -639,8 +732,7 @@ pub(crate) mod parser {
                 None,
             );
 
-            let (_, config) = parsed_name_server_config(&str)
-                .expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -656,8 +748,7 @@ pub(crate) mod parser {
                 None,
             );
 
-            let (_, config) = parsed_name_server_config(&str)
-                .expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -673,8 +764,7 @@ pub(crate) mod parser {
                 "Google",
             );
 
-            let (_, config) = parsed_name_server_config(&str)
-                .expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }

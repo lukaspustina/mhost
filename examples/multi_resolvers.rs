@@ -11,7 +11,9 @@ async fn main() {
 
     let sock_addr: SocketAddr = "8.8.8.8:53".parse().unwrap();
     let config = NameServerConfig::udp(sock_addr).into();
-    let resolver = Resolver::new(config, Default::default()).await.expect("Failed to create resolver");
+    let resolver = Resolver::new(config, Default::default())
+        .await
+        .expect("Failed to create resolver");
 
     let mut resolvers = ResolverGroup::new([resolver], Default::default());
 

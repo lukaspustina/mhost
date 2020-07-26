@@ -3,7 +3,7 @@ use std::{env, io};
 
 use mhost::output::summary::SummaryOptions;
 use mhost::output::{Output, OutputConfig, OutputFormat};
-use mhost::resolver::{MultiQuery, ResolverGroup, predefined};
+use mhost::resolver::{predefined, MultiQuery, ResolverGroup};
 use mhost::statistics::Statistics;
 use mhost::RecordType;
 
