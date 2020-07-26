@@ -200,14 +200,11 @@ impl ResolverGroup {
     pub async fn rnd_lookup<T: Into<MultiQuery>>(&self, query: T) -> Lookups {
         let mut rng = rand::thread_rng();
         let multi_query = query.into();
-        let uni_quieries = multi_query.into_uni_queries();
+        let resolvers = self.resolvers.as_slice();
 
-        let futures: Vec<_> = self.resolvers
-            .as_slice()
-            .choose_multiple(&mut rng, uni_quieries.len())
+        let futures: Vec<_> = multi_query.into_uni_queries()
             .into_iter()
-            .zip(uni_quieries)
-            .map(|(r, q)| r.lookup(q))
+            .map(|q| resolvers.choose(&mut rng).unwrap().lookup(q)) // Safe unwrap: we know, there are resolvers
             .collect();
 
         self.run_lookups(futures).await
