@@ -32,7 +32,7 @@ impl NameServerConfigGroup {
                 continue
             }
             let config = NameServerConfig::from_str(&resolvers, &buffer).await
-                .map_err(|_| Error::ParserError {what: buffer.clone(), to: "NameServerConfig"} );
+                .map_err(|e| Error::ParserError {what: buffer.clone(), to: "NameServerConfig", why: e.to_string() } );
 
             match config {
                 Ok(config) => configs.push(config),

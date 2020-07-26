@@ -1,7 +1,13 @@
 use thiserror::Error;
+use serde_json;
 
 #[derive(Debug, Error)]
+/// Main Error type of this crate.
+///
+/// Must be `Send` because it used by async function which might run on different threads.
 pub enum Error {
+    #[error("internal error: {msg}")]
+    InternalError { msg: &'static str },
     #[error("DNS resolver error")]
     DnsResolverError {
         #[from]
@@ -12,19 +18,20 @@ pub enum Error {
         #[from]
         source: trust_dns_resolver::proto::error::ProtoError,
     },
-    #[error("failed to parse '{what}' to {to}")]
+    #[error("failed to parse '{what}' to {to} because {why}")]
     ParserError {
         what: String,
-        to: &'static str
-    },
-    #[error("failed to load system configuration")]
-    SystemConfigError {
-        #[from]
-        source: crate::system_config::SystemConfigError,
+        to: &'static str,
+        why: String,
     },
     #[error("failed to execute IO operation for")]
     IoError {
         #[from]
         source: std::io::Error,
+    },
+    #[error("failed to serialize to JSON")]
+    SerJsonError {
+        #[from]
+        source: serde_json::Error,
     },
 }

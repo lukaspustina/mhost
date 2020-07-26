@@ -1,19 +1,12 @@
 use nom::Err;
-use thiserror::Error;
 
 mod domain_verification;
 mod spf;
 
+use crate::Result;
+use crate::Error;
 pub use domain_verification::DomainVerification;
 pub use spf::{Mechanism, Modifier, Qualifier, Spf, Word};
-
-#[derive(Debug, Error)]
-pub enum ParserError<'a> {
-    #[error("failed to parse {what}")]
-    ParserError { what: &'a str, why: String },
-}
-
-type Result<'a, T> = std::result::Result<T, ParserError<'a>>;
 
 #[derive(Debug)]
 pub enum ParsedTxt<'a> {
@@ -26,12 +19,14 @@ impl<'a> ParsedTxt<'a> {
     pub fn from_str(txt: &'a str) -> Result<ParsedTxt<'a>> {
         match parser::parsed_txt(txt) {
             Ok((_, result)) => Ok(result),
-            Err(Err::Incomplete(_)) => Err(ParserError::ParserError {
-                what: txt,
-                why: "input is incomplete".to_string(),
+            Err(Err::Incomplete(_)) => Err(Error::ParserError {
+                what: txt.to_string(),
+                to: "ParsedTxt",
+                why: "input is incompletely parsed".to_string(),
             }),
-            Err(Err::Error((what, why))) | Err(Err::Failure((what, why))) => Err(ParserError::ParserError {
-                what,
+            Err(Err::Error((what, why))) | Err(Err::Failure((what, why))) => Err(Error::ParserError {
+                what: what.to_string(),
+                to: "ParsedTxt",
                 why: why.description().to_string(),
             }),
         }

@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use tabwriter::TabWriter;
 
-use crate::RecordType;
+use crate::{Error, RecordType};
 use crate::resources::rdata::{MX, Name, NULL, parsed_txt::Spf, SOA, SRV, TXT, UNKNOWN};
 use crate::resources::rdata::parsed_txt::{DomainVerification, Mechanism, Modifier, ParsedTxt, Word};
 use crate::resources::Record;
@@ -55,10 +55,10 @@ impl OutputFormat for SummaryFormat {
             output_records(&mut tw, records, &self.opts)?;
         }
 
-        let text_buffer = tw.into_inner().map_err(|_| OutputError::InternalError {
+        let text_buffer = tw.into_inner().map_err(|_| Error::InternalError {
             msg: "finish TabWriter buffer",
         })?;
-        let out = String::from_utf8(text_buffer).map_err(|_| OutputError::InternalError {
+        let out = String::from_utf8(text_buffer).map_err(|_| Error::InternalError {
             msg: "convert TabWriter buffer to output",
         })?;
         writeln!(writer, "{}", out)?;

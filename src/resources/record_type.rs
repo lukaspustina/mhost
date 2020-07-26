@@ -166,6 +166,7 @@ impl FromStr for RecordType {
             _ => Err(Error::ParserError {
                 what: str.to_string(),
                 to: "RecordType",
+                why: "invalid record type".to_string(),
             }),
         }
     }

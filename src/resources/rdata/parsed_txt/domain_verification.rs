@@ -1,6 +1,6 @@
 use nom::Err;
 
-use crate::resources::rdata::parsed_txt::{ParserError, Result};
+use crate::{Result, Error};
 
 #[derive(Debug, PartialEq)]
 pub struct DomainVerification<'a> {
@@ -14,12 +14,14 @@ impl<'a> DomainVerification<'a> {
     pub fn from_str(txt: &'a str) -> Result<DomainVerification<'a>> {
         match parser::domain_verification(txt) {
             Ok((_, result)) => Ok(result),
-            Err(Err::Incomplete(_)) => Err(ParserError::ParserError {
-                what: txt,
+            Err(Err::Incomplete(_)) => Err(Error::ParserError {
+                what: txt.to_string(),
+                to: "DomainVerification TXT Record",
                 why: "input is incomplete".to_string(),
             }),
-            Err(Err::Error((what, why))) | Err(Err::Failure((what, why))) => Err(ParserError::ParserError {
-                what,
+            Err(Err::Error((what, why))) | Err(Err::Failure((what, why))) => Err(Error::ParserError {
+                what: what.to_string(),
+                to: "DomainVerification TXT Record",
                 why: why.description().to_string(),
             }),
         }

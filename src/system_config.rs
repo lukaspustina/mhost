@@ -1,27 +1,16 @@
-use resolv_conf::Config;
 use std::fs::File;
 use std::io::Read;
-use thiserror::Error;
 
-#[derive(Debug, Error)]
-pub enum SystemConfigError {
-    #[error("failed to read")]
-    IoError {
-        #[from]
-        source: std::io::Error,
-    },
-    #[error("failed to parse")]
-    ParserError {
-        #[from]
-        source: resolv_conf::ParseError,
-    },
-}
+use resolv_conf::Config;
 
-pub fn load_from_system_config<T: From<Config>>() -> std::result::Result<T, SystemConfigError> {
+use crate::{Error, Result};
+
+pub fn load_from_system_config<T: From<Config>>() -> Result<T> {
     let mut buf = Vec::with_capacity(4096);
     let mut f = File::open("/etc/resolv.conf")?;
     f.read_to_end(&mut buf)?;
-    let cfg = resolv_conf::Config::parse(&buf)?;
+    let cfg = resolv_conf::Config::parse(&buf)
+        .map_err(|e| Error::ParserError { what: "resolv.conf".to_string(), to: "", why: e.to_string() })?;
 
     Ok(cfg.into())
 }

@@ -1,32 +1,26 @@
 use std::net::IpAddr;
 
 use nom::Err;
-use thiserror::Error;
 
+use crate::{Result, Error};
 use crate::nameserver::NameServerConfig;
 use crate::resolver::{ResolverGroup, MultiQuery};
 use crate::RecordType;
 use crate::resolver::lookup::Uniquify;
-
-#[derive(Debug, Error)]
-pub enum ParserError {
-    #[error("failed to parse {what}")]
-    ParserError { what: String, why: String },
-}
-
-type Result<T> = std::result::Result<T, ParserError>;
 
 #[allow(clippy::should_implement_trait)]
 impl NameServerConfig {
     pub async fn from_str(resolvers: &ResolverGroup, str: &str) -> Result<NameServerConfig> {
         match parser::parsed_name_server_config(str) {
             Ok((_, result)) => result.try_into(resolvers).await,
-            Err(Err::Incomplete(_)) => Err(ParserError::ParserError {
+            Err(Err::Incomplete(_)) => Err(Error::ParserError {
                 what: str.to_string(),
+                to: "NameServerConfig",
                 why: "input is incomplete".to_string(),
             }),
-            Err(Err::Error((what, why))) | Err(Err::Failure((what, why))) => Err(ParserError::ParserError {
+            Err(Err::Error((what, why))) | Err(Err::Failure((what, why))) => Err(Error::ParserError {
                 what: what.to_string(),
+                to: "NameServerConfig",
                 why: why.description().to_string(),
             }),
         }
@@ -53,7 +47,7 @@ async fn try_udp_from<'a>(resolvers: &'a ResolverGroup, config: parser::NameServ
             Ok(crate::nameserver::NameServerConfig::udp_with_name((ip, port), name.map(ToString::to_string)))
         }
         NameServerConfig { protocol: _, target: _, port: _, spki: Some(spki), name: _ } => {
-            Err(ParserError::ParserError {what: format!("spki={}", spki), why: format!("illegal parameter 'spki' for udp")})
+            Err(Error::ParserError {what: format!("spki={}", spki), to: "NameServerConfig", why: format!("illegal parameter 'spki' for udp")})
         }
     }
 }
@@ -66,7 +60,7 @@ async fn try_tcp_from<'a>(resolvers: &'a ResolverGroup, config: parser::NameServ
             Ok(crate::nameserver::NameServerConfig::tcp_with_name((ip, port), name.map(ToString::to_string)))
         }
         NameServerConfig { protocol: _, target: _, port: _, spki: Some(spki), name: _ } => {
-            Err(ParserError::ParserError { what: format!("spki={}", spki), why: format!("illegal parameter 'spki' for tcp") })
+            Err(Error::ParserError { what: format!("spki={}", spki), to: "NameServerConfig", why: format!("illegal parameter 'spki' for tcp") })
         }
     }
 }
@@ -79,7 +73,7 @@ async fn try_tls_from<'a>(resolvers: &'a ResolverGroup, config: parser::NameServ
             Ok(crate::nameserver::NameServerConfig::tls_with_name((ip, port), spki, name.map(ToString::to_string)))
         }
         NameServerConfig { protocol: _, target: _, port: _, spki: Option::None, name: _ } => {
-            Err(ParserError::ParserError { what: format!("spki"), why: format!("missing parameter 'spki' for tls") })
+            Err(Error::ParserError { what: format!("spki"), to: "NameServerConfig", why: format!("missing parameter 'spki' for tls") })
         }
     }
 }
@@ -92,7 +86,7 @@ async fn try_https_from<'a>(resolvers: &'a ResolverGroup, config: parser::NameSe
             Ok(crate::nameserver::NameServerConfig::https_with_name((ip, port), spki, name.map(ToString::to_string)))
         }
         NameServerConfig { protocol: _, target: _, port: _, spki: Option::None, name: _ } => {
-            Err(ParserError::ParserError { what: format!("spki"), why: format!("missing parameter 'spki' for https") })
+            Err(Error::ParserError { what: format!("spki"), to: "NameServerConfig", why: format!("missing parameter 'spki' for https") })
         }
     }
 }
@@ -108,12 +102,12 @@ async fn target_to_ip<'a>(resolvers: &ResolverGroup, target: parser::Target<'a>)
 
 async fn resolve_name(resolvers: &ResolverGroup, name: &str) -> Result<IpAddr> {
     let query = MultiQuery::multi_record(name, vec![RecordType::A, RecordType::AAAA])
-        .map_err(|_| ParserError::ParserError {what: name.to_string(), why: "failed to resolve name".to_string()})?;
+        .map_err(|_| Error::ParserError {what: name.to_string(), to: "IpAddr", why: "failed to resolve name".to_string()})?;
     let lookups = resolvers.lookup(query).await;
     let ipv4 = lookups.a().unique().to_owned().into_iter().nth(0).map(|ip| IpAddr::V4(ip));
     let ipv6 = lookups.aaaa().unique().to_owned().into_iter().nth(0).map(|ip| IpAddr::V6(ip));
     vec![ipv4, ipv6].into_iter().flatten().nth(0)
-        .ok_or_else(|| ParserError::ParserError {what: name.to_string(), why: "no A or AAAA record found".to_string()})
+        .ok_or_else(|| Error::ParserError {what: name.to_string(), to: "IpAddr", why: "no A or AAAA record found".to_string()})
 }
 
 #[cfg(test)]
@@ -319,7 +313,7 @@ pub(crate) mod parser {
     }
 
     impl FromStr for Protocol {
-        type Err = super::ParserError;
+        type Err = super::Error;
 
         fn from_str(s: &str) -> Result<Self, Self::Err> {
             match s {
@@ -329,6 +323,7 @@ pub(crate) mod parser {
                 "tls" => Ok(Protocol::Tls),
                 _ => Err(Self::Err::ParserError {
                     what: s.to_string(),
+                    to: "Protocol",
                     why: "unsupported protocol".to_string(),
                 }),
             }

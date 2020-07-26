@@ -1,6 +1,6 @@
 use nom::Err;
 
-use crate::resources::rdata::parsed_txt::{ParserError, Result};
+use crate::{Result, Error};
 
 #[derive(Debug, PartialEq)]
 pub struct Spf<'a> {
@@ -13,12 +13,14 @@ impl<'a> Spf<'a> {
     pub fn from_str(txt: &'a str) -> Result<Spf<'a>> {
         match parser::spf(txt) {
             Ok((_, spf)) => Ok(spf),
-            Err(Err::Incomplete(_)) => Err(ParserError::ParserError {
-                what: txt,
+            Err(Err::Incomplete(_)) => Err(Error::ParserError {
+                what: txt.to_string(),
+                to: "SPF TXT record",
                 why: "input is incomplete".to_string(),
             }),
-            Err(Err::Error((what, why))) | Err(Err::Failure((what, why))) => Err(ParserError::ParserError {
-                what,
+            Err(Err::Error((what, why))) | Err(Err::Failure((what, why))) => Err(Error::ParserError {
+                what: what.to_string(),
+                to: "SPF TXT record",
                 why: why.description().to_string(),
             }),
         }

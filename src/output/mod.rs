@@ -1,29 +1,11 @@
+use crate::Result;
 use crate::resolver::Lookups;
 use crate::RecordType;
 use std::cmp::Ordering;
 use std::io::Write;
-use thiserror::Error;
 
 pub mod json;
 pub mod summary;
-
-#[derive(Debug, Error)]
-pub enum OutputError {
-    #[error("internal error: {msg}")]
-    InternalError { msg: &'static str },
-    #[error("failed to write")]
-    IoError {
-        #[from]
-        source: std::io::Error,
-    },
-    #[error("failed to serialize")]
-    SerError {
-        #[from]
-        source: serde_json::Error,
-    },
-}
-
-pub type Result<T> = std::result::Result<T, OutputError>;
 
 #[derive(Debug)]
 pub enum OutputType {
