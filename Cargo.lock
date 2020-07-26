@@ -570,6 +570,7 @@ dependencies = [
  "lazy_static",
  "log",
  "nom",
+ "rand 0.7.3",
  "resolv-conf",
  "serde",
  "serde_json",
