@@ -8,6 +8,7 @@ use trust_dns_resolver::config::Protocol;
 use crate::system_config;
 use crate::Result;
 
+pub mod load;
 mod parser;
 pub mod predefined;
 
@@ -144,6 +145,10 @@ impl NameServerConfigGroup {
     pub fn from_system_config() -> Result<Self> {
         let config_group: NameServerConfigGroup = system_config::load_from_system_config()?;
         Ok(config_group)
+    }
+
+    pub fn len(&self) -> usize {
+        self.configs.len()
     }
 }
 

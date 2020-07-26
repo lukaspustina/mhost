@@ -357,11 +357,12 @@ pub async fn lookup<T: Into<MultiQuery>>(resolver: Resolver, query: T) -> Lookup
 }
 
 async fn single_lookup(resolver: &Resolver, query: UniQuery) -> Lookup {
+    let dns_request_options = DnsRequestOptions::default();
     let q = query.clone();
     let start_time = Instant::now();
     let result = resolver
         .inner
-        .lookup(q.name, q.record_type.into(), DnsRequestOptions::default())
+        .lookup(q.name, q.record_type.into(), dns_request_options)
         .await
         .into_lookup(start_time);
     debug!(

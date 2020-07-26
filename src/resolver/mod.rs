@@ -216,6 +216,10 @@ impl ResolverGroup {
     pub fn opts(&self) -> &ResolverGroupOpts {
         &self.opts
     }
+
+    pub fn len(&self) -> usize {
+        self.resolvers.len()
+    }
 }
 
 #[doc(hidden)]

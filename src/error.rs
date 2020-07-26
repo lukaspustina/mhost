@@ -13,10 +13,18 @@ pub enum Error {
         source: trust_dns_resolver::proto::error::ProtoError,
     },
     #[error("failed to parse '{what}' to {to}")]
-    ParserError { what: String, to: &'static str },
+    ParserError {
+        what: String,
+        to: &'static str
+    },
     #[error("failed to load system configuration")]
     SystemConfigError {
         #[from]
         source: crate::system_config::SystemConfigError,
+    },
+    #[error("failed to execute IO operation for")]
+    IoError {
+        #[from]
+        source: std::io::Error,
     },
 }
