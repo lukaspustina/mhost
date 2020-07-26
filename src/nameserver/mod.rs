@@ -147,6 +147,11 @@ impl NameServerConfigGroup {
         Ok(config_group)
     }
 
+    /// Merges this `NameServerConfigGroup` with another
+    pub fn merge(&mut self, other: Self) {
+        self.configs.extend(other.configs)
+    }
+
     pub fn len(&self) -> usize {
         self.configs.len()
     }

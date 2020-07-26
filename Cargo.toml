@@ -5,20 +5,20 @@ authors = ["Lukas Pustina <lukas@pustina.de>"]
 edition = "2018"
 description = "More than host - uses multiple DNS servers massively parallel and compares results"
 repository = "https://github.com/lukaspustina/mhost.git"
-documentation = "http://lukaspustina.github.io/mhost"
 readme = "README.md"
 license = "MIT"
 keywords = ["network", "dns", "host", "dig", "cli"]
 include = [
   "README.md",
   "LICENSE",
+  "CHANGELOG.md",
   "**/*.rs",
   "Cargo.toml",
 ]
 
 [[bin]]
 name = "mhost"
-path = "src/main.rs"
+path = "src/bin/mhost.rs"
 doc = false
 required-features = ["bin"]
 
@@ -28,6 +28,7 @@ path = "src/lib.rs"
 
 [dependencies]
 anyhow = { version = "1", optional = true }
+clap = { version = "2", optional = true }
 chrono = { version = "0.4", features = ["serde"] }
 env_logger = { version = "0.7.*", optional = true }
 futures = { version = "0.3.*"}
@@ -49,6 +50,7 @@ yansi = "0.5"
 
 [dev-dependencies]
 spectral = "0.6"
+env_logger = { version = "0.7.*" }
 
 [features]
-bin = ["anyhow", "env_logger"]
+bin = ["anyhow", "clap", "env_logger"]

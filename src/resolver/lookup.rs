@@ -360,6 +360,12 @@ async fn single_lookup(resolver: &Resolver, query: UniQuery) -> Lookup {
     let dns_request_options = DnsRequestOptions::default();
     let q = query.clone();
     let start_time = Instant::now();
+    trace!(
+        "Sending Query for '{}', record type {} to {:?}.",
+        &query.name,
+        &query.record_type,
+        resolver.name()
+    );
     let result = resolver
         .inner
         .lookup(q.name, q.record_type.into(), dns_request_options)

@@ -71,14 +71,19 @@ impl Default for ResolverOpts {
 
 #[derive(Debug)]
 pub struct ResolverConfigGroup {
-    resolver_configs: Vec<ResolverConfig>,
+    configs: Vec<ResolverConfig>,
 }
 
 impl ResolverConfigGroup {
     pub fn new(resolver_configs: Vec<ResolverConfig>) -> ResolverConfigGroup {
         ResolverConfigGroup {
-            resolver_configs,
+            configs: resolver_configs,
         }
+    }
+
+    /// Merges this `ResolverConfigGroup` with another
+    pub fn merge(&mut self, other: Self) {
+        self.configs.extend(other.configs)
     }
 }
 
@@ -94,7 +99,7 @@ impl IntoIterator for ResolverConfigGroup {
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.resolver_configs.into_iter()
+        self.configs.into_iter()
     }
 }
 

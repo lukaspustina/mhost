@@ -1,9 +1,12 @@
 use mhost::resolver::{predefined, ResolverGroup, UniQuery};
 use mhost::RecordType;
 use std::env;
+use env_logger;
 
 #[tokio::main]
 async fn main() {
+    env_logger::init();
+
     let name = env::args().nth(1).unwrap_or_else(|| "www.example.com".to_string());
 
     let resolver_configs = predefined::resolver_configs();

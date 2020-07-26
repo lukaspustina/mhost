@@ -10,9 +10,44 @@ use crate::resolver::lookup::Uniquify;
 
 #[allow(clippy::should_implement_trait)]
 impl NameServerConfig {
-    pub async fn from_str(resolvers: &ResolverGroup, str: &str) -> Result<NameServerConfig> {
+    pub async fn from_str_with_resolution(resolvers: &ResolverGroup, str: &str) -> Result<NameServerConfig> {
         match parser::parsed_name_server_config(str) {
-            Ok((_, result)) => result.try_into(resolvers).await,
+            Ok((_, result)) => {
+                let ip = target_to_ip(resolvers, &result.target).await?;
+                result.try_into(ip)
+            },
+            Err(Err::Incomplete(_)) => Err(Error::ParserError {
+                what: str.to_string(),
+                to: "NameServerConfig",
+                why: "input is incomplete".to_string(),
+            }),
+            Err(Err::Error((what, why))) | Err(Err::Failure((what, why))) => Err(Error::ParserError {
+                what: what.to_string(),
+                to: "NameServerConfig",
+                why: why.description().to_string(),
+            }),
+        }
+    }
+
+    pub fn from_str(str: &str) -> Result<NameServerConfig> {
+        match parser::parsed_name_server_config(str) {
+            Ok((_, result)) => {
+                match &result.target {
+                    parser::Target::Ipv4(ip) => {
+                        let ip = ip.clone();
+                        result.try_into(IpAddr::V4(ip))
+                    },
+                    parser::Target::Ipv6(ip) => {
+                        let ip = ip.clone();
+                        result.try_into(IpAddr::V6(ip))
+                    },
+                    parser::Target::Name(name) => Err(Error::ParserError {
+                        what: name.to_string(),
+                        to: "NameServerConfig",
+                        why: "IP address required, name given".to_string(),
+                    }),
+                }
+            },
             Err(Err::Incomplete(_)) => Err(Error::ParserError {
                 what: str.to_string(),
                 to: "NameServerConfig",
@@ -28,22 +63,21 @@ impl NameServerConfig {
 }
 
 impl<'a> parser::NameServerConfig<'a> {
-    async fn try_into(self, resolvers: &ResolverGroup) -> Result<NameServerConfig> {
+    fn try_into(self, target_ip: IpAddr) -> Result<NameServerConfig> {
         use parser::Protocol;
         match &self.protocol {
-            Protocol::Udp => try_udp_from(resolvers, self).await,
-            Protocol::Tcp => try_tcp_from(resolvers, self).await,
-            Protocol::Tls => try_tls_from(resolvers, self).await,
-            Protocol::Https => try_https_from(resolvers, self).await,
+            Protocol::Udp => try_udp_from(target_ip, self),
+            Protocol::Tcp => try_tcp_from(target_ip, self),
+            Protocol::Tls => try_tls_from(target_ip, self),
+            Protocol::Https => try_https_from(target_ip, self),
         }
     }
 }
 
-async fn try_udp_from<'a>(resolvers: &'a ResolverGroup, config: parser::NameServerConfig<'a>) -> Result<NameServerConfig> {
+fn try_udp_from<'a>(ip: IpAddr, config: parser::NameServerConfig<'a>) -> Result<NameServerConfig> {
     use parser::NameServerConfig;
     match config {
-        NameServerConfig { protocol: _, target, port, spki: Option::None, name } => {
-            let ip = target_to_ip(resolvers, target).await?;
+        NameServerConfig { protocol: _, target: _, port, spki: Option::None, name } => {
             Ok(crate::nameserver::NameServerConfig::udp_with_name((ip, port), name.map(ToString::to_string)))
         }
         NameServerConfig { protocol: _, target: _, port: _, spki: Some(spki), name: _ } => {
@@ -52,11 +86,10 @@ async fn try_udp_from<'a>(resolvers: &'a ResolverGroup, config: parser::NameServ
     }
 }
 
-async fn try_tcp_from<'a>(resolvers: &'a ResolverGroup, config: parser::NameServerConfig<'a>) -> Result<NameServerConfig> {
+fn try_tcp_from<'a>(ip: IpAddr, config: parser::NameServerConfig<'a>) -> Result<NameServerConfig> {
     use parser::NameServerConfig;
     match config {
-        NameServerConfig { protocol: _, target, port, spki: Option::None, name } => {
-            let ip = target_to_ip(resolvers, target).await?;
+        NameServerConfig { protocol: _, target: _, port, spki: Option::None, name } => {
             Ok(crate::nameserver::NameServerConfig::tcp_with_name((ip, port), name.map(ToString::to_string)))
         }
         NameServerConfig { protocol: _, target: _, port: _, spki: Some(spki), name: _ } => {
@@ -65,11 +98,10 @@ async fn try_tcp_from<'a>(resolvers: &'a ResolverGroup, config: parser::NameServ
     }
 }
 
-async fn try_tls_from<'a>(resolvers: &'a ResolverGroup, config: parser::NameServerConfig<'a>) -> Result<NameServerConfig> {
+fn try_tls_from<'a>(ip: IpAddr, config: parser::NameServerConfig<'a>) -> Result<NameServerConfig> {
     use parser::NameServerConfig;
     match config {
-        NameServerConfig { protocol: _, target, port, spki: Some(spki), name } => {
-            let ip = target_to_ip(resolvers, target).await?;
+        NameServerConfig { protocol: _, target: _, port, spki: Some(spki), name } => {
             Ok(crate::nameserver::NameServerConfig::tls_with_name((ip, port), spki, name.map(ToString::to_string)))
         }
         NameServerConfig { protocol: _, target: _, port: _, spki: Option::None, name: _ } => {
@@ -78,11 +110,10 @@ async fn try_tls_from<'a>(resolvers: &'a ResolverGroup, config: parser::NameServ
     }
 }
 
-async fn try_https_from<'a>(resolvers: &'a ResolverGroup, config: parser::NameServerConfig<'a>) -> Result<NameServerConfig> {
+fn try_https_from<'a>(ip: IpAddr, config: parser::NameServerConfig<'a>) -> Result<NameServerConfig> {
     use parser::NameServerConfig;
     match config {
-        NameServerConfig { protocol: _, target, port, spki: Some(spki), name } => {
-            let ip = target_to_ip(resolvers, target).await?;
+        NameServerConfig { protocol: _, target: _, port, spki: Some(spki), name } => {
             Ok(crate::nameserver::NameServerConfig::https_with_name((ip, port), spki, name.map(ToString::to_string)))
         }
         NameServerConfig { protocol: _, target: _, port: _, spki: Option::None, name: _ } => {
@@ -91,9 +122,9 @@ async fn try_https_from<'a>(resolvers: &'a ResolverGroup, config: parser::NameSe
     }
 }
 
-async fn target_to_ip<'a>(resolvers: &ResolverGroup, target: parser::Target<'a>) -> Result<IpAddr> {
+async fn target_to_ip<'a>(resolvers: &ResolverGroup, target: &parser::Target<'a>) -> Result<IpAddr> {
     use parser::Target;
-    match target {
+    match *target {
         Target::Ipv4(ip) => Ok(IpAddr::V4(ip)),
         Target::Ipv6(ip) => Ok(IpAddr::V6(ip)),
         Target::Name(name) => resolve_name(resolvers, name).await,
@@ -125,7 +156,7 @@ mod test {
         let str = "8.8.8.8";
         let expected = NameServerConfig::udp((Ipv4Addr::new(8, 8, 8, 8), 53));
 
-        let config = NameServerConfig::from_str(&resolvers, &str).await;
+        let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
 
         assert_that(&config).is_ok().is_equal_to(&expected);
     }
@@ -137,7 +168,7 @@ mod test {
         let str = "tcp:8.8.8.8";
         let expected = NameServerConfig::tcp((Ipv4Addr::new(8, 8, 8, 8), 53));
 
-        let config = NameServerConfig::from_str(&resolvers, &str).await;
+        let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
 
         assert_that(&config).is_ok().is_equal_to(&expected);
     }
@@ -149,7 +180,7 @@ mod test {
         let str = "8.8.8.8:35";
         let expected = NameServerConfig::udp((Ipv4Addr::new(8, 8, 8, 8), 35));
 
-        let config = NameServerConfig::from_str(&resolvers, &str).await;
+        let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
 
         assert_that(&config).is_ok().is_equal_to(&expected);
     }
@@ -161,7 +192,7 @@ mod test {
         let str = "tcp:8.8.8.8:35";
         let expected = NameServerConfig::tcp((Ipv4Addr::new(8, 8, 8, 8), 35));
 
-        let config = NameServerConfig::from_str(&resolvers, &str).await;
+        let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
 
         assert_that(&config).is_ok().is_equal_to(&expected);
     }
@@ -173,7 +204,7 @@ mod test {
         let str = "tcp:8.8.8.8:35,name=Google DNS";
         let expected = NameServerConfig::tcp_with_name((Ipv4Addr::new(8, 8, 8, 8), 35), "Google DNS".to_string());
 
-        let config = NameServerConfig::from_str(&resolvers, &str).await;
+        let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
 
         assert_that(&config).is_ok().is_equal_to(&expected);
     }
@@ -184,7 +215,7 @@ mod test {
             .expect("failed to create system resolver");
         let str = "tcp:8.8.8.8:35,spki=dns.google";
 
-        let config = NameServerConfig::from_str(&resolvers, &str).await;
+        let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
 
         assert_that(&config).is_err();
     }
@@ -197,7 +228,7 @@ mod test {
         let str = "2606:4700::6810:f9f9";
         let expected = NameServerConfig::udp((Ipv6Addr::from_str("2606:4700::6810:f9f9").unwrap(), 53));
 
-        let config = NameServerConfig::from_str(&resolvers, &str).await;
+        let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
 
         assert_that(&config).is_ok().is_equal_to(&expected);
     }
@@ -210,7 +241,7 @@ mod test {
         let expected1 = NameServerConfig::udp((Ipv4Addr::new(8, 8, 8, 8), 53));
         let expected2 = NameServerConfig::udp((Ipv4Addr::new(8, 8, 4, 4), 53));
 
-        let config = NameServerConfig::from_str(&resolvers, &str).await;
+        let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
 
         assert_that(&config).is_ok();
         assert_that(&[expected1, expected2]).contains(config.unwrap());
@@ -224,7 +255,7 @@ mod test {
         let expected1 = NameServerConfig::tls((Ipv4Addr::new(104, 16, 248, 249), 853), "cloudflare-dns.com".to_string());
         let expected2 = NameServerConfig::tls((Ipv4Addr::new(104, 16, 249, 249), 853), "cloudflare-dns.com".to_string());
 
-        let config = NameServerConfig::from_str(&resolvers, &str).await;
+        let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
 
         assert_that(&config).is_ok();
         assert_that(&[expected1, expected2]).contains(config.unwrap());
@@ -237,7 +268,7 @@ mod test {
         let str = "tls:104.16.249.249,spki=cloudflare-dns.com,name=Cloudflare";
         let expected = NameServerConfig::tls_with_name((Ipv4Addr::new(104, 16, 249, 249), 853), "cloudflare-dns.com".to_string(), "Cloudflare".to_string());
 
-        let config = NameServerConfig::from_str(&resolvers, &str).await;
+        let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
 
         assert_that(&config).is_ok().is_equal_to(expected);
     }
@@ -250,7 +281,7 @@ mod test {
         let str = "https://2606:4700::6810:f8f9,spki=cloudflare-dns.com,name=Cloudflare";
         let expected = NameServerConfig::https_with_name((Ipv6Addr::from_str("2606:4700::6810:f8f9").unwrap(), 443), "cloudflare-dns.com".to_string(), "Cloudflare".to_string());
 
-        let config = NameServerConfig::from_str(&resolvers, &str).await;
+        let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
 
         assert_that(&config).is_ok().is_equal_to(expected);
     }
