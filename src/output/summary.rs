@@ -1,15 +1,17 @@
+use std::cmp::Eq;
 use std::collections::HashMap;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::time::Duration;
 
 use tabwriter::TabWriter;
 
-use crate::resources::rdata::parsed_txt::{DomainVerification, Mechanism, Modifier, ParsedTxt, Word};
-use crate::resources::rdata::{parsed_txt::Spf, Name, MX, NULL, SOA, SRV, TXT, UNKNOWN};
-use crate::resources::Record;
 use crate::RecordType;
+use crate::resources::rdata::{MX, Name, NULL, parsed_txt::Spf, SOA, SRV, TXT, UNKNOWN};
+use crate::resources::rdata::parsed_txt::{DomainVerification, Mechanism, Modifier, ParsedTxt, Word};
+use crate::resources::Record;
 
 use super::*;
+use std::hash::{Hash, Hasher};
 
 #[derive(Debug)]
 pub struct SummaryOptions {
@@ -50,7 +52,7 @@ impl OutputFormat for SummaryFormat {
 
         for rr_type in rr_types {
             let records = lookups.records_by_type(rr_type);
-            do_output(&mut tw, records, &self.opts)?;
+            output_records(&mut tw, records, &self.opts)?;
         }
 
         let text_buffer = tw.into_inner().map_err(|_| OutputError::InternalError {
@@ -65,23 +67,80 @@ impl OutputFormat for SummaryFormat {
     }
 }
 
-fn do_output<W: Write>(writer: &mut W, records: Vec<&Record>, opts: &SummaryOptions) -> Result<()> {
+fn output_records<W: Write>(writer: &mut W, records: Vec<&Record>, opts: &SummaryOptions) -> Result<()> {
     let records_counted = summarize_records(records);
-    for (r, count) in records_counted {
-        let count = format!("({})", count);
-        writeln!(writer, "* {}", r.render_with_suffix(&count, opts))?;
+
+    for (r, set) in records_counted {
+        let ttls: Vec<_> = set.iter().map(|x| x.ttl()).collect();
+        let ttl_summary = crate::statistics::Summary::summary(ttls.as_slice());
+
+        let ttl_str = format_ttl_summary(&ttl_summary, opts);
+        let suffix = format!(", {} ({})", ttl_str, set.len());
+
+        writeln!(writer, "* {}", r.render_with_suffix(&suffix, opts))?;
     }
 
     Ok(())
 }
 
-fn summarize_records(records: Vec<&Record>) -> HashMap<&Record, usize> {
-    let mut records_counted: HashMap<&Record, usize> = HashMap::new();
-    for r in records {
-        let count = records_counted.entry(r).or_insert(0);
-        *count += 1;
+fn summarize_records(records: Vec<&Record>) -> HashMap<&Record, Vec<&Record>> {
+    let mut records_set: HashMap<&NotTtlHashRecord, Vec<&NotTtlHashRecord>> = HashMap::new();
+    let nthrs: Vec<_> = records.into_iter().map(|x| NotTtlHashRecord(x)).collect();
+    for r in nthrs.iter() {
+        let set = records_set.entry(r).or_insert(Vec::new());
+        set.push(r)
     }
-    records_counted
+    records_set.into_iter().map(|(k, v)| (k.0, v.into_iter().map(|r| r.0).collect())).collect()
+}
+
+/// Newtype for Record to implement individual Hash algorithm
+#[derive(Eq)]
+struct NotTtlHashRecord<'a>(&'a Record);
+
+/// Implement individual Hash for Record in order to omit TTL: All record should be treated the same independently of their TTL.
+impl Hash for NotTtlHashRecord<'_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let r = self.0;
+        r.name_labels().hash(state);
+        r.record_type().hash(state);
+        // Does not take r.ttl() into account
+        r.rdata().hash(state);
+    }
+}
+
+/// Implement individual PartialRq for Record in order to omit TTL: All record should be treated the same independently of their TTL.
+impl PartialEq for NotTtlHashRecord<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        let r = self.0;
+        let other = other.0;
+        if r.name_labels() == other.name_labels() &&
+            r.record_type() == other.record_type() &&
+            // Does not take r.ttl() into account
+            r.rdata() == other.rdata() {
+            true
+        } else {
+            false
+        }
+    }
+}
+
+fn format_ttl_summary(summary: &crate::statistics::Summary<u32>, opts: &SummaryOptions) -> String {
+    let ttl_min = summary.min.unwrap_or(0) as u64;
+    let ttl_max = summary.max.unwrap_or(0) as u64;
+
+    match (opts.human, ttl_min == ttl_max) {
+        (true, true) =>
+            format!("expires in {}",
+                    humantime::format_duration(Duration::from_secs(ttl_min))
+            ),
+        (true, false) =>
+            format!("expires in [min {}, max {}]",
+                    humantime::format_duration(Duration::from_secs(ttl_min)),
+                    humantime::format_duration(Duration::from_secs(ttl_max)),
+            ),
+        (false, true) => format!("TTL={}", ttl_min),
+        (false, false) => format!("TTL=[{}, {}]", ttl_min, ttl_max),
+    }
 }
 
 trait Rendering {
@@ -99,30 +158,20 @@ impl Rendering for Record {
     }
 
     fn render_with_suffix(&self, suffix: &str, opts: &SummaryOptions) -> String {
-        let ttl = if opts.human {
-            format!(
-                ", expires in {} {}",
-                humantime::format_duration(Duration::from_secs(self.ttl() as u64)),
-                suffix
-            )
-        } else {
-            format!(", TTL={} {}", self.ttl(), suffix)
-        };
-
         match self.record_type() {
-            RecordType::A => format!("A:\t{}{}", self.rdata().a().unwrap().render(opts), ttl),
-            RecordType::AAAA => format!("AAAA:\t{}{}", self.rdata().aaaa().unwrap().render(opts), ttl),
-            RecordType::ANAME => format!("ANAME:\t{}{}", self.rdata().cname().unwrap().render(opts), ttl),
-            RecordType::CNAME => format!("CNAME:\t{}{}", self.rdata().cname().unwrap().render(opts), ttl),
-            RecordType::MX => format!("MX:\t{}{}", self.rdata().mx().unwrap().render(opts), ttl),
-            RecordType::NULL => format!("NULL:\t{}{}", self.rdata().null().unwrap().render(opts), ttl),
-            RecordType::NS => format!("NS:\t{}{}", self.rdata().ns().unwrap().render(opts), ttl),
-            RecordType::PTR => format!("PTR:\t{}{}", self.rdata().ptr().unwrap().render(opts), ttl),
-            RecordType::SOA => format!("SOA:\t{}{}", self.rdata().soa().unwrap().render(opts), ttl),
-            RecordType::SRV => format!("SRV:\t{}{}", self.rdata().srv().unwrap().render(opts), ttl),
-            RecordType::TXT => format!("TXT:\t{}", self.rdata().txt().unwrap().render_with_suffix(&ttl, opts)),
-            RecordType::Unknown(_) => format!("Unknown:\t{}{}", self.rdata().unknown().unwrap().render(opts), ttl),
-            rr_type => format!("{}:\t<not yet implemented>{}", rr_type, ttl),
+            RecordType::A => format!("A:\t{}{}", self.rdata().a().unwrap().render(opts), suffix),
+            RecordType::AAAA => format!("AAAA:\t{}{}", self.rdata().aaaa().unwrap().render(opts), suffix),
+            RecordType::ANAME => format!("ANAME:\t{}{}", self.rdata().cname().unwrap().render(opts), suffix),
+            RecordType::CNAME => format!("CNAME:\t{}{}", self.rdata().cname().unwrap().render(opts), suffix),
+            RecordType::MX => format!("MX:\t{}{}", self.rdata().mx().unwrap().render(opts), suffix),
+            RecordType::NULL => format!("NULL:\t{}{}", self.rdata().null().unwrap().render(opts), suffix),
+            RecordType::NS => format!("NS:\t{}{}", self.rdata().ns().unwrap().render(opts), suffix),
+            RecordType::PTR => format!("PTR:\t{}{}", self.rdata().ptr().unwrap().render(opts), suffix),
+            RecordType::SOA => format!("SOA:\t{}{}", self.rdata().soa().unwrap().render(opts), suffix),
+            RecordType::SRV => format!("SRV:\t{}{}", self.rdata().srv().unwrap().render(opts), suffix),
+            RecordType::TXT => format!("TXT:\t{}", self.rdata().txt().unwrap().render_with_suffix(suffix, opts)),
+            RecordType::Unknown(_) => format!("Unknown:\t{}{}", self.rdata().unknown().unwrap().render(opts), suffix),
+            rr_type => format!("{}:\t<not yet implemented>{}", rr_type, suffix),
         }
     }
 }

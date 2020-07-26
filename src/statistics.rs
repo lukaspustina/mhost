@@ -20,7 +20,7 @@ pub struct LookupsStats<'a> {
     pub errors: usize,
     pub rr_type_counts: BTreeMap<RecordType, usize>,
     pub responding_servers: usize,
-    pub response_time_summary: Summary,
+    pub response_time_summary: Summary<u128>,
     // This is used to please the borrow checker as we currently don't use a borrowed value with lifetime 'a
     phantom: PhantomData<&'a usize>,
 }
@@ -74,13 +74,13 @@ impl<'a> fmt::Display for LookupsStats<'a> {
 }
 
 #[derive(Debug)]
-pub struct Summary {
-    pub min: Option<u128>,
-    pub max: Option<u128>,
+pub struct Summary<T: Ord + Clone> {
+    pub min: Option<T>,
+    pub max: Option<T>,
 }
 
-impl Summary {
-    pub fn summary(values: &[u128]) -> Summary {
+impl<T: Ord + Clone> Summary<T> {
+    pub fn summary(values: &[T]) -> Summary<T> {
         let min = values.iter().min().cloned();
         let max = values.iter().max().cloned();
 
