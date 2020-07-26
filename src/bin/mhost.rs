@@ -4,16 +4,18 @@ use std::str::FromStr;
 use std::time::Instant;
 
 use anyhow::{Context, Result};
-use clap::{App, Arg, ArgMatches, Values};
+use clap::{App, AppSettings, Arg, ArgMatches};
 use futures::future::join_all;
 use log::{debug, LevelFilter};
 
-use mhost::nameserver::{self, NameServerConfig, NameServerConfigGroup};
-use mhost::output::summary::SummaryOptions;
-use mhost::output::{Output, OutputConfig, OutputFormat};
-use mhost::resolver::{predefined, MultiQuery, ResolverConfigGroup, ResolverGroup, ResolverOpts};
-use mhost::statistics::Statistics;
 use mhost::{IpNetwork, RecordType};
+use mhost::nameserver::{self, NameServerConfig, NameServerConfigGroup};
+use mhost::output::{Output, OutputConfig, OutputFormat};
+use mhost::output::summary::SummaryOptions;
+use mhost::resolver::{MultiQuery, predefined, ResolverConfigGroup, ResolverGroup, ResolverOpts};
+use mhost::statistics::Statistics;
+
+static SUPPORTED_RECORD_TYPES: &[&str] = &["A", "AAAA", "ANAME", "CNAME", "MX", "NULL", "NS", "PTR", "SOA", "SRV", "TXT"];
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -56,32 +58,22 @@ fn setup_clap() -> App<'static, 'static> {
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
-        .arg(Arg::with_name("v")
-            .short("v")
-            .multiple(true)
-            .help("Sets the level of verbosity"))
+        .setting(AppSettings::ColoredHelp)
+        .setting(AppSettings::DisableHelpSubcommand)
+        .setting(AppSettings::DeriveDisplayOrder)
+        .setting(AppSettings::UnifiedHelpMessage)
+        .setting(AppSettings::VersionlessSubcommands)
         .arg(Arg::with_name("domain name")
             .required_unless("list-predefined")
             .index(1)
-            .value_name("NAME | IP ADDR | CIDR block")
-            .help("domain name, IP address, or CIDR block")
+            .value_name("NAME | IP ADDR | CIDR BLOCK")
+            .help("domain name, IP address, or CIDR block to lookup")
             .long_help(
                 "* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de
 * IP ADDR may be any valid IPv4 or IPv4 address, e.g., 192.168.0.1
-* CIDR block may be any valid IPv4 or IPv6 subnet in CIDR notation, e.g., 192.168.0.1/24
+* CIDR BLOCK may be any valid IPv4 or IPv6 subnet in CIDR notation, e.g., 192.168.0.1/24
   all valid IP addresses of a CIDR block will be queried for a reverse lookup"
             )
-        )
-        .arg(Arg::with_name("record types")
-            .short("t")
-            .long("record-type")
-            .value_name("RECORD TYPE")
-            .takes_value(true)
-            .multiple(true)
-            .use_delimiter(true)
-            .require_delimiter(true)
-            .default_value("A,AAAA,MX")
-            .help("Sets record types to lookup, will be ignored in case of IP address lookup")
         )
         .arg(Arg::with_name("no-system-resolv-opt")
             .long("no-system-resolv-opt")
@@ -98,7 +90,7 @@ fn setup_clap() -> App<'static, 'static> {
             .value_name("IP ADDR")
             .takes_value(true)
             .multiple(true)
-            .help("Adds system nameservers for system lookups; only IP addresses allowed")
+            .help("Adds system nameserver for system lookups; only IP addresses allowed")
         )
         .arg(Arg::with_name("nameservers")
             .short("s")
@@ -106,23 +98,45 @@ fn setup_clap() -> App<'static, 'static> {
             .value_name("HOSTNAME | IP ADDR")
             .takes_value(true)
             .multiple(true)
-            .help("Uses nameservers for lookups; if non given, only system nameservers will be used")
+            .help("Adds nameserver for lookups; if non given, only system nameservers will be used")
         )
         .arg(Arg::with_name("predefined")
             .short("p")
             .long("predefined")
-            .help("Uses predefined nameservers")
+            .help("Adds predefined nameservers for lookups")
         )
         .arg(Arg::with_name("list-predefined")
             .long("list-predefined")
             .conflicts_with("domain name")
             .help("Lists all predefined nameservers")
         )
+        .arg(Arg::with_name("record types")
+            .short("t")
+            .long("record-type")
+            .value_name("RECORD TYPE")
+            .takes_value(true)
+            .multiple(true)
+            .use_delimiter(true)
+            .require_delimiter(true)
+            .default_value("A,AAAA,MX")
+            .possible_values(SUPPORTED_RECORD_TYPES)
+            .help("Sets record type to lookup, will be ignored in case of IP address lookup")
+        )
+        .arg(Arg::with_name("all-record-types")
+            .hidden(true)
+            .long("all")
+            .alias("xmas")
+            .help("Enables lookups for all record types")
+        )
         .arg(Arg::with_name("randomized-lookup")
             .short("R")
             .long("randomized-lookup")
             .help("Switches into randomize lookup mode: every query will be send just once to a one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.")
         )
+        .arg(Arg::with_name("v")
+            .short("v")
+            .multiple(true)
+            .help("Sets the level of verbosity"))
 }
 
 async fn run(args: ArgMatches<'_>) -> Result<()> {
@@ -140,10 +154,15 @@ async fn run(args: ArgMatches<'_>) -> Result<()> {
     let query = if let Ok(ip_network) = IpNetwork::from_str(domain_name) {
         ptr_query(ip_network)?
     } else {
-        let record_types_arg = args
-            .values_of("record types")
-            .context("No record types for name lookup specified")?;
-        name_query(domain_name, record_types_arg)?
+        let record_types = if args.is_present("all-record-types") {
+            SUPPORTED_RECORD_TYPES.iter().map(|x| RecordType::from_str(x).unwrap()).collect()
+        } else {
+            let args = args
+                .values_of("record types")
+                .context("No record types for name lookup specified")?;
+            record_types(args)?
+        };
+        name_query(domain_name, record_types)?
     };
 
     let system_resolver_ops = if ignore_system_resolv_opt {
@@ -247,16 +266,18 @@ fn ptr_query(ip_network: IpNetwork) -> Result<MultiQuery> {
     Ok(q)
 }
 
-fn name_query(name: &str, record_types: Values) -> Result<MultiQuery> {
+fn name_query(name: &str, record_types: Vec<RecordType>) -> Result<MultiQuery> {
+    let record_types_len = record_types.len();
+    let q = MultiQuery::multi_record(name, record_types).context("Failed to build query")?;
+    debug!("Prepared query for name lookup for {} record types.", record_types_len);
+    Ok(q)
+}
+
+fn record_types<'a, I: Iterator<Item = &'a str>>(record_types: I) -> Result<Vec<RecordType>> {
     let record_types: Vec<_> = record_types
         .map(str::to_uppercase)
         .map(|x| RecordType::from_str(&x))
         .collect();
     let record_types: std::result::Result<Vec<_>, _> = record_types.into_iter().collect();
-    let record_types = record_types.context("Failed to parse record type")?;
-    let record_types_len = record_types.len();
-
-    let q = MultiQuery::multi_record(name, record_types).context("Failed to build query")?;
-    debug!("Prepared query for name lookup for {} record types.", record_types_len);
-    Ok(q)
+    record_types.context("Failed to parse record type")
 }
