@@ -73,7 +73,6 @@ impl<'a> fmt::Display for LookupsStats<'a> {
     }
 }
 
-
 mod styles {
     use lazy_static::lazy_static;
     use yansi::{Color, Style};

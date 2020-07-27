@@ -14,10 +14,12 @@ use mhost::estimate::Estimate;
 use mhost::nameserver::{NameServerConfig, NameServerConfigGroup, predefined, Protocol};
 use mhost::output::{Output, OutputConfig, OutputFormat};
 use mhost::output::summary::SummaryOptions;
-use mhost::resolver::{Lookups, MultiQuery, ResolverConfigGroup, ResolverGroup, ResolverOpts};
+use mhost::resolver::{Lookups, MultiQuery, ResolverConfigGroup, ResolverGroup, ResolverOpts, ResolverGroupOpts};
 use mhost::statistics::Statistics;
 
-static SUPPORTED_RECORD_TYPES: &[&str] = &["A", "AAAA", "ANAME", "CNAME", "MX", "NULL", "NS", "PTR", "SOA", "SRV", "TXT"];
+static SUPPORTED_RECORD_TYPES: &[&str] = &[
+    "A", "AAAA", "ANAME", "CNAME", "MX", "NULL", "NS", "PTR", "SOA", "SRV", "TXT",
+];
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -75,7 +77,7 @@ fn setup_clap() -> App<'static, 'static> {
             .next_line_help(false)
             .help("domain name, IP address, or CIDR block to lookup")
             .long_help(
-"* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de
+                "* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de
 * IP ADDR may be any valid IPv4 or IPv4 address, e.g., 192.168.0.1
 * CIDR BLOCK may be any valid IPv4 or IPv6 subnet in CIDR notation, e.g., 192.168.0.1/24
   all valid IP addresses of a CIDR block will be queried for a reverse lookup")
@@ -119,7 +121,7 @@ fn setup_clap() -> App<'static, 'static> {
             .multiple(true)
             .use_delimiter(true)
             .require_delimiter(true)
-            .default_value("upd,tcp,https,tls")
+            .default_value("udp,tcp,https,tls")
             .possible_values(&["udp", "tcp", "https", "tls"])
             .default_value_if("predefined", None, "udp,tcp,https,tls")
             .help("Filters predefined nameservers by protocol")
@@ -152,13 +154,33 @@ fn setup_clap() -> App<'static, 'static> {
             .long("randomized-lookup")
             .help("Switches into randomize lookup mode: every query will be send just once to a one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.")
         )
-        .arg(Arg::with_name("no-estimates")
-            .long("no-estimates")
-            .help("Does not print estimates before resolving")
+        .arg(Arg::with_name("max-concurrent-servers")
+            .long("max-concurrent-servers")
+            .value_name("NUMBER")
+            .default_value("10")
+            .validator(|str| usize::from_str(&str).map(|_| ()).map_err(|_| "invalid number".to_string()))
+            .help("Sets max. concurrent nameservers")
         )
-        .arg(Arg::with_name("no-statistics")
-            .long("no-statistics")
-            .help("Does not print results statistics before output")
+        .arg(Arg::with_name("attempts")
+            .long("attempts")
+            .value_name("ATTEMPTS")
+            .default_value("2")
+            .validator(|str| usize::from_str(&str).map(|_| ()).map_err(|_| "invalid number".to_string()))
+            .help("Sets number of attempts to get response in case of timeout or error")
+        )
+        .arg(Arg::with_name("max-concurrent-requests")
+            .long("max-concurrent-requests")
+            .value_name("NUMBER")
+            .default_value("5")
+            .validator(|str| usize::from_str(&str).map(|_| ()).map_err(|_| "invalid number".to_string()))
+            .help("Sets max. concurrent requests per nameserver")
+        )
+        .arg(Arg::with_name("timeout")
+            .long("timeout")
+            .value_name("TIMEOUT")
+            .default_value("5")
+            .validator(|str| u64::from_str(&str).map(|_| ()).map_err(|_| "invalid number".to_string()))
+            .help("Sets timeout in seconds for responses")
         )
         .arg(Arg::with_name("quiet")
             .short("q")
@@ -186,9 +208,15 @@ async fn run(args: ArgMatches<'_>) -> Result<()> {
         .context("No domain name to lookup specified")?;
     let query = build_query(&args, domain_name)?;
 
-    let resolvers = create_resolvers(&args).await?;
+    let resolver_group_opts = load_resolver_group_opts(&args)?;
+    let resolver_opts = load_resolver_opts(&args)?;
+    if !args.is_present("quiet") {
+        print_opts(&resolver_group_opts, &resolver_opts);
+    }
 
-    if !args.is_present("no-estimates") && !args.is_present("quiet") {
+    let resolvers = create_resolvers(resolver_group_opts, resolver_opts, &args).await?;
+
+    if !args.is_present("quiet") {
         print_estimates(&resolvers, &query);
     }
 
@@ -196,7 +224,7 @@ async fn run(args: ArgMatches<'_>) -> Result<()> {
     let lookups: Lookups = lookup(&args, query, resolvers).await;
     let total_run_time = Instant::now() - start_time;
 
-    if !args.is_present("no-statistics") && !args.is_present("quiet") {
+    if !args.is_present("quiet") {
         print_statistics(&lookups, total_run_time);
     }
 
@@ -215,7 +243,10 @@ fn build_query(args: &ArgMatches, domain_name: &str) -> Result<MultiQuery> {
         ptr_query(ip_network)
     } else {
         let record_types = if args.is_present("all-record-types") {
-            SUPPORTED_RECORD_TYPES.iter().map(|x| RecordType::from_str(x).unwrap()).collect()
+            SUPPORTED_RECORD_TYPES
+                .iter()
+                .map(|x| RecordType::from_str(x).unwrap())
+                .collect()
         } else {
             let args = args
                 .values_of("record types")
@@ -248,65 +279,30 @@ fn name_query(name: &str, record_types: Vec<RecordType>) -> Result<MultiQuery> {
     Ok(q)
 }
 
-async fn create_resolvers(args: &ArgMatches<'_>) -> Result<ResolverGroup> {
-    let ignore_system_resolv_opt = args.is_present("no-system-resolv-opt");
+async fn create_resolvers(resolver_group_opts: ResolverGroupOpts, resolver_opts: ResolverOpts, args: &ArgMatches<'_>) -> Result<ResolverGroup> {
     let ignore_system_nameservers = args.is_present("no-system-nameservers");
 
-    let system_resolver_ops = if ignore_system_resolv_opt {
-        Default::default()
-    } else {
-        ResolverOpts::from_system_config().context("Failed to load system resolver options")?
-    };
-    debug!("Set system resolver opts.");
-
-    let additional_system_nameservers: NameServerConfigGroup =
-        if let Some(configs) = args.values_of("system nameservers") {
-            let configs: Vec<_> = configs.map(NameServerConfig::from_str).collect();
-            let configs: std::result::Result<Vec<_>, _> = configs.into_iter().collect();
-            let nameservers: Vec<_> = configs.context("Failed to parse IP address for system nameserver")?;
-            NameServerConfigGroup::new(nameservers)
-        } else {
-            NameServerConfigGroup::new(Vec::new())
-        };
-    debug!(
-        "Prepared {} additional system nameservers.",
-        additional_system_nameservers.len()
-    );
-
-    let system_nameservers: ResolverConfigGroup = if ignore_system_nameservers {
-        additional_system_nameservers.into()
-    } else {
-        let mut system_nameservers =
-            NameServerConfigGroup::from_system_config().context("Failed to load system name servers")?;
-        system_nameservers.merge(additional_system_nameservers);
-        debug!("Loaded {} system nameservers.", system_nameservers.len());
-        system_nameservers.into()
-    };
-
-    let mut system_resolvers = ResolverGroup::from_configs(system_nameservers, system_resolver_ops, Default::default())
+    let system_resolver_group: ResolverConfigGroup = load_system_nameservers(args, ignore_system_nameservers)?.into();
+    let mut system_resolvers = ResolverGroup::from_configs(system_resolver_group, resolver_opts.clone(), resolver_group_opts.clone())
         .await
         .context("Failed to create system resolvers")?;
     debug!("Created {} system resolvers.", system_resolvers.len());
 
-    let nameservers: ResolverConfigGroup = if let Some(configs) = args.values_of("nameservers") {
+    let mut nameservers_group = NameServerConfigGroup::new(Vec::new());
+    if let Some(configs) = args.values_of("nameservers") {
         let configs: Vec<_> = configs
             .map(|str| NameServerConfig::from_str_with_resolution(&system_resolvers, str))
             .collect();
         let configs: mhost::Result<Vec<_>> = join_all(configs).await.into_iter().collect();
         let nameservers: Vec<_> = configs.context("Failed to parse IP address for system nameserver")?;
-        NameServerConfigGroup::new(nameservers).into()
-    } else {
-        NameServerConfigGroup::new(Vec::new()).into()
-    };
-    let resolvers = ResolverGroup::from_configs(nameservers, Default::default(), Default::default())
-        .await
-        .context("Failed to load resolvers")?;
-    debug!("Created {} resolvers.", resolvers.len());
-
-    system_resolvers.merge(resolvers);
-
+        let nameservers = NameServerConfigGroup::new(nameservers);
+        debug!("Loaded {} nameservers.", nameservers.len());
+        nameservers_group.merge(nameservers);
+    }
     if args.is_present("predefined") {
-        let filter: HashSet<Protocol> = args.values_of("predefined-filter").unwrap() // safe unwrap, because set by default by clap
+        let filter: HashSet<Protocol> = args
+            .values_of("predefined-filter")
+            .unwrap() // safe unwrap, because set by default by clap
             .map(Protocol::from_str)
             .flatten()
             .collect();
@@ -314,15 +310,89 @@ async fn create_resolvers(args: &ArgMatches<'_>) -> Result<ResolverGroup> {
             .into_iter()
             .filter(|x| filter.contains(&x.protocol()))
             .collect();
-        let configs: ResolverConfigGroup = NameServerConfigGroup::new(nameservers).into();
-        let predefined = ResolverGroup::from_configs(configs, Default::default(), Default::default())
-            .await
-            .context("Failed to load predefined resolvers")?;
-        debug!("Created {} predefined resolvers.", predefined.len());
-        system_resolvers.merge(predefined);
+        let nameservers = NameServerConfigGroup::new(nameservers);
+        debug!("Loaded {} nameservers.", nameservers.len());
+        nameservers_group.merge(nameservers);
     }
 
+    let resolver_group: ResolverConfigGroup = nameservers_group.into();
+    let resolvers = ResolverGroup::from_configs(resolver_group, resolver_opts, resolver_group_opts.clone())
+        .await
+        .context("Failed to load resolvers")?;
+    debug!("Created {} resolvers.", resolvers.len());
+
+    system_resolvers.merge(resolvers);
+
     Ok(system_resolvers)
+}
+
+fn load_resolver_group_opts(args: &ArgMatches) -> Result<ResolverGroupOpts> {
+    let max_concurrent_servers = args.value_of("max-concurrent-servers").map(|x| usize::from_str(x).unwrap()).unwrap(); // Safe unwrap, because clap's validation
+
+    let resolver_group_opts = ResolverGroupOpts { max_concurrent: max_concurrent_servers };
+    debug!("Loaded resolver group opts.");
+
+    Ok(resolver_group_opts)
+}
+
+fn load_resolver_opts(args: &ArgMatches) -> Result<ResolverOpts> {
+    let ignore_system_resolv_opt = args.is_present("no-system-resolv-opt");
+    let attempts = args.value_of("attempts").map(|x| usize::from_str(x).unwrap()).unwrap(); // Safe unwrap, because clap's validation
+    let max_concurrent_requests = args.value_of("max-concurrent-requests").map(|x| usize::from_str(x).unwrap()).unwrap(); // Safe unwrap, because clap's validation
+    let timeout = args
+        .value_of("timeout")
+        .map(|x| u64::from_str(x).unwrap())
+        .map(Duration::from_secs)
+        .unwrap(); // Safe unwrap, because clap's validation
+
+    let resolver_opts = create_resolver_opts(ignore_system_resolv_opt, attempts, max_concurrent_requests, timeout)?;
+    debug!("Loaded resolver opts.");
+
+    Ok(resolver_opts)
+}
+
+fn create_resolver_opts(ignore_system_resolv_opt: bool, attempts: usize, max_concurrent_requests: usize, timeout: Duration) -> Result<ResolverOpts> {
+    let default_opts = if ignore_system_resolv_opt {
+        Default::default()
+    } else {
+        ResolverOpts::from_system_config().context("Failed to load system resolver options")?
+    };
+    let resolver_opts = ResolverOpts {
+        attempts,
+        max_concurrent_requests,
+        timeout,
+        ..default_opts
+    };
+
+    Ok(resolver_opts)
+}
+
+fn load_system_nameservers(args: &ArgMatches, ignore_system_nameservers: bool) -> Result<NameServerConfigGroup> {
+    let mut system_nameserver_group = NameServerConfigGroup::new(Vec::new());
+
+    if !ignore_system_nameservers {
+        let nameservers =
+            NameServerConfigGroup::from_system_config().context("Failed to load system name servers")?;
+        debug!("Loaded {} system nameservers.", nameservers.len());
+        system_nameserver_group.merge(nameservers);
+    };
+
+    if let Some(configs) = args.values_of("system nameservers") {
+        let configs: Vec<_> = configs.map(NameServerConfig::from_str).collect();
+        let configs: std::result::Result<Vec<_>, _> = configs.into_iter().collect();
+        let nameservers: Vec<_> = configs.context("Failed to parse IP address for system nameserver")?;
+        let nameservers = NameServerConfigGroup::new(nameservers);
+        debug!("Loaded {} additional system nameservers.", nameservers.len());
+        system_nameserver_group.merge(nameservers);
+    };
+
+    Ok(system_nameserver_group)
+}
+
+fn print_opts(group_opts: &ResolverGroupOpts, opts: &ResolverOpts) {
+    println!("Nameservers options: concurrent nameservers={}, attempts={}, concurrent requests={}, timeout={} s",
+        group_opts.max_concurrent , opts.attempts, opts.max_concurrent_requests, opts.timeout.as_secs()
+    )
 }
 
 fn print_estimates(resolvers: &ResolverGroup, query: &MultiQuery) {
@@ -332,9 +402,20 @@ fn print_estimates(resolvers: &ResolverGroup, query: &MultiQuery) {
     let estimate = resolvers.estimate(query);
 
     let queries_str = if estimate.min_requests == estimate.max_requests {
-        format!("{} {}", estimate.min_requests, if estimate.min_requests > 1 { "requests" } else { "request" })
+        format!(
+            "{} {}",
+            estimate.min_requests,
+            if estimate.min_requests > 1 {
+                "requests"
+            } else {
+                "request"
+            }
+        )
     } else {
-        format!("between {} and {} requests", estimate.min_requests, estimate.max_requests)
+        format!(
+            "between {} and {} requests",
+            estimate.min_requests, estimate.max_requests
+        )
     };
     let namesservers_str = if num_servers > 1 {
         format!("{} nameservers", num_servers)
@@ -351,12 +432,10 @@ fn print_estimates(resolvers: &ResolverGroup, query: &MultiQuery) {
     } else {
         "1 name".to_string()
     };
+
     println!(
         "Sending {} to {} for {} of {}.",
-        queries_str,
-        namesservers_str,
-        record_types_str,
-        names_str,
+        queries_str, namesservers_str, record_types_str, names_str
     )
 }
 

@@ -60,7 +60,7 @@ impl Default for ResolverOpts {
     fn default() -> Self {
         ResolverOpts {
             attempts: 2,
-            max_concurrent_requests: 2,
+            max_concurrent_requests: 5,
             ndots: 1,
             preserve_intermediates: false,
             timeout: Duration::from_secs(5),
@@ -250,6 +250,7 @@ impl ResolverGroup {
 impl From<resolv_conf::Config> for ResolverOpts {
     fn from(config: resolv_conf::Config) -> Self {
         ResolverOpts {
+            attempts: config.attempts as usize,
             ndots: config.ndots as usize,
             timeout: Duration::from_secs(config.timeout as u64),
             ..Default::default()

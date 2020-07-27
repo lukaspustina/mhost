@@ -23,7 +23,10 @@ pub struct SummaryOptions {
 
 impl Default for SummaryOptions {
     fn default() -> Self {
-        SummaryOptions { human: true, condensed: false }
+        SummaryOptions {
+            human: true,
+            condensed: false,
+        }
     }
 }
 

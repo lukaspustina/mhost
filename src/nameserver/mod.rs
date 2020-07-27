@@ -5,8 +5,8 @@ use nom::lib::std::str::FromStr;
 use resolv_conf::ScopedIp;
 use serde::Serialize;
 
-use crate::{Error, system_config};
 use crate::Result;
+use crate::{system_config, Error};
 
 pub mod load;
 mod parser;
@@ -29,7 +29,11 @@ impl FromStr for Protocol {
             "tcp" => Ok(Protocol::Tcp),
             "https" => Ok(Protocol::Https),
             "tls" => Ok(Protocol::Tls),
-            _ => Err(Error::ParserError { what: s.to_string(), to: "Protocol", why: "invalid protocol".to_string() }),
+            _ => Err(Error::ParserError {
+                what: s.to_string(),
+                to: "Protocol",
+                why: "invalid protocol".to_string(),
+            }),
         }
     }
 }
@@ -144,8 +148,18 @@ impl NameServerConfig {
 impl fmt::Display for NameServerConfig {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         let str = match self {
-            NameServerConfig::Udp { protocol: _, ip_addr, port, name } => format!("udp:{}:{}{}", ip_addr, port, format_name(name)),
-            NameServerConfig::Tcp { protocol: _, ip_addr, port, name } => format!("tcp:{}:{}{}", ip_addr, port, format_name(name)),
+            NameServerConfig::Udp {
+                protocol: _,
+                ip_addr,
+                port,
+                name,
+            } => format!("udp:{}:{}{}", ip_addr, port, format_name(name)),
+            NameServerConfig::Tcp {
+                protocol: _,
+                ip_addr,
+                port,
+                name,
+            } => format!("tcp:{}:{}{}", ip_addr, port, format_name(name)),
             NameServerConfig::Tls {
                 protocol: _,
                 ip_addr,
@@ -244,13 +258,23 @@ impl From<Protocol> for trust_dns_resolver::config::Protocol {
 impl From<NameServerConfig> for trust_dns_resolver::config::NameServerConfig {
     fn from(config: NameServerConfig) -> Self {
         match config {
-            NameServerConfig::Udp { protocol, ip_addr, port, name: _ } => trust_dns_resolver::config::NameServerConfig {
+            NameServerConfig::Udp {
+                protocol,
+                ip_addr,
+                port,
+                name: _,
+            } => trust_dns_resolver::config::NameServerConfig {
                 socket_addr: SocketAddr::new(ip_addr, port),
                 protocol: protocol.into(),
                 tls_dns_name: None,
                 tls_config: None,
             },
-            NameServerConfig::Tcp { protocol, ip_addr, port, name: _ } => trust_dns_resolver::config::NameServerConfig {
+            NameServerConfig::Tcp {
+                protocol,
+                ip_addr,
+                port,
+                name: _,
+            } => trust_dns_resolver::config::NameServerConfig {
                 socket_addr: SocketAddr::new(ip_addr, port),
                 protocol: protocol.into(),
                 tls_dns_name: None,
