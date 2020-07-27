@@ -9,13 +9,13 @@ use futures::future::join_all;
 use log::{debug, LevelFilter};
 use nom::lib::std::collections::HashSet;
 
-use mhost::{IpNetwork, RecordType};
 use mhost::estimate::Estimate;
-use mhost::nameserver::{NameServerConfig, NameServerConfigGroup, predefined, Protocol};
-use mhost::output::{Output, OutputConfig, OutputFormat};
+use mhost::nameserver::{predefined, NameServerConfig, NameServerConfigGroup, Protocol};
 use mhost::output::summary::SummaryOptions;
+use mhost::output::{Output, OutputConfig, OutputFormat};
 use mhost::resolver::{Lookups, MultiQuery, ResolverConfigGroup, ResolverGroup, ResolverGroupOpts, ResolverOpts};
 use mhost::statistics::Statistics;
+use mhost::{IpNetwork, RecordType};
 
 static SUPPORTED_RECORD_TYPES: &[&str] = &[
     "A", "AAAA", "ANAME", "CNAME", "MX", "NULL", "NS", "PTR", "SOA", "SRV", "TXT",
@@ -269,7 +269,7 @@ fn ptr_query(ip_network: IpNetwork) -> Result<MultiQuery> {
     Ok(q)
 }
 
-fn record_types<'a, I: Iterator<Item=&'a str>>(record_types: I) -> Result<Vec<RecordType>> {
+fn record_types<'a, I: Iterator<Item = &'a str>>(record_types: I) -> Result<Vec<RecordType>> {
     let record_types: Vec<_> = record_types
         .map(str::to_uppercase)
         .map(|x| RecordType::from_str(&x))
@@ -298,8 +298,8 @@ async fn create_resolvers(
         resolver_opts.clone(),
         resolver_group_opts.clone(),
     )
-        .await
-        .context("Failed to create system resolvers")?;
+    .await
+    .context("Failed to create system resolvers")?;
     debug!("Created {} system resolvers.", system_resolvers.len());
 
     let resolver_group: ResolverConfigGroup = load_nameservers(args, &mut system_resolvers).await?.into();
@@ -313,7 +313,10 @@ async fn create_resolvers(
     Ok(system_resolvers)
 }
 
-async fn load_nameservers(args: &ArgMatches<'_>, system_resolvers: &mut ResolverGroup) -> Result<NameServerConfigGroup> {
+async fn load_nameservers(
+    args: &ArgMatches<'_>,
+    system_resolvers: &mut ResolverGroup,
+) -> Result<NameServerConfigGroup> {
     let mut nameservers_group = NameServerConfigGroup::new(Vec::new());
     if let Some(configs) = args.values_of("nameservers") {
         let configs: Vec<_> = configs
@@ -341,7 +344,8 @@ async fn load_nameservers(args: &ArgMatches<'_>, system_resolvers: &mut Resolver
         nameservers_group.merge(nameservers);
     }
     if let Some(path) = args.value_of("nameservers-from-file") {
-        let nameservers = NameServerConfigGroup::from_file(&system_resolvers, path).await
+        let nameservers = NameServerConfigGroup::from_file(&system_resolvers, path)
+            .await
             .context("Failed to load nameservers from file")?;
         debug!("Loaded {} nameservers from file.", nameservers.len());
         nameservers_group.merge(nameservers);

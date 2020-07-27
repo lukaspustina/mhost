@@ -117,7 +117,11 @@ fn count_rr_types(lookups: &Lookups) -> BTreeMap<RecordType, usize> {
 }
 
 fn count_responding_servers(lookups: &Lookups) -> usize {
-    let server_set: HashSet<_> = lookups.iter().map(|x| x.name_server().to_string()).collect();
+    let server_set: HashSet<_> = lookups
+        .iter()
+        .filter(|x| x.result().is_response())
+        .map(|x| x.name_server().to_string())
+        .collect();
 
     server_set.len()
 }
