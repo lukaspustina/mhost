@@ -15,12 +15,15 @@ use std::hash::{Hash, Hasher};
 
 #[derive(Debug)]
 pub struct SummaryOptions {
+    /// Show numbers, times, and dates in human readable form
     human: bool,
+    /// Reduce output to an as concise as possible form
+    condensed: bool,
 }
 
 impl Default for SummaryOptions {
     fn default() -> Self {
-        SummaryOptions { human: true }
+        SummaryOptions { human: true, condensed: false }
     }
 }
 
@@ -71,11 +74,15 @@ fn output_records<W: Write>(writer: &mut W, records: Vec<&Record>, opts: &Summar
     let records_counted = summarize_records(records);
 
     for (r, set) in records_counted {
-        let ttls: Vec<_> = set.iter().map(|x| x.ttl()).collect();
-        let ttl_summary = crate::statistics::Summary::summary(ttls.as_slice());
+        let suffix = if opts.condensed {
+            "".to_string()
+        } else {
+            let ttls: Vec<_> = set.iter().map(|x| x.ttl()).collect();
+            let ttl_summary = crate::statistics::Summary::summary(ttls.as_slice());
 
-        let ttl_str = format_ttl_summary(&ttl_summary, opts);
-        let suffix = format!(", {} ({})", ttl_str, set.len());
+            let ttl = format_ttl_summary(&ttl_summary, opts);
+            format!(", {} ({})", ttl, set.len())
+        };
 
         writeln!(writer, "* {}", r.render_with_suffix(&suffix, opts))?;
     }
@@ -451,7 +458,7 @@ impl TXT {
             buf.push_str(&str);
         }
 
-        format!("'{}{}'", styles::TXT.paint(&buf), suffix)
+        format!("'{}'{}", styles::TXT.paint(&buf), suffix)
     }
 }
 
