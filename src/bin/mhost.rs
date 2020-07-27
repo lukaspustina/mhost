@@ -7,14 +7,15 @@ use anyhow::{Context, Result};
 use clap::{App, AppSettings, Arg, ArgMatches};
 use futures::future::join_all;
 use log::{debug, LevelFilter};
+use nom::lib::std::collections::HashSet;
 
 use mhost::{IpNetwork, RecordType};
-use mhost::nameserver::{predefined, NameServerConfig, NameServerConfigGroup, Protocol};
+use mhost::estimate::Estimate;
+use mhost::nameserver::{NameServerConfig, NameServerConfigGroup, predefined, Protocol};
 use mhost::output::{Output, OutputConfig, OutputFormat};
 use mhost::output::summary::SummaryOptions;
 use mhost::resolver::{Lookups, MultiQuery, ResolverConfigGroup, ResolverGroup, ResolverOpts};
 use mhost::statistics::Statistics;
-use nom::lib::std::collections::HashSet;
 
 static SUPPORTED_RECORD_TYPES: &[&str] = &["A", "AAAA", "ANAME", "CNAME", "MX", "NULL", "NS", "PTR", "SOA", "SRV", "TXT"];
 
@@ -71,13 +72,13 @@ fn setup_clap() -> App<'static, 'static> {
             .required_unless("list-predefined")
             .index(1)
             .value_name("NAME | IP ADDR | CIDR BLOCK")
+            .next_line_help(false)
             .help("domain name, IP address, or CIDR block to lookup")
             .long_help(
-                "* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de
+"* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de
 * IP ADDR may be any valid IPv4 or IPv4 address, e.g., 192.168.0.1
 * CIDR BLOCK may be any valid IPv4 or IPv6 subnet in CIDR notation, e.g., 192.168.0.1/24
-  all valid IP addresses of a CIDR block will be queried for a reverse lookup"
-            )
+  all valid IP addresses of a CIDR block will be queried for a reverse lookup")
         )
         .arg(Arg::with_name("no-system-resolv-opt")
             .long("no-system-resolv-opt")
@@ -114,6 +115,7 @@ fn setup_clap() -> App<'static, 'static> {
         )
         .arg(Arg::with_name("predefined-filter")
             .long("predefined-filter")
+            .value_name("PROTOCOL")
             .multiple(true)
             .use_delimiter(true)
             .require_delimiter(true)
@@ -150,9 +152,18 @@ fn setup_clap() -> App<'static, 'static> {
             .long("randomized-lookup")
             .help("Switches into randomize lookup mode: every query will be send just once to a one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.")
         )
+        .arg(Arg::with_name("no-estimates")
+            .long("no-estimates")
+            .help("Does not print estimates before resolving")
+        )
         .arg(Arg::with_name("no-statistics")
             .long("no-statistics")
             .help("Does not print results statistics before output")
+        )
+        .arg(Arg::with_name("quiet")
+            .short("q")
+            .long("quiet")
+            .help("Does not print anything but results")
         )
         .arg(Arg::with_name("no-color")
             .long("no-color")
@@ -177,11 +188,15 @@ async fn run(args: ArgMatches<'_>) -> Result<()> {
 
     let resolvers = create_resolvers(&args).await?;
 
+    if !args.is_present("no-estimates") && !args.is_present("quiet") {
+        print_estimates(&resolvers, &query);
+    }
+
     let start_time = Instant::now();
     let lookups: Lookups = lookup(&args, query, resolvers).await;
     let total_run_time = Instant::now() - start_time;
 
-    if !args.is_present("no-statistics") {
+    if !args.is_present("no-statistics") && !args.is_present("quiet") {
         print_statistics(&lookups, total_run_time);
     }
 
@@ -308,6 +323,41 @@ async fn create_resolvers(args: &ArgMatches<'_>) -> Result<ResolverGroup> {
     }
 
     Ok(system_resolvers)
+}
+
+fn print_estimates(resolvers: &ResolverGroup, query: &MultiQuery) {
+    let num_servers = resolvers.len();
+    let num_names = query.num_names();
+    let num_record_types = query.num_record_types();
+    let estimate = resolvers.estimate(query);
+
+    let queries_str = if estimate.min_requests == estimate.max_requests {
+        format!("{} {}", estimate.min_requests, if estimate.min_requests > 1 { "requests" } else { "request" })
+    } else {
+        format!("between {} and {} requests", estimate.min_requests, estimate.max_requests)
+    };
+    let namesservers_str = if num_servers > 1 {
+        format!("{} nameservers", num_servers)
+    } else {
+        "1 nameserver".to_string()
+    };
+    let record_types_str = if num_record_types > 1 {
+        format!("{} record types", num_record_types)
+    } else {
+        "1 record type".to_string()
+    };
+    let names_str = if num_names > 1 {
+        format!("{} record types", num_names)
+    } else {
+        "1 name".to_string()
+    };
+    println!(
+        "Sending {} to {} for {} of {}.",
+        queries_str,
+        namesservers_str,
+        record_types_str,
+        names_str,
+    )
 }
 
 async fn lookup(args: &ArgMatches<'_>, query: MultiQuery, resolvers: ResolverGroup) -> Lookups {

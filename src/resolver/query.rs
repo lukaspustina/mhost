@@ -96,4 +96,12 @@ impl MultiQuery {
 
         queries
     }
+
+    pub fn num_names(&self) -> usize {
+        self.names.len()
+    }
+
+    pub fn num_record_types(&self) -> usize {
+        self.record_types.len()
+    }
 }
