@@ -1,6 +1,6 @@
 use crate::nameserver::NameServerConfig;
 
-pub fn name_server_configs() -> Vec<NameServerConfig> {
+pub fn nameserver_configs() -> Vec<NameServerConfig> {
     vec![
         cloudflare::udp(),
         cloudflare::tcp(),

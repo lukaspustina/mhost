@@ -1,7 +1,7 @@
 use std::io;
 use std::io::Write;
 use std::str::FromStr;
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use clap::{App, AppSettings, Arg, ArgMatches};
@@ -9,11 +9,12 @@ use futures::future::join_all;
 use log::{debug, LevelFilter};
 
 use mhost::{IpNetwork, RecordType};
-use mhost::nameserver::{self, NameServerConfig, NameServerConfigGroup};
+use mhost::nameserver::{predefined, NameServerConfig, NameServerConfigGroup, Protocol};
 use mhost::output::{Output, OutputConfig, OutputFormat};
 use mhost::output::summary::SummaryOptions;
-use mhost::resolver::{MultiQuery, predefined, ResolverConfigGroup, ResolverGroup, ResolverOpts, Lookups};
+use mhost::resolver::{Lookups, MultiQuery, ResolverConfigGroup, ResolverGroup, ResolverOpts};
 use mhost::statistics::Statistics;
+use nom::lib::std::collections::HashSet;
 
 static SUPPORTED_RECORD_TYPES: &[&str] = &["A", "AAAA", "ANAME", "CNAME", "MX", "NULL", "NS", "PTR", "SOA", "SRV", "TXT"];
 
@@ -101,12 +102,25 @@ fn setup_clap() -> App<'static, 'static> {
             .value_name("HOSTNAME | IP ADDR")
             .takes_value(true)
             .multiple(true)
+            .use_delimiter(true)
+            .require_delimiter(true)
+            .value_delimiter(";")
             .help("Adds nameserver for lookups; if non given, only system nameservers will be used")
         )
         .arg(Arg::with_name("predefined")
             .short("p")
             .long("predefined")
             .help("Adds predefined nameservers for lookups")
+        )
+        .arg(Arg::with_name("predefined-filter")
+            .long("predefined-filter")
+            .multiple(true)
+            .use_delimiter(true)
+            .require_delimiter(true)
+            .default_value("upd,tcp,https,tls")
+            .possible_values(&["udp", "tcp", "https", "tls"])
+            .default_value_if("predefined", None, "udp,tcp,https,tls")
+            .help("Filters predefined nameservers by protocol")
         )
         .arg(Arg::with_name("list-predefined")
             .long("list-predefined")
@@ -176,7 +190,7 @@ async fn run(args: ArgMatches<'_>) -> Result<()> {
 
 fn list_predefined_nameservers() {
     println!("List of predefined servers:");
-    for ns in nameserver::predefined::name_server_configs() {
+    for ns in predefined::nameserver_configs() {
         println!("* {}", ns);
     }
 }
@@ -203,7 +217,7 @@ fn ptr_query(ip_network: IpNetwork) -> Result<MultiQuery> {
     Ok(q)
 }
 
-fn record_types<'a, I: Iterator<Item = &'a str>>(record_types: I) -> Result<Vec<RecordType>> {
+fn record_types<'a, I: Iterator<Item=&'a str>>(record_types: I) -> Result<Vec<RecordType>> {
     let record_types: Vec<_> = record_types
         .map(str::to_uppercase)
         .map(|x| RecordType::from_str(&x))
@@ -277,7 +291,15 @@ async fn create_resolvers(args: &ArgMatches<'_>) -> Result<ResolverGroup> {
     system_resolvers.merge(resolvers);
 
     if args.is_present("predefined") {
-        let configs = predefined::resolver_configs();
+        let filter: HashSet<Protocol> = args.values_of("predefined-filter").unwrap() // safe unwrap, because set by default by clap
+            .map(Protocol::from_str)
+            .flatten()
+            .collect();
+        let nameservers: Vec<_> = predefined::nameserver_configs()
+            .into_iter()
+            .filter(|x| filter.contains(&x.protocol()))
+            .collect();
+        let configs: ResolverConfigGroup = NameServerConfigGroup::new(nameservers).into();
         let predefined = ResolverGroup::from_configs(configs, Default::default(), Default::default())
             .await
             .context("Failed to load predefined resolvers")?;
