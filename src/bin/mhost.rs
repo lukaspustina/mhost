@@ -1,7 +1,7 @@
 use std::io;
 use std::io::Write;
 use std::str::FromStr;
-use std::time::Instant;
+use std::time::{Instant, Duration};
 
 use anyhow::{Context, Result};
 use clap::{App, AppSettings, Arg, ArgMatches};
@@ -12,7 +12,7 @@ use mhost::{IpNetwork, RecordType};
 use mhost::nameserver::{self, NameServerConfig, NameServerConfigGroup};
 use mhost::output::{Output, OutputConfig, OutputFormat};
 use mhost::output::summary::SummaryOptions;
-use mhost::resolver::{MultiQuery, predefined, ResolverConfigGroup, ResolverGroup, ResolverOpts};
+use mhost::resolver::{MultiQuery, predefined, ResolverConfigGroup, ResolverGroup, ResolverOpts, Lookups};
 use mhost::statistics::Statistics;
 
 static SUPPORTED_RECORD_TYPES: &[&str] = &["A", "AAAA", "ANAME", "CNAME", "MX", "NULL", "NS", "PTR", "SOA", "SRV", "TXT"];
@@ -22,6 +22,9 @@ async fn main() -> Result<()> {
     let app = setup_clap();
     let args = app.get_matches();
 
+    if args.is_present("no-color") {
+        yansi::Paint::disable();
+    }
     let log_level = log_level(args.occurrences_of("v"));
     setup_logging(log_level);
 
@@ -133,6 +136,14 @@ fn setup_clap() -> App<'static, 'static> {
             .long("randomized-lookup")
             .help("Switches into randomize lookup mode: every query will be send just once to a one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.")
         )
+        .arg(Arg::with_name("no-statistics")
+            .long("no-statistics")
+            .help("Does not print results statistics before output")
+        )
+        .arg(Arg::with_name("no-color")
+            .long("no-color")
+            .help("Disables colorful output")
+        )
         .arg(Arg::with_name("v")
             .short("v")
             .multiple(true)
@@ -145,14 +156,34 @@ async fn run(args: ArgMatches<'_>) -> Result<()> {
         return Ok(());
     }
 
-    let ignore_system_resolv_opt = args.is_present("no-system-resolv-opt");
-    let ignore_system_nameservers = args.is_present("no-system-nameservers");
-
     let domain_name = args
         .value_of("domain name")
         .context("No domain name to lookup specified")?;
-    let query = if let Ok(ip_network) = IpNetwork::from_str(domain_name) {
-        ptr_query(ip_network)?
+    let query = build_query(&args, domain_name)?;
+
+    let resolvers = create_resolvers(&args).await?;
+
+    let start_time = Instant::now();
+    let lookups: Lookups = lookup(&args, query, resolvers).await;
+    let total_run_time = Instant::now() - start_time;
+
+    if !args.is_present("no-statistics") {
+        print_statistics(&lookups, total_run_time);
+    }
+
+    output(&lookups)
+}
+
+fn list_predefined_nameservers() {
+    println!("List of predefined servers:");
+    for ns in nameserver::predefined::name_server_configs() {
+        println!("* {}", ns);
+    }
+}
+
+fn build_query(args: &ArgMatches, domain_name: &str) -> Result<MultiQuery> {
+    if let Ok(ip_network) = IpNetwork::from_str(domain_name) {
+        ptr_query(ip_network)
     } else {
         let record_types = if args.is_present("all-record-types") {
             SUPPORTED_RECORD_TYPES.iter().map(|x| RecordType::from_str(x).unwrap()).collect()
@@ -162,8 +193,35 @@ async fn run(args: ArgMatches<'_>) -> Result<()> {
                 .context("No record types for name lookup specified")?;
             record_types(args)?
         };
-        name_query(domain_name, record_types)?
-    };
+        name_query(domain_name, record_types)
+    }
+}
+
+fn ptr_query(ip_network: IpNetwork) -> Result<MultiQuery> {
+    let q = MultiQuery::multi_name(ip_network.iter(), RecordType::PTR).context("Failed to create query")?;
+    debug!("Prepared query for reverse lookups.");
+    Ok(q)
+}
+
+fn record_types<'a, I: Iterator<Item = &'a str>>(record_types: I) -> Result<Vec<RecordType>> {
+    let record_types: Vec<_> = record_types
+        .map(str::to_uppercase)
+        .map(|x| RecordType::from_str(&x))
+        .collect();
+    let record_types: std::result::Result<Vec<_>, _> = record_types.into_iter().collect();
+    record_types.context("Failed to parse record type")
+}
+
+fn name_query(name: &str, record_types: Vec<RecordType>) -> Result<MultiQuery> {
+    let record_types_len = record_types.len();
+    let q = MultiQuery::multi_record(name, record_types).context("Failed to build query")?;
+    debug!("Prepared query for name lookup for {} record types.", record_types_len);
+    Ok(q)
+}
+
+async fn create_resolvers(args: &ArgMatches<'_>) -> Result<ResolverGroup> {
+    let ignore_system_resolv_opt = args.is_present("no-system-resolv-opt");
+    let ignore_system_nameservers = args.is_present("no-system-nameservers");
 
     let system_resolver_ops = if ignore_system_resolv_opt {
         Default::default()
@@ -227,21 +285,27 @@ async fn run(args: ArgMatches<'_>) -> Result<()> {
         system_resolvers.merge(predefined);
     }
 
-    let start_time = Instant::now();
-    let lookups = if args.is_present("randomized-lookup") {
-        system_resolvers.rnd_lookup(query).await
-    } else {
-        system_resolvers.lookup(query).await
-    };
-    let total_run_time = Instant::now() - start_time;
+    Ok(system_resolvers)
+}
 
+async fn lookup(args: &ArgMatches<'_>, query: MultiQuery, resolvers: ResolverGroup) -> Lookups {
+    if args.is_present("randomized-lookup") {
+        resolvers.rnd_lookup(query).await
+    } else {
+        resolvers.lookup(query).await
+    }
+}
+
+fn print_statistics(lookups: &Lookups, total_run_time: Duration) {
     let statistics = lookups.statistics();
     println!(
         "Received {} within {} ms of total run time.",
         statistics,
         total_run_time.as_millis()
     );
+}
 
+fn output(lookups: &Lookups) -> Result<()> {
     let stdout = io::stdout();
     let mut handle = stdout.lock();
 
@@ -251,33 +315,4 @@ async fn run(args: ArgMatches<'_>) -> Result<()> {
     output
         .output(&mut handle, &lookups)
         .context("Failed to print summary to stdout.")
-}
-
-fn list_predefined_nameservers() {
-    println!("List of predefined servers:");
-    for ns in nameserver::predefined::name_server_configs() {
-        println!("* {}", ns);
-    }
-}
-
-fn ptr_query(ip_network: IpNetwork) -> Result<MultiQuery> {
-    let q = MultiQuery::multi_name(ip_network.iter(), RecordType::PTR).context("Failed to create query")?;
-    debug!("Prepared query for reverse lookups.");
-    Ok(q)
-}
-
-fn name_query(name: &str, record_types: Vec<RecordType>) -> Result<MultiQuery> {
-    let record_types_len = record_types.len();
-    let q = MultiQuery::multi_record(name, record_types).context("Failed to build query")?;
-    debug!("Prepared query for name lookup for {} record types.", record_types_len);
-    Ok(q)
-}
-
-fn record_types<'a, I: Iterator<Item = &'a str>>(record_types: I) -> Result<Vec<RecordType>> {
-    let record_types: Vec<_> = record_types
-        .map(str::to_uppercase)
-        .map(|x| RecordType::from_str(&x))
-        .collect();
-    let record_types: std::result::Result<Vec<_>, _> = record_types.into_iter().collect();
-    record_types.context("Failed to parse record type")
 }

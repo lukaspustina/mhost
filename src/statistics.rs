@@ -58,18 +58,32 @@ impl<'a> fmt::Display for LookupsStats<'a> {
         let rr_types = rr_types_as_str(&self.rr_type_counts);
         let num_rr = count_rrs(&self.rr_type_counts);
         let str = format!("{num_resp} responses with {num_rr} RR [{rr_types}], {num_nx} Nx, {num_to} TO, {num_err} Err in (min {min_time}, max {max_time}) ms from {num_srvs} server{servers}",
-                          num_resp = self.responses,
-                          num_rr = num_rr,
+                          num_resp = styles::BOLD.paint(self.responses),
+                          num_rr = styles::GOOD.paint(num_rr),
                           rr_types = rr_types,
-                          num_nx = self.nxdomains,
-                          num_to = self.timeouts,
-                          num_err = self.errors,
+                          num_nx = styles::WARN.paint(self.nxdomains),
+                          num_to = if self.timeouts > 0 {styles::ERR.paint(self.timeouts)} else {styles::NORMAL.paint(self.timeouts)},
+                          num_err = if self.errors > 0 {styles::ERR.paint(self.errors)} else {styles::NORMAL.paint(self.errors)},
                           min_time = self.response_time_summary.min.map(|x| x.to_string()).unwrap_or_else(|| "-".to_string()),
                           max_time = self.response_time_summary.max.map(|x| x.to_string()).unwrap_or_else(|| "-".to_string()),
-                          num_srvs = self.responding_servers,
+                          num_srvs = styles::BOLD.paint(self.responding_servers),
                           servers = if self.responding_servers == 1 { "" } else { "s" },
         );
         f.write_str(&str)
+    }
+}
+
+
+mod styles {
+    use lazy_static::lazy_static;
+    use yansi::{Color, Style};
+
+    lazy_static! {
+        pub static ref NORMAL: Style = Style::default();
+        pub static ref BOLD: Style = Style::new(Color::White).bold();
+        pub static ref GOOD: Style = Style::new(Color::Green);
+        pub static ref WARN: Style = Style::new(Color::Yellow);
+        pub static ref ERR: Style = Style::new(Color::Red);
     }
 }
 
