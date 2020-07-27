@@ -200,7 +200,7 @@ async fn resolve_name(resolvers: &ResolverGroup, name: &str) -> Result<IpAddr> {
         })?;
     let lookups = resolvers.lookup(query).await;
     let ipv4 = lookups.a().unique().to_owned().into_iter().next().map(IpAddr::V4);
-    let ipv6 = lookups.aaaa().unique().to_owned().into_iter().nth(0).map(IpAddr::V6);
+    let ipv6 = lookups.aaaa().unique().to_owned().into_iter().next().map(IpAddr::V6);
     vec![ipv4, ipv6]
         .into_iter()
         .flatten()

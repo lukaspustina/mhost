@@ -9,13 +9,13 @@ use futures::future::join_all;
 use log::{debug, LevelFilter};
 use nom::lib::std::collections::HashSet;
 
-use mhost::{IpNetwork, RecordType};
 use mhost::estimate::Estimate;
-use mhost::nameserver::{NameServerConfig, NameServerConfigGroup, predefined, Protocol};
-use mhost::output::{Output, OutputConfig, OutputFormat};
+use mhost::nameserver::{predefined, NameServerConfig, NameServerConfigGroup, Protocol};
 use mhost::output::summary::SummaryOptions;
-use mhost::resolver::{Lookups, MultiQuery, ResolverConfigGroup, ResolverGroup, ResolverOpts, ResolverGroupOpts};
+use mhost::output::{Output, OutputConfig, OutputFormat};
+use mhost::resolver::{Lookups, MultiQuery, ResolverConfigGroup, ResolverGroup, ResolverGroupOpts, ResolverOpts};
 use mhost::statistics::Statistics;
+use mhost::{IpNetwork, RecordType};
 
 static SUPPORTED_RECORD_TYPES: &[&str] = &[
     "A", "AAAA", "ANAME", "CNAME", "MX", "NULL", "NS", "PTR", "SOA", "SRV", "TXT",
@@ -263,7 +263,7 @@ fn ptr_query(ip_network: IpNetwork) -> Result<MultiQuery> {
     Ok(q)
 }
 
-fn record_types<'a, I: Iterator<Item=&'a str>>(record_types: I) -> Result<Vec<RecordType>> {
+fn record_types<'a, I: Iterator<Item = &'a str>>(record_types: I) -> Result<Vec<RecordType>> {
     let record_types: Vec<_> = record_types
         .map(str::to_uppercase)
         .map(|x| RecordType::from_str(&x))
@@ -279,13 +279,21 @@ fn name_query(name: &str, record_types: Vec<RecordType>) -> Result<MultiQuery> {
     Ok(q)
 }
 
-async fn create_resolvers(resolver_group_opts: ResolverGroupOpts, resolver_opts: ResolverOpts, args: &ArgMatches<'_>) -> Result<ResolverGroup> {
+async fn create_resolvers(
+    resolver_group_opts: ResolverGroupOpts,
+    resolver_opts: ResolverOpts,
+    args: &ArgMatches<'_>,
+) -> Result<ResolverGroup> {
     let ignore_system_nameservers = args.is_present("no-system-nameservers");
 
     let system_resolver_group: ResolverConfigGroup = load_system_nameservers(args, ignore_system_nameservers)?.into();
-    let mut system_resolvers = ResolverGroup::from_configs(system_resolver_group, resolver_opts.clone(), resolver_group_opts.clone())
-        .await
-        .context("Failed to create system resolvers")?;
+    let mut system_resolvers = ResolverGroup::from_configs(
+        system_resolver_group,
+        resolver_opts.clone(),
+        resolver_group_opts.clone(),
+    )
+    .await
+    .context("Failed to create system resolvers")?;
     debug!("Created {} system resolvers.", system_resolvers.len());
 
     let mut nameservers_group = NameServerConfigGroup::new(Vec::new());
@@ -327,9 +335,14 @@ async fn create_resolvers(resolver_group_opts: ResolverGroupOpts, resolver_opts:
 }
 
 fn load_resolver_group_opts(args: &ArgMatches) -> Result<ResolverGroupOpts> {
-    let max_concurrent_servers = args.value_of("max-concurrent-servers").map(|x| usize::from_str(x).unwrap()).unwrap(); // Safe unwrap, because clap's validation
+    let max_concurrent_servers = args
+        .value_of("max-concurrent-servers")
+        .map(|x| usize::from_str(x).unwrap())
+        .unwrap(); // Safe unwrap, because clap's validation
 
-    let resolver_group_opts = ResolverGroupOpts { max_concurrent: max_concurrent_servers };
+    let resolver_group_opts = ResolverGroupOpts {
+        max_concurrent: max_concurrent_servers,
+    };
     debug!("Loaded resolver group opts.");
 
     Ok(resolver_group_opts)
@@ -338,7 +351,10 @@ fn load_resolver_group_opts(args: &ArgMatches) -> Result<ResolverGroupOpts> {
 fn load_resolver_opts(args: &ArgMatches) -> Result<ResolverOpts> {
     let ignore_system_resolv_opt = args.is_present("no-system-resolv-opt");
     let attempts = args.value_of("attempts").map(|x| usize::from_str(x).unwrap()).unwrap(); // Safe unwrap, because clap's validation
-    let max_concurrent_requests = args.value_of("max-concurrent-requests").map(|x| usize::from_str(x).unwrap()).unwrap(); // Safe unwrap, because clap's validation
+    let max_concurrent_requests = args
+        .value_of("max-concurrent-requests")
+        .map(|x| usize::from_str(x).unwrap())
+        .unwrap(); // Safe unwrap, because clap's validation
     let timeout = args
         .value_of("timeout")
         .map(|x| u64::from_str(x).unwrap())
@@ -351,7 +367,12 @@ fn load_resolver_opts(args: &ArgMatches) -> Result<ResolverOpts> {
     Ok(resolver_opts)
 }
 
-fn create_resolver_opts(ignore_system_resolv_opt: bool, attempts: usize, max_concurrent_requests: usize, timeout: Duration) -> Result<ResolverOpts> {
+fn create_resolver_opts(
+    ignore_system_resolv_opt: bool,
+    attempts: usize,
+    max_concurrent_requests: usize,
+    timeout: Duration,
+) -> Result<ResolverOpts> {
     let default_opts = if ignore_system_resolv_opt {
         Default::default()
     } else {
@@ -371,8 +392,7 @@ fn load_system_nameservers(args: &ArgMatches, ignore_system_nameservers: bool) -
     let mut system_nameserver_group = NameServerConfigGroup::new(Vec::new());
 
     if !ignore_system_nameservers {
-        let nameservers =
-            NameServerConfigGroup::from_system_config().context("Failed to load system name servers")?;
+        let nameservers = NameServerConfigGroup::from_system_config().context("Failed to load system name servers")?;
         debug!("Loaded {} system nameservers.", nameservers.len());
         system_nameserver_group.merge(nameservers);
     };
@@ -390,8 +410,12 @@ fn load_system_nameservers(args: &ArgMatches, ignore_system_nameservers: bool) -
 }
 
 fn print_opts(group_opts: &ResolverGroupOpts, opts: &ResolverOpts) {
-    println!("Nameservers options: concurrent nameservers={}, attempts={}, concurrent requests={}, timeout={} s",
-        group_opts.max_concurrent , opts.attempts, opts.max_concurrent_requests, opts.timeout.as_secs()
+    println!(
+        "Nameservers options: concurrent nameservers={}, attempts={}, concurrent requests={}, timeout={} s",
+        group_opts.max_concurrent,
+        opts.attempts,
+        opts.max_concurrent_requests,
+        opts.timeout.as_secs()
     )
 }
 

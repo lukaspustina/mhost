@@ -244,6 +244,10 @@ impl ResolverGroup {
     pub fn len(&self) -> usize {
         self.resolvers.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.resolvers.is_empty()
+    }
 }
 
 #[doc(hidden)]
