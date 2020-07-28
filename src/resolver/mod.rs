@@ -44,6 +44,8 @@ pub struct ResolverOpts {
     pub max_concurrent_requests: usize,
     pub ndots: usize,
     pub preserve_intermediates: bool,
+    /// cf. `trust_dns_resolver::proto::xfer::DnsRequestOptions`
+    pub expects_multiple_responses: bool,
     pub timeout: Duration,
     pub abort_on_error: bool,
     pub abort_on_timeout: bool,
@@ -66,6 +68,7 @@ impl Default for ResolverOpts {
             max_concurrent_requests: 5,
             ndots: 1,
             preserve_intermediates: false,
+            expects_multiple_responses: false,
             timeout: Duration::from_secs(5),
             abort_on_error: true,
             abort_on_timeout: true,

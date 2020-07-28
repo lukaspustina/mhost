@@ -371,9 +371,8 @@ fn create_breaker(on_error: bool, on_timeout: bool) -> Box<dyn Fn(&Lookup) -> bo
 }
 
 async fn single_lookup(resolver: &Resolver, query: UniQuery) -> Lookup {
-    // TODO: Add this as an Option
     let dns_request_options = DnsRequestOptions {
-        expects_multiple_responses: false,
+        expects_multiple_responses: resolver.opts.expects_multiple_responses,
     };
     let q = query.clone();
     let start_time = Instant::now();
