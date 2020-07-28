@@ -266,7 +266,8 @@ impl From<resolv_conf::Config> for ResolverOpts {
 impl From<ResolverOpts> for trust_dns_resolver::config::ResolverOpts {
     fn from(opts: ResolverOpts) -> Self {
         trust_dns_resolver::config::ResolverOpts {
-            attempts: opts.attempts,
+            // TODO: This is currently broken or I misunderstood the docs - cf. https://github.com/bluejekyll/trust-dns/issues/1176
+            attempts: if opts.attempts <= 0 { 0 } else { opts.attempts - 1},
             ndots: opts.ndots,
             num_concurrent_reqs: opts.max_concurrent_requests,
             preserve_intermediates: opts.preserve_intermediates,
