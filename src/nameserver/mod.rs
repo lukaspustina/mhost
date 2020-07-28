@@ -7,6 +7,7 @@ use serde::Serialize;
 
 use crate::Result;
 use crate::{system_config, Error};
+use std::path::Path;
 
 pub mod load;
 mod parser;
@@ -198,6 +199,11 @@ impl NameServerConfigGroup {
     pub fn from_system_config() -> Result<Self> {
         let config_group: NameServerConfigGroup = system_config::load_from_system_config()?;
         Ok(config_group)
+    }
+
+    pub fn from_system_config_path<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let opts = system_config::load_from_system_config_path(path)?;
+        Ok(opts)
     }
 
     /// Merges this `NameServerConfigGroup` with another

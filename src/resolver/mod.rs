@@ -17,6 +17,7 @@ pub mod query;
 
 pub use lookup::{Lookup, Lookups};
 pub use query::{MultiQuery, UniQuery};
+use std::path::Path;
 
 #[derive(Debug)]
 pub struct ResolverConfig {
@@ -57,6 +58,11 @@ impl ResolverOpts {
     /// Unix: Parses `/etc/resolv.conf`.
     pub fn from_system_config() -> Result<ResolverOpts> {
         let opts = system_config::load_from_system_config()?;
+        Ok(opts)
+    }
+
+    pub fn from_system_config_path<P: AsRef<Path>>(path: P) -> Result<ResolverOpts> {
+        let opts = system_config::load_from_system_config_path(path)?;
         Ok(opts)
     }
 }

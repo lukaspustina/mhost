@@ -12,7 +12,6 @@ use serde::Serialize;
 use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
 use trust_dns_resolver::proto::xfer::DnsRequestOptions;
 
-use crate::error::Error;
 use crate::nameserver::NameServerConfig;
 use crate::resolver::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
 use crate::resolver::{MultiQuery, Resolver, UniQuery};
@@ -429,7 +428,7 @@ impl IntoLookup for std::result::Result<trust_dns_resolver::lookup::Lookup, Reso
                     valid_until: valid_until.map(instant_to_utc),
                 }),
                 ResolveErrorKind::Timeout => LookupResult::Timeout,
-                _ => LookupResult::Error(Error::from(err).to_string()),
+                _ => LookupResult::Error(err.to_string()),
             },
         }
     }

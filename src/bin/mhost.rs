@@ -90,6 +90,12 @@ fn setup_clap() -> App<'static, 'static> {
             .requires("system nameservers")
             .help("Ignores nameservers from /etc/resolv.conf")
         )
+        .arg(Arg::with_name("resolv-conf")
+            .long("resolv-conf")
+            .value_name("FILE")
+            .takes_value(true)
+            .help("Uses alternative resolv.conf file")
+        )
         .arg(Arg::with_name("system nameservers")
             .short("S")
             .long("system-nameserver")
@@ -180,7 +186,8 @@ fn setup_clap() -> App<'static, 'static> {
             .default_value("2")
             .validator(|str| usize::from_str(&str).map(|_| ()).map_err(|_| "invalid number".to_string()))
             .help("Sets number of attempts to get response in case of timeout or error")
-        )        .arg(Arg::with_name("timeout")
+        )
+        .arg(Arg::with_name("timeout")
             .long("timeout")
             .value_name("TIMEOUT")
             .default_value("5")
@@ -189,19 +196,19 @@ fn setup_clap() -> App<'static, 'static> {
         )
         .arg(Arg::with_name("wait-multiple-responses")
             .long("wait-multiple-responses")
-            .help("Waits until timeout for additional responses from nameservers.")
+            .help("Waits until timeout for additional responses from nameservers")
         )
         .arg(Arg::with_name("no-abort-on-error")
             .long("no-abort-on-error")
-            .help("Sets do-not-ignore errors from nameservers.")
+            .help("Sets do-not-ignore errors from nameservers")
         )
         .arg(Arg::with_name("no-abort-on-timeout")
             .long("no-abort-on-timeout")
-            .help("Sets do-not-ignore timeouts from nameservers.")
+            .help("Sets do-not-ignore timeouts from nameservers")
         )
         .arg(Arg::with_name("no-aborts")
             .long("no-aborts")
-            .help("Sets do-not-ignore errors and timeouts from nameservers.")
+            .help("Sets do-not-ignore errors and timeouts from nameservers")
         )
         .arg(Arg::with_name("quiet")
             .short("q")
@@ -402,7 +409,9 @@ fn load_resolver_opts(args: &ArgMatches) -> Result<ResolverOpts> {
     let default_opts = if ignore_system_resolv_opt {
         Default::default()
     } else {
-        ResolverOpts::from_system_config().context("Failed to load system resolver options")?
+        let resolv_conf_path = args.value_of("resolv-conf").unwrap_or("/etc/resolv.conf");
+        ResolverOpts::from_system_config_path(resolv_conf_path)
+            .context("Failed to load system resolver options")?
     };
     let resolver_opts = ResolverOpts {
         attempts,
@@ -422,8 +431,10 @@ fn load_system_nameservers(args: &ArgMatches, ignore_system_nameservers: bool) -
     let mut system_nameserver_group = NameServerConfigGroup::new(Vec::new());
 
     if !ignore_system_nameservers {
-        let nameservers = NameServerConfigGroup::from_system_config().context("Failed to load system name servers")?;
-        debug!("Loaded {} system nameservers.", nameservers.len());
+        let resolv_conf_path = args.value_of("resolv-conf").unwrap_or("/etc/resolv.conf");
+        let nameservers = NameServerConfigGroup::from_system_config_path(resolv_conf_path)
+            .context("Failed to load system name servers")?;
+        debug!("Loaded {} system nameservers from '{}'.", nameservers.len(), resolv_conf_path);
         system_nameserver_group.merge(nameservers);
     };
 
@@ -441,10 +452,10 @@ fn load_system_nameservers(args: &ArgMatches, ignore_system_nameservers: bool) -
 
 fn print_opts(group_opts: &ResolverGroupOpts, opts: &ResolverOpts) {
     println!(
-        "Nameservers options: concurrent nameservers={}, attempts={}, concurrent requests={}, timeout={} s{}{}{}",
+        "Nameservers options: concurrent nameservers={}, concurrent requests={}, attempts={}, timeout={} s{}{}{}",
         group_opts.max_concurrent,
-        opts.attempts,
         opts.max_concurrent_requests,
+        opts.attempts,
         opts.timeout.as_secs(),
         if opts.expects_multiple_responses { ", wait for additional responses" } else {""},
         if opts.abort_on_error { ", abort on error" } else { "" },
