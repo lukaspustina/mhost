@@ -188,6 +188,18 @@ fn setup_clap() -> App<'static, 'static> {
             .validator(|str| u64::from_str(&str).map(|_| ()).map_err(|_| "invalid number".to_string()))
             .help("Sets timeout in seconds for responses")
         )
+        .arg(Arg::with_name("no-abort-on-error")
+            .long("no-abort-on-error")
+            .help("Sets do-not-ignore errors from nameservers.")
+        )
+        .arg(Arg::with_name("no-abort-on-timeout")
+            .long("no-abort-on-timeout")
+            .help("Sets do-not-ignore timeouts from nameservers.")
+        )
+        .arg(Arg::with_name("no-aborts")
+            .long("no-aborts")
+            .help("Sets do-not-ignore errors and timeouts from nameservers.")
+        )
         .arg(Arg::with_name("quiet")
             .short("q")
             .long("quiet")
@@ -269,7 +281,7 @@ fn ptr_query(ip_network: IpNetwork) -> Result<MultiQuery> {
     Ok(q)
 }
 
-fn record_types<'a, I: Iterator<Item = &'a str>>(record_types: I) -> Result<Vec<RecordType>> {
+fn record_types<'a, I: Iterator<Item=&'a str>>(record_types: I) -> Result<Vec<RecordType>> {
     let record_types: Vec<_> = record_types
         .map(str::to_uppercase)
         .map(|x| RecordType::from_str(&x))
@@ -298,8 +310,8 @@ async fn create_resolvers(
         resolver_opts.clone(),
         resolver_group_opts.clone(),
     )
-    .await
-    .context("Failed to create system resolvers")?;
+        .await
+        .context("Failed to create system resolvers")?;
     debug!("Created {} system resolvers.", system_resolvers.len());
 
     let resolver_group: ResolverConfigGroup = load_nameservers(args, &mut system_resolvers).await?.into();
@@ -380,19 +392,9 @@ fn load_resolver_opts(args: &ArgMatches) -> Result<ResolverOpts> {
         .map(|x| u64::from_str(x).unwrap())
         .map(Duration::from_secs)
         .unwrap(); // Safe unwrap, because clap's validation
+    let abort_on_error = !(args.is_present("no-abort-on-error") || args.is_present("no-aborts"));
+    let abort_on_timeout = !(args.is_present("no-abort-on-timeout") || args.is_present("no-aborts"));
 
-    let resolver_opts = create_resolver_opts(ignore_system_resolv_opt, attempts, max_concurrent_requests, timeout)?;
-    debug!("Loaded resolver opts.");
-
-    Ok(resolver_opts)
-}
-
-fn create_resolver_opts(
-    ignore_system_resolv_opt: bool,
-    attempts: usize,
-    max_concurrent_requests: usize,
-    timeout: Duration,
-) -> Result<ResolverOpts> {
     let default_opts = if ignore_system_resolv_opt {
         Default::default()
     } else {
@@ -402,8 +404,11 @@ fn create_resolver_opts(
         attempts,
         max_concurrent_requests,
         timeout,
+        abort_on_error,
+        abort_on_timeout,
         ..default_opts
     };
+    debug!("Loaded resolver opts.");
 
     Ok(resolver_opts)
 }
@@ -431,11 +436,13 @@ fn load_system_nameservers(args: &ArgMatches, ignore_system_nameservers: bool) -
 
 fn print_opts(group_opts: &ResolverGroupOpts, opts: &ResolverOpts) {
     println!(
-        "Nameservers options: concurrent nameservers={}, attempts={}, concurrent requests={}, timeout={} s",
+        "Nameservers options: concurrent nameservers={}, attempts={}, concurrent requests={}, timeout={} s{}{}",
         group_opts.max_concurrent,
         opts.attempts,
         opts.max_concurrent_requests,
-        opts.timeout.as_secs()
+        opts.timeout.as_secs(),
+        if opts.abort_on_error { ", abort on error" } else { "" },
+        if opts.abort_on_timeout { ", abort on timeout" } else { "" },
     )
 }
 

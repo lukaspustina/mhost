@@ -14,6 +14,7 @@ use trust_dns_resolver::proto::xfer::DnsRequestOptions;
 
 use crate::error::Error;
 use crate::nameserver::NameServerConfig;
+use crate::resolver::buffer_unordered_with_breaker::BufferUnorderedWithBreaker;
 use crate::resolver::{MultiQuery, Resolver, UniQuery};
 use crate::resources::rdata::{Name, MX, NULL, SOA, SRV, TXT, UNKNOWN};
 use crate::resources::{RData, Record};
@@ -340,6 +341,7 @@ pub struct NxDomain {
 }
 
 pub async fn lookup<T: Into<MultiQuery>>(resolver: Resolver, query: T) -> Lookups {
+    let breaker = create_breaker(resolver.opts.abort_on_error, resolver.opts.abort_on_timeout);
     let query = query.into();
 
     let lookup_futures = query
@@ -347,8 +349,8 @@ pub async fn lookup<T: Into<MultiQuery>>(resolver: Resolver, query: T) -> Lookup
         .into_iter()
         .map(|q| single_lookup(&resolver, q));
 
-    let lookups = stream::iter(lookup_futures)
-        .buffer_unordered(resolver.opts.max_concurrent_requests)
+    let lookups = stream::iter(lookup_futures);
+    let lookups = BufferUnorderedWithBreaker::new(lookups, resolver.opts.max_concurrent_requests, breaker)
         .inspect(|lookup| trace!("Received lookup {:?}", lookup))
         .collect::<Vec<Lookup>>()
         .await;
@@ -356,8 +358,23 @@ pub async fn lookup<T: Into<MultiQuery>>(resolver: Resolver, query: T) -> Lookup
     lookups.into()
 }
 
+fn create_breaker(on_error: bool, on_timeout: bool) -> Box<dyn Fn(&Lookup) -> bool> {
+    Box::new(move |l: &Lookup| {
+        if on_error && l.result.is_err() {
+            return true;
+        };
+        if on_timeout && l.result.is_timeout() {
+            return true;
+        };
+        false
+    })
+}
+
 async fn single_lookup(resolver: &Resolver, query: UniQuery) -> Lookup {
-    let dns_request_options = DnsRequestOptions::default();
+    // TODO: Add this as an Option
+    let dns_request_options = DnsRequestOptions {
+        expects_multiple_responses: false,
+    };
     let q = query.clone();
     let start_time = Instant::now();
     trace!(

@@ -10,6 +10,7 @@ use rand::seq::SliceRandom;
 use std::sync::Arc;
 use std::time::Duration;
 
+mod buffer_unordered_with_breaker;
 pub mod lookup;
 pub mod predefined;
 pub mod query;
@@ -44,6 +45,8 @@ pub struct ResolverOpts {
     pub ndots: usize,
     pub preserve_intermediates: bool,
     pub timeout: Duration,
+    pub abort_on_error: bool,
+    pub abort_on_timeout: bool,
 }
 
 impl ResolverOpts {
@@ -64,6 +67,8 @@ impl Default for ResolverOpts {
             ndots: 1,
             preserve_intermediates: false,
             timeout: Duration::from_secs(5),
+            abort_on_error: true,
+            abort_on_timeout: true,
         }
     }
 }
@@ -267,7 +272,7 @@ impl From<ResolverOpts> for trust_dns_resolver::config::ResolverOpts {
     fn from(opts: ResolverOpts) -> Self {
         trust_dns_resolver::config::ResolverOpts {
             // TODO: This is currently broken or I misunderstood the docs - cf. https://github.com/bluejekyll/trust-dns/issues/1176
-            attempts: if opts.attempts <= 0 { 0 } else { opts.attempts - 1},
+            attempts: if opts.attempts == 0 { 0 } else { opts.attempts - 1 },
             ndots: opts.ndots,
             num_concurrent_reqs: opts.max_concurrent_requests,
             preserve_intermediates: opts.preserve_intermediates,
