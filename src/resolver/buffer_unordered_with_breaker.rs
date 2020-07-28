@@ -1,30 +1,28 @@
+/// Code stolen from futures crate -- https://docs.rs/futures-util/0.3.5/src/futures_util/stream/stream/buffer_unordered.rs.html#15-23
 use core::pin::Pin;
+
 use futures::stream::{Fuse, FuturesUnordered, StreamExt};
 use futures::task::{Context, Poll};
 use futures::{Future, Stream};
-#[cfg(feature = "sink")]
-use futures_sink::Sink;
-use pin_project::{pin_project, project};
+use pin_project::pin_project;
 
-/*
-pub trait StreamExtBufferUnorderedWithBreaker<St>
+impl<T: ?Sized> StreamExtBufferUnorderedWithBreaker for T where T: StreamExt {}
+
+pub trait StreamExtBufferUnorderedWithBreaker: StreamExt {
+    fn buffered_unordered_with_breaker(
+        self,
+        n: usize,
+        breaker: Box<dyn Fn(&<Self::Item as Future>::Output) -> bool>,
+    ) -> BufferUnorderedWithBreaker<Self>
     where
-    St: Stream,
-    St::Item: Future {
-    fn buffered_unordered_with_breaker<St>(stream: St, n: usize, breaker: Box<dyn Fn(&<St::Item as Future>::Output) -> bool>)
-                                           -> BufferUnorderedWithBreaker<St>;
-}
-
-impl<St: ?Sized> StreamExtBufferUnorderedWithBreaker for St where St: Stream, St::Item: Future
-{
-    fn buffered_unordered_with_breaker(stream: St, n: usize, breaker: Box<dyn Fn(&<St::Item as Future>::Output) -> bool>)
-                                           -> BufferUnorderedWithBreaker<St> {
-        BufferUBufferUnorderedWithBreakernordered::new(stream, n, breaker)
+        Self: Sized,
+        Self::Item: Future,
+    {
+        BufferUnorderedWithBreaker::new(self, n, breaker)
     }
 }
- */
 
-#[pin_project]
+#[pin_project(project = BufferUnorderedWithBreakerProj)]
 #[must_use = "streams do nothing unless polled"]
 pub struct BufferUnorderedWithBreaker<St>
 where
@@ -63,6 +61,8 @@ where
     }
 }
 
+/// Stops polling all other futures on next poll after first Err is returned. In this way,
+/// we get to see the Err which cased the break.
 impl<St> Stream for BufferUnorderedWithBreaker<St>
 where
     St: Stream,
@@ -70,10 +70,8 @@ where
 {
     type Item = <St::Item as Future>::Output;
 
-    #[project]
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        #[project]
-        let BufferUnorderedWithBreaker {
+        let BufferUnorderedWithBreakerProj {
             mut stream,
             in_progress_queue,
             max,

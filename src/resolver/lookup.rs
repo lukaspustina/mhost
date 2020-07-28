@@ -14,7 +14,7 @@ use trust_dns_resolver::proto::xfer::DnsRequestOptions;
 
 use crate::error::Error;
 use crate::nameserver::NameServerConfig;
-use crate::resolver::buffer_unordered_with_breaker::BufferUnorderedWithBreaker;
+use crate::resolver::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
 use crate::resolver::{MultiQuery, Resolver, UniQuery};
 use crate::resources::rdata::{Name, MX, NULL, SOA, SRV, TXT, UNKNOWN};
 use crate::resources::{RData, Record};
@@ -349,8 +349,8 @@ pub async fn lookup<T: Into<MultiQuery>>(resolver: Resolver, query: T) -> Lookup
         .into_iter()
         .map(|q| single_lookup(&resolver, q));
 
-    let lookups = stream::iter(lookup_futures);
-    let lookups = BufferUnorderedWithBreaker::new(lookups, resolver.opts.max_concurrent_requests, breaker)
+    let lookups = stream::iter(lookup_futures)
+        .buffered_unordered_with_breaker(resolver.opts.max_concurrent_requests, breaker)
         .inspect(|lookup| trace!("Received lookup {:?}", lookup))
         .collect::<Vec<Lookup>>()
         .await;

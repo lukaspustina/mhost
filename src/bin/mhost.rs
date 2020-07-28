@@ -281,7 +281,7 @@ fn ptr_query(ip_network: IpNetwork) -> Result<MultiQuery> {
     Ok(q)
 }
 
-fn record_types<'a, I: Iterator<Item=&'a str>>(record_types: I) -> Result<Vec<RecordType>> {
+fn record_types<'a, I: Iterator<Item = &'a str>>(record_types: I) -> Result<Vec<RecordType>> {
     let record_types: Vec<_> = record_types
         .map(str::to_uppercase)
         .map(|x| RecordType::from_str(&x))
@@ -310,8 +310,8 @@ async fn create_resolvers(
         resolver_opts.clone(),
         resolver_group_opts.clone(),
     )
-        .await
-        .context("Failed to create system resolvers")?;
+    .await
+    .context("Failed to create system resolvers")?;
     debug!("Created {} system resolvers.", system_resolvers.len());
 
     let resolver_group: ResolverConfigGroup = load_nameservers(args, &mut system_resolvers).await?.into();
@@ -442,7 +442,11 @@ fn print_opts(group_opts: &ResolverGroupOpts, opts: &ResolverOpts) {
         opts.max_concurrent_requests,
         opts.timeout.as_secs(),
         if opts.abort_on_error { ", abort on error" } else { "" },
-        if opts.abort_on_timeout { ", abort on timeout" } else { "" },
+        if opts.abort_on_timeout {
+            ", abort on timeout"
+        } else {
+            ""
+        },
     )
 }
 
