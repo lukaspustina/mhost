@@ -2,8 +2,8 @@ use serde::Serialize;
 use trust_dns_resolver::IntoName;
 use trust_dns_resolver::Name;
 
-use crate::error::Error;
-use crate::{RecordType, Result};
+use crate::resolver::{Error, ResolverResult};
+use crate::RecordType;
 
 /// UniQuery
 ///
@@ -15,7 +15,7 @@ pub struct UniQuery {
 }
 
 impl UniQuery {
-    pub fn new<N: IntoName>(name: N, record_type: RecordType) -> Result<UniQuery> {
+    pub fn new<N: IntoName>(name: N, record_type: RecordType) -> ResolverResult<UniQuery> {
         let name = name.into_name().map_err(Error::from)?;
 
         Ok(UniQuery { name, record_type })
@@ -60,26 +60,29 @@ impl MultiQuery {
     pub fn new<N: IntoName, S: IntoIterator<Item = N>, T: IntoIterator<Item = RecordType>>(
         names: S,
         record_types: T,
-    ) -> Result<MultiQuery> {
+    ) -> ResolverResult<MultiQuery> {
         let names: Vec<_> = names
             .into_iter()
             .map(|name| name.into_name().map_err(Error::from))
             .collect();
-        let names: Result<Vec<_>> = names.into_iter().collect();
+        let names: ResolverResult<Vec<_>> = names.into_iter().collect();
         let names = names?;
         let record_types = record_types.into_iter().collect();
 
         Ok(MultiQuery { names, record_types })
     }
 
-    pub fn multi_name<N: IntoName, S: IntoIterator<Item = N>>(names: S, record_type: RecordType) -> Result<MultiQuery> {
+    pub fn multi_name<N: IntoName, S: IntoIterator<Item = N>>(
+        names: S,
+        record_type: RecordType,
+    ) -> ResolverResult<MultiQuery> {
         MultiQuery::new(names, vec![record_type])
     }
 
     pub fn multi_record<N: IntoName, T: IntoIterator<Item = RecordType>>(
         name: N,
         record_types: T,
-    ) -> Result<MultiQuery> {
+    ) -> ResolverResult<MultiQuery> {
         MultiQuery::new(vec![name], record_types)
     }
 

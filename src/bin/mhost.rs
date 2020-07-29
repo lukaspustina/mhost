@@ -410,8 +410,7 @@ fn load_resolver_opts(args: &ArgMatches) -> Result<ResolverOpts> {
         Default::default()
     } else {
         let resolv_conf_path = args.value_of("resolv-conf").unwrap_or("/etc/resolv.conf");
-        ResolverOpts::from_system_config_path(resolv_conf_path)
-            .context("Failed to load system resolver options")?
+        ResolverOpts::from_system_config_path(resolv_conf_path).context("Failed to load system resolver options")?
     };
     let resolver_opts = ResolverOpts {
         attempts,
@@ -434,7 +433,11 @@ fn load_system_nameservers(args: &ArgMatches, ignore_system_nameservers: bool) -
         let resolv_conf_path = args.value_of("resolv-conf").unwrap_or("/etc/resolv.conf");
         let nameservers = NameServerConfigGroup::from_system_config_path(resolv_conf_path)
             .context("Failed to load system name servers")?;
-        debug!("Loaded {} system nameservers from '{}'.", nameservers.len(), resolv_conf_path);
+        debug!(
+            "Loaded {} system nameservers from '{}'.",
+            nameservers.len(),
+            resolv_conf_path
+        );
         system_nameserver_group.merge(nameservers);
     };
 
@@ -457,7 +460,11 @@ fn print_opts(group_opts: &ResolverGroupOpts, opts: &ResolverOpts) {
         opts.max_concurrent_requests,
         opts.attempts,
         opts.timeout.as_secs(),
-        if opts.expects_multiple_responses { ", wait for additional responses" } else {""},
+        if opts.expects_multiple_responses {
+            ", wait for additional responses"
+        } else {
+            ""
+        },
         if opts.abort_on_error { ", abort on error" } else { "" },
         if opts.abort_on_timeout {
             ", abort on timeout"

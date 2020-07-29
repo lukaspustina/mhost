@@ -7,15 +7,10 @@ use thiserror::Error;
 pub enum Error {
     #[error("internal error: {msg}")]
     InternalError { msg: &'static str },
-    #[error("DNS resolver error")]
-    DnsResolverError {
+    #[error("resolver failed")]
+    ResolverError {
         #[from]
-        source: trust_dns_resolver::error::ResolveError,
-    },
-    #[error("DNS protocol error")]
-    DnsProtocolError {
-        #[from]
-        source: trust_dns_resolver::proto::error::ProtoError,
+        source: crate::resolver::Error,
     },
     #[error("failed to parse '{what}' to {to} because {why}")]
     ParserError {

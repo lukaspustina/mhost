@@ -13,12 +13,12 @@ use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
 use trust_dns_resolver::proto::xfer::DnsRequestOptions;
 
 use crate::nameserver::NameServerConfig;
-use crate::resolver::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
-use crate::resolver::{MultiQuery, Resolver, UniQuery};
-use crate::resources::rdata::{Name, MX, NULL, SOA, SRV, TXT, UNKNOWN};
-use crate::resources::{RData, Record};
-use crate::serialize::ser_arc_nameserver_config;
 use crate::RecordType;
+use crate::resolver::{Error, MultiQuery, Resolver, UniQuery};
+use crate::resolver::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
+use crate::resources::{RData, Record};
+use crate::resources::rdata::{MX, Name, NULL, SOA, SRV, TXT, UNKNOWN};
+use crate::serialize::ser_arc_nameserver_config;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Lookups {
@@ -112,7 +112,7 @@ impl Lookups {
             .collect()
     }
 
-    fn map_responses(&self) -> impl Iterator<Item = &Response> {
+    fn map_responses(&self) -> impl Iterator<Item=&Response> {
         self.inner.iter().map(|x| x.result().response()).flatten()
     }
 }
@@ -147,9 +147,9 @@ impl<'a, T: Clone + Eq + Hash> Uniquified<'a, T> {
 }
 
 impl<'a, S, T> Uniquify<'a, T> for S
-where
-    S: std::marker::Sized + IntoIterator<Item = &'a T> + 'a,
-    T: Clone + Eq + Hash + 'a,
+    where
+        S: std::marker::Sized + IntoIterator<Item=&'a T> + 'a,
+        T: Clone + Eq + Hash + 'a,
 {
     fn unique(self) -> Uniquified<'a, T> {
         Uniquified {
@@ -257,8 +257,7 @@ impl Lookup {
 pub enum LookupResult {
     Response(Response),
     NxDomain(NxDomain),
-    Timeout,
-    Error(String),
+    Error(Error),
 }
 
 impl LookupResult {
@@ -272,13 +271,6 @@ impl LookupResult {
     pub fn is_nxdomain(&self) -> bool {
         match self {
             LookupResult::NxDomain { .. } => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_timeout(&self) -> bool {
-        match self {
-            LookupResult::Timeout { .. } => true,
             _ => false,
         }
     }
@@ -304,7 +296,7 @@ impl LookupResult {
         }
     }
 
-    pub fn err(&self) -> Option<&String> {
+    pub fn err(&self) -> Option<&Error> {
         match self {
             LookupResult::Error(ref err) => Some(&err),
             _ => None,
@@ -358,14 +350,11 @@ pub async fn lookup<T: Into<MultiQuery>>(resolver: Resolver, query: T) -> Lookup
 }
 
 fn create_breaker(on_error: bool, on_timeout: bool) -> Box<dyn Fn(&Lookup) -> bool> {
-    Box::new(move |l: &Lookup| {
-        if on_error && l.result.is_err() {
-            return true;
-        };
-        if on_timeout && l.result.is_timeout() {
-            return true;
-        };
-        false
+    Box::new(move |l: &Lookup| match l.result.err() {
+        Some(Error::Timeout) if on_timeout => true,
+        Some(Error::Timeout) if !on_timeout => false,
+        Some(_) if on_error => true,
+        _ => false,
     })
 }
 
@@ -387,10 +376,11 @@ async fn single_lookup(resolver: &Resolver, query: UniQuery) -> Lookup {
         .await
         .into_lookup(start_time);
     debug!(
-        "Received Lookup for '{}', record type {} from {:?}.",
+        "Lookup returned for '{}', record type {} from {:?}: {}",
         &query.name,
         &query.record_type,
-        resolver.name()
+        resolver.name(),
+        if result.is_err() { "error" } else { "ok" },
     );
 
     Lookup {
@@ -401,7 +391,7 @@ async fn single_lookup(resolver: &Resolver, query: UniQuery) -> Lookup {
 }
 
 #[doc(hidden)]
-fn map_response_records<'a, I: Iterator<Item = &'a Response>>(responses: I) -> impl Iterator<Item = &'a Record> {
+fn map_response_records<'a, I: Iterator<Item=&'a Response>>(responses: I) -> impl Iterator<Item=&'a Record> {
     responses.map(|x| x.records()).flatten()
 }
 
@@ -427,8 +417,11 @@ impl IntoLookup for std::result::Result<trust_dns_resolver::lookup::Lookup, Reso
                     response_time: Instant::now() - start_time,
                     valid_until: valid_until.map(instant_to_utc),
                 }),
-                ResolveErrorKind::Timeout => LookupResult::Timeout,
-                _ => LookupResult::Error(err.to_string()),
+                _ => {
+                    let err = Error::from(err);
+                    debug!("Lookup error: {}", &err);
+                    LookupResult::Error(err)
+                }
             },
         }
     }

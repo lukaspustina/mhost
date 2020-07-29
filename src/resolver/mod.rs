@@ -1,4 +1,3 @@
-use crate::error::Error;
 use crate::nameserver::{NameServerConfig, NameServerConfigGroup};
 use crate::system_config;
 use crate::Result;
@@ -11,13 +10,17 @@ use std::sync::Arc;
 use std::time::Duration;
 
 mod buffer_unordered_with_breaker;
+pub mod error;
 pub mod lookup;
 pub mod predefined;
 pub mod query;
 
+pub use error::Error;
 pub use lookup::{Lookup, Lookups};
 pub use query::{MultiQuery, UniQuery};
 use std::path::Path;
+
+type ResolverResult<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub struct ResolverConfig {
@@ -124,7 +127,7 @@ pub struct Resolver {
 }
 
 impl Resolver {
-    pub async fn new(config: ResolverConfig, opts: ResolverOpts) -> Result<Self> {
+    pub async fn new(config: ResolverConfig, opts: ResolverOpts) -> ResolverResult<Self> {
         let name_server = config.name_server_config.clone();
         let tr_opts = opts.clone().into();
         let tr_resolver = trust_dns_resolver::TokioAsyncResolver::tokio(config.into(), tr_opts)
@@ -185,7 +188,7 @@ impl ResolverGroup {
             .collect();
 
         // Wait all futures
-        let resolvers: Result<Vec<_>> = join_all(futures).await.into_iter().collect();
+        let resolvers: ResolverResult<Vec<_>> = join_all(futures).await.into_iter().collect();
 
         // Check for Err
         let resolvers = resolvers?;

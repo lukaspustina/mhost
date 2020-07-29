@@ -3,7 +3,7 @@ use std::fmt;
 use std::marker::PhantomData;
 
 use crate::resolver::lookup::LookupResult;
-use crate::resolver::Lookups;
+use crate::resolver::{Error, Lookups};
 use crate::RecordType;
 
 pub trait Statistics<'a> {
@@ -17,6 +17,7 @@ pub struct LookupsStats<'a> {
     pub responses: usize,
     pub nxdomains: usize,
     pub timeouts: usize,
+    pub refuses: usize,
     pub errors: usize,
     pub rr_type_counts: BTreeMap<RecordType, usize>,
     pub responding_servers: usize,
@@ -29,7 +30,7 @@ impl<'a> Statistics<'a> for Lookups {
     type StatsOut = LookupsStats<'a>;
 
     fn statistics(&'a self) -> Self::StatsOut {
-        let (responses, nxdomains, timeouts, errors) = count_result_types(&self);
+        let (responses, nxdomains, timeouts, refuses, errors) = count_result_types(&self);
         let rr_type_counts = count_rr_types(&self);
         let responding_servers = count_responding_servers(&self);
         let response_times: Vec<_> = self
@@ -44,6 +45,7 @@ impl<'a> Statistics<'a> for Lookups {
             responses,
             nxdomains,
             timeouts,
+            refuses,
             errors,
             rr_type_counts,
             responding_servers,
@@ -55,15 +57,44 @@ impl<'a> Statistics<'a> for Lookups {
 
 impl<'a> fmt::Display for LookupsStats<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn fmt_errors(errors: usize, timeouts: usize, refuses: usize) -> String {
+            if errors == 0 {
+                return "0 Err".to_string();
+            }
+            let others = errors - timeouts - refuses;
+            format!(
+                "{num_err} Err [{num_to} TO, {num_qr} QR, {num_others} O]",
+                num_err = if errors > 0 {
+                    styles::ERR.paint(errors)
+                } else {
+                    styles::NORMAL.paint(errors)
+                },
+                num_to = if timeouts > 0 {
+                    styles::ERR.paint(timeouts)
+                } else {
+                    styles::NORMAL.paint(timeouts)
+                },
+                num_qr = if refuses > 0 {
+                    styles::ERR.paint(refuses)
+                } else {
+                    styles::NORMAL.paint(refuses)
+                },
+                num_others = if others > 0 {
+                    styles::ERR.paint(others)
+                } else {
+                    styles::NORMAL.paint(others)
+                },
+            )
+        }
+
         let rr_types = rr_types_as_str(&self.rr_type_counts);
         let num_rr = count_rrs(&self.rr_type_counts);
-        let str = format!("{num_resp} responses with {num_rr} RR [{rr_types}], {num_nx} Nx, {num_to} TO, {num_err} Err in (min {min_time}, max {max_time}) ms from {num_srvs} server{servers}",
+        let str = format!("{num_resp} responses with {num_rr} RR [{rr_types}], {num_nx} Nx, {errs} in (min {min_time}, max {max_time}) ms from {num_srvs} server{servers}",
                           num_resp = styles::BOLD.paint(self.responses),
                           num_rr = styles::GOOD.paint(num_rr),
                           rr_types = rr_types,
                           num_nx = styles::WARN.paint(self.nxdomains),
-                          num_to = if self.timeouts > 0 {styles::ERR.paint(self.timeouts)} else {styles::NORMAL.paint(self.timeouts)},
-                          num_err = if self.errors > 0 {styles::ERR.paint(self.errors)} else {styles::NORMAL.paint(self.errors)},
+                          errs = fmt_errors(self.errors, self.timeouts, self.refuses),
                           min_time = self.response_time_summary.min.map(|x| x.to_string()).unwrap_or_else(|| "-".to_string()),
                           max_time = self.response_time_summary.max.map(|x| x.to_string()).unwrap_or_else(|| "-".to_string()),
                           num_srvs = styles::BOLD.paint(self.responding_servers),
@@ -126,22 +157,24 @@ fn count_responding_servers(lookups: &Lookups) -> usize {
     server_set.len()
 }
 
-fn count_result_types(lookups: &Lookups) -> (usize, usize, usize, usize) {
+fn count_result_types(lookups: &Lookups) -> (usize, usize, usize, usize, usize) {
     let mut responses: usize = 0;
     let mut nxdomains: usize = 0;
     let mut timeouts: usize = 0;
+    let mut refuses: usize = 0;
     let mut errors: usize = 0;
 
     for l in lookups.iter() {
         match l.result() {
             LookupResult::Response { .. } => responses += 1,
             LookupResult::NxDomain { .. } => nxdomains += 1,
-            LookupResult::Timeout => timeouts += 1,
+            LookupResult::Error(Error::Timeout) => timeouts += 1,
+            LookupResult::Error(Error::QueryRefused) => refuses += 1,
             LookupResult::Error { .. } => errors += 1,
         }
     }
 
-    (responses, nxdomains, timeouts, errors)
+    (responses, nxdomains, timeouts, refuses, errors)
 }
 
 fn rr_types_as_str(rr_type_counts: &BTreeMap<RecordType, usize>) -> String {
