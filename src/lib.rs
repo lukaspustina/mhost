@@ -1,3 +1,5 @@
+#[cfg(feature = "bin")]
+pub mod app;
 pub mod diff;
 pub mod error;
 pub mod estimate;
