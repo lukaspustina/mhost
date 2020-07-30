@@ -5,8 +5,8 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use clap::ArgMatches;
 
-use crate::RecordType;
 use crate::resolver::ResolverOpts;
+use crate::RecordType;
 
 pub static SUPPORTED_RECORD_TYPES: &[&str] = &[
     "A", "AAAA", "ANAME", "CNAME", "MX", "NULL", "NS", "PTR", "SOA", "SRV", "TXT",
@@ -61,7 +61,11 @@ impl TryFrom<ArgMatches<'_>> for Config {
                 .unwrap()?, // Safe unwrap, because clap's validation
             timeout: args
                 .value_of("timeout")
-                .map(|x| u64::from_str(x).map(Duration::from_secs).context("failed to parse timeout"))
+                .map(|x| {
+                    u64::from_str(x)
+                        .map(Duration::from_secs)
+                        .context("failed to parse timeout")
+                })
                 .unwrap()?, // Safe unwrap, because clap's validation
             expects_multiple_responses: args.is_present("wait-multiple-responses"),
             abort_on_error: !(args.is_present("no-abort-on-error") || args.is_present("no-aborts")),
@@ -69,12 +73,18 @@ impl TryFrom<ArgMatches<'_>> for Config {
             resolv_conf_path: args.value_of("resolv-conf").unwrap_or("/etc/resolv.conf").to_string(),
             quiet: args.is_present("quiet"),
             ignore_system_nameservers: args.is_present("no-system-nameservers"),
-            nameservers: args.values_of("nameservers").map(|xs| xs.into_iter().map(ToString::to_string).collect()),
+            nameservers: args
+                .values_of("nameservers")
+                .map(|xs| xs.map(ToString::to_string).collect()),
             predefined: args.is_present("predefined"),
-            predefined_filter: args.values_of("predefined-filter").map(|xs| xs.into_iter().map(ToString::to_string).collect()),
+            predefined_filter: args
+                .values_of("predefined-filter")
+                .map(|xs| xs.map(ToString::to_string).collect()),
             nameserver_file_path: args.value_of("nameservers-from-file").map(ToString::to_string),
             randomized_lookup: args.is_present("randomized-lookup"),
-            system_nameservers: args.values_of("system nameservers").map(|xs| xs.into_iter().map(ToString::to_string).collect()),
+            system_nameservers: args
+                .values_of("system nameservers")
+                .map(|xs| xs.map(ToString::to_string).collect()),
         };
 
         Ok(config)
@@ -109,7 +119,7 @@ fn record_types(args: &ArgMatches<'_>) -> Result<Vec<RecordType>> {
     }
 }
 
-fn parse_record_types<'a, I: Iterator<Item=&'a str>>(record_types: I) -> Result<Vec<RecordType>> {
+fn parse_record_types<'a, I: Iterator<Item = &'a str>>(record_types: I) -> Result<Vec<RecordType>> {
     let record_types: Vec<_> = record_types
         .map(str::to_uppercase)
         .map(|x| RecordType::from_str(&x))

@@ -13,12 +13,12 @@ use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
 use trust_dns_resolver::proto::xfer::DnsRequestOptions;
 
 use crate::nameserver::NameServerConfig;
-use crate::RecordType;
-use crate::resolver::{Error, MultiQuery, Resolver, UniQuery};
 use crate::resolver::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
+use crate::resolver::{Error, MultiQuery, Resolver, UniQuery};
+use crate::resources::rdata::{Name, MX, NULL, SOA, SRV, TXT, UNKNOWN};
 use crate::resources::{RData, Record};
-use crate::resources::rdata::{MX, Name, NULL, SOA, SRV, TXT, UNKNOWN};
 use crate::serialize::ser_arc_nameserver_config;
+use crate::RecordType;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Lookups {
@@ -112,7 +112,7 @@ impl Lookups {
             .collect()
     }
 
-    fn map_responses(&self) -> impl Iterator<Item=&Response> {
+    fn map_responses(&self) -> impl Iterator<Item = &Response> {
         self.inner.iter().map(|x| x.result().response()).flatten()
     }
 }
@@ -147,9 +147,9 @@ impl<'a, T: Clone + Eq + Hash> Uniquified<'a, T> {
 }
 
 impl<'a, S, T> Uniquify<'a, T> for S
-    where
-        S: std::marker::Sized + IntoIterator<Item=&'a T> + 'a,
-        T: Clone + Eq + Hash + 'a,
+where
+    S: std::marker::Sized + IntoIterator<Item = &'a T> + 'a,
+    T: Clone + Eq + Hash + 'a,
 {
     fn unique(self) -> Uniquified<'a, T> {
         Uniquified {
@@ -391,7 +391,7 @@ async fn single_lookup(resolver: &Resolver, query: UniQuery) -> Lookup {
 }
 
 #[doc(hidden)]
-fn map_response_records<'a, I: Iterator<Item=&'a Response>>(responses: I) -> impl Iterator<Item=&'a Record> {
+fn map_response_records<'a, I: Iterator<Item = &'a Response>>(responses: I) -> impl Iterator<Item = &'a Record> {
     responses.map(|x| x.records()).flatten()
 }
 
