@@ -1,12 +1,13 @@
+use std::str::FromStr;
+use std::time::Duration;
+
 use clap::{App, AppSettings, Arg};
 
-use crate::app::SUPPORTED_RECORD_TYPES;
+use crate::app::{SUPPORTED_OUTPUT_FORMATS, SUPPORTED_RECORD_TYPES};
 use crate::estimate::Estimate;
 use crate::nameserver::predefined;
 use crate::resolver::{Lookups, MultiQuery, ResolverGroup, ResolverGroupOpts, ResolverOpts};
 use crate::statistics::Statistics;
-use std::str::FromStr;
-use std::time::Duration;
 
 pub fn setup_clap() -> App<'static, 'static> {
     App::new("mhost")
@@ -157,6 +158,27 @@ pub fn setup_clap() -> App<'static, 'static> {
         .arg(Arg::with_name("no-aborts")
             .long("no-aborts")
             .help("Sets do-not-ignore errors and timeouts from nameservers")
+        )
+        .arg(Arg::with_name("output")
+            .short("o")
+            .long("output")
+            .value_name("FORMAT")
+            .takes_value(true)
+            .default_value("summary")
+            .possible_values(SUPPORTED_OUTPUT_FORMATS)
+            .help("Sets the output format for result presentation")
+        )
+        .arg(Arg::with_name("output-options")
+            .long("output-options")
+            .value_name("OPTIONS")
+            .multiple(true)
+            .use_delimiter(true)
+            .require_delimiter(true)
+            .default_value_if("output", Some("json"), "pretty")
+            .default_value_if("output", Some("summary"), "human")
+            .help("Sets output options")
+            .long_help("* Json: 'pretty': Prettifies output
+* Summary: 'human': Uses human readable formatting, 'condensed': Simplifies output")
         )
         .arg(Arg::with_name("quiet")
             .short("q")

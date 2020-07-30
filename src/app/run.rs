@@ -34,5 +34,5 @@ pub async fn run(config: &Config) -> Result<()> {
         print_statistics(&lookups, total_run_time);
     }
 
-    output(&lookups)
+    output(config, &lookups)
 }

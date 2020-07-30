@@ -25,8 +25,9 @@ async fn main() {
     let stdout = io::stdout();
     let mut handle = stdout.lock();
 
-    let config = OutputConfig::json();
-    let output = Output::new(config);
+    let opts = Default::default();
+    let config = OutputConfig::json(opts);
+    let output = Output::new(&config);
     output
         .output(&mut handle, &lookups)
         .expect("failed to serialize to stdout");

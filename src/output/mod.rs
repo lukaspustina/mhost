@@ -1,16 +1,35 @@
-use crate::resolver::Lookups;
-use crate::RecordType;
-use crate::Result;
 use std::cmp::Ordering;
 use std::io::Write;
+
+use nom::lib::std::convert::TryFrom;
+
+use crate::resolver::Lookups;
+use crate::Result;
+use crate::{Error, RecordType};
 
 pub mod json;
 pub mod summary;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum OutputType {
     Json,
     Summary,
+}
+
+impl TryFrom<&str> for OutputType {
+    type Error = Error;
+
+    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
+        match value {
+            "json" => Ok(OutputType::Json),
+            "summary" => Ok(OutputType::Summary),
+            _ => Err(Error::ParserError {
+                what: value.to_string(),
+                to: "OutputType",
+                why: "invalid output type".to_string(),
+            }),
+        }
+    }
 }
 
 pub trait OutputFormat {
@@ -24,9 +43,9 @@ pub enum OutputConfig {
 }
 
 impl OutputConfig {
-    pub fn json() -> Self {
+    pub fn json(opts: json::JsonOptions) -> Self {
         OutputConfig::Json {
-            format: json::JsonFormat::default(),
+            format: json::JsonFormat::new(opts),
         }
     }
 
@@ -38,19 +57,19 @@ impl OutputConfig {
 }
 
 #[derive(Debug)]
-pub struct Output {
-    config: OutputConfig,
+pub struct Output<'a> {
+    config: &'a OutputConfig,
 }
 
-impl Output {
-    pub fn new(config: OutputConfig) -> Output {
+impl Output<'_> {
+    pub fn new(config: &OutputConfig) -> Output {
         Output { config }
     }
 }
 
-impl OutputFormat for Output {
+impl OutputFormat for Output<'_> {
     fn output<W: Write>(&self, writer: &mut W, lookups: &Lookups) -> Result<()> {
-        match &self.config {
+        match self.config {
             OutputConfig::Json { format } => format.output(writer, lookups),
             OutputConfig::Summary { format } => format.output(writer, lookups),
         }

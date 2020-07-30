@@ -1,5 +1,5 @@
 use std::cmp::Eq;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::time::Duration;
 
@@ -27,6 +27,18 @@ impl Default for SummaryOptions {
             human: true,
             condensed: false,
         }
+    }
+}
+
+impl<'a> TryFrom<Vec<&'a str>> for SummaryOptions {
+    type Error = Error;
+
+    fn try_from(values: Vec<&'a str>) -> std::result::Result<Self, Self::Error> {
+        let options: HashSet<&str> = values.into_iter().collect();
+        Ok(SummaryOptions {
+            human: options.contains("human"),
+            condensed: options.contains("condensed"),
+        })
     }
 }
 
@@ -496,7 +508,7 @@ mod tests {
     fn summary() {
         let opts = SummaryOptions::default();
         let config = OutputConfig::summary(opts);
-        let output = Output::new(config);
+        let output = Output::new(&config);
         let lookups = Lookups::new(Vec::new());
 
         let mut buf = Vec::new();

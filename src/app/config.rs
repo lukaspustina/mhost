@@ -5,12 +5,17 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use clap::ArgMatches;
 
+use crate::output::json::JsonOptions;
+use crate::output::summary::SummaryOptions;
+use crate::output::{OutputConfig, OutputType};
 use crate::resolver::ResolverOpts;
 use crate::RecordType;
 
 pub static SUPPORTED_RECORD_TYPES: &[&str] = &[
     "A", "AAAA", "ANAME", "CNAME", "MX", "NULL", "NS", "PTR", "SOA", "SRV", "TXT",
 ];
+
+pub static SUPPORTED_OUTPUT_FORMATS: &[&str] = &["json", "summary"];
 
 pub struct Config {
     pub domain_name: String,
@@ -33,12 +38,18 @@ pub struct Config {
     pub nameserver_file_path: Option<String>,
     pub randomized_lookup: bool,
     pub system_nameservers: Option<Vec<String>>,
+    pub output: OutputType,
+    pub output_config: OutputConfig,
 }
 
 impl TryFrom<ArgMatches<'_>> for Config {
     type Error = anyhow::Error;
 
     fn try_from(args: ArgMatches) -> std::result::Result<Self, Self::Error> {
+        let output = args
+            .value_of("output")
+            .map(|x| OutputType::try_from(x).context("failed to parse output type"))
+            .unwrap()?; // Safe unwrap, because of clap's validation
         let config = Config {
             domain_name: args
                 .value_of("domain name")
@@ -85,6 +96,8 @@ impl TryFrom<ArgMatches<'_>> for Config {
             system_nameservers: args
                 .values_of("system nameservers")
                 .map(|xs| xs.map(ToString::to_string).collect()),
+            output_config: output_config(output, &args)?,
+            output,
         };
 
         Ok(config)
@@ -126,4 +139,25 @@ fn parse_record_types<'a, I: Iterator<Item = &'a str>>(record_types: I) -> Resul
         .collect();
     let record_types: std::result::Result<Vec<_>, _> = record_types.into_iter().collect();
     record_types.context("Failed to parse record type")
+}
+
+fn output_config(output_type: OutputType, args: &ArgMatches<'_>) -> Result<OutputConfig> {
+    let args = args
+        .values_of("output-options")
+        .context("No output options specified")?;
+    parse_output_options(output_type, args)
+}
+
+fn parse_output_options<'a, I: Iterator<Item = &'a str>>(output_type: OutputType, options: I) -> Result<OutputConfig> {
+    let options: Vec<&str> = options.into_iter().collect();
+    match output_type {
+        OutputType::Json => {
+            let options = JsonOptions::try_from(options).context("failed to parse json options")?;
+            Ok(OutputConfig::json(options))
+        }
+        OutputType::Summary => {
+            let options = SummaryOptions::try_from(options).context("failed to parse json options")?;
+            Ok(OutputConfig::summary(options))
+        }
+    }
 }

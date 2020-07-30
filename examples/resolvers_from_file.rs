@@ -57,7 +57,7 @@ async fn main() {
 
     let opts = SummaryOptions::default();
     let config = OutputConfig::summary(opts);
-    let output = Output::new(config);
+    let output = Output::new(&config);
     output
         .output(&mut handle, &lookups)
         .expect("failed to serialize to stdout");
