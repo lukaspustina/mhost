@@ -93,7 +93,8 @@ impl TryFrom<ArgMatches<'_>> for Config {
                 .values_of("predefined-filter")
                 .map(|xs| xs.map(ToString::to_string).collect()),
             nameserver_file_path: args.value_of("nameservers-from-file").map(ToString::to_string),
-            limit: args.value_of("limit")
+            limit: args
+                .value_of("limit")
                 .map(|x| usize::from_str(x).context("failed to parse limit"))
                 .unwrap()?, // Safe unwrap, because clap's validation
             randomized_lookup: args.is_present("randomized-lookup"),
@@ -153,7 +154,7 @@ fn output_config(output_type: OutputType, args: &ArgMatches<'_>) -> Result<Outpu
 }
 
 fn parse_output_options<'a, I: Iterator<Item = &'a str>>(output_type: OutputType, options: I) -> Result<OutputConfig> {
-    let options: Vec<&str> = options.into_iter().collect();
+    let options: Vec<&str> = options.collect();
     match output_type {
         OutputType::Json => {
             let options = JsonOptions::try_from(options).context("failed to parse json options")?;

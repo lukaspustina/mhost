@@ -159,7 +159,10 @@ pub struct ResolverGroupOpts {
 
 impl Default for ResolverGroupOpts {
     fn default() -> Self {
-        ResolverGroupOpts { max_concurrent: 10, limit: None }
+        ResolverGroupOpts {
+            max_concurrent: 10,
+            limit: None,
+        }
     }
 }
 
@@ -205,11 +208,12 @@ impl ResolverGroup {
 
     pub async fn lookup<T: Into<MultiQuery>>(&self, query: T) -> Lookups {
         let multi_query = query.into();
-        let futures: Vec<_> = self.resolvers
-                .iter()
-                .take(self.opts.limit.unwrap_or_else(|| self.resolvers.len()))
-                .map(|resolver| resolver.lookup(multi_query.clone()))
-                .collect();
+        let futures: Vec<_> = self
+            .resolvers
+            .iter()
+            .take(self.opts.limit.unwrap_or_else(|| self.resolvers.len()))
+            .map(|resolver| resolver.lookup(multi_query.clone()))
+            .collect();
 
         self.run_lookups(futures).await
     }

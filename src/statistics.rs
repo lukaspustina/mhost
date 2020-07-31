@@ -2,9 +2,9 @@ use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 use std::marker::PhantomData;
 
-use crate::RecordType;
-use crate::resolver::{Error, Lookups};
 use crate::resolver::lookup::LookupResult;
+use crate::resolver::{Error, Lookups};
+use crate::RecordType;
 
 pub trait Statistics<'a> {
     type StatsOut;
