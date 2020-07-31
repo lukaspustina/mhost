@@ -20,7 +20,7 @@ async fn main() {
 
     let mq = MultiQuery::multi_record(name, vec![RecordType::A, RecordType::AAAA, RecordType::TXT])
         .expect("Failed to create multi-query");
-    let lookups = resolver.lookup(mq).await;
+    let lookups = resolver.lookup(mq).await.expect("failed to execute lookups");
 
     let stdout = io::stdout();
     let mut handle = stdout.lock();

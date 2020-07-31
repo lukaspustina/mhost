@@ -1,6 +1,7 @@
 use lazy_static::lazy_static;
 use serde::Serialize;
 use thiserror::Error;
+use tokio::task::JoinError;
 use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
 use trust_dns_resolver::proto::error::{ProtoError, ProtoErrorKind};
 use trust_dns_resolver::proto::op::ResponseCode;
@@ -24,9 +25,13 @@ pub enum Error {
     #[error("request timed out")]
     Timeout,
     #[error("resolver error: {reason}")]
-    ResolverError { reason: String },
+    ResolveError { reason: String },
     #[error("protocol error: {reason}")]
     ProtoError { reason: String },
+    #[error("query has been cancelled")]
+    CancelledError,
+    #[error("query execution paniced")]
+    RuntimePanicError,
 }
 
 impl From<ResolveError> for Error {
@@ -36,7 +41,7 @@ impl From<ResolveError> for Error {
             ResolveErrorKind::Msg(msg) if *msg == *TDR_QUERY_REFUSED_MSG => Error::QueryRefused,
             ResolveErrorKind::Proto(proto_error) => Self::from(proto_error.clone()),
             ResolveErrorKind::Timeout => Error::Timeout,
-            _ => Error::ResolverError {
+            _ => Error::ResolveError {
                 reason: error.to_string(),
             },
         }
@@ -51,5 +56,14 @@ impl From<ProtoError> for Error {
                 reason: error.to_string(),
             },
         }
+    }
+}
+
+impl From<JoinError> for Error {
+    fn from(error: JoinError) -> Self {
+        if error.is_cancelled() {
+            return Error::CancelledError;
+        }
+        Error::RuntimePanicError
     }
 }

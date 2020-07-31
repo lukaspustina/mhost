@@ -147,10 +147,11 @@ pub fn load_system_nameservers(config: &Config) -> Result<NameServerConfigGroup>
     Ok(system_nameserver_group)
 }
 
-pub async fn lookup(randomized_lookup: bool, query: MultiQuery, resolvers: ResolverGroup) -> Lookups {
+pub async fn lookup(randomized_lookup: bool, query: MultiQuery, resolvers: ResolverGroup) -> Result<Lookups> {
     if randomized_lookup {
         resolvers.rnd_lookup(query).await
     } else {
         resolvers.lookup(query).await
     }
+    .context("Failed to execute lookups")
 }

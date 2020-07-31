@@ -15,7 +15,7 @@ async fn main() {
         .expect("failed to create resolvers");
 
     let q = UniQuery::new(name, RecordType::A).expect("Failed to create multi-query");
-    let lookups = resolvers.lookup(q).await;
+    let lookups = resolvers.lookup(q).await.expect("failed to execute lookups");
     //println!("Multi-Lookup results: {:#?}", lookups);
 
     let successes = lookups.iter().filter(|x| x.result().is_response()).count();

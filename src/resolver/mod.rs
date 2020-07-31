@@ -1,13 +1,20 @@
-use crate::nameserver::{NameServerConfig, NameServerConfigGroup};
-use crate::system_config;
-use crate::Result;
+use std::path::Path;
+use std::sync::Arc;
+use std::time::Duration;
 
 use futures::future::join_all;
 use futures::stream::{self, StreamExt};
 use futures::{Future, TryFutureExt};
 use rand::seq::SliceRandom;
-use std::sync::Arc;
-use std::time::Duration;
+use tokio::task;
+
+pub use error::Error;
+pub use lookup::{Lookup, Lookups};
+pub use query::{MultiQuery, UniQuery};
+
+use crate::nameserver::{NameServerConfig, NameServerConfigGroup};
+use crate::system_config;
+use crate::Result;
 
 mod buffer_unordered_with_breaker;
 pub mod error;
@@ -15,12 +22,7 @@ pub mod lookup;
 pub mod predefined;
 pub mod query;
 
-pub use error::Error;
-pub use lookup::{Lookup, Lookups};
-pub use query::{MultiQuery, UniQuery};
-use std::path::Path;
-
-type ResolverResult<T> = std::result::Result<T, Error>;
+pub type ResolverResult<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub struct ResolverConfig {
@@ -127,12 +129,18 @@ pub struct Resolver {
 }
 
 impl Resolver {
+    /// Creates a new Resolver.
+    ///
+    /// May panic if underlying tasks panic
     pub async fn new(config: ResolverConfig, opts: ResolverOpts) -> ResolverResult<Self> {
         let name_server = config.name_server_config.clone();
         let tr_opts = opts.clone().into();
-        let tr_resolver = trust_dns_resolver::TokioAsyncResolver::tokio(config.into(), tr_opts)
-            .map_err(Error::from)
-            .await?;
+        let tr_resolver = task::spawn(async move {
+            trust_dns_resolver::TokioAsyncResolver::tokio(config.into(), tr_opts)
+                .map_err(Error::from)
+                .await
+        })
+        .await??;
 
         Ok(Resolver {
             inner: Arc::new(tr_resolver),
@@ -141,7 +149,7 @@ impl Resolver {
         })
     }
 
-    pub async fn lookup<T: Into<MultiQuery>>(&self, query: T) -> Lookups {
+    pub async fn lookup<T: Into<MultiQuery>>(&self, query: T) -> ResolverResult<Lookups> {
         lookup::lookup(self.clone(), query).await
     }
 
@@ -206,42 +214,38 @@ impl ResolverGroup {
         ResolverGroup::from_configs(configs, resolver_opts, opts).await
     }
 
-    pub async fn lookup<T: Into<MultiQuery>>(&self, query: T) -> Lookups {
+    pub async fn lookup<T: Into<MultiQuery>>(&self, query: T) -> ResolverResult<Lookups> {
         let multi_query = query.into();
-        let futures: Vec<_> = self
-            .resolvers
-            .iter()
-            .take(self.opts.limit.unwrap_or_else(|| self.resolvers.len()))
-            .map(|resolver| resolver.lookup(multi_query.clone()))
-            .collect();
+        let resolvers = self.resolvers.clone();
 
-        self.run_lookups(futures).await
+        let lookup_futures: Vec<_> = resolvers
+            .into_iter()
+            .take(self.opts.limit.unwrap_or_else(|| self.resolvers.len()))
+            .map(|resolver| lookup::lookup(resolver, multi_query.clone()))
+            .collect();
+        let lookups = sliding_window_lookups(lookup_futures, self.opts.max_concurrent);
+        let lookups = task::spawn(lookups).await?;
+
+        Ok(lookups)
     }
 
-    pub async fn rnd_lookup<T: Into<MultiQuery>>(&self, query: T) -> Lookups {
+    pub async fn rnd_lookup<T: Into<MultiQuery>>(&self, query: T) -> ResolverResult<Lookups> {
         let mut rng = rand::thread_rng();
         let multi_query = query.into();
         let resolvers = self.resolvers.as_slice();
 
-        let futures: Vec<_> = multi_query
+        let lookup_futures: Vec<_> = multi_query
             .into_uni_queries()
             .into_iter()
-            .map(|q| resolvers.choose(&mut rng).unwrap().lookup(q)) // Safe unwrap: we know, there are resolvers
+            .map(|q| {
+                let resolver = resolvers.choose(&mut rng).unwrap(); // Safe unwrap: we know, there are resolvers
+                lookup::lookup(resolver.clone(), q)
+            })
             .collect();
+        let lookups = sliding_window_lookups(lookup_futures, self.opts.max_concurrent);
+        let lookups = task::spawn(lookups).await?;
 
-        self.run_lookups(futures).await
-    }
-
-    async fn run_lookups(&self, futures: Vec<impl Future<Output = Lookups>>) -> Lookups {
-        let lookups: Vec<Lookup> = stream::iter(futures)
-            .buffer_unordered(self.opts.max_concurrent)
-            .collect::<Vec<_>>()
-            .await
-            .into_iter()
-            .flatten()
-            .collect();
-
-        lookups.into()
+        Ok(lookups)
     }
 
     /// Merges this `ResolverGroup` with another
@@ -270,6 +274,26 @@ impl ResolverGroup {
     pub fn is_empty(&self) -> bool {
         self.resolvers.is_empty()
     }
+}
+
+async fn sliding_window_lookups(
+    futures: Vec<impl Future<Output = ResolverResult<Lookups>>>,
+    max_concurrent: usize,
+) -> Lookups {
+    stream::iter(futures)
+        .buffer_unordered(max_concurrent)
+        .collect::<Vec<_>>()
+        .await
+        .into_iter()
+        // This map and the consecutive flatten mask JoinErrors which occurred during the lookups. This is a conscious decision!
+        // It doesn't make send to panic (library wouldn't be resilient anymore), return _one_ error and abort by collecting the Vec
+        // what would be the semantic of that -- why to bother with catching errors in the first place in lookup.
+        // So the only reasonable ways are to ignore the errors or return Vec<Result<>>
+        .map(|l| l.ok())
+        .flatten()
+        .flatten()
+        .collect::<Vec<_>>()
+        .into()
 }
 
 #[doc(hidden)]

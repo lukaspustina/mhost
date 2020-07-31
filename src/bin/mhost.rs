@@ -1,5 +1,5 @@
 use anyhow::Result;
-use log::debug;
+use log::info;
 
 use mhost::app::{run, setup_clap, start_logging_for_level, Config};
 use std::convert::TryInto;
@@ -13,13 +13,13 @@ async fn main() -> Result<()> {
     }
 
     start_logging_for_level(args.occurrences_of("v"));
-    debug!("Set up logging.");
+    info!("Set up logging.");
 
     let config: Config = args.try_into()?;
-    debug!("Parsed args.");
+    info!("Parsed args.");
 
     let res = run(&config).await;
-    debug!("Finished.");
+    info!("Finished.");
 
     res
 }

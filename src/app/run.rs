@@ -29,7 +29,7 @@ pub async fn run(config: &Config) -> Result<()> {
 
     info!("Running lookups");
     let start_time = Instant::now();
-    let lookups: Lookups = lookup(config.randomized_lookup, query, resolvers).await;
+    let lookups: Lookups = lookup(config.randomized_lookup, query, resolvers).await?;
     let total_run_time = Instant::now() - start_time;
     info!("Finished Lookups.");
 

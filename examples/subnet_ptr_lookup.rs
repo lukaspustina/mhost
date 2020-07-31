@@ -14,7 +14,7 @@ async fn main() {
 
     let mq = MultiQuery::multi_name(ips.iter(), RecordType::PTR).expect("Failed to create query");
 
-    let lookups = resolvers.lookup(mq).await;
+    let lookups = resolvers.lookup(mq).await.expect("failed to execute lookups");
     // println!("Lookup results: {:#?}", lookup);
 
     for l in lookups {

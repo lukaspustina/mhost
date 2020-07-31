@@ -17,7 +17,7 @@ async fn main() {
         .expect("Failed to create resolver");
 
     let query = UniQuery::new(name, RecordType::A).expect("Failed to create query");
-    let one_lookup = resolver.lookup(query).await;
+    let one_lookup = resolver.lookup(query).await.expect("failed to execute lookups");
     println!("Lookup result: #{} {:?}", one_lookup.len(), &one_lookup);
 
     let mq = MultiQuery::multi_record(
@@ -25,7 +25,7 @@ async fn main() {
         vec![RecordType::A, RecordType::AAAA, RecordType::TXT],
     )
     .expect("Failed to create multi-query");
-    let lookups = resolver.lookup(mq).await;
+    let lookups = resolver.lookup(mq).await.expect("failed to execute lookups");
 
     //println!("Multi-Lookup results: {:#?}", multi_lookup);
 

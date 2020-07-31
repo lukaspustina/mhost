@@ -79,7 +79,7 @@ impl OutputFormat for SummaryFormat {
         let out = String::from_utf8(text_buffer).map_err(|_| Error::InternalError {
             msg: "convert TabWriter buffer to output",
         })?;
-        writeln!(writer, "{}", out)?;
+        write!(writer, "{}", out)?;
 
         Ok(())
     }

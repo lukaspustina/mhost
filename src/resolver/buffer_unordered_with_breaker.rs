@@ -12,7 +12,7 @@ pub trait StreamExtBufferUnorderedWithBreaker: StreamExt {
     fn buffered_unordered_with_breaker(
         self,
         n: usize,
-        breaker: Box<dyn Fn(&<Self::Item as Future>::Output) -> bool>,
+        breaker: Box<dyn Fn(&<Self::Item as Future>::Output) -> bool + Send>,
     ) -> BufferUnorderedWithBreaker<Self>
     where
         Self: Sized,
@@ -33,7 +33,7 @@ where
     stream: Fuse<St>,
     in_progress_queue: FuturesUnordered<St::Item>,
     max: usize,
-    breaker: Box<dyn Fn(&<St::Item as Future>::Output) -> bool>,
+    breaker: Box<dyn Fn(&<St::Item as Future>::Output) -> bool + Send>,
     abort: bool,
 }
 
@@ -45,7 +45,7 @@ where
     pub(crate) fn new(
         stream: St,
         n: usize,
-        breaker: Box<dyn Fn(&<St::Item as Future>::Output) -> bool>,
+        breaker: Box<dyn Fn(&<St::Item as Future>::Output) -> bool + Send>,
     ) -> BufferUnorderedWithBreaker<St>
     where
         St: Stream,
