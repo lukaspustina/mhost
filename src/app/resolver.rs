@@ -100,6 +100,7 @@ pub async fn load_nameservers(config: &Config, system_resolvers: &mut ResolverGr
 pub fn load_resolver_group_opts(config: &Config) -> Result<ResolverGroupOpts> {
     let resolver_group_opts = ResolverGroupOpts {
         max_concurrent: config.max_concurrent_servers,
+        limit: Some(config.limit),
     };
     debug!("Loaded resolver group opts.");
 

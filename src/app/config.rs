@@ -36,6 +36,7 @@ pub struct Config {
     pub predefined: bool,
     pub predefined_filter: Option<Vec<String>>,
     pub nameserver_file_path: Option<String>,
+    pub limit: usize,
     pub randomized_lookup: bool,
     pub system_nameservers: Option<Vec<String>>,
     pub output: OutputType,
@@ -92,6 +93,9 @@ impl TryFrom<ArgMatches<'_>> for Config {
                 .values_of("predefined-filter")
                 .map(|xs| xs.map(ToString::to_string).collect()),
             nameserver_file_path: args.value_of("nameservers-from-file").map(ToString::to_string),
+            limit: args.value_of("limit")
+                .map(|x| usize::from_str(x).context("failed to parse limit"))
+                .unwrap()?, // Safe unwrap, because clap's validation
             randomized_lookup: args.is_present("randomized-lookup"),
             system_nameservers: args
                 .values_of("system nameservers")

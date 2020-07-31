@@ -92,6 +92,13 @@ pub fn setup_clap() -> App<'static, 'static> {
             .takes_value(true)
             .help("Adds nameserver for lookups from file")
         )
+        .arg(Arg::with_name("limit")
+            .long("limit")
+            .value_name("NUMBER")
+            .default_value("100")
+            .validator(|str| usize::from_str(&str).map(|_| ()).map_err(|_| "invalid number".to_string()))
+            .help("Sets max. numnber of nameservers to query")
+        )
         .arg(Arg::with_name("record types")
             .short("t")
             .long("record-type")
@@ -105,7 +112,6 @@ pub fn setup_clap() -> App<'static, 'static> {
             .help("Sets record type to lookup, will be ignored in case of IP address lookup")
         )
         .arg(Arg::with_name("all-record-types")
-            .hidden(true)
             .long("all")
             .alias("xmas")
             .help("Enables lookups for all record types")
@@ -204,8 +210,9 @@ pub fn list_predefined_nameservers() {
 
 pub fn print_opts(group_opts: &ResolverGroupOpts, opts: &ResolverOpts) {
     println!(
-        "Nameservers options: concurrent nameservers={}, concurrent requests={}, attempts={}, timeout={} s{}{}{}",
+        "Nameservers options: concurrent nameservers={}, max. nameservers={}, concurrent requests={}, attempts={}, timeout={} s{}{}{}",
         group_opts.max_concurrent,
+        group_opts.limit.unwrap(), // Safe unwrap, because of Clap's default value
         opts.max_concurrent_requests,
         opts.attempts,
         opts.timeout.as_secs(),
@@ -224,7 +231,7 @@ pub fn print_opts(group_opts: &ResolverGroupOpts, opts: &ResolverOpts) {
 }
 
 pub fn print_estimates(resolvers: &ResolverGroup, query: &MultiQuery) {
-    let num_servers = resolvers.len();
+    let num_servers = resolvers.opts.limit.unwrap().min(resolvers.len()); // Safe unwrap, because of Clap's default value
     let num_names = query.num_names();
     let num_record_types = query.num_record_types();
     let estimate = resolvers.estimate(query);

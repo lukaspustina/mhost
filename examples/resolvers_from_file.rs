@@ -31,7 +31,7 @@ async fn main() {
         timeout: Duration::from_secs(1),
         ..Default::default()
     };
-    let group_opts = ResolverGroupOpts { max_concurrent: 1000 };
+    let group_opts = ResolverGroupOpts { max_concurrent: 1000, limit: None, };
 
     let resolvers = ResolverGroup::from_configs(resolver_configs, resolver_opts, group_opts)
         .await

@@ -46,6 +46,7 @@ impl Estimate for ResolverGroup {
     fn estimate(&self, query: &MultiQuery) -> Estimation {
         self.resolvers
             .iter()
+            .take(self.opts.limit.unwrap_or_else(|| self.resolvers.len()))
             .map(|x| x.estimate(query))
             .fold(Default::default(), |acc, e| acc + e)
     }
