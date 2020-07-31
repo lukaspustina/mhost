@@ -138,7 +138,7 @@ pub fn setup_clap() -> App<'static, 'static> {
         .arg(Arg::with_name("attempts")
             .long("attempts")
             .value_name("ATTEMPTS")
-            .default_value("2")
+            .default_value("1")
             .validator(|str| usize::from_str(&str).map(|_| ()).map_err(|_| "invalid number".to_string()))
             .help("Sets number of attempts to get response in case of timeout or error")
         )

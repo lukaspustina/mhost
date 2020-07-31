@@ -73,7 +73,7 @@ impl ResolverOpts {
 impl Default for ResolverOpts {
     fn default() -> Self {
         ResolverOpts {
-            attempts: 2,
+            attempts: 1,
             max_concurrent_requests: 5,
             ndots: 1,
             preserve_intermediates: false,

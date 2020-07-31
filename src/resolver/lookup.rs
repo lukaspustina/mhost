@@ -22,6 +22,7 @@ use crate::RecordType;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Lookups {
+    #[serde(rename = "lookups")]
     inner: Vec<Lookup>,
 }
 
