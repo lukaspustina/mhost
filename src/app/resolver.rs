@@ -5,7 +5,7 @@ use crate::resolver::{Lookups, MultiQuery, ResolverConfigGroup, ResolverGroup, R
 use crate::{IpNetwork, RecordType};
 use anyhow::{Context, Result};
 use futures::future::join_all;
-use log::debug;
+use log::info;
 use std::collections::HashSet;
 use std::str::FromStr;
 
@@ -19,14 +19,14 @@ pub fn build_query(domain_name: &str, record_types: &[RecordType]) -> Result<Mul
 
 fn ptr_query(ip_network: IpNetwork) -> Result<MultiQuery> {
     let q = MultiQuery::multi_name(ip_network.iter(), RecordType::PTR).context("Failed to create query")?;
-    debug!("Prepared query for reverse lookups.");
+    info!("Prepared query for reverse lookups.");
     Ok(q)
 }
 
 fn name_query(name: &str, record_types: &[RecordType]) -> Result<MultiQuery> {
     let record_types_len = record_types.len();
     let q = MultiQuery::multi_record(name, record_types.to_vec()).context("Failed to build query")?;
-    debug!("Prepared query for name lookup for {} record types.", record_types_len);
+    info!("Prepared query for name lookup for {} record types.", record_types_len);
     Ok(q)
 }
 
@@ -43,13 +43,13 @@ pub async fn create_resolvers(
     )
     .await
     .context("Failed to create system resolvers")?;
-    debug!("Created {} system resolvers.", system_resolvers.len());
+    info!("Created {} system resolvers.", system_resolvers.len());
 
     let resolver_group: ResolverConfigGroup = load_nameservers(config, &mut system_resolvers).await?.into();
     let resolvers = ResolverGroup::from_configs(resolver_group, resolver_opts, resolver_group_opts.clone())
         .await
         .context("Failed to load resolvers")?;
-    debug!("Created {} resolvers.", resolvers.len());
+    info!("Created {} resolvers.", resolvers.len());
 
     system_resolvers.merge(resolvers);
 
@@ -66,7 +66,7 @@ pub async fn load_nameservers(config: &Config, system_resolvers: &mut ResolverGr
         let configs: mhost::Result<Vec<_>> = join_all(configs).await.into_iter().collect();
         let nameservers: Vec<_> = configs.context("Failed to parse IP address for system nameserver")?;
         let nameservers = NameServerConfigGroup::new(nameservers);
-        debug!("Loaded {} nameservers.", nameservers.len());
+        info!("Loaded {} nameservers.", nameservers.len());
         nameservers_group.merge(nameservers);
     }
     if config.predefined {
@@ -83,14 +83,14 @@ pub async fn load_nameservers(config: &Config, system_resolvers: &mut ResolverGr
             .filter(|x| filter.contains(&x.protocol()))
             .collect();
         let nameservers = NameServerConfigGroup::new(nameservers);
-        debug!("Loaded {} nameservers.", nameservers.len());
+        info!("Loaded {} nameservers.", nameservers.len());
         nameservers_group.merge(nameservers);
     }
     if let Some(path) = config.nameserver_file_path.as_ref() {
         let nameservers = NameServerConfigGroup::from_file(&system_resolvers, path)
             .await
             .context("Failed to load nameservers from file")?;
-        debug!("Loaded {} nameservers from file.", nameservers.len());
+        info!("Loaded {} nameservers from file.", nameservers.len());
         nameservers_group.merge(nameservers);
     }
 
@@ -102,7 +102,7 @@ pub fn load_resolver_group_opts(config: &Config) -> Result<ResolverGroupOpts> {
         max_concurrent: config.max_concurrent_servers,
         limit: Some(config.limit),
     };
-    debug!("Loaded resolver group opts.");
+    info!("Loaded resolver group opts.");
 
     Ok(resolver_group_opts)
 }
@@ -115,7 +115,7 @@ pub fn load_resolver_opts(config: &Config) -> Result<ResolverOpts> {
             .context("Failed to load system resolver options")?
     };
     let resolver_opts = config.resolver_opts(default_opts);
-    debug!("Loaded resolver opts.");
+    info!("Loaded resolver opts.");
 
     Ok(resolver_opts)
 }
@@ -127,7 +127,7 @@ pub fn load_system_nameservers(config: &Config) -> Result<NameServerConfigGroup>
         let resolv_conf_path = &config.resolv_conf_path;
         let nameservers = NameServerConfigGroup::from_system_config_path(resolv_conf_path)
             .context("Failed to load system name servers")?;
-        debug!(
+        info!(
             "Loaded {} system nameservers from '{}'.",
             nameservers.len(),
             resolv_conf_path
@@ -140,7 +140,7 @@ pub fn load_system_nameservers(config: &Config) -> Result<NameServerConfigGroup>
         let configs: std::result::Result<Vec<_>, _> = configs.into_iter().collect();
         let nameservers: Vec<_> = configs.context("Failed to parse IP address for system nameserver")?;
         let nameservers = NameServerConfigGroup::new(nameservers);
-        debug!("Loaded {} additional system nameservers.", nameservers.len());
+        info!("Loaded {} additional system nameservers.", nameservers.len());
         system_nameserver_group.merge(nameservers);
     };
 

@@ -1,3 +1,4 @@
+use log::info;
 use std::time::Instant;
 
 use anyhow::Result;
@@ -26,9 +27,11 @@ pub async fn run(config: &Config) -> Result<()> {
         print_estimates(&resolvers, &query);
     }
 
+    info!("Running lookups");
     let start_time = Instant::now();
     let lookups: Lookups = lookup(config.randomized_lookup, query, resolvers).await;
     let total_run_time = Instant::now() - start_time;
+    info!("Finished Lookups.");
 
     if !config.quiet {
         print_statistics(&lookups, total_run_time);
