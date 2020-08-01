@@ -340,7 +340,7 @@ pub async fn lookup<T: Into<MultiQuery>>(resolver: Resolver, query: T) -> Resolv
 
     let lookup_futures: Vec<_> = query
         .into_uni_queries()
-        .into_iter()
+        .drain(..)
         .map(|q| single_lookup(resolver.clone(), q))
         .collect();
     let lookups = sliding_window_lookups(lookup_futures, breaker, resolver.opts.max_concurrent_requests);

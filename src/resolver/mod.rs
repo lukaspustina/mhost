@@ -200,7 +200,7 @@ impl ResolverGroup {
             .collect();
 
         // Wait all futures
-        let resolvers: ResolverResult<Vec<_>> = join_all(futures).await.into_iter().collect();
+        let resolvers: ResolverResult<Vec<_>> = join_all(futures).await.drain(..).collect();
 
         // Check for Err
         let resolvers = resolvers?;
@@ -216,10 +216,10 @@ impl ResolverGroup {
 
     pub async fn lookup<T: Into<MultiQuery>>(&self, query: T) -> ResolverResult<Lookups> {
         let multi_query = query.into();
-        let resolvers = self.resolvers.clone();
+        let mut resolvers = self.resolvers.clone();
 
         let lookup_futures: Vec<_> = resolvers
-            .into_iter()
+            .drain(..)
             .take(self.opts.limit.unwrap_or_else(|| self.resolvers.len()))
             .map(|resolver| lookup::lookup(resolver, multi_query.clone()))
             .collect();
@@ -236,7 +236,7 @@ impl ResolverGroup {
 
         let lookup_futures: Vec<_> = multi_query
             .into_uni_queries()
-            .into_iter()
+            .drain(..)
             .map(|q| {
                 let resolver = resolvers.choose(&mut rng).unwrap(); // Safe unwrap: we know, there are resolvers
                 lookup::lookup(resolver.clone(), q)
@@ -284,7 +284,7 @@ async fn sliding_window_lookups(
         .buffer_unordered(max_concurrent)
         .collect::<Vec<_>>()
         .await
-        .into_iter()
+        .drain(..)
         // This map and the consecutive flatten mask JoinErrors which occurred during the lookups. This is a conscious decision!
         // It doesn't make send to panic (library wouldn't be resilient anymore), return _one_ error and abort by collecting the Vec
         // what would be the semantic of that -- why to bother with catching errors in the first place in lookup.
