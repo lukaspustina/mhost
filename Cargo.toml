@@ -39,6 +39,7 @@ lazy_static = "1.4"
 log = "0.4.*"
 nom = "5"
 rand = "0.7"
+reqwest = { version = "0.10", default-features = false, features = ["rustls-tls", "json", "trust-dns"] }
 pin-project = "0.4.23"
 resolv-conf = "0.6"
 tokio = { version = "0.2.*", features = ["full"] }

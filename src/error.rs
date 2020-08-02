@@ -12,6 +12,11 @@ pub enum Error {
         #[from]
         source: crate::resolver::Error,
     },
+    #[error("external service failed")]
+    ServiceError {
+        #[from]
+        source: crate::services::Error,
+    },
     #[error("failed to parse '{what}' to {to} because {why}")]
     ParserError {
         what: String,
