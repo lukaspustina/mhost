@@ -169,6 +169,7 @@ mod whois {
         Ok(result)
     }
 
+    // This is really ugly.
     pub fn parse_whois_records(mut records: Vec<HashMap<String, String>>) -> (Option<String>, Option<String>, Option<IpNetwork>, Option<String>, Option<super::Authority>){
         if records.is_empty() { return (None, None, None, None, None) };
         if records.len() == 1 { // We've received just one record table
@@ -180,31 +181,23 @@ mod whois {
         let mut i_dates: Vec<_> = records.iter().enumerate()
             .map(|(i, h)| (i, h.get("regdate")))
             .filter(|(_, d)| d.is_some())
-            .map(|(i, h)| (i, h.map(|x| Date::parse_from_str(x, "%Y-%m-%d").unwrap())))
-            .collect();
-        eprintln!("Len {}, {:#?}", i_dates.len(), i_dates);
-        /*
+            .map(|(i, h)| (i, h.map(|x| NaiveDate::parse_from_str(x, "%Y-%m-%d").ok())))
             .map(|(i, d)| (i, d.flatten()))
             .filter(|(_, d)| d.is_some())
             .map(|(i, d)| (i, d.unwrap())) // Safe unwrap due to filter
             .collect();
+        i_dates.sort_by_key(|(_, d)| *d);
 
-        i_dates.sort_by_key(|(_, d)| d.timestamp());
-
-        eprintln!("Len {}, {:#?}", i_dates.len(), i_dates.pop());
-        */
-
-        return (None, None, None, None, None)
-
+        parse_whois_record(records.remove(i_dates.pop().unwrap().0)) // Safe unwrap
     }
 
-    fn parse_whois_record(mut records: HashMap<String, String>) -> (Option<String>, Option<String>, Option<IpNetwork>, Option<String>, Option<Authority>) {
-        let organization = records.remove("organization")
-            .or_else(|| records.remove("descr"));
-        let country = records.remove("country");
-        let cidr = records.remove("inetnum").or_else(|| records.remove("cidr")).map(|x| IpNetwork::from_str(&x).ok()).flatten();
-        let net_name = records.remove("netname");
-        let source = records.remove("source").map(|x| Authority::from(&x));
+    fn parse_whois_record(mut record: HashMap<String, String>) -> (Option<String>, Option<String>, Option<IpNetwork>, Option<String>, Option<Authority>) {
+        let organization = record.remove("organization")
+            .or_else(|| record.remove("descr"));
+        let country = record.remove("country");
+        let cidr = record.remove("inetnum").or_else(|| record.remove("cidr")).map(|x| IpNetwork::from_str(&x).ok()).flatten();
+        let net_name = record.remove("netname");
+        let source = record.remove("source").map(|x| Authority::from(&x));
         (organization, country, cidr, net_name, source)
     }
 }
@@ -540,7 +533,6 @@ mod tests {
         assert_that(&data).is_some();
 
         let whois: Whois = data.unwrap().into();
-        eprintln!("Whois: {:#?}", whois);
         assert_that(&whois.organization).is_some().is_equal_to("NetCologne dynamic IP Pool, Am Coloneum 9, D-50829 Koeln".to_string());
         assert_that(&whois.country).is_some().is_equal_to("DE".to_string());
         assert_that(&whois.cidr).is_some().is_equal_to(IpNetwork::from_str("85.197.0.0/19").unwrap());
@@ -1638,7 +1630,6 @@ mod tests {
         assert_that(&data).is_some();
 
         let whois: Whois = data.unwrap().into();
-        eprintln!("Whois: {:#?}", whois);
         assert_that(&whois.organization).is_some().is_equal_to("Amazon Technologies Inc. (AT-88-Z)".to_string());
         assert_that(&whois.country).is_none();
         assert_that(&whois.cidr).is_some().is_equal_to(IpNetwork::from_str("18.128.0.0/9").unwrap());
