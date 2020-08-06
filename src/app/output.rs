@@ -1,10 +1,10 @@
-use crate::app::Config;
+use crate::app::GlobalConfig;
 use crate::output::{Output, OutputFormat};
 use crate::resolver::Lookups;
 use anyhow::{Context, Result};
 use std::io;
 
-pub fn output(config: &Config, lookups: &Lookups) -> Result<()> {
+pub fn output(config: &GlobalConfig, lookups: &Lookups) -> Result<()> {
     let stdout = io::stdout();
     let mut handle = stdout.lock();
 

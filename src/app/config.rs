@@ -17,10 +17,8 @@ pub static SUPPORTED_RECORD_TYPES: &[&str] = &[
 
 pub static SUPPORTED_OUTPUT_FORMATS: &[&str] = &["json", "summary"];
 
-pub struct Config {
-    pub domain_name: String,
+pub struct GlobalConfig {
     pub list_predefined: bool,
-    pub record_types: Vec<RecordType>,
     pub max_concurrent_servers: usize,
     pub ignore_system_resolv_opt: bool,
     pub retries: usize,
@@ -38,27 +36,21 @@ pub struct Config {
     pub predefined_filter: Option<Vec<String>>,
     pub nameserver_file_path: Option<String>,
     pub limit: usize,
-    pub randomized_lookup: bool,
     pub system_nameservers: Option<Vec<String>>,
     pub output: OutputType,
     pub output_config: OutputConfig,
 }
 
-impl TryFrom<ArgMatches<'_>> for Config {
+impl TryFrom<&ArgMatches<'_>> for GlobalConfig {
     type Error = anyhow::Error;
 
-    fn try_from(args: ArgMatches) -> std::result::Result<Self, Self::Error> {
+    fn try_from(args: &ArgMatches) -> std::result::Result<Self, Self::Error> {
         let output = args
             .value_of("output")
             .map(|x| OutputType::try_from(x).context("failed to parse output type"))
             .unwrap()?; // Safe unwrap, because of clap's validation
-        let config = Config {
-            domain_name: args
-                .value_of("domain name")
-                .context("No domain name to lookup specified")?
-                .to_string(),
+        let config = GlobalConfig {
             list_predefined: args.is_present("list-predefined"),
-            record_types: record_types(&args)?,
             max_concurrent_servers: args
                 .value_of("max-concurrent-servers")
                 .map(|x| usize::from_str(x).context("failed to parse max-concurrent-servers"))
@@ -99,7 +91,6 @@ impl TryFrom<ArgMatches<'_>> for Config {
                 .value_of("limit")
                 .map(|x| usize::from_str(x).context("failed to parse limit"))
                 .unwrap()?, // Safe unwrap, because clap's validation
-            randomized_lookup: args.is_present("randomized-lookup"),
             system_nameservers: args
                 .values_of("system nameservers")
                 .map(|xs| xs.map(ToString::to_string).collect()),
@@ -111,7 +102,7 @@ impl TryFrom<ArgMatches<'_>> for Config {
     }
 }
 
-impl Config {
+impl GlobalConfig {
     pub fn resolver_opts(&self, default_opts: ResolverOpts) -> ResolverOpts {
         ResolverOpts {
             retries: self.retries,
@@ -122,6 +113,50 @@ impl Config {
             abort_on_timeout: self.abort_on_timeout,
             ..default_opts
         }
+    }
+}
+
+fn output_config(output_type: OutputType, args: &ArgMatches<'_>) -> Result<OutputConfig> {
+    let args = args
+        .values_of("output-options")
+        .context("No output options specified")?;
+    parse_output_options(output_type, args)
+}
+
+fn parse_output_options<'a, I: Iterator<Item = &'a str>>(output_type: OutputType, options: I) -> Result<OutputConfig> {
+    let options: Vec<&str> = options.collect();
+    match output_type {
+        OutputType::Json => {
+            let options = JsonOptions::try_from(options).context("failed to parse json options")?;
+            Ok(OutputConfig::json(options))
+        }
+        OutputType::Summary => {
+            let options = SummaryOptions::try_from(options).context("failed to parse json options")?;
+            Ok(OutputConfig::summary(options))
+        }
+    }
+}
+
+pub struct LookupConfig {
+    pub domain_name: String,
+    pub record_types: Vec<RecordType>,
+    pub randomized_lookup: bool,
+}
+
+impl TryFrom<&ArgMatches<'_>> for LookupConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(args: &ArgMatches) -> std::result::Result<Self, Self::Error> {
+        let config = LookupConfig {
+            domain_name: args
+                .value_of("domain name")
+                .context("No domain name to lookup specified")?
+                .to_string(),
+            record_types: record_types(&args)?,
+            randomized_lookup: args.is_present("randomized-lookup"),
+        };
+
+        Ok(config)
     }
 }
 
@@ -146,25 +181,4 @@ fn parse_record_types<'a, I: Iterator<Item = &'a str>>(record_types: I) -> Resul
         .collect();
     let record_types: std::result::Result<Vec<_>, _> = record_types.into_iter().collect();
     record_types.context("Failed to parse record type")
-}
-
-fn output_config(output_type: OutputType, args: &ArgMatches<'_>) -> Result<OutputConfig> {
-    let args = args
-        .values_of("output-options")
-        .context("No output options specified")?;
-    parse_output_options(output_type, args)
-}
-
-fn parse_output_options<'a, I: Iterator<Item = &'a str>>(output_type: OutputType, options: I) -> Result<OutputConfig> {
-    let options: Vec<&str> = options.collect();
-    match output_type {
-        OutputType::Json => {
-            let options = JsonOptions::try_from(options).context("failed to parse json options")?;
-            Ok(OutputConfig::json(options))
-        }
-        OutputType::Summary => {
-            let options = SummaryOptions::try_from(options).context("failed to parse json options")?;
-            Ok(OutputConfig::summary(options))
-        }
-    }
 }

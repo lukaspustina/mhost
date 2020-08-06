@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use std::time::Duration;
 
-use clap::{App, AppSettings, Arg};
+use clap::{App, AppSettings, Arg, SubCommand};
 
 use crate::app::{SUPPORTED_OUTPUT_FORMATS, SUPPORTED_RECORD_TYPES};
 use crate::estimate::Estimate;
@@ -15,22 +15,11 @@ pub fn setup_clap() -> App<'static, 'static> {
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
-        .setting(AppSettings::DisableHelpSubcommand)
-        .setting(AppSettings::DeriveDisplayOrder)
-        .setting(AppSettings::UnifiedHelpMessage)
-        .setting(AppSettings::VersionlessSubcommands)
-        .arg(Arg::with_name("domain name")
-            .required_unless("list-predefined")
-            .index(1)
-            .value_name("NAME | IP ADDR | CIDR BLOCK")
-            .next_line_help(false)
-            .help("domain name, IP address, or CIDR block to lookup")
-            .long_help(
-                "* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de
-* IP ADDR may be any valid IPv4 or IPv4 address, e.g., 192.168.0.1
-* CIDR BLOCK may be any valid IPv4 or IPv6 subnet in CIDR notation, e.g., 192.168.0.1/24
-  all valid IP addresses of a CIDR block will be queried for a reverse lookup")
-        )
+        .global_setting(AppSettings::DeriveDisplayOrder)
+        .global_setting(AppSettings::DisableHelpSubcommand)
+        .global_setting(AppSettings::GlobalVersion)
+        .global_setting(AppSettings::InferSubcommands)
+        .global_setting(AppSettings::UnifiedHelpMessage)
         .arg(Arg::with_name("no-system-resolv-opt")
             .long("no-system-resolv-opt")
             .help("Ignores options set in /etc/resolv.conf")
@@ -79,7 +68,6 @@ pub fn setup_clap() -> App<'static, 'static> {
             .default_value("udp,tcp,https,tls")
             .possible_values(&["udp", "tcp", "https", "tls"])
             .default_value_if("predefined", None, "udp,tcp,https,tls")
-            .requires("predefined")
             .help("Filters predefined nameservers by protocol")
         )
         .arg(Arg::with_name("list-predefined")
@@ -100,28 +88,6 @@ pub fn setup_clap() -> App<'static, 'static> {
             .default_value("100")
             .validator(|str| usize::from_str(&str).map(|_| ()).map_err(|_| "invalid number".to_string()))
             .help("Sets max. number of nameservers to query")
-        )
-        .arg(Arg::with_name("record types")
-            .short("t")
-            .long("record-type")
-            .value_name("RECORD TYPE")
-            .takes_value(true)
-            .multiple(true)
-            .use_delimiter(true)
-            .require_delimiter(true)
-            .default_value("A,AAAA,MX")
-            .possible_values(SUPPORTED_RECORD_TYPES)
-            .help("Sets record type to lookup, will be ignored in case of IP address lookup")
-        )
-        .arg(Arg::with_name("all-record-types")
-            .long("all")
-            .alias("xmas")
-            .help("Enables lookups for all record types")
-        )
-        .arg(Arg::with_name("randomized-lookup")
-            .short("R")
-            .long("randomized-lookup")
-            .help("Switches into randomize lookup mode: every query will be send just once to a one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.")
         )
         .arg(Arg::with_name("max-concurrent-servers")
             .long("max-concurrent-servers")
@@ -206,6 +172,43 @@ pub fn setup_clap() -> App<'static, 'static> {
             .short("v")
             .multiple(true)
             .help("Sets the level of verbosity"))
+        .subcommand(SubCommand::with_name("lookup")
+            .about("Lookups a name, IP address oder CIDR block")
+            .arg(Arg::with_name("domain name")
+                .required_unless("list-predefined")
+                .index(1)
+                .value_name("NAME | IP ADDR | CIDR BLOCK")
+                .next_line_help(false)
+                .help("domain name, IP address, or CIDR block to lookup")
+                .long_help(
+                    "* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de
+* IP ADDR may be any valid IPv4 or IPv4 address, e.g., 192.168.0.1
+* CIDR BLOCK may be any valid IPv4 or IPv6 subnet in CIDR notation, e.g., 192.168.0.1/24
+  all valid IP addresses of a CIDR block will be queried for a reverse lookup")
+            )
+            .arg(Arg::with_name("record types")
+                .short("t")
+                .long("record-type")
+                .value_name("RECORD TYPE")
+                .takes_value(true)
+                .multiple(true)
+                .use_delimiter(true)
+                .require_delimiter(true)
+                .default_value("A,AAAA,MX")
+                .possible_values(SUPPORTED_RECORD_TYPES)
+                .help("Sets record type to lookup, will be ignored in case of IP address lookup")
+            )
+            .arg(Arg::with_name("all-record-types")
+                .long("all")
+                .alias("xmas")
+                .help("Enables lookups for all record types")
+            )
+            .arg(Arg::with_name("randomized-lookup")
+                .short("R")
+                .long("randomized-lookup")
+                .help("Switches into randomize lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.")
+            )
+        )
 }
 
 pub fn list_predefined_nameservers() {

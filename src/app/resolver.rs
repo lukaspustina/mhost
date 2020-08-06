@@ -1,5 +1,5 @@
 use crate as mhost;
-use crate::app::Config;
+use crate::app::GlobalConfig;
 use crate::nameserver::{predefined, NameServerConfig, NameServerConfigGroup, Protocol};
 use crate::resolver::{Lookups, MultiQuery, ResolverConfigGroup, ResolverGroup, ResolverGroupOpts, ResolverOpts};
 use crate::{IpNetwork, RecordType};
@@ -31,7 +31,7 @@ fn name_query(name: &str, record_types: &[RecordType]) -> Result<MultiQuery> {
 }
 
 pub async fn create_resolvers(
-    config: &Config,
+    config: &GlobalConfig,
     resolver_group_opts: ResolverGroupOpts,
     resolver_opts: ResolverOpts,
 ) -> Result<ResolverGroup> {
@@ -56,7 +56,7 @@ pub async fn create_resolvers(
     Ok(system_resolvers)
 }
 
-pub async fn load_nameservers(config: &Config, system_resolvers: &mut ResolverGroup) -> Result<NameServerConfigGroup> {
+pub async fn load_nameservers(config: &GlobalConfig, system_resolvers: &mut ResolverGroup) -> Result<NameServerConfigGroup> {
     let mut nameservers_group = NameServerConfigGroup::new(Vec::new());
     if let Some(configs) = &config.nameservers {
         let configs: Vec<_> = configs
@@ -97,7 +97,7 @@ pub async fn load_nameservers(config: &Config, system_resolvers: &mut ResolverGr
     Ok(nameservers_group)
 }
 
-pub fn load_resolver_group_opts(config: &Config) -> Result<ResolverGroupOpts> {
+pub fn load_resolver_group_opts(config: &GlobalConfig) -> Result<ResolverGroupOpts> {
     let resolver_group_opts = ResolverGroupOpts {
         max_concurrent: config.max_concurrent_servers,
         limit: Some(config.limit),
@@ -107,7 +107,7 @@ pub fn load_resolver_group_opts(config: &Config) -> Result<ResolverGroupOpts> {
     Ok(resolver_group_opts)
 }
 
-pub fn load_resolver_opts(config: &Config) -> Result<ResolverOpts> {
+pub fn load_resolver_opts(config: &GlobalConfig) -> Result<ResolverOpts> {
     let default_opts = if config.ignore_system_resolv_opt {
         Default::default()
     } else {
@@ -120,7 +120,7 @@ pub fn load_resolver_opts(config: &Config) -> Result<ResolverOpts> {
     Ok(resolver_opts)
 }
 
-pub fn load_system_nameservers(config: &Config) -> Result<NameServerConfigGroup> {
+pub fn load_system_nameservers(config: &GlobalConfig) -> Result<NameServerConfigGroup> {
     let mut system_nameserver_group = NameServerConfigGroup::new(Vec::new());
 
     if !config.ignore_system_nameservers {
