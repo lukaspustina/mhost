@@ -2,9 +2,9 @@ use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 use std::marker::PhantomData;
 
-use crate::resolver::lookup::LookupResult;
-use crate::resolver::{Error, Lookups};
 use crate::RecordType;
+use crate::resolver::{Error, Lookups};
+use crate::resolver::lookup::LookupResult;
 
 pub trait Statistics<'a> {
     type StatsOut;
@@ -18,6 +18,7 @@ pub struct LookupsStats<'a> {
     pub nxdomains: usize,
     pub timeout_errors: usize,
     pub refuse_errors: usize,
+    pub servfail_errors: usize,
     pub total_errors: usize,
     pub rr_type_counts: BTreeMap<RecordType, usize>,
     pub responding_servers: usize,
@@ -26,11 +27,21 @@ pub struct LookupsStats<'a> {
     phantom: PhantomData<&'a usize>,
 }
 
+#[derive(Debug)]
+struct Counts {
+    responses: usize,
+    nxdomains: usize,
+    timeout_errors: usize,
+    refuse_errors: usize,
+    servfail_errors: usize,
+    total_errors: usize,
+}
+
 impl<'a> Statistics<'a> for Lookups {
     type StatsOut = LookupsStats<'a>;
 
     fn statistics(&'a self) -> Self::StatsOut {
-        let (responses, nxdomains, timeout_errors, refuse_errors, total_errors) = count_result_types(&self);
+        let counts = count_result_types(&self);
         let rr_type_counts = count_rr_types(&self);
         let responding_servers = count_responding_servers(&self);
         let response_times: Vec<_> = self
@@ -42,11 +53,12 @@ impl<'a> Statistics<'a> for Lookups {
         let response_time_summary = Summary::summary(response_times.as_slice());
 
         LookupsStats {
-            responses,
-            nxdomains,
-            timeout_errors,
-            refuse_errors,
-            total_errors,
+            responses: counts.responses,
+            nxdomains: counts.nxdomains,
+            timeout_errors: counts.timeout_errors,
+            refuse_errors: counts.refuse_errors,
+            servfail_errors: counts.servfail_errors,
+            total_errors: counts.total_errors,
             rr_type_counts,
             responding_servers,
             response_time_summary,
@@ -57,13 +69,13 @@ impl<'a> Statistics<'a> for Lookups {
 
 impl<'a> fmt::Display for LookupsStats<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fn fmt_errors(errors: usize, timeouts: usize, refuses: usize) -> String {
+        fn fmt_errors(errors: usize, timeouts: usize, refuses: usize, servfails: usize) -> String {
             if errors == 0 {
                 return "0 Err".to_string();
             }
-            let others = errors - timeouts - refuses;
+            let others = errors - timeouts - refuses - servfails;
             format!(
-                "{num_err} Err [{num_to} TO, {num_qr} QR, {num_others} O]",
+                "{num_err} Err [{num_to} TO, {num_qr} QR, {num_sf} SF, {num_others} O]",
                 num_err = if errors > 0 {
                     styles::ERR.paint(errors)
                 } else {
@@ -78,6 +90,11 @@ impl<'a> fmt::Display for LookupsStats<'a> {
                     styles::ERR.paint(refuses)
                 } else {
                     styles::NORMAL.paint(refuses)
+                },
+                num_sf = if servfails > 0 {
+                    styles::ERR.paint(servfails)
+                } else {
+                    styles::NORMAL.paint(servfails)
                 },
                 num_others = if others > 0 {
                     styles::ERR.paint(others)
@@ -94,7 +111,7 @@ impl<'a> fmt::Display for LookupsStats<'a> {
                           num_rr = styles::GOOD.paint(num_rr),
                           rr_types = rr_types,
                           num_nx = styles::WARN.paint(self.nxdomains),
-                          errs = fmt_errors(self.total_errors, self.timeout_errors, self.refuse_errors),
+                          errs = fmt_errors(self.total_errors, self.timeout_errors, self.refuse_errors, self.servfail_errors),
                           min_time = self.response_time_summary.min.map(|x| x.to_string()).unwrap_or_else(|| "-".to_string()),
                           max_time = self.response_time_summary.max.map(|x| x.to_string()).unwrap_or_else(|| "-".to_string()),
                           num_srvs = styles::BOLD.paint(self.responding_servers),
@@ -157,11 +174,12 @@ fn count_responding_servers(lookups: &Lookups) -> usize {
     server_set.len()
 }
 
-fn count_result_types(lookups: &Lookups) -> (usize, usize, usize, usize, usize) {
+fn count_result_types(lookups: &Lookups) -> Counts {
     let mut responses: usize = 0;
     let mut nxdomains: usize = 0;
     let mut timeout_errors: usize = 0;
     let mut refuse_errors: usize = 0;
+    let mut servfail_errors: usize = 0;
     let mut total_errors: usize = 0;
 
     for l in lookups.iter() {
@@ -176,11 +194,22 @@ fn count_result_types(lookups: &Lookups) -> (usize, usize, usize, usize, usize) 
                 refuse_errors += 1;
                 total_errors += 1
             }
+            LookupResult::Error(Error::ServerFailure) => {
+                servfail_errors += 1;
+                total_errors += 1
+            }
             LookupResult::Error { .. } => total_errors += 1,
         }
     }
 
-    (responses, nxdomains, timeout_errors, refuse_errors, total_errors)
+    Counts {
+        responses,
+        nxdomains,
+        timeout_errors,
+        refuse_errors,
+        servfail_errors,
+        total_errors,
+    }
 }
 
 fn rr_types_as_str(rr_type_counts: &BTreeMap<RecordType, usize>) -> String {

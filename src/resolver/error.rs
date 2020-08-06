@@ -6,6 +6,8 @@ use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
 use trust_dns_resolver::proto::error::{ProtoError, ProtoErrorKind};
 use trust_dns_resolver::proto::op::ResponseCode;
 
+static TDR_NAMESERVER_RESPONDED_SERVFAIL: &str = "Nameserver responded with SERVFAIL";
+
 lazy_static! {
     // cf. trust-dns-proto-0.19.5/src/op/response_code.rs:157
     // cf. trust-dns-resolver-0.19.5/src/lookup_state.rs:174
@@ -13,6 +15,7 @@ lazy_static! {
         let query_refused = ResponseCode::Refused;
         format!("DNS Error: {}", query_refused)
     };
+    // cf. trust-dns-resolver-0.19.5/src/name_server/name_server.rs:144
 }
 
 #[derive(Debug, Clone, Error, Serialize)]
@@ -22,6 +25,8 @@ lazy_static! {
 pub enum Error {
     #[error("nameserver refused query")]
     QueryRefused,
+    #[error("nameserver responded with server failure")]
+    ServerFailure,
     #[error("request timed out")]
     Timeout,
     #[error("resolver error: {reason}")]
@@ -37,7 +42,7 @@ pub enum Error {
 impl From<ResolveError> for Error {
     fn from(error: trust_dns_resolver::error::ResolveError) -> Self {
         match &error.kind() {
-            // Unfortunately, TDR-resolver does not provided types errors in this case, so we have to look at the error msg
+            // Unfortunately, trust-dns-resolver does not provided types errors for some cases, so we have to look at the error msg
             ResolveErrorKind::Msg(msg) if *msg == *TDR_QUERY_REFUSED_MSG => Error::QueryRefused,
             ResolveErrorKind::Proto(proto_error) => Self::from(proto_error.clone()),
             ResolveErrorKind::Timeout => Error::Timeout,
@@ -51,6 +56,8 @@ impl From<ResolveError> for Error {
 impl From<ProtoError> for Error {
     fn from(error: ProtoError) -> Self {
         match &error.kind() {
+            // Unfortunately, trust-dns-resolver does not provided types errors for some cases, so we have to look at the error msg
+            ProtoErrorKind::Message(msg) if *msg == TDR_NAMESERVER_RESPONDED_SERVFAIL => Error::ServerFailure,
             ProtoErrorKind::Timeout => Error::Timeout,
             _ => Error::ProtoError {
                 reason: error.to_string(),
