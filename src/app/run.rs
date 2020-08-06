@@ -33,9 +33,16 @@ pub async fn run(config: &Config) -> Result<()> {
     let total_run_time = Instant::now() - start_time;
     info!("Finished Lookups.");
 
+
     if !config.quiet {
         print_statistics(&lookups, total_run_time);
     }
 
-    output(config, &lookups)
+    output(config, &lookups)?;
+
+    if !config.quiet && config.show_errors {
+        print_error_counts(&lookups);
+    }
+
+    Ok(())
 }

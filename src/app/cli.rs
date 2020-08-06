@@ -8,6 +8,7 @@ use crate::estimate::Estimate;
 use crate::nameserver::predefined;
 use crate::resolver::{Lookups, MultiQuery, ResolverGroup, ResolverGroupOpts, ResolverOpts};
 use crate::statistics::Statistics;
+use std::collections::HashMap;
 
 pub fn setup_clap() -> App<'static, 'static> {
     App::new("mhost")
@@ -186,6 +187,11 @@ pub fn setup_clap() -> App<'static, 'static> {
             .long_help("* Json: 'pretty': Prettifies output
 * Summary: 'human': Uses human readable formatting, 'condensed': Simplifies output")
         )
+        .arg(Arg::with_name("show-errors")
+            .long("show-errors")
+            .conflicts_with("quiet")
+            .help("Shows error counts")
+        )
         .arg(Arg::with_name("quiet")
             .short("q")
             .long("quiet")
@@ -281,4 +287,23 @@ pub fn print_statistics(lookups: &Lookups, total_run_time: Duration) {
         statistics,
         total_run_time.as_millis()
     );
+}
+
+pub fn print_error_counts(lookups: &Lookups) {
+    let mut counts: HashMap<String, usize> = HashMap::new();
+
+    for err in lookups.iter().map(|l| l.result().err()).flatten() {
+        let key = format!("{:?}", err);
+        let val = counts.entry(key).or_insert(0);
+        *val += 1;
+    }
+
+    println!("Error counts");
+    if counts.is_empty() {
+        println!("* No errors occurred.")
+    } else {
+        for (k, v) in counts.iter() {
+            println!("* Err {} occurred {} times", k, v);
+        }
+    }
 }

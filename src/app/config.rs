@@ -30,6 +30,7 @@ pub struct Config {
     pub abort_on_error: bool,
     pub abort_on_timeout: bool,
     pub resolv_conf_path: String,
+    pub show_errors: bool,
     pub quiet: bool,
     pub ignore_system_nameservers: bool,
     pub nameservers: Option<Vec<String>>,
@@ -83,6 +84,7 @@ impl TryFrom<ArgMatches<'_>> for Config {
             abort_on_error: !(args.is_present("no-abort-on-error") || args.is_present("no-aborts")),
             abort_on_timeout: !(args.is_present("no-abort-on-timeout") || args.is_present("no-aborts")),
             resolv_conf_path: args.value_of("resolv-conf").unwrap_or("/etc/resolv.conf").to_string(),
+            show_errors: args.is_present("show-errors"),
             quiet: args.is_present("quiet"),
             ignore_system_nameservers: args.is_present("no-system-nameservers"),
             nameservers: args
