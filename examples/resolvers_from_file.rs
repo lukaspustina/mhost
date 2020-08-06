@@ -26,7 +26,7 @@ async fn main() {
     let resolver_configs: ResolverConfigGroup = configs.into();
 
     let resolver_opts = ResolverOpts {
-        attempts: 1,
+        retries: 1,
         max_concurrent_requests: 20,
         timeout: Duration::from_secs(1),
         ..Default::default()

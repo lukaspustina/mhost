@@ -135,12 +135,12 @@ pub fn setup_clap() -> App<'static, 'static> {
             .validator(|str| usize::from_str(&str).map(|_| ()).map_err(|_| "invalid number".to_string()))
             .help("Sets max. concurrent requests per nameserver")
         )
-        .arg(Arg::with_name("attempts")
-            .long("attempts")
-            .value_name("ATTEMPTS")
-            .default_value("1")
+        .arg(Arg::with_name("retries")
+            .long("retries")
+            .value_name("RETRIES")
+            .default_value("0")
             .validator(|str| usize::from_str(&str).map(|_| ()).map_err(|_| "invalid number".to_string()))
-            .help("Sets number of attempts to get response in case of timeout or error")
+            .help("Sets number of retries if first lookup to nameserver fails")
         )
         .arg(Arg::with_name("timeout")
             .long("timeout")
@@ -210,11 +210,11 @@ pub fn list_predefined_nameservers() {
 
 pub fn print_opts(group_opts: &ResolverGroupOpts, opts: &ResolverOpts) {
     println!(
-        "Nameservers options: concurrent nameservers={}, max. nameservers={}, concurrent requests={}, attempts={}, timeout={} s{}{}{}",
+        "Nameservers options: concurrent nameservers={}, max. nameservers={}, concurrent requests={}, retries={}, timeout={} s{}{}{}",
         group_opts.max_concurrent,
         group_opts.limit.unwrap(), // Safe unwrap, because of Clap's default value
         opts.max_concurrent_requests,
-        opts.attempts,
+        opts.retries,
         opts.timeout.as_secs(),
         if opts.expects_multiple_responses {
             ", wait for additional responses"

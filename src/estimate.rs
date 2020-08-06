@@ -33,7 +33,7 @@ impl fmt::Display for Estimation {
 impl Estimate for Resolver {
     fn estimate(&self, query: &MultiQuery) -> Estimation {
         let min_lookups = query.names.len() * query.record_types.len();
-        let max_lookups = query.names.len() * query.record_types.len() * self.opts.attempts;
+        let max_lookups = query.names.len() * query.record_types.len() * (1 + self.opts.retries);
 
         Estimation {
             min_requests: min_lookups,

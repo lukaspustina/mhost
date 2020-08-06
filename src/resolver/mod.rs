@@ -45,7 +45,7 @@ impl From<NameServerConfig> for ResolverConfig {
 
 #[derive(Debug, Clone)]
 pub struct ResolverOpts {
-    pub attempts: usize,
+    pub retries: usize,
     /// Maximum number of concurrent queries send with this resolver
     pub max_concurrent_requests: usize,
     pub ndots: usize,
@@ -75,7 +75,7 @@ impl ResolverOpts {
 impl Default for ResolverOpts {
     fn default() -> Self {
         ResolverOpts {
-            attempts: 1,
+            retries: 1,
             max_concurrent_requests: 5,
             ndots: 1,
             preserve_intermediates: false,
@@ -300,7 +300,7 @@ async fn sliding_window_lookups(
 impl From<resolv_conf::Config> for ResolverOpts {
     fn from(config: resolv_conf::Config) -> Self {
         ResolverOpts {
-            attempts: config.attempts as usize,
+            retries: config.attempts as usize,
             ndots: config.ndots as usize,
             timeout: Duration::from_secs(config.timeout as u64),
             ..Default::default()
@@ -312,8 +312,7 @@ impl From<resolv_conf::Config> for ResolverOpts {
 impl From<ResolverOpts> for trust_dns_resolver::config::ResolverOpts {
     fn from(opts: ResolverOpts) -> Self {
         trust_dns_resolver::config::ResolverOpts {
-            // TODO: This is currently broken or I misunderstood the docs - cf. https://github.com/bluejekyll/trust-dns/issues/1176
-            attempts: if opts.attempts == 0 { 0 } else { opts.attempts - 1 },
+            attempts: opts.retries,
             ndots: opts.ndots,
             num_concurrent_reqs: opts.max_concurrent_requests,
             preserve_intermediates: opts.preserve_intermediates,
