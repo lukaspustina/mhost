@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -8,7 +9,6 @@ use crate::estimate::Estimate;
 use crate::nameserver::predefined;
 use crate::resolver::{Lookups, MultiQuery, ResolverGroup, ResolverGroupOpts, ResolverOpts};
 use crate::statistics::Statistics;
-use std::collections::HashMap;
 
 pub fn setup_clap() -> App<'static, 'static> {
     App::new("mhost")
@@ -207,6 +207,16 @@ pub fn setup_clap() -> App<'static, 'static> {
                 .short("R")
                 .long("randomized-lookup")
                 .help("Switches into randomize lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.")
+            )
+        )
+        .subcommand(SubCommand::with_name("soa-check")
+            .about("Checks SOA records of authoritative name servers for deviations")
+            .arg(Arg::with_name("domain name")
+                .index(1)
+                .value_name("NAME")
+                .next_line_help(false)
+                .help("domain name to check")
+                .long_help("* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de")
             )
         )
 }

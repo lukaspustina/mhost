@@ -182,3 +182,23 @@ fn parse_record_types<'a, I: Iterator<Item = &'a str>>(record_types: I) -> Resul
     let record_types: std::result::Result<Vec<_>, _> = record_types.into_iter().collect();
     record_types.context("Failed to parse record type")
 }
+
+
+pub struct SoaCheckConfig {
+    pub domain_name: String,
+}
+
+impl TryFrom<&ArgMatches<'_>> for SoaCheckConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(args: &ArgMatches) -> std::result::Result<Self, Self::Error> {
+        let config = SoaCheckConfig {
+            domain_name: args
+                .value_of("domain name")
+                .context("No domain name to lookup specified")?
+                .to_string(),
+        };
+
+        Ok(config)
+    }
+}
