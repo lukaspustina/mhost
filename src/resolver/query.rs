@@ -72,6 +72,10 @@ impl MultiQuery {
         Ok(MultiQuery { names, record_types })
     }
 
+    pub fn single<N: IntoName>(name: N, record_type: RecordType) -> ResolverResult<MultiQuery> {
+        MultiQuery::new(vec![name], vec![record_type])
+    }
+
     pub fn multi_name<N: IntoName, S: IntoIterator<Item = N>>(
         names: S,
         record_type: RecordType,

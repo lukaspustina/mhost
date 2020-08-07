@@ -14,10 +14,17 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("domain name to check")
                 .long_help("* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de"),
         )
+        .arg(
+            Arg::with_name("partial-results")
+                .short("p")
+                .long("show-partial-results")
+                .help("Shows results after each lookup step"),
+        )
 }
 
 pub struct SoaCheckConfig {
     pub domain_name: String,
+    pub partial_results: bool,
 }
 
 impl TryFrom<&ArgMatches<'_>> for SoaCheckConfig {
@@ -29,6 +36,7 @@ impl TryFrom<&ArgMatches<'_>> for SoaCheckConfig {
                 .value_of("domain name")
                 .context("No domain name to lookup specified")?
                 .to_string(),
+            partial_results: args.is_present("partial-results")
         };
 
         Ok(config)

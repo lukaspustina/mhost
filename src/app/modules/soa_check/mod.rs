@@ -1,14 +1,19 @@
+use crate::app::cli::{print_estimates, print_opts, print_statistics};
 use crate::app::modules::soa_check::config::SoaCheckConfig;
-use crate::app::GlobalConfig;
-use crate::estimate::Estimate;
+use crate::app::resolver::{create_resolvers, load_resolver_group_opts, load_resolver_opts};
+use crate::app::{output, GlobalConfig};
+use crate::diff::SetDiffer;
 use crate::nameserver::NameServerConfig;
 use crate::resolver::lookup::Uniquify;
-use crate::resolver::{MultiQuery, ResolverConfig, ResolverGroup, UniQuery};
+use crate::resolver::{MultiQuery, ResolverConfig, ResolverGroup};
 use crate::RecordType;
 use anyhow::Result;
 use clap::ArgMatches;
+use indexmap::set::IndexSet;
 use log::info;
 use std::convert::TryInto;
+use std::net::IpAddr;
+use std::time::Instant;
 
 pub mod config;
 
@@ -16,41 +21,97 @@ pub async fn run(args: &ArgMatches<'_>, global_config: &GlobalConfig) -> Result<
     info!("soa-check module selected.");
     let args = args.subcommand_matches("soa-check").unwrap();
     let config: SoaCheckConfig = args.try_into()?;
-    do_soa_check(&global_config, &config).await
+    soa_check(&global_config, &config).await
 }
 
-pub async fn do_soa_check(_global_config: &GlobalConfig, config: &SoaCheckConfig) -> Result<()> {
-    let name = config.domain_name.clone();
-    let resolvers = ResolverGroup::from_system_config(Default::default()).await?;
+pub async fn soa_check(global_config: &GlobalConfig, config: &SoaCheckConfig) -> Result<()> {
+    // NS
+    let query = MultiQuery::single(config.domain_name.as_str(), RecordType::NS)?;
 
-    let q = UniQuery::new(name.clone(), RecordType::NS)?;
-    println!(
-        "Sending {} requests for names of authoritative name servers.",
-        resolvers.estimate(&q.clone().into())
-    );
-    let authoritative_name_server_names = resolvers.lookup(q).await.unwrap().ns().unique().to_owned();
+    let resolver_group_opts = load_resolver_group_opts(&global_config)?;
+    let resolver_opts = load_resolver_opts(&global_config)?;
 
-    let q = MultiQuery::multi_name(authoritative_name_server_names, RecordType::A)?;
-    println!(
-        "Sending {} requests for IPv4 addresses of authoritative name servers.",
-        resolvers.estimate(&q)
-    );
-    let authoritative_name_server_ips = resolvers.lookup(q).await.unwrap().a().unique().to_owned();
+    if !global_config.quiet {
+        print_opts(&resolver_group_opts, &resolver_opts);
+    }
+
+    let resolvers = create_resolvers(global_config, resolver_group_opts.clone(), resolver_opts.clone()).await?;
+
+    if !global_config.quiet && config.partial_results {
+        print_estimates(&resolvers, &query);
+    }
+
+    info!("Running lookups for authoritative name servers");
+    let start_time = Instant::now();
+    let lookups = resolvers.lookup(query).await?;
+    let total_run_time = Instant::now() - start_time;
+    info!("Finished Lookups.");
+
+    if !global_config.quiet && config.partial_results {
+        print_statistics(&lookups, total_run_time);
+    }
+    if config.partial_results {
+        output::output(global_config, &lookups)?;
+    }
+
+    let authoritative_name_server_names = lookups.ns().unique().to_owned();
+
+    // A, AAAA
+
+    let query = MultiQuery::new(authoritative_name_server_names, vec![RecordType::A, RecordType::AAAA])?;
+    if !global_config.quiet && config.partial_results {
+        print_estimates(&resolvers, &query);
+    }
+
+    info!("Running lookups for IP addresses of authoritative name servers");
+    let start_time = Instant::now();
+    let lookups = resolvers.lookup(query).await?;
+    let total_run_time = Instant::now() - start_time;
+    info!("Finished Lookups.");
+
+    if !global_config.quiet && config.partial_results {
+        print_statistics(&lookups, total_run_time);
+    }
+    if config.partial_results {
+        output::output(global_config, &lookups)?;
+    }
+
+    let authoritative_name_server_ips = lookups.a().unique().to_owned().into_iter().map(IpAddr::from)
+        .chain(lookups.aaaa().unique().to_owned().into_iter().map(IpAddr::from));
+
+    // IPs
 
     let authoritative_name_servers = authoritative_name_server_ips
         .into_iter()
         .map(|ip| NameServerConfig::udp((ip, 53)))
         .map(ResolverConfig::new);
-    let resolvers =
-        ResolverGroup::from_configs(authoritative_name_servers, Default::default(), Default::default()).await?;
+    let resolvers = ResolverGroup::from_configs(authoritative_name_servers, resolver_opts, resolver_group_opts).await?;
 
-    let q = UniQuery::new(name, RecordType::SOA)?;
-    println!(
-        "Sending {} requests for SOA records of authoritative name servers.",
-        resolvers.estimate(&q.clone().into())
-    );
-    let soas = resolvers.lookup(q).await.unwrap().soa().unique().to_owned();
-    println!("SOAs -- should be exactly one: {:#?}", &soas);
+    let query = MultiQuery::single(config.domain_name.as_str(), RecordType::SOA)?;
+    if !global_config.quiet {
+        print_estimates(&resolvers, &query);
+    }
+
+    info!("Running lookups for SOA records of authoritative name servers");
+    let start_time = Instant::now();
+    let lookups = resolvers.lookup(query).await?;
+    let total_run_time = Instant::now() - start_time;
+    info!("Finished Lookups.");
+
+    if !global_config.quiet {
+        print_statistics(&lookups, total_run_time);
+    }
+    output::output(global_config, &lookups)?;
+
+    let soas: IndexSet<_> = lookups.soa().unique().to_owned().into_iter().collect();
+    let diffs = soas.differences();
+
+    if let Some(diffs) = diffs {
+        println!("=> Found deviations in SOA records: ");
+        println!("{:?}", diffs);
+    } else {
+        println!("=> No deviations found in SOA records. All good.")
+    }
 
     Ok(())
 }

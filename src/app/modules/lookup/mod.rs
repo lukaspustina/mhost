@@ -5,25 +5,22 @@ use anyhow::Result;
 
 use crate::app::cli::{print_error_counts, print_estimates, print_opts, print_statistics};
 use crate::app::modules::lookup::config::LookupConfig;
-use crate::app::modules::lookup::resolver::{
-    build_query, create_resolvers, load_resolver_group_opts, load_resolver_opts,
-};
-use crate::app::{output, GlobalConfig};
+use crate::app::resolver::{build_query, create_resolvers, load_resolver_group_opts, load_resolver_opts};
+use crate::app::{output, resolver, GlobalConfig};
 use crate::resolver::Lookups;
 use clap::ArgMatches;
 use std::convert::TryInto;
 
 pub mod config;
-pub mod resolver;
 
 pub async fn run(args: &ArgMatches<'_>, global_config: &GlobalConfig) -> Result<()> {
     info!("lookup module selected.");
     let args = args.subcommand_matches("lookup").unwrap();
     let config: LookupConfig = args.try_into()?;
-    do_lookups(&global_config, &config).await
+    lookups(&global_config, &config).await
 }
 
-pub async fn do_lookups(global_config: &GlobalConfig, config: &LookupConfig) -> Result<()> {
+pub async fn lookups(global_config: &GlobalConfig, config: &LookupConfig) -> Result<()> {
     let query = build_query(&config.domain_name, &config.record_types)?;
 
     let resolver_group_opts = load_resolver_group_opts(&global_config)?;
