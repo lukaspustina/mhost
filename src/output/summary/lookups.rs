@@ -1,5 +1,5 @@
 use std::cmp::Eq;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::time::Duration;
 
@@ -11,66 +11,19 @@ use crate::resources::Record;
 use crate::{Error, RecordType};
 
 use super::*;
+use crate::resolver::Lookups;
 use std::hash::{Hash, Hasher};
 
-#[derive(Debug)]
-pub struct SummaryOptions {
-    /// Show numbers, times, and dates in human readable form
-    human: bool,
-    /// Reduce output to an as concise as possible form
-    condensed: bool,
-}
-
-impl Default for SummaryOptions {
-    fn default() -> Self {
-        SummaryOptions {
-            human: true,
-            condensed: false,
-        }
-    }
-}
-
-impl<'a> TryFrom<Vec<&'a str>> for SummaryOptions {
-    type Error = Error;
-
-    fn try_from(values: Vec<&'a str>) -> std::result::Result<Self, Self::Error> {
-        let options: HashSet<&str> = values.into_iter().collect();
-        Ok(SummaryOptions {
-            human: options.contains("human"),
-            condensed: options.contains("condensed"),
-        })
-    }
-}
-
-#[derive(Debug)]
-pub struct SummaryFormat {
-    opts: SummaryOptions,
-}
-
-impl SummaryFormat {
-    pub fn new(opts: SummaryOptions) -> SummaryFormat {
-        SummaryFormat { opts }
-    }
-}
-
-impl Default for SummaryFormat {
-    fn default() -> Self {
-        SummaryFormat {
-            opts: SummaryOptions::default(),
-        }
-    }
-}
-
-impl OutputFormat for SummaryFormat {
-    fn output<W: Write>(&self, writer: &mut W, lookups: &Lookups) -> Result<()> {
-        let mut rr_types: Vec<_> = lookups.record_types().into_iter().collect();
+impl SummaryFormatter for Lookups {
+    fn output<W: Write>(&self, writer: &mut W, opts: &SummaryOptions) -> Result<()> {
+        let mut rr_types: Vec<_> = self.record_types().into_iter().collect();
         rr_types.sort_by(order_by_ordinal);
 
         let mut tw = TabWriter::new(vec![]);
 
         for rr_type in rr_types {
-            let records = lookups.records_by_type(rr_type);
-            output_records(&mut tw, records, &self.opts)?;
+            let records = self.records_by_type(rr_type);
+            output_records(&mut tw, records, opts)?;
         }
 
         let text_buffer = tw.into_inner().map_err(|_| Error::InternalError {

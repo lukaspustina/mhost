@@ -3,9 +3,9 @@ use std::io::Write;
 
 use nom::lib::std::convert::TryFrom;
 
-use crate::resolver::Lookups;
 use crate::Result;
 use crate::{Error, RecordType};
+use serde::Serialize;
 
 pub mod json;
 pub mod summary;
@@ -32,8 +32,8 @@ impl TryFrom<&str> for OutputType {
     }
 }
 
-pub trait OutputFormat {
-    fn output<W: Write>(&self, writer: &mut W, lookups: &Lookups) -> Result<()>;
+pub trait OutputFormat<T> {
+    fn output<W: Write>(&self, writer: &mut W, data: &T) -> Result<()>;
 }
 
 #[derive(Debug)]
@@ -67,11 +67,11 @@ impl Output<'_> {
     }
 }
 
-impl OutputFormat for Output<'_> {
-    fn output<W: Write>(&self, writer: &mut W, lookups: &Lookups) -> Result<()> {
+impl<T: Serialize + summary::SummaryFormatter> OutputFormat<T> for Output<'_> {
+    fn output<W: Write>(&self, writer: &mut W, data: &T) -> Result<()> {
         match self.config {
-            OutputConfig::Json { format } => format.output(writer, lookups),
-            OutputConfig::Summary { format } => format.output(writer, lookups),
+            OutputConfig::Json { format } => format.output(writer, data),
+            OutputConfig::Summary { format } => format.output(writer, data),
         }
     }
 }

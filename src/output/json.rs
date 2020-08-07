@@ -1,5 +1,7 @@
-use super::*;
 use nom::lib::std::collections::HashSet;
+
+use super::*;
+use serde::Serialize;
 
 #[derive(Debug)]
 pub struct JsonOptions {
@@ -43,12 +45,12 @@ impl<'a> TryFrom<Vec<&'a str>> for JsonOptions {
     }
 }
 
-impl OutputFormat for JsonFormat {
-    fn output<W: Write>(&self, writer: &mut W, lookups: &Lookups) -> Result<()> {
+impl<T: Serialize> OutputFormat<T> for JsonFormat {
+    fn output<W: Write>(&self, writer: &mut W, data: &T) -> Result<()> {
         if self.opts.pretty {
-            serde_json::to_writer_pretty(writer, lookups)?;
+            serde_json::to_writer_pretty(writer, data)?;
         } else {
-            serde_json::to_writer(writer, lookups)?;
+            serde_json::to_writer(writer, data)?;
         }
 
         Ok(())
@@ -60,6 +62,7 @@ mod tests {
     use spectral::prelude::*;
 
     use super::*;
+    use crate::resolver::Lookups;
 
     #[test]
     fn json_serialization() {
