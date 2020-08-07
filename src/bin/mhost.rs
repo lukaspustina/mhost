@@ -3,11 +3,15 @@ use std::convert::TryInto;
 use anyhow::Result;
 use log::info;
 
-use mhost::app::{GlobalConfig, list_predefined_nameservers, lookup, LookupConfig, setup_clap, start_logging_for_level, soa_check, SoaCheckConfig};
+use mhost::app::cli::list_predefined_nameservers;
+use mhost::app::global_config;
+use mhost::app::logging::start_logging_for_level;
+use mhost::app::modules;
+use mhost::app::GlobalConfig;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args = setup_clap().get_matches();
+    let args = global_config::setup_clap().get_matches();
 
     if args.is_present("no-color") {
         yansi::Paint::disable();
@@ -25,18 +29,8 @@ async fn main() -> Result<()> {
     }
 
     let res = match args.subcommand_name() {
-        Some("lookup") => {
-            info!("lookup module selected.");
-            let args = args.subcommand_matches("lookup").unwrap();
-            let config: LookupConfig = args.try_into()?;
-            lookup::run(&global_config, &config).await
-        },
-        Some("soa-check") => {
-            info!("soa-check module selected.");
-            let args = args.subcommand_matches("soa-check").unwrap();
-            let config: SoaCheckConfig = args.try_into()?;
-            soa_check::run(&global_config, &config).await
-        },
+        Some("lookup") => modules::lookup::run(&args, &global_config).await,
+        Some("soa-check") => modules::soa_check::run(&args, &global_config).await,
         _ => Ok(()),
     };
     info!("Finished.");

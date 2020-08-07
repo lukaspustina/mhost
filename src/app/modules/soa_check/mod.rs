@@ -1,13 +1,25 @@
+use crate::app::modules::soa_check::config::SoaCheckConfig;
 use crate::app::GlobalConfig;
-use crate::resolver::{ResolverGroup, UniQuery, MultiQuery, ResolverConfig};
-use anyhow::Result;
-use crate::RecordType;
 use crate::estimate::Estimate;
-use crate::resolver::lookup::Uniquify;
 use crate::nameserver::NameServerConfig;
-use crate::app::config::SoaCheckConfig;
+use crate::resolver::lookup::Uniquify;
+use crate::resolver::{MultiQuery, ResolverConfig, ResolverGroup, UniQuery};
+use crate::RecordType;
+use anyhow::Result;
+use clap::ArgMatches;
+use log::info;
+use std::convert::TryInto;
 
-pub async fn run(_global_config: &GlobalConfig, config: &SoaCheckConfig) -> Result<()> {
+pub mod config;
+
+pub async fn run(args: &ArgMatches<'_>, global_config: &GlobalConfig) -> Result<()> {
+    info!("soa-check module selected.");
+    let args = args.subcommand_matches("soa-check").unwrap();
+    let config: SoaCheckConfig = args.try_into()?;
+    do_soa_check(&global_config, &config).await
+}
+
+pub async fn do_soa_check(_global_config: &GlobalConfig, config: &SoaCheckConfig) -> Result<()> {
     let name = config.domain_name.clone();
     let resolvers = ResolverGroup::from_system_config(Default::default()).await?;
 
@@ -18,8 +30,7 @@ pub async fn run(_global_config: &GlobalConfig, config: &SoaCheckConfig) -> Resu
     );
     let authoritative_name_server_names = resolvers.lookup(q).await.unwrap().ns().unique().to_owned();
 
-    let q =
-        MultiQuery::multi_name(authoritative_name_server_names, RecordType::A)?;
+    let q = MultiQuery::multi_name(authoritative_name_server_names, RecordType::A)?;
     println!(
         "Sending {} requests for IPv4 addresses of authoritative name servers.",
         resolvers.estimate(&q)
@@ -30,7 +41,8 @@ pub async fn run(_global_config: &GlobalConfig, config: &SoaCheckConfig) -> Resu
         .into_iter()
         .map(|ip| NameServerConfig::udp((ip, 53)))
         .map(ResolverConfig::new);
-    let resolvers = ResolverGroup::from_configs(authoritative_name_servers, Default::default(), Default::default()).await?;
+    let resolvers =
+        ResolverGroup::from_configs(authoritative_name_servers, Default::default(), Default::default()).await?;
 
     let q = UniQuery::new(name, RecordType::SOA)?;
     println!(

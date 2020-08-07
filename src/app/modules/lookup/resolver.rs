@@ -56,7 +56,10 @@ pub async fn create_resolvers(
     Ok(system_resolvers)
 }
 
-pub async fn load_nameservers(config: &GlobalConfig, system_resolvers: &mut ResolverGroup) -> Result<NameServerConfigGroup> {
+pub async fn load_nameservers(
+    config: &GlobalConfig,
+    system_resolvers: &mut ResolverGroup,
+) -> Result<NameServerConfigGroup> {
     let mut nameservers_group = NameServerConfigGroup::new(Vec::new());
     if let Some(configs) = &config.nameservers {
         let configs: Vec<_> = configs

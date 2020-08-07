@@ -109,7 +109,7 @@ impl Authority {
             "iana" => Iana,
             "lacnic" => Lacnic,
             "ripe" => Ripe,
-            _ => Unknown
+            _ => Unknown,
         }
     }
 }
@@ -131,12 +131,12 @@ impl From<Response<whois::Whois>> for Response<Whois> {
 mod whois {
     use std::collections::HashMap;
 
+    use crate::services::ripe_stats::Authority;
+    use chrono::prelude::*;
+    use ipnetwork::IpNetwork;
     use serde::de;
     use serde::Deserialize;
-    use crate::services::ripe_stats::Authority;
-    use ipnetwork::IpNetwork;
     use std::str::FromStr;
-    use chrono::prelude::*;
 
     #[derive(Debug, Deserialize)]
     pub struct Whois {
@@ -153,8 +153,8 @@ mod whois {
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<HashMap<String, String>>, D::Error>
-        where
-            D: de::Deserializer<'de>,
+    where
+        D: de::Deserializer<'de>,
     {
         let mut result = Vec::new();
         for vec in Vec::<Vec<Item>>::deserialize(deserializer)? {
@@ -170,15 +170,28 @@ mod whois {
     }
 
     // This is really ugly.
-    pub fn parse_whois_records(mut records: Vec<HashMap<String, String>>) -> (Option<String>, Option<String>, Option<IpNetwork>, Option<String>, Option<super::Authority>){
-        if records.is_empty() { return (None, None, None, None, None) };
-        if records.len() == 1 { // We've received just one record table
+    pub fn parse_whois_records(
+        mut records: Vec<HashMap<String, String>>,
+    ) -> (
+        Option<String>,
+        Option<String>,
+        Option<IpNetwork>,
+        Option<String>,
+        Option<super::Authority>,
+    ) {
+        if records.is_empty() {
+            return (None, None, None, None, None);
+        };
+        if records.len() == 1 {
+            // We've received just one record table
             let records = records.pop().unwrap(); // safe unwrap
-            return parse_whois_record(records)
+            return parse_whois_record(records);
         }
         // We have multiple tables, let's try to find the latest table.
 
-        let mut i_dates: Vec<_> = records.iter().enumerate()
+        let mut i_dates: Vec<_> = records
+            .iter()
+            .enumerate()
             .map(|(i, h)| (i, h.get("regdate")))
             .filter(|(_, d)| d.is_some())
             .map(|(i, h)| (i, h.map(|x| NaiveDate::parse_from_str(x, "%Y-%m-%d").ok())))
@@ -191,11 +204,22 @@ mod whois {
         parse_whois_record(records.remove(i_dates.pop().unwrap().0)) // Safe unwrap
     }
 
-    fn parse_whois_record(mut record: HashMap<String, String>) -> (Option<String>, Option<String>, Option<IpNetwork>, Option<String>, Option<Authority>) {
-        let organization = record.remove("organization")
-            .or_else(|| record.remove("descr"));
+    fn parse_whois_record(
+        mut record: HashMap<String, String>,
+    ) -> (
+        Option<String>,
+        Option<String>,
+        Option<IpNetwork>,
+        Option<String>,
+        Option<Authority>,
+    ) {
+        let organization = record.remove("organization").or_else(|| record.remove("descr"));
         let country = record.remove("country");
-        let cidr = record.remove("inetnum").or_else(|| record.remove("cidr")).map(|x| IpNetwork::from_str(&x).ok()).flatten();
+        let cidr = record
+            .remove("inetnum")
+            .or_else(|| record.remove("cidr"))
+            .map(|x| IpNetwork::from_str(&x).ok())
+            .flatten();
         let net_name = record.remove("netname");
         let source = record.remove("source").map(|x| Authority::from(&x));
         (organization, country, cidr, net_name, source)
@@ -533,13 +557,18 @@ mod tests {
         assert_that(&data).is_some();
 
         let whois: Whois = data.unwrap().into();
-        assert_that(&whois.organization).is_some().is_equal_to("NetCologne dynamic IP Pool, Am Coloneum 9, D-50829 Koeln".to_string());
+        assert_that(&whois.organization)
+            .is_some()
+            .is_equal_to("NetCologne dynamic IP Pool, Am Coloneum 9, D-50829 Koeln".to_string());
         assert_that(&whois.country).is_some().is_equal_to("DE".to_string());
-        assert_that(&whois.cidr).is_some().is_equal_to(IpNetwork::from_str("85.197.0.0/19").unwrap());
-        assert_that(&whois.net_name).is_some().is_equal_to("NC-DIAL-IN-POOL".to_string());
+        assert_that(&whois.cidr)
+            .is_some()
+            .is_equal_to(IpNetwork::from_str("85.197.0.0/19").unwrap());
+        assert_that(&whois.net_name)
+            .is_some()
+            .is_equal_to("NC-DIAL-IN-POOL".to_string());
         assert_that(&whois.source).is_some().is_equal_to(&Authority::Ripe);
     }
-
 
     #[test]
     fn parse_whois_arin() {
@@ -1630,10 +1659,16 @@ mod tests {
         assert_that(&data).is_some();
 
         let whois: Whois = data.unwrap().into();
-        assert_that(&whois.organization).is_some().is_equal_to("Amazon Technologies Inc. (AT-88-Z)".to_string());
+        assert_that(&whois.organization)
+            .is_some()
+            .is_equal_to("Amazon Technologies Inc. (AT-88-Z)".to_string());
         assert_that(&whois.country).is_none();
-        assert_that(&whois.cidr).is_some().is_equal_to(IpNetwork::from_str("18.128.0.0/9").unwrap());
-        assert_that(&whois.net_name).is_some().is_equal_to("AT-88-Z".to_string());
+        assert_that(&whois.cidr)
+            .is_some()
+            .is_equal_to(IpNetwork::from_str("18.128.0.0/9").unwrap());
+        assert_that(&whois.net_name)
+            .is_some()
+            .is_equal_to("AT-88-Z".to_string());
         assert_that(&whois.source).is_some().is_equal_to(&Authority::Arin);
     }
 }

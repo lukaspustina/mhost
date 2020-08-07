@@ -3,11 +3,27 @@ use std::time::Instant;
 
 use anyhow::Result;
 
-use crate::app::*;
+use crate::app::cli::{print_error_counts, print_estimates, print_opts, print_statistics};
+use crate::app::modules::lookup::config::LookupConfig;
+use crate::app::modules::lookup::resolver::{
+    build_query, create_resolvers, load_resolver_group_opts, load_resolver_opts,
+};
+use crate::app::{output, GlobalConfig};
 use crate::resolver::Lookups;
-use crate::app::config::LookupConfig;
+use clap::ArgMatches;
+use std::convert::TryInto;
 
-pub async fn run(global_config: &GlobalConfig, config: &LookupConfig) -> Result<()> {
+pub mod config;
+pub mod resolver;
+
+pub async fn run(args: &ArgMatches<'_>, global_config: &GlobalConfig) -> Result<()> {
+    info!("lookup module selected.");
+    let args = args.subcommand_matches("lookup").unwrap();
+    let config: LookupConfig = args.try_into()?;
+    do_lookups(&global_config, &config).await
+}
+
+pub async fn do_lookups(global_config: &GlobalConfig, config: &LookupConfig) -> Result<()> {
     let query = build_query(&config.domain_name, &config.record_types)?;
 
     let resolver_group_opts = load_resolver_group_opts(&global_config)?;
@@ -25,7 +41,7 @@ pub async fn run(global_config: &GlobalConfig, config: &LookupConfig) -> Result<
 
     info!("Running lookups");
     let start_time = Instant::now();
-    let lookups: Lookups = lookup(config.randomized_lookup, query, resolvers).await?;
+    let lookups: Lookups = resolver::lookup(config.randomized_lookup, query, resolvers).await?;
     let total_run_time = Instant::now() - start_time;
     info!("Finished Lookups.");
 
@@ -33,7 +49,7 @@ pub async fn run(global_config: &GlobalConfig, config: &LookupConfig) -> Result<
         print_statistics(&lookups, total_run_time);
     }
 
-    output(global_config, &lookups)?;
+    output::output(global_config, &lookups)?;
 
     if !global_config.quiet && global_config.show_errors {
         print_error_counts(&lookups);
