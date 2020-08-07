@@ -25,3 +25,5 @@ fmt-check:
 fmt:
 	cargo fmt
 
+install:
+	cargo install --all-features --path .
