@@ -1,0 +1,24 @@
+---
+version: '3'
+services:
+  dns1:
+    build: .
+    ports:
+      - "127.0.0.1:53:53/udp"
+      - "127.0.0.1:53:53/tcp"
+    volumes:
+      - "./dns1:/etc/dnsmasq.d:ro"
+  dns2:
+    build: .
+    ports:
+      - "127.0.0.1:54:53/udp"
+      - "127.0.0.1:54:53/tcp"
+    volumes:
+      - "./dns2:/etc/dnsmasq.d:ro"
+  dns3:
+    build: .
+    ports:
+      - "127.0.0.1:55:53/udp"
+      - "127.0.0.1:55:53/tcp"
+    volumes:
+      - "./dns3:/etc/dnsmasq.d:ro"

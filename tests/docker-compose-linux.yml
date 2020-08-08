@@ -1,0 +1,35 @@
+---
+version: '3'
+services:
+  dns1:
+    build: .
+    networks:
+      default:
+        ipv4_address: 192.168.65.5
+        #    ports:
+        #      - "192.168.65.1:53:53/udp"
+        #      - "192.168.65.1:53:53/tcp"
+    volumes:
+      - "./dns1:/etc/dnsmasq.d:ro"
+  dns2:
+    build: .
+    networks:
+      default:
+        ipv4_address: 192.168.65.6
+    volumes:
+      - "./dns2:/etc/dnsmasq.d:ro"
+  dns3:
+    build: .
+    networks:
+      default:
+        ipv4_address: 192.168.65.7
+    volumes:
+      - "./dns3:/etc/dnsmasq.d:ro"
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.65.0/24
