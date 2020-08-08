@@ -36,7 +36,7 @@ impl TryFrom<&ArgMatches<'_>> for SoaCheckConfig {
                 .value_of("domain name")
                 .context("No domain name to lookup specified")?
                 .to_string(),
-            partial_results: args.is_present("partial-results")
+            partial_results: args.is_present("partial-results"),
         };
 
         Ok(config)

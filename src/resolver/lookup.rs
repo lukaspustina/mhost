@@ -63,6 +63,10 @@ impl Lookups {
         self.inner.iter()
     }
 
+    pub fn has_records(&self) -> bool {
+        self.inner.iter().any(|x| x.result().is_response())
+    }
+
     lookups_data_accessor!(a, Ipv4Addr);
     lookups_data_accessor!(aaaa, Ipv6Addr);
     lookups_data_accessor!(aname, Name);

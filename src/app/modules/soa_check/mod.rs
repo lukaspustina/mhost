@@ -53,10 +53,14 @@ pub async fn soa_check(global_config: &GlobalConfig, config: &SoaCheckConfig) ->
     if config.partial_results {
         output::output(global_config, &lookups)?;
     }
+    if !lookups.has_records() {
+        println!("No authoritative nameservers found. Aborting.");
+        return Ok(());
+    }
 
     let authoritative_name_server_names = lookups.ns().unique().to_owned();
 
-    // A, AAAA
+    // A, AAAA -> IP
 
     let query = MultiQuery::new(authoritative_name_server_names, vec![RecordType::A, RecordType::AAAA])?;
     if !global_config.quiet && config.partial_results {
@@ -75,11 +79,20 @@ pub async fn soa_check(global_config: &GlobalConfig, config: &SoaCheckConfig) ->
     if config.partial_results {
         output::output(global_config, &lookups)?;
     }
+    if !lookups.has_records() {
+        println!("No IP addresses for authoritative nameservers found. Aborting.");
+        return Ok(());
+    }
 
-    let authoritative_name_server_ips = lookups.a().unique().to_owned().into_iter().map(IpAddr::from)
+    let authoritative_name_server_ips = lookups
+        .a()
+        .unique()
+        .to_owned()
+        .into_iter()
+        .map(IpAddr::from)
         .chain(lookups.aaaa().unique().to_owned().into_iter().map(IpAddr::from));
 
-    // IPs
+    // SOA
 
     let authoritative_name_servers = authoritative_name_server_ips
         .into_iter()
@@ -102,6 +115,10 @@ pub async fn soa_check(global_config: &GlobalConfig, config: &SoaCheckConfig) ->
         print_statistics(&lookups, total_run_time);
     }
     output::output(global_config, &lookups)?;
+    if !lookups.has_records() {
+        println!("No SOA records from authoritative nameservers found. Aborting.");
+        return Ok(());
+    }
 
     let soas: IndexSet<_> = lookups.soa().unique().to_owned().into_iter().collect();
     let diffs = soas.differences();
