@@ -64,7 +64,7 @@ impl From<trust_dns_resolver::proto::rr::rdata::SOA> for SOA {
             rname: soa.rname().clone(),
             serial: soa.serial(),
             refresh: soa.refresh(),
-            retry: soa.refresh(),
+            retry: soa.retry(),
             expire: soa.expire(),
             minimum: soa.minimum(),
         }
