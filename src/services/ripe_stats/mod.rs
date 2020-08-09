@@ -68,7 +68,7 @@ impl MultiQuery {
         for resource in self.resources.iter() {
             for query_type in self.query_types.iter() {
                 queries.push(UniQuery {
-                    resource: resource.clone(),
+                    resource: *resource,
                     query_type: query_type.clone(),
                 });
             }
@@ -285,13 +285,7 @@ mod tests {
         let ripe_stats = RipeStats::default();
 
         let ip_network = IpNetwork::from_str("1.1.1.1").unwrap();
-        let ip_networks = vec![
-            ip_network.clone(),
-            ip_network.clone(),
-            ip_network.clone(),
-            ip_network.clone(),
-            ip_network,
-        ];
+        let ip_networks = vec![ip_network, ip_network, ip_network, ip_network, ip_network];
         let query = MultiQuery::new(
             ip_networks,
             vec![QueryType::GeoLocation, QueryType::NetworkInfo, QueryType::Whois],

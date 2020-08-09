@@ -95,7 +95,6 @@ pub async fn soa_check(global_config: &GlobalConfig, config: &SoaCheckConfig) ->
     // SOA
 
     let authoritative_name_servers = authoritative_name_server_ips
-        .into_iter()
         .map(|ip| NameServerConfig::udp((ip, 53)))
         .map(ResolverConfig::new);
     let resolvers = ResolverGroup::from_configs(authoritative_name_servers, resolver_opts, resolver_group_opts).await?;

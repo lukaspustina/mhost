@@ -6,8 +6,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use chrono::{DateTime, Utc};
-use futures::Future;
 use futures::stream::{self, StreamExt};
+use futures::Future;
 use log::{debug, trace};
 use serde::Serialize;
 use tokio::task;
@@ -15,11 +15,11 @@ use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
 use trust_dns_resolver::proto::xfer::DnsRequestOptions;
 
 use crate::nameserver::NameServerConfig;
-use crate::utils::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
 use crate::resolver::{Error, MultiQuery, Resolver, ResolverResult, UniQuery};
 use crate::resources::rdata::{Name, MX, NULL, SOA, SRV, TXT, UNKNOWN};
 use crate::resources::{RData, Record};
 use crate::serialize::ser_arc_nameserver_config;
+use crate::utils::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
 use crate::RecordType;
 
 #[derive(Debug, Clone, Serialize)]
