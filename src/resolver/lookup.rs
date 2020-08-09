@@ -18,8 +18,8 @@ use crate::nameserver::NameServerConfig;
 use crate::resolver::{Error, MultiQuery, Resolver, ResolverResult, UniQuery};
 use crate::resources::rdata::{Name, MX, NULL, SOA, SRV, TXT, UNKNOWN};
 use crate::resources::{RData, Record};
-use crate::serialize::ser_arc_nameserver_config;
 use crate::utils::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
+use crate::utils::serialize::ser_arc_nameserver_config;
 use crate::RecordType;
 
 #[derive(Debug, Clone, Serialize)]

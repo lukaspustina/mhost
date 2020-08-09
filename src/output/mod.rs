@@ -3,6 +3,7 @@ use std::io::Write;
 
 use nom::lib::std::convert::TryFrom;
 
+use crate::services::ripe_stats::RipeStatsResponse;
 use crate::Result;
 use crate::{Error, RecordType};
 use serde::Serialize;
@@ -110,6 +111,17 @@ impl Ordinal for RecordType {
             RecordType::DNSSEC => 21,
             RecordType::ZERO => 22,
             RecordType::Unknown(_) => 23,
+        }
+    }
+}
+
+impl Ordinal for &RipeStatsResponse {
+    fn ordinal(&self) -> usize {
+        match self {
+            RipeStatsResponse::NetworkInfo { .. } => 1,
+            RipeStatsResponse::Whois { .. } => 2,
+            RipeStatsResponse::GeoLocation { .. } => 3,
+            RipeStatsResponse::Error { .. } => 4,
         }
     }
 }

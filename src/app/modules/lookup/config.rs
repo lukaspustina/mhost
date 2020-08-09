@@ -44,12 +44,18 @@ pub fn subcommand() -> App<'static, 'static> {
             .long("randomized-lookup")
             .help("Switches into randomize lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.")
         )
+        .arg(Arg::with_name("whois")
+            .short("w")
+            .long("whois")
+            .help("Retrieves Whois information about A, AAAA, and PTR records.")
+        )
 }
 
 pub struct LookupConfig {
     pub domain_name: String,
     pub record_types: Vec<RecordType>,
     pub randomized_lookup: bool,
+    pub whois: bool,
 }
 
 impl TryFrom<&ArgMatches<'_>> for LookupConfig {
@@ -63,6 +69,7 @@ impl TryFrom<&ArgMatches<'_>> for LookupConfig {
                 .to_string(),
             record_types: record_types(&args)?,
             randomized_lookup: args.is_present("randomized-lookup"),
+            whois: args.is_present("whois"),
         };
 
         Ok(config)

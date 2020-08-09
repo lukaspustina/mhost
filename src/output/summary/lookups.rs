@@ -117,15 +117,6 @@ fn format_ttl_summary(summary: &crate::statistics::Summary<u32>, opts: &SummaryO
     }
 }
 
-trait Rendering {
-    fn render(&self, opts: &SummaryOptions) -> String;
-
-    #[allow(unused_variables)]
-    fn render_with_suffix(&self, suffix: &str, opts: &SummaryOptions) -> String {
-        self.render(opts)
-    }
-}
-
 impl Rendering for Record {
     fn render(&self, opts: &SummaryOptions) -> String {
         self.render_with_suffix("", opts)

@@ -11,6 +11,7 @@ pub use service::{Authority, GeoLocation, LocatedResource, Location, NetworkInfo
 
 use crate::services::{Error, Result};
 use crate::utils::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
+use std::slice::Iter;
 
 mod service;
 
@@ -137,23 +138,32 @@ async fn single_query(ripe_stats: RipeStats, query: UniQuery) -> RipeStatsRespon
         &query.resource,
         &query.query_type
     );
+    let resource = query.resource;
     let result: RipeStatsResponse = match query.query_type {
         QueryType::GeoLocation => ripe_stats
             .client
             .geo_location(query.resource)
             .await
-            .into_ripe_stats_response(|x| RipeStatsResponse::GeoLocation { geo_location: x }),
+            .into_ripe_stats_response(|x| RipeStatsResponse::GeoLocation {
+                resource,
+                geo_location: x,
+            }),
         QueryType::NetworkInfo => ripe_stats
             .client
             .network_info(query.resource)
             .await
-            .into_ripe_stats_response(|x| RipeStatsResponse::NetworkInfo { network_info: x }),
+            .into_ripe_stats_response(|x| RipeStatsResponse::NetworkInfo {
+                resource,
+                network_info: x,
+            }),
         QueryType::Whois => ripe_stats
             .client
             .whois(query.resource.to_string())
             .await
-            .into_ripe_stats_response(|x| RipeStatsResponse::Whois { whois: x }),
-    };
+            .into_ripe_stats_response(|x| RipeStatsResponse::Whois { resource, whois: x }),
+    }
+    .or_else::<Error, _>(|err| Ok(RipeStatsResponse::Error { resource, err }))
+    .unwrap();
 
     debug!(
         "RipeStats response returned for '{}', record type {:?}: {}",
@@ -166,11 +176,11 @@ async fn single_query(ripe_stats: RipeStats, query: UniQuery) -> RipeStatsRespon
 }
 
 trait IntoRipeStatsResponse<T> {
-    fn into_ripe_stats_response<F: Fn(T) -> RipeStatsResponse>(self, map: F) -> RipeStatsResponse;
+    fn into_ripe_stats_response<F: Fn(T) -> RipeStatsResponse>(self, map: F) -> Result<RipeStatsResponse>;
 }
 
 impl<T> IntoRipeStatsResponse<T> for Result<service::Response<T>> {
-    fn into_ripe_stats_response<F: Fn(T) -> RipeStatsResponse>(self, map: F) -> RipeStatsResponse {
+    fn into_ripe_stats_response<F: Fn(T) -> RipeStatsResponse>(self, map: F) -> Result<RipeStatsResponse> {
         self.map(|x| x.data)
             .and_then(|x| {
                 x.ok_or_else(|| Error::HttpClientErrorMessage {
@@ -179,8 +189,6 @@ impl<T> IntoRipeStatsResponse<T> for Result<service::Response<T>> {
                 })
             })
             .map(|x| map(x))
-            .or_else::<Error, _>(|err| Ok(RipeStatsResponse::Error { err }))
-            .unwrap()
     }
 }
 
@@ -203,19 +211,34 @@ impl Default for RipeStats {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub enum RipeStatsResponse {
-    GeoLocation { geo_location: GeoLocation },
-    NetworkInfo { network_info: NetworkInfo },
-    Whois { whois: Whois },
-    Error { err: Error },
+    GeoLocation {
+        resource: IpNetwork,
+        geo_location: GeoLocation,
+    },
+    NetworkInfo {
+        resource: IpNetwork,
+        network_info: NetworkInfo,
+    },
+    Whois {
+        resource: IpNetwork,
+        whois: Whois,
+    },
+    Error {
+        resource: IpNetwork,
+        err: Error,
+    },
 }
 
 macro_rules! response_data_accessor {
     ($method:ident, $out_type:ident) => {
         pub fn $method(&self) -> Option<&$out_type> {
             match *self {
-                RipeStatsResponse::$out_type { $method: ref data } => Some(data),
+                RipeStatsResponse::$out_type {
+                    resource: _,
+                    $method: ref data,
+                } => Some(data),
                 _ => None,
             }
         }
@@ -231,6 +254,15 @@ macro_rules! response_is_data {
 }
 
 impl RipeStatsResponse {
+    pub fn resource(&self) -> &IpNetwork {
+        match *self {
+            RipeStatsResponse::GeoLocation { ref resource, .. } => resource,
+            RipeStatsResponse::NetworkInfo { ref resource, .. } => resource,
+            RipeStatsResponse::Whois { ref resource, .. } => resource,
+            RipeStatsResponse::Error { ref resource, .. } => resource,
+        }
+    }
+
     response_data_accessor!(geo_location, GeoLocation);
     response_data_accessor!(network_info, NetworkInfo);
     response_data_accessor!(whois, Whois);
@@ -242,7 +274,7 @@ impl RipeStatsResponse {
     response_is_data!(is_err, err);
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct RipeStatsResponses {
     responses: Vec<RipeStatsResponse>,
 }
@@ -255,13 +287,28 @@ impl RipeStatsResponses {
     pub fn is_empty(&self) -> bool {
         self.responses.is_empty()
     }
+
+    pub fn iter(&self) -> Iter<RipeStatsResponse> {
+        self.responses.iter()
+    }
+}
+
+impl IntoIterator for RipeStatsResponses {
+    type Item = RipeStatsResponse;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.responses.into_iter()
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use spectral::prelude::*;
     use std::str::FromStr;
+
+    use spectral::prelude::*;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_1_1_1_1() {

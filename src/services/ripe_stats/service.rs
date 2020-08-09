@@ -4,9 +4,10 @@ use ipnetwork::IpNetwork;
 use nom::lib::std::collections::HashMap;
 use reqwest::Client;
 use serde::de::DeserializeOwned;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::services::{Error, Result};
+use nom::lib::std::fmt::Formatter;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -27,43 +28,121 @@ pub struct Response<T> {
     pub data: Option<T>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct GeoLocation {
     located_resources: Vec<LocatedResource>,
 }
 
-#[derive(Debug, Deserialize)]
+impl GeoLocation {
+    pub fn located_resources(&self) -> &Vec<LocatedResource> {
+        &self.located_resources
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct LocatedResource {
     resource: String,
     locations: Vec<Location>,
 }
 
-#[derive(Debug, Deserialize)]
+impl LocatedResource {
+    pub fn resource(&self) -> &str {
+        self.resource.as_str()
+    }
+
+    pub fn locations(&self) -> &Vec<Location> {
+        &self.locations
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Location {
     city: String,
     country: String,
     resources: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct NetworkInfo {
-    pub asns: Vec<String>,
-    pub prefix: IpNetwork,
+impl Location {
+    pub fn city(&self) -> &str {
+        if self.city.is_empty() {
+            "-"
+        } else {
+            self.city.as_str()
+        }
+    }
+
+    pub fn country(&self) -> &str {
+        if self.country.is_empty() {
+            "-"
+        } else {
+            self.country.as_str()
+        }
+    }
+
+    pub fn resources(&self) -> &Vec<String> {
+        &self.resources
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NetworkInfo {
+    asns: Vec<String>,
+    prefix: IpNetwork,
+}
+
+impl NetworkInfo {
+    pub fn asns(&self) -> &Vec<String> {
+        &self.asns
+    }
+
+    pub fn prefix(&self) -> &IpNetwork {
+        &self.prefix
+    }
+}
+
+#[derive(Debug, Serialize)]
 pub struct Whois {
-    pub resource: String,
+    resource: String,
     /// List of authories that have been involved in answering the request
-    pub authorities: Vec<Authority>,
+    authorities: Vec<Authority>,
     /// This field should hold to whom this resource currently belongs. As every Authority uses different
     /// format, a simple heuristic is used to build this field. Basically, these are plenty of words to say,
     /// this might be horribly wrong.
-    pub organization: Option<String>,
-    pub country: Option<String>,
-    pub cidr: Option<IpNetwork>,
-    pub net_name: Option<String>,
-    pub source: Option<Authority>,
+    organization: Option<String>,
+    country: Option<String>,
+    cidr: Option<IpNetwork>,
+    net_name: Option<String>,
+    source: Option<Authority>,
+}
+
+impl Whois {
+    pub fn resource(&self) -> &str {
+        self.resource.as_str()
+    }
+
+    pub fn authorities(&self) -> &Vec<Authority> {
+        &self.authorities
+    }
+
+    pub fn organization(&self) -> Option<&String> {
+        self.organization.as_ref()
+    }
+
+    pub fn country(&self) -> Option<&String> {
+        self.country.as_ref()
+    }
+
+    pub fn cidr(&self) -> Option<&IpNetwork> {
+        self.cidr.as_ref()
+    }
+
+    pub fn net_name(&self) -> Option<&String> {
+        self.net_name.as_ref()
+    }
+
+    pub fn source(&self) -> Option<&Authority> {
+        self.source.as_ref()
+    }
 }
 
 impl From<whois::Whois> for Whois {
@@ -87,7 +166,7 @@ impl Whois {
     }
 }
 
-#[derive(Debug, Deserialize, Clone, Eq, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum Authority {
     Afrinic,
@@ -97,6 +176,21 @@ pub enum Authority {
     Lacnic,
     Ripe,
     Unknown,
+}
+
+impl std::fmt::Display for Authority {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            Authority::Afrinic => "AFRINIC",
+            Authority::Apnic => "APNIC",
+            Authority::Arin => "ARIN",
+            Authority::Iana => "IANA",
+            Authority::Lacnic => "LACNIC",
+            Authority::Ripe => "RIPE",
+            Authority::Unknown => "Unknown",
+        };
+        write!(f, "{}", str)
+    }
 }
 
 impl Authority {
@@ -213,7 +307,10 @@ mod whois {
         Option<String>,
         Option<Authority>,
     ) {
-        let organization = record.remove("organization").or_else(|| record.remove("descr"));
+        let organization = record
+            .remove("organization")
+            .or_else(|| record.remove("descr"))
+            .or_else(|| record.remove("org-name"));
         let country = record.remove("country");
         let cidr = record
             .remove("inetnum")

@@ -9,3 +9,10 @@ where
 {
     serializer.serialize_str(&data.to_string())
 }
+
+pub(crate) fn ser_to_string<S, T: ToString>(data: &T, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(&data.to_string())
+}

@@ -1,15 +1,22 @@
+use crate::utils::serialize::ser_to_string;
+use serde::Serialize;
 use thiserror::Error;
 use tokio::task::JoinError;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Serialize, Error)]
 pub enum Error {
     #[error("HTTP client error: {why}")]
-    HttpClientError { why: &'static str, source: reqwest::Error },
+    HttpClientError {
+        why: &'static str,
+        #[serde(serialize_with = "ser_to_string")]
+        source: reqwest::Error,
+    },
     #[error("HTTP client error: {why}")]
     HttpClientErrorMessage { why: &'static str, details: String },
     #[error("failed to deserialize")]
     DeserializationError {
         #[from]
+        #[serde(serialize_with = "ser_to_string")]
         source: serde_json::error::Error,
     },
     #[error("execution has been cancelled")]

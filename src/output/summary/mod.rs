@@ -5,6 +5,7 @@ use crate::Error;
 use super::*;
 
 pub mod lookups;
+pub mod whois;
 
 #[derive(Debug)]
 pub struct SummaryOptions {
@@ -61,5 +62,14 @@ pub trait SummaryFormatter {
 impl<T: SummaryFormatter> OutputFormat<T> for SummaryFormat {
     fn output<W: Write>(&self, writer: &mut W, data: &T) -> Result<()> {
         data.output(writer, &self.opts)
+    }
+}
+
+trait Rendering {
+    fn render(&self, opts: &SummaryOptions) -> String;
+
+    #[allow(unused_variables)]
+    fn render_with_suffix(&self, suffix: &str, opts: &SummaryOptions) -> String {
+        self.render(opts)
     }
 }

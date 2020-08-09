@@ -7,7 +7,6 @@ pub mod nameserver;
 pub mod output;
 pub mod resolver;
 pub mod resources;
-mod serialize;
 pub mod services;
 pub mod statistics;
 pub mod system_config;
