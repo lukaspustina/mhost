@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use chrono::{DateTime, Utc};
+use futures::Future;
 use futures::stream::{self, StreamExt};
 use log::{debug, trace};
 use serde::Serialize;
@@ -14,13 +15,12 @@ use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
 use trust_dns_resolver::proto::xfer::DnsRequestOptions;
 
 use crate::nameserver::NameServerConfig;
-use crate::resolver::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
+use crate::utils::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
 use crate::resolver::{Error, MultiQuery, Resolver, ResolverResult, UniQuery};
 use crate::resources::rdata::{Name, MX, NULL, SOA, SRV, TXT, UNKNOWN};
 use crate::resources::{RData, Record};
 use crate::serialize::ser_arc_nameserver_config;
 use crate::RecordType;
-use futures::Future;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Lookups {
@@ -353,19 +353,6 @@ pub async fn lookup<T: Into<MultiQuery>>(resolver: Resolver, query: T) -> Resolv
     Ok(lookups)
 }
 
-async fn sliding_window_lookups(
-    futures: Vec<impl Future<Output = Lookup>>,
-    breaker: Box<dyn Fn(&Lookup) -> bool + Send>,
-    max_concurrent: usize,
-) -> Lookups {
-    stream::iter(futures)
-        .buffered_unordered_with_breaker(max_concurrent, breaker)
-        .inspect(|lookup| trace!("Received lookup {:?}", lookup))
-        .collect::<Vec<_>>()
-        .await
-        .into()
-}
-
 fn create_breaker(on_error: bool, on_timeout: bool) -> Box<dyn Fn(&Lookup) -> bool + Send> {
     Box::new(move |l: &Lookup| match l.result.err() {
         Some(Error::Timeout) if on_timeout => true,
@@ -405,6 +392,19 @@ async fn single_lookup(resolver: Resolver, query: UniQuery) -> Lookup {
         name_server: resolver.name_server.clone(),
         result,
     }
+}
+
+async fn sliding_window_lookups(
+    futures: Vec<impl Future<Output = Lookup>>,
+    breaker: Box<dyn Fn(&Lookup) -> bool + Send>,
+    max_concurrent: usize,
+) -> Lookups {
+    stream::iter(futures)
+        .buffered_unordered_with_breaker(max_concurrent, breaker)
+        .inspect(|lookup| trace!("Received lookup {:?}", lookup))
+        .collect::<Vec<_>>()
+        .await
+        .into()
 }
 
 #[doc(hidden)]

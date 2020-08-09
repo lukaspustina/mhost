@@ -35,7 +35,7 @@ pub enum Error {
     ProtoError { reason: String },
     #[error("query has been cancelled")]
     CancelledError,
-    #[error("query execution paniced")]
+    #[error("query execution panicked")]
     RuntimePanicError,
 }
 

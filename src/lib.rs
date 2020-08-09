@@ -11,6 +11,7 @@ mod serialize;
 pub mod services;
 pub mod statistics;
 pub mod system_config;
+pub mod utils;
 
 pub use error::Error;
 pub use ipnetwork::IpNetwork;

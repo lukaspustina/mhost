@@ -48,7 +48,7 @@ pub struct Location {
 #[derive(Debug, Deserialize)]
 pub struct NetworkInfo {
     pub asns: Vec<String>,
-    pub prefix: String,
+    pub prefix: IpNetwork,
 }
 
 #[derive(Debug)]
@@ -131,7 +131,7 @@ impl From<Response<whois::Whois>> for Response<Whois> {
 mod whois {
     use std::collections::HashMap;
 
-    use crate::services::ripe_stats::Authority;
+    use super::Authority;
     use chrono::prelude::*;
     use ipnetwork::IpNetwork;
     use serde::de;

@@ -16,7 +16,6 @@ use crate::nameserver::{NameServerConfig, NameServerConfigGroup};
 use crate::system_config;
 use crate::Result;
 
-mod buffer_unordered_with_breaker;
 pub mod error;
 pub mod lookup;
 pub mod predefined;
