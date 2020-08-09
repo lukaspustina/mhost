@@ -1,18 +1,18 @@
 use std::cmp::Eq;
 use std::collections::HashMap;
-use std::net::{Ipv4Addr, Ipv6Addr};
+use std::hash::{Hash, Hasher};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::time::Duration;
 
 use tabwriter::TabWriter;
 
-use crate::resources::rdata::parsed_txt::{DomainVerification, Mechanism, Modifier, ParsedTxt, Word};
-use crate::resources::rdata::{parsed_txt::Spf, Name, MX, NULL, SOA, SRV, TXT, UNKNOWN};
-use crate::resources::Record;
 use crate::{Error, RecordType};
+use crate::resolver::Lookups;
+use crate::resources::rdata::{MX, Name, NULL, parsed_txt::Spf, SOA, SRV, TXT, UNKNOWN};
+use crate::resources::rdata::parsed_txt::{DomainVerification, Mechanism, Modifier, ParsedTxt, Word};
+use crate::resources::Record;
 
 use super::*;
-use crate::resolver::Lookups;
-use std::hash::{Hash, Hasher};
 
 impl SummaryFormatter for Lookups {
     fn output<W: Write>(&self, writer: &mut W, opts: &SummaryOptions) -> Result<()> {
@@ -140,7 +140,7 @@ impl Rendering for Record {
             RecordType::MX => format!("MX:\t{}{}", self.rdata().mx().unwrap().render(opts), suffix),
             RecordType::NULL => format!("NULL:\t{}{}", self.rdata().null().unwrap().render(opts), suffix),
             RecordType::NS => format!("NS:\t{}{}", self.rdata().ns().unwrap().render(opts), suffix),
-            RecordType::PTR => format!("PTR:\t{}{}", self.rdata().ptr().unwrap().render(opts), suffix),
+            RecordType::PTR => format!("PTR:\t{}:\t{}{}", self.name_labels().name_as_ip_addr_string(), self.rdata().ptr().unwrap().render(opts), suffix),
             RecordType::SOA => format!("SOA:\t{}{}", self.rdata().soa().unwrap().render(opts), suffix),
             RecordType::SRV => format!("SRV:\t{}{}", self.rdata().srv().unwrap().render(opts), suffix),
             RecordType::TXT => format!("TXT:\t{}", self.rdata().txt().unwrap().render_with_suffix(suffix, opts)),
@@ -433,6 +433,53 @@ impl TXT {
 impl Rendering for UNKNOWN {
     fn render(&self, opts: &SummaryOptions) -> String {
         format!("code: {}, {}", self.code(), self.rdata().render(opts))
+    }
+}
+
+pub trait NameAsIpAddr {
+    fn name_as_ip_addr(&self) -> Result<IpAddr>;
+
+    fn name_as_ip_addr_string(&self) -> String {
+        self.name_as_ip_addr().map(|x| x.to_string()).unwrap_or_else(|_| "-".to_string())
+    }
+}
+
+impl NameAsIpAddr for Name {
+    /// Converts a PTR-Name into an IP-Addr
+    ///
+    /// Example:
+    /// ```
+    /// # use mhost::Name;
+    /// # use mhost::IntoName;
+    /// # use std::net::Ipv4Addr;
+    /// # use mhost::output::summary::lookups::NameAsIpAddr;
+    /// let ptr_name: Name = "109.101.168.192.in-addr.arpa.".into_name().unwrap();
+    /// let ip_addr = ptr_name.name_as_ip_addr().unwrap();
+    /// assert_eq!(ip_addr, Ipv4Addr::new(192, 168, 101, 109));
+    /// ```
+    fn name_as_ip_addr(&self) -> Result<IpAddr> {
+        let str = self.to_string();
+        if !str.ends_with(".in-addr.arpa.") {
+            return Err(Error::ParserError { what: str, to: "IpAddr", why: "is not a ptr name".to_string() });
+        }
+        let ip = &str.as_str()[..str.len() - 14];
+
+        if ip.contains(".") { // IPv4
+            let splits: Vec<_> = ip.splitn(4, ".").collect();
+            if splits.len() != 4 {
+                return Err(Error::ParserError { what: str, to: "IpAddr", why: "is not a ptr name".to_string() });
+            }
+            let (d, c, b, a) = (splits[0], splits[1], splits[2], splits[3]);
+            let d = d.parse::<u8>().map_err(|_| Error::ParserError { what: d.to_string(), to: "IpAddr", why: "is not a valid octet".to_string() })?;
+            let c = c.parse::<u8>().map_err(|_| Error::ParserError { what: c.to_string(), to: "IpAddr", why: "is not a valid octet".to_string() })?;
+            let b = b.parse::<u8>().map_err(|_| Error::ParserError { what: b.to_string(), to: "IpAddr", why: "is not a valid octet".to_string() })?;
+            let a = a.parse::<u8>().map_err(|_| Error::ParserError { what: a.to_string(), to: "IpAddr", why: "is not a valid octet".to_string() })?;
+            Ok(IpAddr::V4(Ipv4Addr::from([a, b, c, d])))
+        } else if ip.contains(":") {
+            Ok(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)))
+        } else {
+            Err(Error::ParserError { what: str, to: "IpAddr", why: "is not a ptr name".to_string() })
+        }
     }
 }
 
