@@ -3,8 +3,9 @@ use std::time::Duration;
 
 use crate::estimate::Estimate;
 use crate::nameserver::predefined;
-use crate::resolver::{Lookups, MultiQuery, ResolverGroup, ResolverGroupOpts, ResolverOpts};
+use crate::resolver::{self, Lookups, ResolverGroup, ResolverGroupOpts, ResolverOpts};
 use crate::statistics::Statistics;
+use crate::services::ripe_stats;
 
 pub fn list_predefined_nameservers() {
     println!("List of predefined servers:");
@@ -35,7 +36,7 @@ pub fn print_opts(group_opts: &ResolverGroupOpts, opts: &ResolverOpts) {
     )
 }
 
-pub fn print_estimates(resolvers: &ResolverGroup, query: &MultiQuery) {
+pub fn print_estimates_lookups(resolvers: &ResolverGroup, query: &resolver::MultiQuery) {
     let num_servers = resolvers.opts.limit.unwrap().min(resolvers.len()); // Safe unwrap, because of Clap's default value
     let num_names = query.num_names();
     let num_record_types = query.num_record_types();
@@ -79,8 +80,18 @@ pub fn print_estimates(resolvers: &ResolverGroup, query: &MultiQuery) {
     )
 }
 
-pub fn print_statistics(lookups: &Lookups, total_run_time: Duration) {
-    let statistics = lookups.statistics();
+pub fn print_estimates_whois(query: &ripe_stats::MultiQuery) {
+    let num_resources = query.resources().len();
+    let num_queries = query.query_types().len();
+    let num_calls =  num_resources * num_queries;
+
+    println!("Sending up to {} requests for {} query types of {} resources.",
+        num_calls, num_queries, num_resources
+    );
+}
+
+pub fn print_statistics<'a, T: Statistics<'a>>(data: &'a T, total_run_time: Duration) {
+    let statistics = data.statistics();
     println!(
         "Received {} within {} ms of total run time.",
         statistics,

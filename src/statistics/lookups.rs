@@ -6,11 +6,7 @@ use crate::resolver::lookup::LookupResult;
 use crate::resolver::{Error, Lookups};
 use crate::RecordType;
 
-pub trait Statistics<'a> {
-    type StatsOut;
-
-    fn statistics(&'a self) -> Self::StatsOut;
-}
+use super::*;
 
 #[derive(Debug)]
 pub struct LookupsStats<'a> {
@@ -25,46 +21,6 @@ pub struct LookupsStats<'a> {
     pub response_time_summary: Summary<u128>,
     // This is used to please the borrow checker as we currently don't use a borrowed value with lifetime 'a
     phantom: PhantomData<&'a usize>,
-}
-
-#[derive(Debug)]
-struct Counts {
-    responses: usize,
-    nxdomains: usize,
-    timeout_errors: usize,
-    refuse_errors: usize,
-    servfail_errors: usize,
-    total_errors: usize,
-}
-
-impl<'a> Statistics<'a> for Lookups {
-    type StatsOut = LookupsStats<'a>;
-
-    fn statistics(&'a self) -> Self::StatsOut {
-        let counts = count_result_types(&self);
-        let rr_type_counts = count_rr_types(&self);
-        let responding_servers = count_responding_servers(&self);
-        let response_times: Vec<_> = self
-            .iter()
-            .map(|x| x.result().response())
-            .flatten()
-            .map(|x| x.response_time().as_millis())
-            .collect();
-        let response_time_summary = Summary::summary(response_times.as_slice());
-
-        LookupsStats {
-            responses: counts.responses,
-            nxdomains: counts.nxdomains,
-            timeout_errors: counts.timeout_errors,
-            refuse_errors: counts.refuse_errors,
-            servfail_errors: counts.servfail_errors,
-            total_errors: counts.total_errors,
-            rr_type_counts,
-            responding_servers,
-            response_time_summary,
-            phantom: PhantomData,
-        }
-    }
 }
 
 impl<'a> fmt::Display for LookupsStats<'a> {
@@ -121,31 +77,43 @@ impl<'a> fmt::Display for LookupsStats<'a> {
     }
 }
 
-mod styles {
-    use lazy_static::lazy_static;
-    use yansi::{Color, Style};
-
-    lazy_static! {
-        pub static ref NORMAL: Style = Style::default();
-        pub static ref BOLD: Style = Style::new(Color::White).bold();
-        pub static ref GOOD: Style = Style::new(Color::Green);
-        pub static ref WARN: Style = Style::new(Color::Yellow);
-        pub static ref ERR: Style = Style::new(Color::Red);
-    }
-}
-
 #[derive(Debug)]
-pub struct Summary<T: Ord + Clone> {
-    pub min: Option<T>,
-    pub max: Option<T>,
+struct Counts {
+    responses: usize,
+    nxdomains: usize,
+    timeout_errors: usize,
+    refuse_errors: usize,
+    servfail_errors: usize,
+    total_errors: usize,
 }
 
-impl<T: Ord + Clone> Summary<T> {
-    pub fn summary(values: &[T]) -> Summary<T> {
-        let min = values.iter().min().cloned();
-        let max = values.iter().max().cloned();
+impl<'a> Statistics<'a> for Lookups {
+    type StatsOut = LookupsStats<'a>;
 
-        Summary { min, max }
+    fn statistics(&'a self) -> Self::StatsOut {
+        let counts = count_result_types(&self);
+        let rr_type_counts = count_rr_types(&self);
+        let responding_servers = count_responding_servers(&self);
+        let response_times: Vec<_> = self
+            .iter()
+            .map(|x| x.result().response())
+            .flatten()
+            .map(|x| x.response_time().as_millis())
+            .collect();
+        let response_time_summary = Summary::summary(response_times.as_slice());
+
+        LookupsStats {
+            responses: counts.responses,
+            nxdomains: counts.nxdomains,
+            timeout_errors: counts.timeout_errors,
+            refuse_errors: counts.refuse_errors,
+            servfail_errors: counts.servfail_errors,
+            total_errors: counts.total_errors,
+            rr_type_counts,
+            responding_servers,
+            response_time_summary,
+            phantom: PhantomData,
+        }
     }
 }
 
@@ -162,16 +130,6 @@ fn count_rr_types(lookups: &Lookups) -> BTreeMap<RecordType, usize> {
     }
 
     type_counts
-}
-
-fn count_responding_servers(lookups: &Lookups) -> usize {
-    let server_set: HashSet<_> = lookups
-        .iter()
-        .filter(|x| x.result().is_response())
-        .map(|x| x.name_server().to_string())
-        .collect();
-
-    server_set.len()
 }
 
 fn count_result_types(lookups: &Lookups) -> Counts {
@@ -210,6 +168,16 @@ fn count_result_types(lookups: &Lookups) -> Counts {
         servfail_errors,
         total_errors,
     }
+}
+
+fn count_responding_servers(lookups: &Lookups) -> usize {
+    let server_set: HashSet<_> = lookups
+        .iter()
+        .filter(|x| x.result().is_response())
+        .map(|x| x.name_server().to_string())
+        .collect();
+
+    server_set.len()
 }
 
 fn rr_types_as_str(rr_type_counts: &BTreeMap<RecordType, usize>) -> String {

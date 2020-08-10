@@ -77,6 +77,14 @@ impl MultiQuery {
 
         queries
     }
+
+    pub fn resources(&self) -> &Vec<IpNetwork> {
+        &self.resources
+    }
+
+    pub fn query_types(&self) -> &Vec<QueryType> {
+        &self.query_types
+    }
 }
 
 #[derive(Debug)]
@@ -279,6 +287,17 @@ pub struct RipeStatsResponses {
     responses: Vec<RipeStatsResponse>,
 }
 
+macro_rules! responses_data_accessor {
+    ($method:ident, $out_type:ty) => {
+        pub fn $method(&self) -> impl Iterator<Item = &$out_type> {
+            self.responses
+                .iter()
+                .map(|x| x.$method())
+                .flatten()
+        }
+    };
+}
+
 impl RipeStatsResponses {
     pub fn len(&self) -> usize {
         self.responses.len()
@@ -291,6 +310,11 @@ impl RipeStatsResponses {
     pub fn iter(&self) -> Iter<RipeStatsResponse> {
         self.responses.iter()
     }
+
+    responses_data_accessor!(geo_location, GeoLocation);
+    responses_data_accessor!(network_info, NetworkInfo);
+    responses_data_accessor!(whois, Whois);
+    responses_data_accessor!(err, Error);
 }
 
 impl IntoIterator for RipeStatsResponses {

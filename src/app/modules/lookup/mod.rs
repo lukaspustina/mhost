@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use anyhow::Result;
 
-use crate::app::cli::{print_error_counts, print_estimates, print_opts, print_statistics};
+use crate::app::cli::{print_error_counts, print_estimates_lookups, print_opts, print_statistics, print_estimates_whois};
 use crate::app::modules::lookup::config::LookupConfig;
 use crate::app::resolver::{build_query, create_resolvers, load_resolver_group_opts, load_resolver_opts};
 use crate::app::{output, resolver, GlobalConfig};
@@ -43,7 +43,7 @@ pub async fn lookups(global_config: &GlobalConfig, config: &LookupConfig) -> Res
     let resolvers = create_resolvers(global_config, resolver_group_opts, resolver_opts).await?;
 
     if !global_config.quiet {
-        print_estimates(&resolvers, &query);
+        print_estimates_lookups(&resolvers, &query);
     }
 
     info!("Running lookups");
@@ -77,11 +77,19 @@ pub async fn whois(
     let opts = RipeStatsOpts::new(8, global_config.abort_on_error);
     let whois_client = RipeStats::new(opts);
 
+    if !global_config.quiet {
+        print_estimates_whois(&query);
+    }
+
     info!("Running Whois queries");
     let start_time = Instant::now();
     let whois = whois_client.query(query).await?;
-    let _total_run_time = Instant::now() - start_time;
+    let total_run_time = Instant::now() - start_time;
     info!("Finished queries.");
+
+    if !global_config.quiet {
+        print_statistics(&whois, total_run_time);
+    }
 
     output::output(global_config, &whois)?;
 

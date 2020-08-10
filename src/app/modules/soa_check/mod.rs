@@ -1,4 +1,4 @@
-use crate::app::cli::{print_estimates, print_opts, print_statistics};
+use crate::app::cli::{print_estimates_lookups, print_opts, print_statistics};
 use crate::app::modules::soa_check::config::SoaCheckConfig;
 use crate::app::resolver::{create_resolvers, load_resolver_group_opts, load_resolver_opts};
 use crate::app::{output, GlobalConfig};
@@ -38,7 +38,7 @@ pub async fn soa_check(global_config: &GlobalConfig, config: &SoaCheckConfig) ->
     let resolvers = create_resolvers(global_config, resolver_group_opts.clone(), resolver_opts.clone()).await?;
 
     if !global_config.quiet && config.partial_results {
-        print_estimates(&resolvers, &query);
+        print_estimates_lookups(&resolvers, &query);
     }
 
     info!("Running lookups for authoritative name servers");
@@ -64,7 +64,7 @@ pub async fn soa_check(global_config: &GlobalConfig, config: &SoaCheckConfig) ->
 
     let query = MultiQuery::new(authoritative_name_server_names, vec![RecordType::A, RecordType::AAAA])?;
     if !global_config.quiet && config.partial_results {
-        print_estimates(&resolvers, &query);
+        print_estimates_lookups(&resolvers, &query);
     }
 
     info!("Running lookups for IP addresses of authoritative name servers");
@@ -101,7 +101,7 @@ pub async fn soa_check(global_config: &GlobalConfig, config: &SoaCheckConfig) ->
 
     let query = MultiQuery::single(config.domain_name.as_str(), RecordType::SOA)?;
     if !global_config.quiet {
-        print_estimates(&resolvers, &query);
+        print_estimates_lookups(&resolvers, &query);
     }
 
     info!("Running lookups for SOA records of authoritative name servers");
