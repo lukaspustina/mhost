@@ -3,9 +3,9 @@ use std::time::Duration;
 
 use crate::estimate::Estimate;
 use crate::nameserver::predefined;
-use crate::output::{styles::EMPH, CAPTION_PREFIX, INFO_PREFIX, ITEMAZATION_PREFIX};
+use crate::output::{styles, CAPTION_PREFIX, INFO_PREFIX, ITEMAZATION_PREFIX};
 use crate::resolver::{self, Lookups, ResolverGroup, ResolverGroupOpts, ResolverOpts};
-use crate::services::ripe_stats;
+use crate::services::whois;
 use crate::statistics::Statistics;
 
 pub fn list_predefined_nameservers() {
@@ -18,8 +18,8 @@ pub fn list_predefined_nameservers() {
 pub fn print_opts(group_opts: &ResolverGroupOpts, opts: &ResolverOpts) {
     println!(
         "{} {}: concurrent nameservers={}, max. nameservers={}, concurrent requests={}, retries={}, timeout={} s{}{}{}",
-        EMPH.paint(CAPTION_PREFIX),
-        EMPH.paint("Options"),
+        styles::EMPH.paint(CAPTION_PREFIX),
+        styles::EMPH.paint("Options"),
         group_opts.max_concurrent,
         group_opts.limit.unwrap(), // Safe unwrap, because of Clap's default value
         opts.max_concurrent_requests,
@@ -83,7 +83,7 @@ pub fn print_estimates_lookups(resolvers: &ResolverGroup, query: &resolver::Mult
     )
 }
 
-pub fn print_estimates_whois(query: &ripe_stats::MultiQuery) {
+pub fn print_estimates_whois(query: &whois::MultiQuery) {
     let num_resources = query.resources().len();
     let num_queries = query.query_types().len();
     let num_calls = num_resources * num_queries;

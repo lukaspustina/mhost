@@ -88,40 +88,40 @@ impl MultiQuery {
 }
 
 #[derive(Debug)]
-pub struct RipeStatsOpts {
+pub struct WhoisClientOpts {
     max_concurrent_requests: usize,
     abort_on_error: bool,
 }
 
-impl RipeStatsOpts {
-    pub fn new(max_concurrent_requests: usize, abort_on_error: bool) -> RipeStatsOpts {
-        RipeStatsOpts {
+impl WhoisClientOpts {
+    pub fn new(max_concurrent_requests: usize, abort_on_error: bool) -> WhoisClientOpts {
+        WhoisClientOpts {
             max_concurrent_requests,
             abort_on_error,
         }
     }
 }
 
-impl Default for RipeStatsOpts {
+impl Default for WhoisClientOpts {
     fn default() -> Self {
-        RipeStatsOpts::new(8, true)
+        WhoisClientOpts::new(8, true)
     }
 }
 
 #[derive(Clone)]
-pub struct RipeStats {
-    client: Arc<service::RipeStatsClient>,
-    opts: Arc<RipeStatsOpts>,
+pub struct WhoisClient {
+    inner: Arc<service::RipeStatsClient>,
+    opts: Arc<WhoisClientOpts>,
 }
 
-impl RipeStats {
-    pub fn new(opts: RipeStatsOpts) -> RipeStats {
-        RipeStats {
-            client: Arc::new(service::RipeStatsClient::new()),
+impl WhoisClient {
+    pub fn new(opts: WhoisClientOpts) -> WhoisClient {
+        WhoisClient {
+            inner: Arc::new(service::RipeStatsClient::new()),
             opts: Arc::new(opts),
         }
     }
-    pub async fn query(&self, query: MultiQuery) -> Result<RipeStatsResponses> {
+    pub async fn query(&self, query: MultiQuery) -> Result<WhoisResponses> {
         let breaker = create_breaker(self.opts.abort_on_error);
 
         let query_futures: Vec<_> = query
@@ -136,45 +136,49 @@ impl RipeStats {
     }
 }
 
-fn create_breaker(on_error: bool) -> Box<dyn Fn(&RipeStatsResponse) -> bool + Send> {
-    Box::new(move |r: &RipeStatsResponse| r.is_err() && on_error)
+fn create_breaker(on_error: bool) -> Box<dyn Fn(&WhoisResponse) -> bool + Send> {
+    Box::new(move |r: &WhoisResponse| r.is_err() && on_error)
 }
 
-async fn single_query(ripe_stats: RipeStats, query: UniQuery) -> RipeStatsResponse {
+async fn single_query(whois: WhoisClient, query: UniQuery) -> WhoisResponse {
     trace!(
-        "Sending RipeStats query for '{}', query type {:?}.",
+        "Sending Whois query for '{}', query type {:?}.",
         &query.resource,
         &query.query_type
     );
     let resource = query.resource;
-    let result: RipeStatsResponse = match query.query_type {
-        QueryType::GeoLocation => ripe_stats
-            .client
-            .geo_location(query.resource)
-            .await
-            .into_ripe_stats_response(|x| RipeStatsResponse::GeoLocation {
-                resource,
-                geo_location: x,
-            }),
-        QueryType::NetworkInfo => ripe_stats
-            .client
-            .network_info(query.resource)
-            .await
-            .into_ripe_stats_response(|x| RipeStatsResponse::NetworkInfo {
-                resource,
-                network_info: x,
-            }),
-        QueryType::Whois => ripe_stats
-            .client
+    let result: WhoisResponse = match query.query_type {
+        QueryType::GeoLocation => {
+            whois
+                .inner
+                .geo_location(query.resource)
+                .await
+                .into_whois_response(|x| WhoisResponse::GeoLocation {
+                    resource,
+                    geo_location: x,
+                })
+        }
+        QueryType::NetworkInfo => {
+            whois
+                .inner
+                .network_info(query.resource)
+                .await
+                .into_whois_response(|x| WhoisResponse::NetworkInfo {
+                    resource,
+                    network_info: x,
+                })
+        }
+        QueryType::Whois => whois
+            .inner
             .whois(query.resource.to_string())
             .await
-            .into_ripe_stats_response(|x| RipeStatsResponse::Whois { resource, whois: x }),
+            .into_whois_response(|x| WhoisResponse::Whois { resource, whois: x }),
     }
-    .or_else::<Error, _>(|err| Ok(RipeStatsResponse::Error { resource, err }))
+    .or_else::<Error, _>(|err| Ok(WhoisResponse::Error { resource, err }))
     .unwrap();
 
     debug!(
-        "RipeStats response returned for '{}', record type {:?}: {}",
+        "Whois response returned for '{}', record type {:?}: {}",
         &query.resource,
         &query.query_type,
         if result.is_err() { "error" } else { "ok" },
@@ -183,17 +187,17 @@ async fn single_query(ripe_stats: RipeStats, query: UniQuery) -> RipeStatsRespon
     result
 }
 
-trait IntoRipeStatsResponse<T> {
-    fn into_ripe_stats_response<F: Fn(T) -> RipeStatsResponse>(self, map: F) -> Result<RipeStatsResponse>;
+trait IntoWhoisResponse<T> {
+    fn into_whois_response<F: Fn(T) -> WhoisResponse>(self, map: F) -> Result<WhoisResponse>;
 }
 
-impl<T> IntoRipeStatsResponse<T> for Result<service::Response<T>> {
-    fn into_ripe_stats_response<F: Fn(T) -> RipeStatsResponse>(self, map: F) -> Result<RipeStatsResponse> {
+impl<T> IntoWhoisResponse<T> for Result<service::Response<T>> {
+    fn into_whois_response<F: Fn(T) -> WhoisResponse>(self, map: F) -> Result<WhoisResponse> {
         self.map(|x| x.data)
             .and_then(|x| {
                 x.ok_or_else(|| Error::HttpClientErrorMessage {
                     why: "Empty data",
-                    details: "RipeStats result data is empty".to_string(),
+                    details: "Whois result data is empty".to_string(),
                 })
             })
             .map(|x| map(x))
@@ -201,26 +205,26 @@ impl<T> IntoRipeStatsResponse<T> for Result<service::Response<T>> {
 }
 
 async fn sliding_window_lookups(
-    futures: Vec<impl Future<Output = RipeStatsResponse>>,
-    breaker: Box<dyn Fn(&RipeStatsResponse) -> bool + Send>,
+    futures: Vec<impl Future<Output = WhoisResponse>>,
+    breaker: Box<dyn Fn(&WhoisResponse) -> bool + Send>,
     max_concurrent: usize,
-) -> RipeStatsResponses {
+) -> WhoisResponses {
     let responses = stream::iter(futures)
         .buffered_unordered_with_breaker(max_concurrent, breaker)
-        .inspect(|response| trace!("Received RipeStats response {:?}", response))
+        .inspect(|response| trace!("Received Whois response {:?}", response))
         .collect::<Vec<_>>()
         .await;
-    RipeStatsResponses { responses }
+    WhoisResponses { responses }
 }
 
-impl Default for RipeStats {
+impl Default for WhoisClient {
     fn default() -> Self {
-        RipeStats::new(Default::default())
+        WhoisClient::new(Default::default())
     }
 }
 
 #[derive(Debug, Serialize)]
-pub enum RipeStatsResponse {
+pub enum WhoisResponse {
     GeoLocation {
         resource: IpNetwork,
         geo_location: GeoLocation,
@@ -243,7 +247,7 @@ macro_rules! response_data_accessor {
     ($method:ident, $out_type:ident) => {
         pub fn $method(&self) -> Option<&$out_type> {
             match *self {
-                RipeStatsResponse::$out_type {
+                WhoisResponse::$out_type {
                     resource: _,
                     $method: ref data,
                 } => Some(data),
@@ -261,13 +265,13 @@ macro_rules! response_is_data {
     };
 }
 
-impl RipeStatsResponse {
+impl WhoisResponse {
     pub fn resource(&self) -> &IpNetwork {
         match *self {
-            RipeStatsResponse::GeoLocation { ref resource, .. } => resource,
-            RipeStatsResponse::NetworkInfo { ref resource, .. } => resource,
-            RipeStatsResponse::Whois { ref resource, .. } => resource,
-            RipeStatsResponse::Error { ref resource, .. } => resource,
+            WhoisResponse::GeoLocation { ref resource, .. } => resource,
+            WhoisResponse::NetworkInfo { ref resource, .. } => resource,
+            WhoisResponse::Whois { ref resource, .. } => resource,
+            WhoisResponse::Error { ref resource, .. } => resource,
         }
     }
 
@@ -283,8 +287,8 @@ impl RipeStatsResponse {
 }
 
 #[derive(Debug, Serialize)]
-pub struct RipeStatsResponses {
-    responses: Vec<RipeStatsResponse>,
+pub struct WhoisResponses {
+    responses: Vec<WhoisResponse>,
 }
 
 macro_rules! responses_data_accessor {
@@ -295,7 +299,7 @@ macro_rules! responses_data_accessor {
     };
 }
 
-impl RipeStatsResponses {
+impl WhoisResponses {
     pub fn len(&self) -> usize {
         self.responses.len()
     }
@@ -304,7 +308,7 @@ impl RipeStatsResponses {
         self.responses.is_empty()
     }
 
-    pub fn iter(&self) -> Iter<RipeStatsResponse> {
+    pub fn iter(&self) -> Iter<WhoisResponse> {
         self.responses.iter()
     }
 
@@ -314,8 +318,8 @@ impl RipeStatsResponses {
     responses_data_accessor!(err, Error);
 }
 
-impl IntoIterator for RipeStatsResponses {
-    type Item = RipeStatsResponse;
+impl IntoIterator for WhoisResponses {
+    type Item = WhoisResponse;
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -333,7 +337,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_1_1_1_1() {
-        let ripe_stats = RipeStats::default();
+        let whois = WhoisClient::default();
 
         let ip_network = IpNetwork::from_str("1.1.1.1").unwrap();
         let query = MultiQuery::multi_types(
@@ -341,7 +345,7 @@ mod tests {
             vec![QueryType::GeoLocation, QueryType::NetworkInfo, QueryType::Whois],
         );
 
-        let res = ripe_stats.query(query).await;
+        let res = whois.query(query).await;
 
         assert_that(&res).is_ok();
         let res = res.unwrap();
@@ -350,7 +354,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_5x_1_1_1_1() {
-        let ripe_stats = RipeStats::default();
+        let whois = WhoisClient::default();
 
         let ip_network = IpNetwork::from_str("1.1.1.1").unwrap();
         let ip_networks = vec![ip_network, ip_network, ip_network, ip_network, ip_network];
@@ -359,7 +363,7 @@ mod tests {
             vec![QueryType::GeoLocation, QueryType::NetworkInfo, QueryType::Whois],
         );
 
-        let res = ripe_stats.query(query).await;
+        let res = whois.query(query).await;
 
         assert_that(&res).is_ok();
         let res = res.unwrap();

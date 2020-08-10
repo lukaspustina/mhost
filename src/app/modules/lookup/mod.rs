@@ -7,18 +7,18 @@ use clap::ArgMatches;
 use ipnetwork::IpNetwork;
 use log::info;
 
-use crate::app::{GlobalConfig, output, resolver};
 use crate::app::cli::{
     print_error_counts, print_estimates_lookups, print_estimates_whois, print_opts, print_statistics,
 };
 use crate::app::modules::lookup::config::LookupConfig;
 use crate::app::resolver::{build_query, create_resolvers, load_resolver_group_opts, load_resolver_opts};
-use crate::output::{CAPTION_PREFIX, styles::EMPH};
-use crate::RecordType;
+use crate::app::{output, resolver, GlobalConfig};
+use crate::output::{styles, CAPTION_PREFIX};
 use crate::resolver::lookup::Uniquify;
 use crate::resolver::Lookups;
 use crate::resources::NameToIpAddr;
-use crate::services::ripe_stats::{MultiQuery, QueryType, RipeStats, RipeStatsOpts, RipeStatsResponses};
+use crate::services::whois::{MultiQuery, QueryType, WhoisClient, WhoisClientOpts, WhoisResponses};
+use crate::RecordType;
 use std::collections::HashSet;
 
 pub mod config;
@@ -44,12 +44,15 @@ pub async fn lookups(global_config: &GlobalConfig, config: &LookupConfig) -> Res
 
     if !global_config.quiet {
         print_opts(&resolver_group_opts, &resolver_opts);
-        println!("{}", EMPH.paint(format!("{} Running DNS lookups.", CAPTION_PREFIX)));
     }
 
     let resolvers = create_resolvers(global_config, resolver_group_opts, resolver_opts).await?;
 
     if !global_config.quiet {
+        println!(
+            "{}",
+            styles::EMPH.paint(format!("{} Running DNS lookups.", CAPTION_PREFIX))
+        );
         print_estimates_lookups(&resolvers, &query);
     }
 
@@ -72,20 +75,19 @@ pub async fn lookups(global_config: &GlobalConfig, config: &LookupConfig) -> Res
     Ok(lookups)
 }
 
-pub async fn whois(
-    global_config: &GlobalConfig,
-    _config: &LookupConfig,
-    lookups: &Lookups,
-) -> Result<RipeStatsResponses> {
+pub async fn whois(global_config: &GlobalConfig, _config: &LookupConfig, lookups: &Lookups) -> Result<WhoisResponses> {
     let ip_addresses = ips_from_lookups(lookups)?;
     let query_types = vec![QueryType::NetworkInfo, QueryType::GeoLocation, QueryType::Whois];
     let query = MultiQuery::from_iter(ip_addresses, query_types);
 
-    let opts = RipeStatsOpts::new(8, global_config.abort_on_error);
-    let whois_client = RipeStats::new(opts);
+    let opts = WhoisClientOpts::new(8, global_config.abort_on_error);
+    let whois_client = WhoisClient::new(opts);
 
     if !global_config.quiet {
-        println!("{}", EMPH.paint(format!("{} Running WHOIS queries.", CAPTION_PREFIX)));
+        println!(
+            "{}",
+            styles::EMPH.paint(format!("{} Running WHOIS queries.", CAPTION_PREFIX))
+        );
         print_estimates_whois(&query);
     }
 
@@ -104,8 +106,9 @@ pub async fn whois(
     Ok(whois)
 }
 
-fn ips_from_lookups(lookups: &Lookups) -> Result<impl Iterator<Item=IpNetwork>> {
-    let ptrs: Vec<_> = lookups.iter()
+fn ips_from_lookups(lookups: &Lookups) -> Result<impl Iterator<Item = IpNetwork>> {
+    let ptrs: Vec<_> = lookups
+        .iter()
         .filter(|x| x.result().is_response())
         .filter(|x| x.query().record_type == RecordType::PTR)
         .map(|x| x.query().name())

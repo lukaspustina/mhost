@@ -1,5 +1,5 @@
 pub mod error;
-pub mod ripe_stats;
+pub mod whois;
 
 pub use error::Error;
 

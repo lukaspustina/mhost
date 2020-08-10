@@ -1,7 +1,7 @@
 use std::fmt;
 use std::marker::PhantomData;
 
-use crate::services::ripe_stats::RipeStatsResponses;
+use crate::services::whois::WhoisResponses;
 
 use super::*;
 
@@ -38,7 +38,7 @@ impl<'a> fmt::Display for WhoisStats<'a> {
     }
 }
 
-impl<'a> Statistics<'a> for RipeStatsResponses {
+impl<'a> Statistics<'a> for WhoisResponses {
     type StatsOut = WhoisStats<'a>;
 
     fn statistics(&'a self) -> Self::StatsOut {

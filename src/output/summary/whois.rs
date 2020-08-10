@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use tabwriter::TabWriter;
 
 use super::*;
-use crate::services::ripe_stats::{GeoLocation, NetworkInfo, RipeStatsResponse, RipeStatsResponses, Whois};
+use crate::services::whois::{GeoLocation, NetworkInfo, Whois, WhoisResponse, WhoisResponses};
 use ipnetwork::IpNetwork;
 
-impl SummaryFormatter for RipeStatsResponses {
+impl SummaryFormatter for WhoisResponses {
     fn output<W: Write>(&self, writer: &mut W, opts: &SummaryOptions) -> Result<()> {
         let mut responses_by_ip_network = responses_by_ip_network(&self);
         let mut tw = TabWriter::new(vec![]);
@@ -30,7 +30,7 @@ impl SummaryFormatter for RipeStatsResponses {
 fn output_responses<W: Write>(
     writer: &mut W,
     ip_network: &IpNetwork,
-    responses: &mut Vec<&RipeStatsResponse>,
+    responses: &mut Vec<&WhoisResponse>,
     opts: &SummaryOptions,
 ) -> Result<()> {
     responses.sort_by(order_by_ordinal);
@@ -41,7 +41,7 @@ fn output_responses<W: Write>(
     Ok(())
 }
 
-fn responses_by_ip_network(responses: &RipeStatsResponses) -> HashMap<&IpNetwork, Vec<&RipeStatsResponse>> {
+fn responses_by_ip_network(responses: &WhoisResponses) -> HashMap<&IpNetwork, Vec<&WhoisResponse>> {
     let mut map = HashMap::new();
     for response in responses.iter() {
         let set = map.entry(response.resource()).or_insert_with(Vec::new);
@@ -51,20 +51,18 @@ fn responses_by_ip_network(responses: &RipeStatsResponses) -> HashMap<&IpNetwork
     map
 }
 
-impl Rendering for RipeStatsResponse {
+impl Rendering for WhoisResponse {
     fn render(&self, opts: &SummaryOptions) -> String {
         match self {
-            RipeStatsResponse::GeoLocation { ref geo_location, .. } => render_geo_location(geo_location, opts),
-            RipeStatsResponse::NetworkInfo { ref network_info, .. } => render_network_info(network_info, opts),
-            RipeStatsResponse::Whois { ref whois, .. } => render_whois(whois, opts),
-            RipeStatsResponse::Error { .. } => "-".to_string(),
+            WhoisResponse::GeoLocation { ref geo_location, .. } => render_geo_location(geo_location, opts),
+            WhoisResponse::NetworkInfo { ref network_info, .. } => render_network_info(network_info, opts),
+            WhoisResponse::Whois { ref whois, .. } => render_whois(whois, opts),
+            WhoisResponse::Error { .. } => "-".to_string(),
         }
     }
 }
 
 fn render_geo_location(geo_location: &GeoLocation, _opts: &SummaryOptions) -> String {
-    use styles::EMPH;
-
     let geo_location = geo_location
         .located_resources()
         .iter()
@@ -79,24 +77,22 @@ fn render_geo_location(geo_location: &GeoLocation, _opts: &SummaryOptions) -> St
         .next()
         .unwrap_or_else(|| "-".to_string());
 
-    format!("Location {}", EMPH.paint(geo_location))
+    format!("Location {}", styles::EMPH.paint(geo_location))
 }
 
 fn render_network_info(network_info: &NetworkInfo, _opts: &SummaryOptions) -> String {
-    use styles::EMPH;
     format!(
         "AS {}, Prefix {}",
-        EMPH.paint(network_info.asns().join(", ")),
-        EMPH.paint(network_info.prefix())
+        styles::EMPH.paint(network_info.asns().join(", ")),
+        styles::EMPH.paint(network_info.prefix())
     )
 }
 
 fn render_whois(whois: &Whois, _opts: &SummaryOptions) -> String {
-    use styles::EMPH;
     format!(
         "Net name {}, Org {}, Authority {}",
-        EMPH.paint(whois.net_name().map(|x| x.as_str()).unwrap_or("-")),
-        EMPH.paint(whois.organization().map(|x| x.as_str()).unwrap_or("-")),
-        EMPH.paint(whois.source().map(|x| x.to_string()).unwrap_or_else(|| "-".to_string())),
+        styles::EMPH.paint(whois.net_name().map(|x| x.as_str()).unwrap_or("-")),
+        styles::EMPH.paint(whois.organization().map(|x| x.as_str()).unwrap_or("-")),
+        styles::EMPH.paint(whois.source().map(|x| x.to_string()).unwrap_or_else(|| "-".to_string())),
     )
 }
