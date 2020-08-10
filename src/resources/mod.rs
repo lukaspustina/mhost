@@ -40,6 +40,7 @@ impl NameToIpAddr for Name {
     /// let ip_addr = ptr_name.to_ip_addr().unwrap();
     /// assert_eq!(ip_addr, Ipv4Addr::new(192, 168, 101, 109));
     /// ```
+    #[allow(clippy::many_single_char_names)]
     fn to_ip_addr(&self) -> Result<IpAddr> {
         let str = self.to_string();
         let err = || Error::ParserError {
@@ -52,7 +53,7 @@ impl NameToIpAddr for Name {
             // IPv4
             let ip = &str.as_str()[..str.len() - 14];
             let elements: SmallVec<[std::result::Result<u8, ParseIntError>; 4]> =
-                ip.splitn(4, '.').into_iter().map(str::parse::<u8>).collect();
+                ip.splitn(4, '.').map(str::parse::<u8>).collect();
             let octets: std::result::Result<SmallVec<[u8; 4]>, _> = elements.into_iter().collect();
             let mut octets = octets.map_err(|_| err())?;
             octets.reverse();

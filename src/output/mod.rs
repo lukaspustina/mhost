@@ -11,9 +11,9 @@ use serde::Serialize;
 pub mod json;
 pub mod summary;
 
-pub static CAPTION_PREFIX: &'static str = "▶︎";
-pub static INFO_PREFIX: &'static str = "▸";
-pub static ITEMAZATION_PREFIX: &'static str = "∙";
+pub static CAPTION_PREFIX: &str = "▶︎";
+pub static INFO_PREFIX: &str = "▸";
+pub static ITEMAZATION_PREFIX: &str = "∙";
 
 #[derive(Debug, Clone, Copy)]
 pub enum OutputType {

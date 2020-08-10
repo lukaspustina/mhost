@@ -107,7 +107,7 @@ fn ips_from_lookups(lookups: &Lookups) -> impl Iterator<Item = IpNetwork> {
         .unique()
         .to_owned()
         .into_iter()
-        .map(|x| IpAddr::V4(x))
-        .chain(lookups.aaaa().unique().to_owned().into_iter().map(|x| IpAddr::V6(x)))
+        .map(IpAddr::V4)
+        .chain(lookups.aaaa().unique().to_owned().into_iter().map(IpAddr::V6))
         .map(IpNetwork::from)
 }
