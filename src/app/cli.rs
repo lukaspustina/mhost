@@ -6,17 +6,20 @@ use crate::nameserver::predefined;
 use crate::resolver::{self, Lookups, ResolverGroup, ResolverGroupOpts, ResolverOpts};
 use crate::statistics::Statistics;
 use crate::services::ripe_stats;
+use crate::output::{ITEMAZATION_PREFIX, INFO_PREFIX, CAPTION_PREFIX, styles::EMPH};
 
 pub fn list_predefined_nameservers() {
     println!("List of predefined servers:");
     for ns in predefined::nameserver_configs() {
-        println!("* {}", ns);
+        println!("{} {}", ITEMAZATION_PREFIX, ns);
     }
 }
 
 pub fn print_opts(group_opts: &ResolverGroupOpts, opts: &ResolverOpts) {
     println!(
-        "Nameservers options: concurrent nameservers={}, max. nameservers={}, concurrent requests={}, retries={}, timeout={} s{}{}{}",
+        "{} {}: concurrent nameservers={}, max. nameservers={}, concurrent requests={}, retries={}, timeout={} s{}{}{}",
+        EMPH.paint(CAPTION_PREFIX),
+        EMPH.paint("Options"),
         group_opts.max_concurrent,
         group_opts.limit.unwrap(), // Safe unwrap, because of Clap's default value
         opts.max_concurrent_requests,
@@ -75,8 +78,8 @@ pub fn print_estimates_lookups(resolvers: &ResolverGroup, query: &resolver::Mult
     };
 
     println!(
-        "Sending {} to {} for {} of {}.",
-        queries_str, namesservers_str, record_types_str, names_str
+        "{} Sending {} to {} for {} of {}.",
+        INFO_PREFIX, queries_str, namesservers_str, record_types_str, names_str
     )
 }
 
@@ -85,15 +88,16 @@ pub fn print_estimates_whois(query: &ripe_stats::MultiQuery) {
     let num_queries = query.query_types().len();
     let num_calls =  num_resources * num_queries;
 
-    println!("Sending up to {} requests for {} query types of {} resources.",
-        num_calls, num_queries, num_resources
+    println!("{} Sending up to {} requests for {} query types of {} resources.",
+         INFO_PREFIX, num_calls, num_queries, num_resources
     );
 }
 
 pub fn print_statistics<'a, T: Statistics<'a>>(data: &'a T, total_run_time: Duration) {
     let statistics = data.statistics();
     println!(
-        "Received {} within {} ms of total run time.",
+        "{} Received {} within {} ms of total run time.",
+        INFO_PREFIX,
         statistics,
         total_run_time.as_millis()
     );
@@ -108,12 +112,12 @@ pub fn print_error_counts(lookups: &Lookups) {
         *val += 1;
     }
 
-    println!("Error counts");
+    println!("{} Error counts", INFO_PREFIX);
     if counts.is_empty() {
-        println!("* No errors occurred.")
+        println!("{} No errors occurred.", ITEMAZATION_PREFIX)
     } else {
         for (k, v) in counts.iter() {
-            println!("* Err {} occurred {} times", k, v);
+            println!("{} Err {} occurred {} times", ITEMAZATION_PREFIX, k, v);
         }
     }
 }

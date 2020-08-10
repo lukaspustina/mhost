@@ -11,6 +11,10 @@ use serde::Serialize;
 pub mod json;
 pub mod summary;
 
+pub static CAPTION_PREFIX: &'static str = "▶︎";
+pub static INFO_PREFIX: &'static str = "▸";
+pub static ITEMAZATION_PREFIX: &'static str = "∙";
+
 #[derive(Debug, Clone, Copy)]
 pub enum OutputType {
     Json,
@@ -123,5 +127,14 @@ impl Ordinal for &RipeStatsResponse {
             RipeStatsResponse::GeoLocation { .. } => 3,
             RipeStatsResponse::Error { .. } => 4,
         }
+    }
+}
+
+pub mod styles {
+    use lazy_static::lazy_static;
+    use yansi::{Color, Style};
+
+    lazy_static! {
+        pub static ref EMPH: Style = Style::new(Color::White).bold();
     }
 }

@@ -52,7 +52,7 @@ fn output_records<W: Write>(writer: &mut W, records: Vec<&Record>, opts: &Summar
             format!(", {} ({})", ttl, set.len())
         };
 
-        writeln!(writer, "* {}", r.render_with_suffix(&suffix, opts))?;
+        writeln!(writer, "{} {}", ITEMAZATION_PREFIX, r.render_with_suffix(&suffix, opts))?;
     }
 
     Ok(())
@@ -277,7 +277,7 @@ impl TXT {
         let mut buf = String::new();
         buf.push_str(&format!("SPF version={}{}", styles::TXT.paint(spf.version()), suffix));
         for word in spf.words() {
-            buf.push_str(&format!("\n\t* {}", TXT::format_spf_word(word)));
+            buf.push_str(&format!("\n\t{} {}", ITEMAZATION_PREFIX,TXT::format_spf_word(word)));
         }
         buf
     }

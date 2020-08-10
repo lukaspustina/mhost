@@ -36,7 +36,7 @@ fn output_responses<W: Write>(
     responses.sort_by(order_by_ordinal);
 
     let strs: Vec<_> = responses.into_iter().map(|x| x.render(opts)).collect();
-    writeln!(writer, "* {}\t{}", ip_network, strs.join(", "))?;
+    writeln!(writer, "{} {}\t{}", ITEMAZATION_PREFIX, ip_network, strs.join(", "))?;
 
     Ok(())
 }
@@ -101,11 +101,3 @@ fn render_whois(whois: &Whois, _opts: &SummaryOptions) -> String {
     )
 }
 
-mod styles {
-    use lazy_static::lazy_static;
-    use yansi::{Color, Style};
-
-    lazy_static! {
-        pub static ref EMPH: Style = Style::new(Color::White).bold();
-    }
-}

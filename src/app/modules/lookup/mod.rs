@@ -14,6 +14,7 @@ use clap::ArgMatches;
 use ipnetwork::IpNetwork;
 use std::convert::TryInto;
 use std::net::IpAddr;
+use crate::output::{CAPTION_PREFIX, styles::EMPH};
 
 pub mod config;
 
@@ -38,6 +39,7 @@ pub async fn lookups(global_config: &GlobalConfig, config: &LookupConfig) -> Res
 
     if !global_config.quiet {
         print_opts(&resolver_group_opts, &resolver_opts);
+        println!("{}", EMPH.paint(format!("{} Running DNS lookups.", CAPTION_PREFIX)));
     }
 
     let resolvers = create_resolvers(global_config, resolver_group_opts, resolver_opts).await?;
@@ -78,6 +80,7 @@ pub async fn whois(
     let whois_client = RipeStats::new(opts);
 
     if !global_config.quiet {
+        println!("{}", EMPH.paint(format!("{} Running WHOIS queries.", CAPTION_PREFIX)));
         print_estimates_whois(&query);
     }
 
