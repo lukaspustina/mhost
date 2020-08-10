@@ -1,22 +1,25 @@
-use log::info;
+use std::convert::TryInto;
+use std::net::IpAddr;
 use std::time::Instant;
 
 use anyhow::Result;
+use clap::ArgMatches;
+use ipnetwork::IpNetwork;
+use log::info;
 
+use crate::app::{GlobalConfig, output, resolver};
 use crate::app::cli::{
     print_error_counts, print_estimates_lookups, print_estimates_whois, print_opts, print_statistics,
 };
 use crate::app::modules::lookup::config::LookupConfig;
 use crate::app::resolver::{build_query, create_resolvers, load_resolver_group_opts, load_resolver_opts};
-use crate::app::{output, resolver, GlobalConfig};
-use crate::output::{styles::EMPH, CAPTION_PREFIX};
+use crate::output::{CAPTION_PREFIX, styles::EMPH};
+use crate::RecordType;
 use crate::resolver::lookup::Uniquify;
 use crate::resolver::Lookups;
+use crate::resources::NameToIpAddr;
 use crate::services::ripe_stats::{MultiQuery, QueryType, RipeStats, RipeStatsOpts, RipeStatsResponses};
-use clap::ArgMatches;
-use ipnetwork::IpNetwork;
-use std::convert::TryInto;
-use std::net::IpAddr;
+use std::collections::HashSet;
 
 pub mod config;
 
@@ -74,7 +77,7 @@ pub async fn whois(
     _config: &LookupConfig,
     lookups: &Lookups,
 ) -> Result<RipeStatsResponses> {
-    let ip_addresses = ips_from_lookups(lookups);
+    let ip_addresses = ips_from_lookups(lookups)?;
     let query_types = vec![QueryType::NetworkInfo, QueryType::GeoLocation, QueryType::Whois];
     let query = MultiQuery::from_iter(ip_addresses, query_types);
 
@@ -101,13 +104,23 @@ pub async fn whois(
     Ok(whois)
 }
 
-fn ips_from_lookups(lookups: &Lookups) -> impl Iterator<Item = IpNetwork> {
-    lookups
+fn ips_from_lookups(lookups: &Lookups) -> Result<impl Iterator<Item=IpNetwork>> {
+    let ptrs: Vec<_> = lookups.iter()
+        .filter(|x| x.result().is_response())
+        .filter(|x| x.query().record_type == RecordType::PTR)
+        .map(|x| x.query().name())
+        .map(|x| x.to_ip_addr())
+        .collect();
+    let ptrs: crate::Result<Vec<_>> = ptrs.into_iter().collect();
+    let ptrs = ptrs?;
+    let ptrs: HashSet<IpAddr> = ptrs.into_iter().collect();
+    let ips = lookups
         .a()
         .unique()
         .to_owned()
         .into_iter()
         .map(IpAddr::V4)
         .chain(lookups.aaaa().unique().to_owned().into_iter().map(IpAddr::V6))
-        .map(IpNetwork::from)
+        .map(IpNetwork::from);
+    Ok(ptrs.into_iter().map(IpNetwork::from).chain(ips))
 }
