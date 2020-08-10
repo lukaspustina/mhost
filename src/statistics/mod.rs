@@ -37,4 +37,3 @@ impl<T: Ord + Clone> Summary<T> {
         Summary { min, max }
     }
 }
-

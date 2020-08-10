@@ -3,10 +3,13 @@ use std::time::Instant;
 
 use anyhow::Result;
 
-use crate::app::cli::{print_error_counts, print_estimates_lookups, print_opts, print_statistics, print_estimates_whois};
+use crate::app::cli::{
+    print_error_counts, print_estimates_lookups, print_estimates_whois, print_opts, print_statistics,
+};
 use crate::app::modules::lookup::config::LookupConfig;
 use crate::app::resolver::{build_query, create_resolvers, load_resolver_group_opts, load_resolver_opts};
 use crate::app::{output, resolver, GlobalConfig};
+use crate::output::{styles::EMPH, CAPTION_PREFIX};
 use crate::resolver::lookup::Uniquify;
 use crate::resolver::Lookups;
 use crate::services::ripe_stats::{MultiQuery, QueryType, RipeStats, RipeStatsOpts, RipeStatsResponses};
@@ -14,7 +17,6 @@ use clap::ArgMatches;
 use ipnetwork::IpNetwork;
 use std::convert::TryInto;
 use std::net::IpAddr;
-use crate::output::{CAPTION_PREFIX, styles::EMPH};
 
 pub mod config;
 

@@ -3,10 +3,10 @@ use std::time::Duration;
 
 use crate::estimate::Estimate;
 use crate::nameserver::predefined;
+use crate::output::{styles::EMPH, CAPTION_PREFIX, INFO_PREFIX, ITEMAZATION_PREFIX};
 use crate::resolver::{self, Lookups, ResolverGroup, ResolverGroupOpts, ResolverOpts};
-use crate::statistics::Statistics;
 use crate::services::ripe_stats;
-use crate::output::{ITEMAZATION_PREFIX, INFO_PREFIX, CAPTION_PREFIX, styles::EMPH};
+use crate::statistics::Statistics;
 
 pub fn list_predefined_nameservers() {
     println!("List of predefined servers:");
@@ -86,10 +86,11 @@ pub fn print_estimates_lookups(resolvers: &ResolverGroup, query: &resolver::Mult
 pub fn print_estimates_whois(query: &ripe_stats::MultiQuery) {
     let num_resources = query.resources().len();
     let num_queries = query.query_types().len();
-    let num_calls =  num_resources * num_queries;
+    let num_calls = num_resources * num_queries;
 
-    println!("{} Sending up to {} requests for {} query types of {} resources.",
-         INFO_PREFIX, num_calls, num_queries, num_resources
+    println!(
+        "{} Sending up to {} requests for {} query types of {} resources.",
+        INFO_PREFIX, num_calls, num_queries, num_resources
     );
 }
 

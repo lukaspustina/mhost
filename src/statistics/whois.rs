@@ -26,12 +26,13 @@ impl<'a> fmt::Display for WhoisStats<'a> {
             }
         }
 
-        let str = format!("{num_resp} responses [GL {num_gl}, NI {num_ni}, WI {num_wi}], {errs}",
-                          num_resp = styles::BOLD.paint(self.responses),
-                          num_gl = self.geo_locations,
-                          num_ni = self.network_infos,
-                          num_wi = self.whois,
-                          errs = fmt_errors(self.errors),
+        let str = format!(
+            "{num_resp} responses [GL {num_gl}, NI {num_ni}, WI {num_wi}], {errs}",
+            num_resp = styles::BOLD.paint(self.responses),
+            num_gl = self.geo_locations,
+            num_ni = self.network_infos,
+            num_wi = self.whois,
+            errs = fmt_errors(self.errors),
         );
         f.write_str(&str)
     }
@@ -51,4 +52,3 @@ impl<'a> Statistics<'a> for RipeStatsResponses {
         }
     }
 }
-

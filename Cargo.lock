@@ -657,6 +657,7 @@ dependencies = [
  "resolv-conf",
  "serde",
  "serde_json",
+ "smallvec",
  "spectral",
  "tabwriter",
  "thiserror",

@@ -100,4 +100,3 @@ fn render_whois(whois: &Whois, _opts: &SummaryOptions) -> String {
         EMPH.paint(whois.source().map(|x| x.to_string()).unwrap_or_else(|| "-".to_string())),
     )
 }
-

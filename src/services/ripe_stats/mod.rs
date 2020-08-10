@@ -290,10 +290,7 @@ pub struct RipeStatsResponses {
 macro_rules! responses_data_accessor {
     ($method:ident, $out_type:ty) => {
         pub fn $method(&self) -> impl Iterator<Item = &$out_type> {
-            self.responses
-                .iter()
-                .map(|x| x.$method())
-                .flatten()
+            self.responses.iter().map(|x| x.$method()).flatten()
         }
     };
 }
