@@ -215,10 +215,19 @@ pub fn setup_clap() -> App<'static, 'static> {
                 .long("quiet")
                 .help("Does not print anything but results"),
         )
+        // This is a special option that is not reflected in GlobalConfig, but is checked during
+        // setup in `mhost.rs`.
         .arg(
             Arg::with_name("no-color")
                 .long("no-color")
                 .help("Disables colorful output"),
+        )
+        // This is a special option that is not reflected in GlobalConfig, but is checked during
+        // setup in `mhost.rs` and set the global AtomicBool `mhost::output::styles::ASCII_MODE`.
+        .arg(
+            Arg::with_name("ascii")
+                .long("ascii")
+                .help("Uses only ASCII compatible characters for output"),
         )
         .arg(
             Arg::with_name("v")

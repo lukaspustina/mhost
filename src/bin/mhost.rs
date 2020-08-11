@@ -5,16 +5,19 @@ use log::info;
 
 use mhost::app::cli::list_predefined_nameservers;
 use mhost::app::global_config;
+use mhost::app::GlobalConfig;
 use mhost::app::logging::start_logging_for_level;
 use mhost::app::modules;
-use mhost::app::GlobalConfig;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = global_config::setup_clap().get_matches();
 
     if args.is_present("no-color") {
-        yansi::Paint::disable();
+        mhost::output::styles::no_color_mode();
+    }
+    if args.is_present("ascii") {
+        mhost::output::styles::ascii_mode();
     }
 
     start_logging_for_level(args.occurrences_of("v"));

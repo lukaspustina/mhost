@@ -4,7 +4,7 @@ use crate::app::resolver::{create_resolvers, load_resolver_group_opts, load_reso
 use crate::app::{output, GlobalConfig};
 use crate::diff::SetDiffer;
 use crate::nameserver::NameServerConfig;
-use crate::output::{styles, ATTENTION_PREFIX, CAPTION_PREFIX, ERROR_PREFIX, OK_PREFIX};
+use crate::output::styles::{self, ATTENTION_PREFIX, CAPTION_PREFIX, ERROR_PREFIX, OK_PREFIX};
 use crate::resolver::lookup::Uniquify;
 use crate::resolver::{MultiQuery, ResolverConfig, ResolverGroup};
 use crate::RecordType;
@@ -41,7 +41,7 @@ pub async fn soa_check(global_config: &GlobalConfig, config: &SoaCheckConfig) ->
     if !global_config.quiet && config.partial_results {
         println!(
             "{}",
-            styles::EMPH.paint(format!("{} Running DNS lookups of name servers.", CAPTION_PREFIX))
+            styles::EMPH.paint(format!("{} Running DNS lookups of name servers.", &*CAPTION_PREFIX))
         );
         print_estimates_lookups(&resolvers, &query);
     }
@@ -61,7 +61,7 @@ pub async fn soa_check(global_config: &GlobalConfig, config: &SoaCheckConfig) ->
     if !lookups.has_records() {
         println!(
             "{} No authoritative nameservers found. Aborting.",
-            styles::ATTENTION.paint(ERROR_PREFIX)
+            styles::ATTENTION.paint(&*ERROR_PREFIX)
         );
         return Ok(());
     }
@@ -76,7 +76,7 @@ pub async fn soa_check(global_config: &GlobalConfig, config: &SoaCheckConfig) ->
             "{}",
             styles::EMPH.paint(format!(
                 "{} Running DNS lookups of IPv4 and IPv6 addresses of name servers.",
-                CAPTION_PREFIX
+                &*CAPTION_PREFIX
             ))
         );
         print_estimates_lookups(&resolvers, &query);
@@ -97,7 +97,7 @@ pub async fn soa_check(global_config: &GlobalConfig, config: &SoaCheckConfig) ->
     if !lookups.has_records() {
         println!(
             "{} No IP addresses for authoritative nameservers found. Aborting.",
-            styles::ATTENTION.paint(ERROR_PREFIX)
+            styles::ATTENTION.paint(&*ERROR_PREFIX)
         );
         return Ok(());
     }
@@ -121,7 +121,7 @@ pub async fn soa_check(global_config: &GlobalConfig, config: &SoaCheckConfig) ->
     if !global_config.quiet {
         println!(
             "{}",
-            styles::EMPH.paint(format!("{} Running DNS lookups for SOA records.", CAPTION_PREFIX))
+            styles::EMPH.paint(format!("{} Running DNS lookups for SOA records.", &*CAPTION_PREFIX))
         );
         print_estimates_lookups(&resolvers, &query);
     }
@@ -139,7 +139,7 @@ pub async fn soa_check(global_config: &GlobalConfig, config: &SoaCheckConfig) ->
     if !lookups.has_records() {
         println!(
             "{} No SOA records from authoritative nameservers found. Aborting.",
-            styles::ATTENTION.paint(ERROR_PREFIX)
+            styles::ATTENTION.paint(&*ERROR_PREFIX)
         );
         return Ok(());
     }
@@ -150,11 +150,11 @@ pub async fn soa_check(global_config: &GlobalConfig, config: &SoaCheckConfig) ->
     if let Some(diffs) = diffs {
         println!(
             "{} Found deviations in SOA records: ",
-            styles::ATTENTION.paint(ATTENTION_PREFIX),
+            styles::ATTENTION.paint(&*ATTENTION_PREFIX),
         );
         println!("{:?}", diffs);
     } else {
-        println!("{} All SOA records in sync.", styles::OK.paint(OK_PREFIX),);
+        println!("{} All SOA records in sync.", styles::OK.paint(&*OK_PREFIX),);
     }
 
     Ok(())

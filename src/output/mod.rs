@@ -9,14 +9,8 @@ use crate::{Error, RecordType};
 use serde::Serialize;
 
 pub mod json;
+pub mod styles;
 pub mod summary;
-
-pub static ATTENTION_PREFIX: &str = "⚠︎";
-pub static CAPTION_PREFIX: &str = "▶︎";
-pub static ERROR_PREFIX: &str = "⚡︎";
-pub static INFO_PREFIX: &str = "▸";
-pub static ITEMAZATION_PREFIX: &str = "∙";
-pub static OK_PREFIX: &str = "✓";
 
 #[derive(Debug, Clone, Copy)]
 pub enum OutputType {
@@ -133,13 +127,3 @@ impl Ordinal for &WhoisResponse {
     }
 }
 
-pub mod styles {
-    use lazy_static::lazy_static;
-    use yansi::{Color, Style};
-
-    lazy_static! {
-        pub static ref ATTENTION: Style = Style::new(Color::Red).bold();
-        pub static ref EMPH: Style = Style::new(Color::White).bold();
-        pub static ref OK: Style = Style::new(Color::Green).bold();
-    }
-}

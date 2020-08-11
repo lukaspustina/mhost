@@ -13,7 +13,7 @@ use crate::app::cli::{
 use crate::app::modules::lookup::config::LookupConfig;
 use crate::app::resolver::{build_query, create_resolvers, load_resolver_group_opts, load_resolver_opts};
 use crate::app::{output, resolver, GlobalConfig};
-use crate::output::{styles, CAPTION_PREFIX};
+use crate::output::styles::{self, CAPTION_PREFIX};
 use crate::resolver::lookup::Uniquify;
 use crate::resolver::Lookups;
 use crate::resources::NameToIpAddr;
@@ -51,7 +51,7 @@ pub async fn lookups(global_config: &GlobalConfig, config: &LookupConfig) -> Res
     if !global_config.quiet {
         println!(
             "{}",
-            styles::EMPH.paint(format!("{} Running DNS lookups.", CAPTION_PREFIX))
+            styles::EMPH.paint(format!("{} Running DNS lookups.", &*CAPTION_PREFIX))
         );
         print_estimates_lookups(&resolvers, &query);
     }
@@ -86,7 +86,7 @@ pub async fn whois(global_config: &GlobalConfig, _config: &LookupConfig, lookups
     if !global_config.quiet {
         println!(
             "{}",
-            styles::EMPH.paint(format!("{} Running WHOIS queries.", CAPTION_PREFIX))
+            styles::EMPH.paint(format!("{} Running WHOIS queries.", &*CAPTION_PREFIX))
         );
         print_estimates_whois(&query);
     }

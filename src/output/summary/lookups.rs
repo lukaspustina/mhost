@@ -13,6 +13,7 @@ use crate::resources::{NameToIpAddr, Record};
 use crate::{Error, RecordType};
 
 use super::*;
+use crate::output::styles::ITEMAZATION_PREFIX;
 
 impl SummaryFormatter for Lookups {
     fn output<W: Write>(&self, writer: &mut W, opts: &SummaryOptions) -> Result<()> {
@@ -52,7 +53,7 @@ fn output_records<W: Write>(writer: &mut W, records: Vec<&Record>, opts: &Summar
             format!(", {} ({})", ttl, set.len())
         };
 
-        writeln!(writer, "{} {}", ITEMAZATION_PREFIX, r.render_with_suffix(&suffix, opts))?;
+        writeln!(writer, "{} {}", &*ITEMAZATION_PREFIX, r.render_with_suffix(&suffix, opts))?;
     }
 
     Ok(())
@@ -277,7 +278,7 @@ impl TXT {
         let mut buf = String::new();
         buf.push_str(&format!("SPF version={}{}", styles::TXT.paint(spf.version()), suffix));
         for word in spf.words() {
-            buf.push_str(&format!("\n\t{} {}", ITEMAZATION_PREFIX, TXT::format_spf_word(word)));
+            buf.push_str(&format!("\n\t{} {}", &*ITEMAZATION_PREFIX, TXT::format_spf_word(word)));
         }
         buf
     }
