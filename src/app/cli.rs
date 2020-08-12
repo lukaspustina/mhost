@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use crate::estimate::Estimate;
 use crate::nameserver::predefined;
-use crate::output::styles::{self, CAPTION_PREFIX, INFO_PREFIX, ITEMAZATION_PREFIX};
+use crate::output::styles::{self, CAPTION_PREFIX, INFO_PREFIX, ITEMAZATION_PREFIX, OK_PREFIX};
 use crate::resolver::{self, Lookups, ResolverGroup, ResolverGroupOpts, ResolverOpts};
 use crate::services::whois;
 use crate::statistics::Statistics;
@@ -11,7 +11,7 @@ use crate::statistics::Statistics;
 pub fn list_predefined_nameservers() {
     println!("List of predefined servers:");
     for ns in predefined::nameserver_configs() {
-        println!("{} {}", &*ITEMAZATION_PREFIX, ns);
+        println!(" {} {}", &*ITEMAZATION_PREFIX, ns);
     }
 }
 
@@ -115,10 +115,10 @@ pub fn print_error_counts(lookups: &Lookups) {
 
     println!("{} Error counts", &*INFO_PREFIX);
     if counts.is_empty() {
-        println!("{} No errors occurred.", &*ITEMAZATION_PREFIX)
+        println!("{} No errors occurred.", &*OK_PREFIX)
     } else {
         for (k, v) in counts.iter() {
-            println!("{} Err {} occurred {} times", &*ITEMAZATION_PREFIX, k, v);
+            println!(" {} Err {} occurred {} times", &*ITEMAZATION_PREFIX, k, v);
         }
     }
 }

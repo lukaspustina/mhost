@@ -37,7 +37,7 @@ fn output_responses<W: Write>(
     responses.sort_by(order_by_ordinal);
 
     let strs: Vec<_> = responses.iter_mut().map(|x| x.render(opts)).collect();
-    writeln!(writer, "{} {}\t{}", &*ITEMAZATION_PREFIX, ip_network, strs.join(", "))?;
+    writeln!(writer, " {} {}\t{}", &*ITEMAZATION_PREFIX, ip_network, strs.join(", "))?;
 
     Ok(())
 }
