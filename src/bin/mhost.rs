@@ -8,6 +8,7 @@ use mhost::app::global_config;
 use mhost::app::GlobalConfig;
 use mhost::app::logging::start_logging_for_level;
 use mhost::app::modules;
+use mhost::output::styles::ERROR_PREFIX;
 
 async fn run() -> Result<ExitStatus> {
     let args = global_config::setup_clap().get_matches();
@@ -53,7 +54,7 @@ async fn main() {
     let exit_status = match res {
         Ok(exit_status) => exit_status,
         Err(err) => {
-            eprintln!("Failed: {:#}", err);
+            eprintln!("{} Failed: {:#}", &*ERROR_PREFIX, err);
             ExitStatus::Failed
         },
     };
