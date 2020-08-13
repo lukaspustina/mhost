@@ -19,6 +19,12 @@ pub enum Error {
         #[serde(serialize_with = "ser_to_string")]
         source: serde_json::error::Error,
     },
+    #[error("failed to parse '{what}' to {to} because {why}")]
+    ParserError {
+        what: String,
+        to: &'static str,
+        why: String,
+    },
     #[error("execution has been cancelled")]
     CancelledError,
     #[error("execution panicked")]

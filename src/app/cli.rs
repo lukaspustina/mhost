@@ -7,6 +7,7 @@ use crate::output::styles::{self, CAPTION_PREFIX, INFO_PREFIX, ITEMAZATION_PREFI
 use crate::resolver::{self, Lookups, ResolverGroup, ResolverGroupOpts, ResolverOpts};
 use crate::services::whois;
 use crate::statistics::Statistics;
+use crate::services::server_lists::ServerListSpec;
 
 /// `ExitStatus` represents the exit states that will be return to the OS after termination
 #[derive(Debug, Clone)]
@@ -110,6 +111,14 @@ pub fn print_estimates_lookups(resolvers: &ResolverGroup, query: &resolver::Mult
         &*INFO_PREFIX, queries_str, namesservers_str, record_types_str, names_str
     )
 }
+
+pub fn print_estimates_downloads(server_list_specs: &Vec<ServerListSpec>) {
+    println!(
+        "{} Downloading {} server lists.",
+        &*INFO_PREFIX, server_list_specs.len()
+    );
+}
+
 
 pub fn print_estimates_whois(query: &whois::MultiQuery) {
     let num_resources = query.resources().len();

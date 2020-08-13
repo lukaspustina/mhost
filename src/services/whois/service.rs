@@ -324,7 +324,7 @@ mod whois {
 }
 
 pub struct RipeStatsClient {
-    client: reqwest::Client,
+    http_client: reqwest::Client,
 }
 
 impl Default for RipeStatsClient {
@@ -335,7 +335,7 @@ impl Default for RipeStatsClient {
 
 impl RipeStatsClient {
     pub fn new() -> RipeStatsClient {
-        RipeStatsClient { client: Client::new() }
+        RipeStatsClient { http_client: Client::new() }
     }
 
     pub async fn geo_location<T: Into<IpNetwork>>(&self, ip_network: T) -> Result<Response<GeoLocation>> {
@@ -362,8 +362,9 @@ impl RipeStatsClient {
 
     async fn do_call<T: DeserializeOwned>(&self, url: &str, query_params: &[(&str, &str)]) -> Result<Response<T>> {
         let res = self
-            .client
+            .http_client
             .get(url)
+            // TODO: This should come from opts
             .timeout(Duration::from_secs(5))
             .query(query_params)
             .send()

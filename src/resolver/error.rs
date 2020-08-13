@@ -19,9 +19,6 @@ lazy_static! {
 }
 
 #[derive(Debug, Clone, Error, Serialize)]
-/// Main Error type of this crate.
-///
-/// Must be `Send` because it used by async function which might run on different threads.
 pub enum Error {
     #[error("nameserver refused query")]
     QueryRefused,

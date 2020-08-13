@@ -1,6 +1,8 @@
+
 use std::fmt::Display;
 
 pub mod lookups;
+pub mod server_lists;
 pub mod whois;
 
 mod styles {
