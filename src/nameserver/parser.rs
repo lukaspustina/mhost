@@ -500,10 +500,12 @@ pub(crate) mod parser {
     }
 
     fn ipv6(input: &str) -> IResult<&str, Target> {
+        let (input, _) = opt(tag("["))(input)?;
         let (input, ipv6) = map_res(
             take_while(|c: char| c.is_hex_digit() || c == ':' || c == '/'),
             Ipv6Addr::from_str,
         )(input)?;
+        let (input, _) = opt(tag("]"))(input)?;
 
         let target = Target::Ipv6(ipv6);
 
@@ -656,6 +658,17 @@ pub(crate) mod parser {
         fn ipv6___1_128() {
             let str = "::1";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv6(Ipv6Addr::from_str(&str).unwrap()), 53);
+
+            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
+
+            assert_that(&config).is_equal_to(expected);
+        }
+
+        #[test]
+        #[allow(non_snake_case)]
+        fn ipv6_with_port() {
+            let str = "[2001:0db8:85a3:08d3::0370:7344]:5353";
+            let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv6(Ipv6Addr::from_str(&"2001:0db8:85a3:08d3::0370:7344").unwrap()), 5353);
 
             let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
 

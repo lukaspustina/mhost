@@ -154,29 +154,36 @@ impl fmt::Display for NameServerConfig {
                 ip_addr,
                 port,
                 name,
-            } => format!("udp:{}:{}{}", ip_addr, port, format_name(name)),
+            } => format!("udp:{}:{}{}", format_ip_addr(ip_addr), port, format_name(name)),
             NameServerConfig::Tcp {
                 protocol: _,
                 ip_addr,
                 port,
                 name,
-            } => format!("tcp:{}:{}{}", ip_addr, port, format_name(name)),
+            } => format!("tcp:{}:{}{}", format_ip_addr(ip_addr), port, format_name(name)),
             NameServerConfig::Tls {
                 protocol: _,
                 ip_addr,
                 port,
                 spki,
                 name,
-            } => format!("tls:{}:{},{}{}", ip_addr, port, spki, format_name(name)),
+            } => format!("tls:{}:{},{}{}", format_ip_addr(ip_addr), port, spki, format_name(name)),
             NameServerConfig::Https {
                 protocol: _,
                 ip_addr,
                 port,
                 spki,
                 name,
-            } => format!("https:{}:{},{}{}", ip_addr, port, spki, format_name(name)),
+            } => format!("https:{}:{},{}{}", format_ip_addr(ip_addr), port, spki, format_name(name)),
         };
         fmt.write_str(&str)
+    }
+}
+
+fn format_ip_addr(ip_addr: &IpAddr) -> String {
+    match ip_addr {
+        IpAddr::V4(ip) => ip.to_string(),
+        IpAddr::V6(ip) => format!("[{}]", ip),
     }
 }
 
