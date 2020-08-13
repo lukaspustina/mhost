@@ -27,6 +27,7 @@ pub fn setup_clap() -> App<'static, 'static> {
         .global_setting(AppSettings::GlobalVersion)
         .global_setting(AppSettings::InferSubcommands)
         .global_setting(AppSettings::UnifiedHelpMessage)
+        .setting(AppSettings::SubcommandRequiredElseHelp)
         .arg(
             Arg::with_name("no-system-resolv-opt")
                 .long("no-system-resolv-opt")

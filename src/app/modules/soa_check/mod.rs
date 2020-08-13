@@ -1,4 +1,4 @@
-use crate::app::cli::{print_estimates_lookups, print_opts, print_statistics};
+use crate::app::cli::{print_estimates_lookups, print_opts, print_statistics, ExitStatus};
 use crate::app::modules::soa_check::config::SoaCheckConfig;
 use crate::app::resolver::{create_resolvers, load_resolver_group_opts, load_resolver_opts};
 use crate::app::{output, GlobalConfig};
@@ -18,14 +18,14 @@ use std::time::Instant;
 
 pub mod config;
 
-pub async fn run(args: &ArgMatches<'_>, global_config: &GlobalConfig) -> Result<()> {
+pub async fn run(args: &ArgMatches<'_>, global_config: &GlobalConfig) -> Result<ExitStatus> {
     info!("soa-check module selected.");
     let args = args.subcommand_matches("soa-check").unwrap();
     let config: SoaCheckConfig = args.try_into()?;
     soa_check(&global_config, &config).await
 }
 
-pub async fn soa_check(global_config: &GlobalConfig, config: &SoaCheckConfig) -> Result<()> {
+pub async fn soa_check(global_config: &GlobalConfig, config: &SoaCheckConfig) -> Result<ExitStatus> {
     // NS
     let query = MultiQuery::single(config.domain_name.as_str(), RecordType::NS)?;
 
@@ -63,7 +63,7 @@ pub async fn soa_check(global_config: &GlobalConfig, config: &SoaCheckConfig) ->
             "{} No authoritative nameservers found. Aborting.",
             styles::ATTENTION.paint(&*ERROR_PREFIX)
         );
-        return Ok(());
+        return Ok(ExitStatus::Abort);
     }
 
     let authoritative_name_server_names = lookups.ns().unique().to_owned();
@@ -99,7 +99,7 @@ pub async fn soa_check(global_config: &GlobalConfig, config: &SoaCheckConfig) ->
             "{} No IP addresses for authoritative nameservers found. Aborting.",
             styles::ATTENTION.paint(&*ERROR_PREFIX)
         );
-        return Ok(());
+        return Ok(ExitStatus::Abort);
     }
 
     let authoritative_name_server_ips = lookups
@@ -141,7 +141,7 @@ pub async fn soa_check(global_config: &GlobalConfig, config: &SoaCheckConfig) ->
             "{} No SOA records from authoritative nameservers found. Aborting.",
             styles::ATTENTION.paint(&*ERROR_PREFIX)
         );
-        return Ok(());
+        return Ok(ExitStatus::Abort);
     }
 
     let soas: IndexSet<_> = lookups.soa().unique().to_owned().into_iter().collect();
@@ -153,9 +153,9 @@ pub async fn soa_check(global_config: &GlobalConfig, config: &SoaCheckConfig) ->
             styles::ATTENTION.paint(&*ATTENTION_PREFIX),
         );
         println!("{:?}", diffs);
+        Ok(ExitStatus::CheckFailed)
     } else {
         println!("{} All SOA records in sync.", styles::OK.paint(&*OK_PREFIX),);
+        Ok(ExitStatus::Ok)
     }
-
-    Ok(())
 }

@@ -7,9 +7,7 @@ use clap::ArgMatches;
 use ipnetwork::IpNetwork;
 use log::info;
 
-use crate::app::cli::{
-    print_error_counts, print_estimates_lookups, print_estimates_whois, print_opts, print_statistics,
-};
+use crate::app::cli::{print_error_counts, print_estimates_lookups, print_estimates_whois, print_opts, print_statistics, ExitStatus};
 use crate::app::modules::lookup::config::LookupConfig;
 use crate::app::resolver::{build_query, create_resolvers, load_resolver_group_opts, load_resolver_opts};
 use crate::app::{output, resolver, GlobalConfig};
@@ -23,7 +21,7 @@ use std::collections::HashSet;
 
 pub mod config;
 
-pub async fn run(args: &ArgMatches<'_>, global_config: &GlobalConfig) -> Result<()> {
+pub async fn run(args: &ArgMatches<'_>, global_config: &GlobalConfig) -> Result<ExitStatus> {
     info!("lookup module selected.");
     let args = args.subcommand_matches("lookup").unwrap();
     let config: LookupConfig = args.try_into()?;
@@ -33,7 +31,7 @@ pub async fn run(args: &ArgMatches<'_>, global_config: &GlobalConfig) -> Result<
         whois(global_config, &config, &lookups).await?;
     }
 
-    Ok(())
+    Ok(ExitStatus::Ok)
 }
 
 pub async fn lookups(global_config: &GlobalConfig, config: &LookupConfig) -> Result<Lookups> {
