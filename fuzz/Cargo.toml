@@ -9,12 +9,6 @@ edition = "2018"
 [package.metadata]
 cargo-fuzz = true
 
-[dependencies]
-libfuzzer-sys = "0.3"
-
-[dependencies.mhost]
-path = ".."
-
 # Prevent this from interfering with workspaces
 [workspace]
 members = ["."]
@@ -26,8 +20,20 @@ test = false
 doc = false
 
 [[bin]]
+name = "afl_name_to_ip_addr"
+path = "fuzz_targets/afl_name_to_ip_addr.rs"
+test = false
+doc = false
+
+[[bin]]
 name = "nameserver_config"
 path = "fuzz_targets/nameserver_config.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "afl_nameserver_config"
+path = "fuzz_targets/afl_nameserver_config.rs"
 test = false
 doc = false
 
@@ -36,3 +42,16 @@ name = "parsed_txt"
 path = "fuzz_targets/parsed_txt.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "afl_parsed_txt"
+path = "fuzz_targets/afl_parsed_txt.rs"
+test = false
+doc = false
+
+[dependencies]
+afl = "*"
+libfuzzer-sys = "0.3"
+
+[dependencies.mhost]
+path = ".."

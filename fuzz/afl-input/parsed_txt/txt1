@@ -1,0 +1,1 @@
+v=spf1 +mx +ip4:185.32.32.48/28 include:mail.zendesk.com include:spf.crsend.com include:stspg-customer.com                       include:amazonses.com ?all
