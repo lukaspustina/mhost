@@ -1,0 +1,38 @@
+
+[package]
+name = "mhost-fuzz"
+version = "0.0.0"
+authors = ["Automatically generated"]
+publish = false
+edition = "2018"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.3"
+
+[dependencies.mhost]
+path = ".."
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "name_to_ip_addr"
+path = "fuzz_targets/name_to_ip_addr.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "nameserver_config"
+path = "fuzz_targets/nameserver_config.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "parsed_txt"
+path = "fuzz_targets/parsed_txt.rs"
+test = false
+doc = false

@@ -1,0 +1,8 @@
+udp="udp"
+tcp="tcp"
+tls="tls"
+https="https"
+separator1=":"
+separator2=","
+name="name"
+

@@ -73,7 +73,10 @@ impl NameToIpAddr for Name {
             let octets: SmallVec<[u8; 16]> = nibble
                 .as_slice()
                 .chunks_exact(2)
-                .map(|byte| byte[0] * 16 + byte[1])
+                //.inspect(|byte| eprintln!("0: {}, 1: {}", byte[0], byte[1]))
+                // The modulo protects us from "attempt to multiply with overflow" and "attempt to add with overflow" in case a value larger than 16 sneaks in.
+                // This does not happen with valid ipv6 address, but may happen in invalid input -- cf. `tests::fuzz*`
+                .map(|byte| byte[0] % 16 * 16 + byte[1] % 16)
                 .collect();
 
             match *octets.as_slice() {
@@ -117,5 +120,29 @@ mod tests {
         let ip = name.to_ip_addr();
 
         assert_that(&ip).is_ok().is_equal_to(IpAddr::from(ip_expected));
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn fuzz_a_a_aB_ip6_arpa_() {
+        // This is not a valid ipv6 address
+        let name: Name = "a.a.aB.ip6.arpa.".into_name().unwrap();
+
+        // This will fail to parse but should not panic
+        let ip = name.to_ip_addr();
+
+        assert_that(&ip).is_err();
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn fuzz_a_a_aa_a_ip6_arpa_() {
+        // This is not a valid ipv6 address
+        let name: Name = "a.a.aa.a.ip6.arpa.".into_name().unwrap();
+
+        // This will fail to parse but should not panic
+        let ip = name.to_ip_addr();
+
+        assert_that(&ip).is_err();
     }
 }
