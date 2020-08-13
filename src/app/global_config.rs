@@ -3,7 +3,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use clap::{App, AppSettings, Arg, ArgMatches};
+use clap::{App, AppSettings, Arg, ArgMatches, crate_name};
 
 use crate::app::modules;
 use crate::output::json::JsonOptions;
@@ -18,7 +18,7 @@ pub static SUPPORTED_RECORD_TYPES: &[&str] = &[
 pub static SUPPORTED_OUTPUT_FORMATS: &[&str] = &["json", "summary"];
 
 pub fn setup_clap() -> App<'static, 'static> {
-    App::new("mhost")
+    App::new(crate_name!())
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
         .about(env!("CARGO_PKG_DESCRIPTION"))

@@ -9,7 +9,7 @@ use crate::RecordType;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("lookup")
-        .about("Lookups a name, IP address oder CIDR block")
+        .about("Looks up a name, IP address or CIDR block")
         .arg(Arg::with_name("domain name")
             .required_unless("list-predefined")
             .index(1)
