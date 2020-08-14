@@ -53,7 +53,12 @@ fn output_records<W: Write>(writer: &mut W, records: Vec<&Record>, opts: &Summar
             format!(", {} ({})", ttl, set.len())
         };
 
-        writeln!(writer, " {} {}", &*ITEMAZATION_PREFIX, r.render_with_suffix(&suffix, opts))?;
+        writeln!(
+            writer,
+            " {} {}",
+            &*ITEMAZATION_PREFIX,
+            r.render_with_suffix(&suffix, opts)
+        )?;
     }
 
     Ok(())

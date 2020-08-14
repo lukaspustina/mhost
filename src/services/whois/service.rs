@@ -2,12 +2,12 @@ use std::time::Duration;
 
 use ipnetwork::IpNetwork;
 use nom::lib::std::collections::HashMap;
+use nom::lib::std::fmt::Formatter;
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 use crate::services::{Error, Result};
-use nom::lib::std::fmt::Formatter;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -153,15 +153,15 @@ impl From<whois::Whois> for Whois {
 
 impl Whois {
     fn from_records(resource: String, authorities: Vec<Authority>, records: Vec<HashMap<String, String>>) -> Whois {
-        let (organization, country, cidr, net_name, source) = whois::parse_whois_records(records);
+        let parsed_record = whois::parse_whois_records(records);
         Whois {
             resource,
             authorities,
-            organization,
-            country,
-            cidr,
-            net_name,
-            source,
+            organization: parsed_record.organization,
+            country: parsed_record.country,
+            cidr: parsed_record.cidr,
+            net_name: parsed_record.net_name,
+            source: parsed_record.source,
         }
     }
 }
@@ -224,13 +224,14 @@ impl From<Response<whois::Whois>> for Response<Whois> {
 
 mod whois {
     use std::collections::HashMap;
+    use std::str::FromStr;
 
-    use super::Authority;
     use chrono::prelude::*;
     use ipnetwork::IpNetwork;
     use serde::de;
     use serde::Deserialize;
-    use std::str::FromStr;
+
+    use super::Authority;
 
     #[derive(Debug, Deserialize)]
     pub struct Whois {
@@ -263,18 +264,30 @@ mod whois {
         Ok(result)
     }
 
+    pub struct ParsedWhoisRecord {
+        pub organization: Option<String>,
+        pub country: Option<String>,
+        pub cidr: Option<IpNetwork>,
+        pub net_name: Option<String>,
+        pub source: Option<Authority>,
+    }
+
+    impl Default for ParsedWhoisRecord {
+        fn default() -> Self {
+            ParsedWhoisRecord {
+                organization: None,
+                country: None,
+                cidr: None,
+                net_name: None,
+                source: None,
+            }
+        }
+    }
+
     // This is really ugly.
-    pub fn parse_whois_records(
-        mut records: Vec<HashMap<String, String>>,
-    ) -> (
-        Option<String>,
-        Option<String>,
-        Option<IpNetwork>,
-        Option<String>,
-        Option<super::Authority>,
-    ) {
+    pub fn parse_whois_records(mut records: Vec<HashMap<String, String>>) -> ParsedWhoisRecord {
         if records.is_empty() {
-            return (None, None, None, None, None);
+            return Default::default();
         };
         if records.len() == 1 {
             // We've received just one record table
@@ -282,7 +295,6 @@ mod whois {
             return parse_whois_record(records);
         }
         // We have multiple tables, let's try to find the latest table.
-
         let mut i_dates: Vec<_> = records
             .iter()
             .enumerate()
@@ -298,15 +310,7 @@ mod whois {
         parse_whois_record(records.remove(i_dates.pop().unwrap().0)) // Safe unwrap
     }
 
-    fn parse_whois_record(
-        mut record: HashMap<String, String>,
-    ) -> (
-        Option<String>,
-        Option<String>,
-        Option<IpNetwork>,
-        Option<String>,
-        Option<Authority>,
-    ) {
+    fn parse_whois_record(mut record: HashMap<String, String>) -> ParsedWhoisRecord {
         let organization = record
             .remove("organization")
             .or_else(|| record.remove("descr"))
@@ -319,7 +323,14 @@ mod whois {
             .flatten();
         let net_name = record.remove("netname");
         let source = record.remove("source").map(|x| Authority::from(&x));
-        (organization, country, cidr, net_name, source)
+
+        ParsedWhoisRecord {
+            organization,
+            country,
+            cidr,
+            net_name,
+            source,
+        }
     }
 }
 
@@ -335,7 +346,9 @@ impl Default for RipeStatsClient {
 
 impl RipeStatsClient {
     pub fn new() -> RipeStatsClient {
-        RipeStatsClient { http_client: Client::new() }
+        RipeStatsClient {
+            http_client: Client::new(),
+        }
     }
 
     pub async fn geo_location<T: Into<IpNetwork>>(&self, ip_network: T) -> Result<Response<GeoLocation>> {
@@ -393,11 +406,11 @@ impl RipeStatsClient {
 #[cfg(test)]
 mod tests {
     use std::net::{IpAddr, Ipv4Addr};
+    use std::str::FromStr;
 
     use spectral::prelude::*;
 
     use super::*;
-    use std::str::FromStr;
 
     #[tokio::test]
     async fn geo_location() {

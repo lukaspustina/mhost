@@ -1,14 +1,14 @@
+use crate::app::cli::{print_estimates_downloads, print_statistics, ExitStatus};
+use crate::app::modules::download_server_lists::config::DownloadServerListConfig;
 use crate::app::GlobalConfig;
+use crate::output::styles::{self, CAPTION_PREFIX, OK_PREFIX};
+use crate::services::server_lists::{DownloadResponses, ServerListDownloader, ServerListDownloaderOpts};
 use anyhow::Result;
 use clap::ArgMatches;
 use log::info;
-use std::time::Instant;
-use crate::app::modules::download_server_lists::config::DownloadServerListConfig;
 use std::convert::TryInto;
-use crate::app::cli::{ExitStatus, print_statistics, print_estimates_downloads};
-use crate::output::styles::{self, CAPTION_PREFIX, OK_PREFIX};
-use crate::services::server_lists::{ServerListDownloaderOpts, ServerListDownloader, DownloadResponses};
 use std::path::Path;
+use std::time::Instant;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 
@@ -21,8 +21,12 @@ pub async fn run(args: &ArgMatches<'_>, global_config: &GlobalConfig) -> Result<
     download_server_lists(&global_config, config).await
 }
 
-pub async fn download_server_lists(global_config: &GlobalConfig, config: DownloadServerListConfig) -> Result<ExitStatus> {
-    let opts: ServerListDownloaderOpts = ServerListDownloaderOpts::new(global_config.max_concurrent_requests, global_config.abort_on_error);
+pub async fn download_server_lists(
+    global_config: &GlobalConfig,
+    config: DownloadServerListConfig,
+) -> Result<ExitStatus> {
+    let opts: ServerListDownloaderOpts =
+        ServerListDownloaderOpts::new(global_config.max_concurrent_requests, global_config.abort_on_error);
     let downloader = ServerListDownloader::new(opts);
 
     if !global_config.quiet {

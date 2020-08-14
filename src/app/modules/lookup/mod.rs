@@ -7,7 +7,9 @@ use clap::ArgMatches;
 use ipnetwork::IpNetwork;
 use log::info;
 
-use crate::app::cli::{print_error_counts, print_estimates_lookups, print_estimates_whois, print_opts, print_statistics, ExitStatus};
+use crate::app::cli::{
+    print_error_counts, print_estimates_lookups, print_estimates_whois, print_opts, print_statistics, ExitStatus,
+};
 use crate::app::modules::lookup::config::LookupConfig;
 use crate::app::resolver::{build_query, create_resolvers, load_resolver_group_opts, load_resolver_opts};
 use crate::app::{output, resolver, GlobalConfig};

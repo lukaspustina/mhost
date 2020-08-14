@@ -3,10 +3,10 @@ use std::cell::Cell;
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while1};
 use nom::combinator::map_res;
-use nom::IResult;
 use nom::multi::separated_list;
+use nom::IResult;
 
-use crate::services::server_lists::{IPV, OpenNic, PublicDns};
+use crate::services::server_lists::{OpenNic, PublicDns, IPV};
 
 use super::*;
 
@@ -28,7 +28,12 @@ fn public_dns_spec<'a>(input: &'a str) -> IResult<&'a str, PublicDns> {
     } else {
         let (input, _) = tag(":")(input)?;
         let (input, country) = take_while1(|c: char| c.is_alphanumeric())(input)?;
-        Ok((input, PublicDns { country: Some(country.to_string()) }))
+        Ok((
+            input,
+            PublicDns {
+                country: Some(country.to_string()),
+            },
+        ))
     }
 }
 
@@ -50,12 +55,15 @@ fn opennic_spec<'a>(input: &'a str) -> IResult<&'a str, OpenNic> {
 fn opennic_spec_params<'a>(input: &'a str) -> IResult<&'a str, OpenNic> {
     let (input, _) = tag(":")(input)?;
     let spec = Cell::new(OpenNic::default());
-    let (input, _) = separated_list(tag(","), alt((
-        |x| opennic_spec_params_anon(&spec, x),
-        |x| opennic_spec_params_number(&spec, x),
-        |x| opennic_spec_params_reliability(&spec, x),
-        |x| opennic_spec_params_ipv(&spec, x),
-    )))(input)?;
+    let (input, _) = separated_list(
+        tag(","),
+        alt((
+            |x| opennic_spec_params_anon(&spec, x),
+            |x| opennic_spec_params_number(&spec, x),
+            |x| opennic_spec_params_reliability(&spec, x),
+            |x| opennic_spec_params_ipv(&spec, x),
+        )),
+    )(input)?;
 
     Ok((input, spec.into_inner()))
 }
@@ -110,7 +118,9 @@ mod tests {
     #[test]
     fn public_dns_default() {
         let str = "public-dns";
-        let expected = ServerListSpec::PublicDns { spec: Default::default() };
+        let expected = ServerListSpec::PublicDns {
+            spec: Default::default(),
+        };
 
         let (_, config) = parse_server_list_spec(&str).expect("failed to parse server list spec");
 
@@ -120,7 +130,11 @@ mod tests {
     #[test]
     fn public_country() {
         let str = "public-dns:de";
-        let expected = ServerListSpec::PublicDns { spec: PublicDns { country: Some("de".to_string()) } };
+        let expected = ServerListSpec::PublicDns {
+            spec: PublicDns {
+                country: Some("de".to_string()),
+            },
+        };
 
         let (_, config) = parse_server_list_spec(&str).expect("failed to parse server list spec");
 
@@ -139,12 +153,17 @@ mod tests {
     #[test]
     fn opennic_default() {
         let str = "opennic";
-        let expected = ServerListSpec::OpenNic { spec: Default::default() };
+        let expected = ServerListSpec::OpenNic {
+            spec: Default::default(),
+        };
 
         let (_, config) = parse_server_list_spec(&str).expect("failed to parse server list spec");
 
         assert_that(&config).is_equal_to(expected);
-        assert_that(&config.opennic()).is_some().map(|x| &x.anon).is_equal_to(false);
+        assert_that(&config.opennic())
+            .is_some()
+            .map(|x| &x.anon)
+            .is_equal_to(false);
     }
 
     #[test]
@@ -154,13 +173,16 @@ mod tests {
             spec: OpenNic {
                 anon: true,
                 ..Default::default()
-            }
+            },
         };
 
         let (_, config) = parse_server_list_spec(&str).expect("failed to parse server list spec");
 
         assert_that(&config).is_equal_to(expected);
-        assert_that(&config.opennic()).is_some().map(|x| &x.anon).is_equal_to(true);
+        assert_that(&config.opennic())
+            .is_some()
+            .map(|x| &x.anon)
+            .is_equal_to(true);
     }
 
     #[test]
@@ -170,7 +192,7 @@ mod tests {
             spec: OpenNic {
                 number: 100,
                 ..Default::default()
-            }
+            },
         };
 
         let (_, config) = parse_server_list_spec(&str).expect("failed to parse server list spec");
@@ -185,7 +207,7 @@ mod tests {
             spec: OpenNic {
                 reliability: 40,
                 ..Default::default()
-            }
+            },
         };
 
         let (_, config) = parse_server_list_spec(&str).expect("failed to parse server list spec");
@@ -200,7 +222,7 @@ mod tests {
             spec: OpenNic {
                 ipv: IPV::V4,
                 ..Default::default()
-            }
+            },
         };
 
         let (_, config) = parse_server_list_spec(&str).expect("failed to parse server list spec");
@@ -217,7 +239,7 @@ mod tests {
                 number: 100,
                 reliability: 50,
                 ipv: IPV::V6,
-            }
+            },
         };
 
         let (_, config) = parse_server_list_spec(&str).expect("failed to parse server list spec");

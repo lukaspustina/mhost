@@ -2,8 +2,8 @@ use core::str::FromStr;
 use std::slice::Iter;
 use std::sync::Arc;
 
-use futures::Future;
 use futures::stream::{self, StreamExt};
+use futures::Future;
 use log::{debug, trace};
 use nom::Err;
 use tokio::task;
@@ -11,13 +11,12 @@ use tokio::task;
 use crate::nameserver::NameServerConfig;
 use crate::services::{Error, Result};
 use crate::utils::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
-use std::fmt;
 use nom::lib::std::fmt::Formatter;
+use std::fmt;
 
 mod opennic;
 mod parser;
 mod public_dns;
-
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ServerListSpec {
@@ -29,14 +28,14 @@ impl ServerListSpec {
     pub fn public_dns(&self) -> Option<&PublicDns> {
         match &self {
             ServerListSpec::PublicDns { spec } => Some(spec),
-            _ => None
+            _ => None,
         }
     }
 
     pub fn opennic(&self) -> Option<&OpenNic> {
         match &self {
             ServerListSpec::OpenNic { spec } => Some(spec),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -48,9 +47,7 @@ pub struct PublicDns {
 
 impl Default for PublicDns {
     fn default() -> Self {
-        PublicDns {
-            country: None,
-        }
+        PublicDns { country: None }
     }
 }
 
@@ -114,7 +111,6 @@ impl fmt::Display for IPV {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct ServerListDownloaderOpts {
     max_concurrent_requests: usize,
@@ -136,7 +132,6 @@ impl ServerListDownloaderOpts {
     }
 }
 
-
 #[derive(Clone)]
 pub struct ServerListDownloader {
     http_client: Arc<reqwest::Client>,
@@ -157,7 +152,10 @@ impl ServerListDownloader {
         }
     }
 
-    pub async fn download<I: IntoIterator<Item=ServerListSpec>>(&self, server_list_specs: I) -> Result<DownloadResponses> {
+    pub async fn download<I: IntoIterator<Item = ServerListSpec>>(
+        &self,
+        server_list_specs: I,
+    ) -> Result<DownloadResponses> {
         let breaker = create_breaker(self.opts.abort_on_error);
 
         let futures: Vec<_> = server_list_specs
@@ -181,20 +179,21 @@ async fn single_download(downloader: ServerListDownloader, server_list_spec: Ser
             let list = opennic::download(downloader, spec).await;
             debug!("Download for {:?} is {}", spec, if list.is_ok() { "ok" } else { "err" });
             list
-        },
+        }
         ServerListSpec::PublicDns { ref spec } => {
             let list = public_dns::download(downloader, spec).await;
-            debug!("Download for {:?} is {}", spec, if list.is_ok() {"ok"} else {"err"});
+            debug!("Download for {:?} is {}", spec, if list.is_ok() { "ok" } else { "err" });
             list
-        },
-    }.into();
+        }
+    }
+    .into();
     trace!("DownloadResponse: {:?}", res);
 
     res
 }
 
 async fn sliding_window_lookups(
-    futures: Vec<impl Future<Output=DownloadResponse>>,
+    futures: Vec<impl Future<Output = DownloadResponse>>,
     breaker: Box<dyn Fn(&DownloadResponse) -> bool + Send>,
     max_concurrent: usize,
 ) -> DownloadResponses {
@@ -207,13 +206,10 @@ async fn sliding_window_lookups(
     DownloadResponses { responses }
 }
 
-
 #[derive(Debug)]
 pub enum DownloadResponse {
     Download { nameserver_configs: Vec<NameServerConfig> },
-    Error {
-        err: Error,
-    },
+    Error { err: Error },
 }
 
 impl DownloadResponse {
@@ -258,7 +254,7 @@ impl DownloadResponses {
         self.responses.iter()
     }
 
-    pub fn nameserver_configs(&self) -> impl Iterator<Item=&NameServerConfig> {
+    pub fn nameserver_configs(&self) -> impl Iterator<Item = &NameServerConfig> {
         self.responses
             .iter()
             .map(|x| x.download())
@@ -267,11 +263,8 @@ impl DownloadResponses {
             .flatten()
     }
 
-    pub fn err(&self) -> impl Iterator<Item=&Error> {
-        self.responses
-            .iter()
-            .map(|x| x.err())
-            .flatten()
+    pub fn err(&self) -> impl Iterator<Item = &Error> {
+        self.responses.iter().map(|x| x.err()).flatten()
     }
 }
 
@@ -303,4 +296,3 @@ impl FromStr for ServerListSpec {
         }
     }
 }
-

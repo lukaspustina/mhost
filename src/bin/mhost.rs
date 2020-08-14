@@ -5,9 +5,9 @@ use log::info;
 
 use mhost::app::cli::{list_predefined_nameservers, ExitStatus};
 use mhost::app::global_config;
-use mhost::app::GlobalConfig;
 use mhost::app::logging::start_logging_for_level;
 use mhost::app::modules;
+use mhost::app::GlobalConfig;
 use mhost::output::styles::ERROR_PREFIX;
 
 async fn run() -> Result<ExitStatus> {
@@ -26,7 +26,7 @@ async fn run() -> Result<ExitStatus> {
     let global_config: GlobalConfig = if let Ok(config) = (&args).try_into() {
         config
     } else {
-        return Ok(ExitStatus::ConfigParsingFailed)
+        return Ok(ExitStatus::ConfigParsingFailed);
     };
     info!("Parsed global args.");
 
@@ -56,7 +56,7 @@ async fn main() {
         Err(err) => {
             eprintln!("{} Failed: {:#}", &*ERROR_PREFIX, err);
             ExitStatus::Failed
-        },
+        }
     };
 
     std::process::exit(exit_status as i32);

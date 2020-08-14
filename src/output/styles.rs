@@ -18,7 +18,6 @@ lazy_static! {
     pub static ref ATTENTION: Style = Style::new(Color::Red).bold();
     pub static ref EMPH: Style = Style::new(Color::White).bold();
     pub static ref OK: Style = Style::new(Color::Green).bold();
-
     pub static ref ATTENTION_PREFIX: String = (if ASCII_MODE.load(SeqCst) { "!" } else { "⚠︎" }).to_string();
     pub static ref CAPTION_PREFIX: String = (if ASCII_MODE.load(SeqCst) { ">" } else { "▶︎" }).to_string();
     pub static ref ERROR_PREFIX: String = (if ASCII_MODE.load(SeqCst) { "!" } else { "⚡︎" }).to_string();

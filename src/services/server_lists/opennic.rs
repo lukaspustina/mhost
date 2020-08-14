@@ -6,8 +6,8 @@ use std::time::Duration;
 use log::trace;
 use serde::Deserialize;
 
-use crate::services::server_lists::{ServerListDownloader, OpenNic};
 use crate::nameserver::NameServerConfig;
+use crate::services::server_lists::{OpenNic, ServerListDownloader};
 use crate::services::{Error, Result};
 use crate::utils::deserialize::des_f32_from_string;
 
@@ -72,14 +72,11 @@ impl TryFrom<NameServer> for NameServerConfig {
     type Error = Error;
 
     fn try_from(ns: NameServer) -> std::result::Result<Self, Self::Error> {
-        let ip_addr = IpAddr::from_str(&ns.ip)
-            .map_err(|_| Error::ParserError {
-                what: ns.ip,
-                to: "IpAddr",
-                why: "is not a valid IP address".to_string(),
-            })?;
-        Ok(
-            NameServerConfig::udp_with_name((ip_addr, 53), "opennic".to_string())
-        )
+        let ip_addr = IpAddr::from_str(&ns.ip).map_err(|_| Error::ParserError {
+            what: ns.ip,
+            to: "IpAddr",
+            why: "is not a valid IP address".to_string(),
+        })?;
+        Ok(NameServerConfig::udp_with_name((ip_addr, 53), "opennic".to_string()))
     }
 }

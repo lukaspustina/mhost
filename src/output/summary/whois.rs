@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use tabwriter::TabWriter;
 
 use super::*;
+use crate::output::styles::ITEMAZATION_PREFIX;
 use crate::services::whois::{GeoLocation, NetworkInfo, Whois, WhoisResponse, WhoisResponses};
 use ipnetwork::IpNetwork;
-use crate::output::styles::ITEMAZATION_PREFIX;
 
 impl SummaryFormatter for WhoisResponses {
     fn output<W: Write>(&self, writer: &mut W, opts: &SummaryOptions) -> Result<()> {

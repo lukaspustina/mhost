@@ -183,7 +183,7 @@ pub mod opennic {
     use crate::nameserver::NameServerConfig;
 
     static IPV4: Ipv4Addr = Ipv4Addr::new(94, 103, 153, 176);
-    static IPV6: Ipv6Addr = Ipv6Addr::new(0x2a02,0x990,0x219,0x1,0xba,0x1337,0xcafe,0x3);
+    static IPV6: Ipv6Addr = Ipv6Addr::new(0x2a02, 0x990, 0x219, 0x1, 0xba, 0x1337, 0xcafe, 0x3);
 
     pub fn udp() -> NameServerConfig {
         NameServerConfig::udp_with_name((IPV4, 53), "OpenNIC".to_string())
@@ -209,8 +209,8 @@ pub mod quad9 {
 
     static IPV4_1: Ipv4Addr = Ipv4Addr::new(9, 9, 9, 9);
     static IPV4_2: Ipv4Addr = Ipv4Addr::new(149, 112, 112, 112);
-    static IPV6_1: Ipv6Addr = Ipv6Addr::new(0x2620,0xfe, 0x0, 0x0, 0x0, 0x0, 0x0,0xfe);
-    static IPV6_2: Ipv6Addr = Ipv6Addr::new(0x2620,0xfe, 0x0, 0x0, 0x0, 0x0, 0x0,0x9);
+    static IPV6_1: Ipv6Addr = Ipv6Addr::new(0x2620, 0xfe, 0x0, 0x0, 0x0, 0x0, 0x0, 0xfe);
+    static IPV6_2: Ipv6Addr = Ipv6Addr::new(0x2620, 0xfe, 0x0, 0x0, 0x0, 0x0, 0x0, 0x9);
 
     // IPv4 1
     pub fn udp() -> NameServerConfig {

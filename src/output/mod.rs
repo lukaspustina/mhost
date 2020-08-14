@@ -126,4 +126,3 @@ impl Ordinal for &WhoisResponse {
         }
     }
 }
-

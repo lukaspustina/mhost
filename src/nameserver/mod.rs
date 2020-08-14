@@ -174,7 +174,13 @@ impl fmt::Display for NameServerConfig {
                 port,
                 spki,
                 name,
-            } => format!("https:{}:{},{}{}", format_ip_addr(ip_addr), port, spki, format_name(name)),
+            } => format!(
+                "https:{}:{},{}{}",
+                format_ip_addr(ip_addr),
+                port,
+                spki,
+                format_name(name)
+            ),
         };
         fmt.write_str(&str)
     }

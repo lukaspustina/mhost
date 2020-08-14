@@ -3,7 +3,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use clap::{App, AppSettings, Arg, ArgMatches, crate_name};
+use clap::{crate_name, App, AppSettings, Arg, ArgMatches};
 
 use crate::app::modules;
 use crate::output::json::JsonOptions;

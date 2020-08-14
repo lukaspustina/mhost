@@ -668,7 +668,11 @@ pub(crate) mod parser {
         #[allow(non_snake_case)]
         fn ipv6_with_port() {
             let str = "[2001:0db8:85a3:08d3::0370:7344]:5353";
-            let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv6(Ipv6Addr::from_str(&"2001:0db8:85a3:08d3::0370:7344").unwrap()), 5353);
+            let expected = NameServerConfig::new(
+                Protocol::Udp,
+                Target::Ipv6(Ipv6Addr::from_str(&"2001:0db8:85a3:08d3::0370:7344").unwrap()),
+                5353,
+            );
 
             let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
 
