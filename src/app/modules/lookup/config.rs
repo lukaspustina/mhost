@@ -2,54 +2,10 @@ use std::convert::TryFrom;
 use std::str::FromStr;
 
 use anyhow::{Context, Result};
-use clap::{App, Arg, ArgMatches, SubCommand};
+use clap::ArgMatches;
 
-use crate::app::global_config::SUPPORTED_RECORD_TYPES;
 use crate::RecordType;
-
-pub fn subcommand() -> App<'static, 'static> {
-    SubCommand::with_name("lookup")
-        .about("Looks up a name, IP address or CIDR block")
-        .arg(Arg::with_name("domain name")
-            .required_unless("list-predefined")
-            .index(1)
-            .value_name("NAME | IP ADDR | CIDR BLOCK")
-            .next_line_help(false)
-            .help("domain name, IP address, or CIDR block to lookup")
-            .long_help(
-                "* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de
-* IP ADDR may be any valid IPv4 or IPv4 address, e.g., 192.168.0.1
-* CIDR BLOCK may be any valid IPv4 or IPv6 subnet in CIDR notation, e.g., 192.168.0.1/24
-  all valid IP addresses of a CIDR block will be queried for a reverse lookup")
-        )
-        .arg(Arg::with_name("record types")
-            .short("t")
-            .long("record-type")
-            .value_name("RECORD TYPE")
-            .takes_value(true)
-            .multiple(true)
-            .use_delimiter(true)
-            .require_delimiter(true)
-            .default_value("A,AAAA,MX")
-            .possible_values(SUPPORTED_RECORD_TYPES)
-            .help("Sets record type to lookup, will be ignored in case of IP address lookup")
-        )
-        .arg(Arg::with_name("all-record-types")
-            .long("all")
-            .alias("xmas")
-            .help("Enables lookups for all record types")
-        )
-        .arg(Arg::with_name("randomized-lookup")
-            .short("R")
-            .long("randomized-lookup")
-            .help("Switches into randomize lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.")
-        )
-        .arg(Arg::with_name("whois")
-            .short("w")
-            .long("whois")
-            .help("Retrieves Whois information about A, AAAA, and PTR records.")
-        )
-}
+use crate::app::app::SUPPORTED_RECORD_TYPES;
 
 pub struct LookupConfig {
     pub domain_name: String,

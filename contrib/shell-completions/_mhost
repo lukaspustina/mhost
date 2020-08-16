@@ -1,0 +1,136 @@
+#compdef mhost
+
+autoload -U is-at-least
+
+_mhost() {
+    typeset -A opt_args
+    typeset -a _arguments_options
+    local ret=1
+
+    if is-at-least 5.2; then
+        _arguments_options=(-s -S -C)
+    else
+        _arguments_options=(-s -C)
+    fi
+
+    local context curcontext="$curcontext" state line
+    _arguments "${_arguments_options[@]}" \
+'--resolv-conf=[Uses alternative resolv.conf file]' \
+'*-S+[Adds system nameserver for system lookups; only IP addresses allowed]' \
+'*--system-nameserver=[Adds system nameserver for system lookups; only IP addresses allowed]' \
+'*-s+[Adds nameserver for lookups]' \
+'*--nameserver=[Adds nameserver for lookups]' \
+'*--predefined-filter=[Filters predefined nameservers by protocol]: :(udp tcp https tls)' \
+'-f+[Adds nameserver for lookups from file]' \
+'--nameservers-from-file=[Adds nameserver for lookups from file]' \
+'--limit=[Sets max. number of nameservers to query]' \
+'--max-concurrent-servers=[Sets max. concurrent nameservers]' \
+'--max-concurrent-requests=[Sets max. concurrent requests per nameserver]' \
+'--retries=[Sets number of retries if first lookup to nameserver fails]' \
+'--timeout=[Sets timeout in seconds for responses]' \
+'-o+[Sets the output format for result presentation]: :(json summary)' \
+'--output=[Sets the output format for result presentation]: :(json summary)' \
+'*--output-options=[Sets output options]' \
+'--no-system-resolv-opt[Ignores options set in /etc/resolv.conf]' \
+'--no-system-nameservers[Ignores nameservers from /etc/resolv.conf]' \
+'-p[Adds predefined nameservers for lookups]' \
+'--predefined[Adds predefined nameservers for lookups]' \
+'--list-predefined[Lists all predefined nameservers]' \
+'--wait-multiple-responses[Waits until timeout for additional responses from nameservers]' \
+'--no-abort-on-error[Sets do-not-ignore errors from nameservers]' \
+'--no-abort-on-timeout[Sets do-not-ignore timeouts from nameservers]' \
+'--no-aborts[Sets do-not-ignore errors and timeouts from nameservers]' \
+'(-q --quiet)--show-errors[Shows error counts]' \
+'-q[Does not print anything but results]' \
+'--quiet[Does not print anything but results]' \
+'--no-color[Disables colorful output]' \
+'--ascii[Uses only ASCII compatible characters for output]' \
+'*-v[Sets the level of verbosity]' \
+'-h[Prints help information]' \
+'--help[Prints help information]' \
+'-V[Prints version information]' \
+'--version[Prints version information]' \
+":: :_mhost_commands" \
+"*::: :->mhost" \
+&& ret=0
+    case $state in
+    (mhost)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:mhost-command-$line[1]:"
+        case $line[1] in
+            (download-server-lists)
+_arguments "${_arguments_options[@]}" \
+'-o+[Sets path to output file]' \
+'--output-file=[Sets path to output file]' \
+'-h[Prints help information]' \
+'--help[Prints help information]' \
+'-V[Prints version information]' \
+'--version[Prints version information]' \
+':server_list_spec -- server list specification:_files' \
+&& ret=0
+;;
+(lookup)
+_arguments "${_arguments_options[@]}" \
+'*-t+[Sets record type to lookup, will be ignored in case of IP address lookup]: :(A AAAA ANAME CNAME MX NULL NS PTR SOA SRV TXT)' \
+'*--record-type=[Sets record type to lookup, will be ignored in case of IP address lookup]: :(A AAAA ANAME CNAME MX NULL NS PTR SOA SRV TXT)' \
+'--all[Enables lookups for all record types]' \
+'-R[Switches into randomize lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.]' \
+'--randomized-lookup[Switches into randomize lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.]' \
+'-w[Retrieves Whois information about A, AAAA, and PTR records.]' \
+'--whois[Retrieves Whois information about A, AAAA, and PTR records.]' \
+'-h[Prints help information]' \
+'--help[Prints help information]' \
+'-V[Prints version information]' \
+'--version[Prints version information]' \
+':domain name -- domain name, IP address, or CIDR block to lookup:_files' \
+&& ret=0
+;;
+(soa-check)
+_arguments "${_arguments_options[@]}" \
+'-p[Shows results after each lookup step]' \
+'--show-partial-results[Shows results after each lookup step]' \
+'-h[Prints help information]' \
+'--help[Prints help information]' \
+'-V[Prints version information]' \
+'--version[Prints version information]' \
+'::domain name -- domain name to check:_files' \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+}
+
+(( $+functions[_mhost_commands] )) ||
+_mhost_commands() {
+    local commands; commands=(
+        "download-server-lists:Downloads known lists of name servers" \
+"lookup:Looks up a name, IP address or CIDR block" \
+"soa-check:Checks SOA records of authoritative name servers for deviations" \
+    )
+    _describe -t commands 'mhost commands' commands "$@"
+}
+(( $+functions[_mhost__download-server-lists_commands] )) ||
+_mhost__download-server-lists_commands() {
+    local commands; commands=(
+        
+    )
+    _describe -t commands 'mhost download-server-lists commands' commands "$@"
+}
+(( $+functions[_mhost__lookup_commands] )) ||
+_mhost__lookup_commands() {
+    local commands; commands=(
+        
+    )
+    _describe -t commands 'mhost lookup commands' commands "$@"
+}
+(( $+functions[_mhost__soa-check_commands] )) ||
+_mhost__soa-check_commands() {
+    local commands; commands=(
+        
+    )
+    _describe -t commands 'mhost soa-check commands' commands "$@"
+}
+
+_mhost "$@"

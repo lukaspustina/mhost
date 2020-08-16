@@ -15,6 +15,7 @@ include = [
   "**/*.rs",
   "Cargo.toml",
 ]
+build = "build.rs"
 
 [[bin]]
 name = "mhost"
@@ -50,6 +51,11 @@ tabwriter = "1.2"
 thiserror = "1"
 trust-dns-resolver = { version = "0.19", features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls", "dnssec-ring", "mdns", "system-config", "serde-config"] }
 yansi = "0.5"
+
+[build-dependencies.clap]
+version = "2"
+default-features = false
+features = ["suggestions"]
 
 [dev-dependencies]
 env_logger = { version = "0.7.*" }

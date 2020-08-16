@@ -1,3 +1,4 @@
+pub mod app;
 pub mod cli;
 pub mod global_config;
 pub mod logging;

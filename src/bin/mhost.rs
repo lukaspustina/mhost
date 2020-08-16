@@ -4,14 +4,14 @@ use anyhow::Result;
 use log::info;
 
 use mhost::app::cli::{list_predefined_nameservers, ExitStatus};
-use mhost::app::global_config;
+use mhost::app::{global_config, app};
 use mhost::app::logging::start_logging_for_level;
 use mhost::app::modules;
 use mhost::app::GlobalConfig;
 use mhost::output::styles::ERROR_PREFIX;
 
 async fn run() -> Result<ExitStatus> {
-    let args = global_config::setup_clap().get_matches();
+    let args = app::app().get_matches();
 
     if args.is_present("no-color") {
         mhost::output::styles::no_color_mode();
