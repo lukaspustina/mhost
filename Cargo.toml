@@ -52,8 +52,9 @@ trust-dns-resolver = { version = "0.19", features = ["tokio-runtime", "dns-over-
 yansi = "0.5"
 
 [dev-dependencies]
-spectral = "0.6"
 env_logger = { version = "0.7.*" }
+lit = "1"
+spectral = "0.6"
 
 [features]
 bin = ["anyhow", "clap", "env_logger"]

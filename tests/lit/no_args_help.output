@@ -1,0 +1,7 @@
+RUN: @mhost_bin
+
+CHECK: mhost
+CHECK: More than host
+CHECK: USAGE:
+CHECK: OPTIONS:
+CHECK: SUBCOMMANDS:
