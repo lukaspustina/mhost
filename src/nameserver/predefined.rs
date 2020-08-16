@@ -6,16 +6,54 @@ pub fn nameserver_configs() -> Vec<NameServerConfig> {
         cloudflare::tcp(),
         cloudflare::https(),
         cloudflare::tls(),
+        cloudflare::udp_2(),
+        cloudflare::tcp_2(),
+        cloudflare::https_2(),
+        cloudflare::tls_2(),
+        cloudflare::udp6(),
+        cloudflare::tcp6(),
+        cloudflare::https6(),
+        cloudflare::tls6(),
+        cloudflare::udp6_2(),
+        cloudflare::tcp6_2(),
+        cloudflare::https6_2(),
+        cloudflare::tls6_2(),
         google::udp(),
         google::tcp(),
         google::https(),
         google::tls(),
+        google::udp_2(),
+        google::tcp_2(),
+        google::https_2(),
+        google::tls_2(),
+        google::udp6(),
+        google::tcp6(),
+        google::https6(),
+        google::tls6(),
+        google::udp6_2(),
+        google::tcp6_2(),
+        google::https6_2(),
+        google::tls6_2(),
         opennic::udp(),
         opennic::tcp(),
+        opennic::udp6(),
+        opennic::tcp6(),
         quad9::udp(),
         quad9::tcp(),
         quad9::https(),
         quad9::tls(),
+        quad9::udp_2(),
+        quad9::tcp_2(),
+        quad9::https_2(),
+        quad9::tls_2(),
+        quad9::udp6(),
+        quad9::tcp6(),
+        quad9::https6(),
+        quad9::tls6_2(),
+        quad9::udp6_2(),
+        quad9::tcp6_2(),
+        quad9::https6_2(),
+        quad9::tls6_2(),
     ]
 }
 
@@ -76,7 +114,7 @@ pub mod cloudflare {
         NameServerConfig::https_with_name((IPV6_1, 663), "cloudflare-dns.com", "Cloudflare 1".to_string())
     }
 
-    pub fn tls6_1() -> NameServerConfig {
+    pub fn tls6() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV6_1, 853), "cloudflare-dns.com", "Cloudflare 2".to_string())
     }
 

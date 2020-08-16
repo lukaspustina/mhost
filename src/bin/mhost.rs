@@ -39,8 +39,10 @@ async fn run() -> Result<ExitStatus> {
         Some("lookup") => modules::lookup::run(&args, &global_config).await,
         Some("download-server-lists") => modules::download_server_lists::run(&args, &global_config).await,
         Some("soa-check") => modules::soa_check::run(&args, &global_config).await,
-        // Due to the invariant that a subcommand is required, this is unreachable.
-        _ => Ok(ExitStatus::UnrecoverableError),
+        _ => {
+            global_config::show_help();
+            Ok(ExitStatus::Ok)
+        }
     };
     info!("Finished.");
 
