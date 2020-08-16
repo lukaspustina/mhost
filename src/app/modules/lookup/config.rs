@@ -4,8 +4,8 @@ use std::str::FromStr;
 use anyhow::{Context, Result};
 use clap::ArgMatches;
 
-use crate::RecordType;
 use crate::app::app::SUPPORTED_RECORD_TYPES;
+use crate::RecordType;
 
 pub struct LookupConfig {
     pub domain_name: String,

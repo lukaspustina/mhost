@@ -8,8 +8,7 @@ use std::path::Path;
 mod app;
 
 fn main() {
-    let root_dir = env::var_os("CARGO_MANIFEST_DIR")
-        .expect("Cargo output directory environment variable is not set.");
+    let root_dir = env::var_os("CARGO_MANIFEST_DIR").expect("Cargo output directory environment variable is not set.");
     let output_dir = Path::new(&root_dir).join("contrib").join("shell-completions");
     fs::create_dir_all(&output_dir).expect("failed to create output directory");
 

@@ -14,7 +14,9 @@ fn cli_output_tests() {
         config.add_search_path("tests/lit");
         config.add_extension("output");
         config.constants.insert("mhost_bin".to_owned(), mhost_bin());
-        config.constants.insert("mhost_version".to_owned(), env!("CARGO_PKG_VERSION").to_owned());
+        config
+            .constants
+            .insert("mhost_version".to_owned(), env!("CARGO_PKG_VERSION").to_owned());
     })
     .expect("cli output tests failed");
 }

@@ -123,108 +123,108 @@ pub fn app() -> App<'static, 'static> {
                 })
                 .help("Sets max. concurrent requests per nameserver"),
         )
-    .arg(
-        Arg::with_name("retries")
-            .long("retries")
-            .value_name("RETRIES")
-            .default_value("0")
-            .validator(|str| {
-                usize::from_str(&str)
-                    .map(|_| ())
-                    .map_err(|_| "invalid number".to_string())
-            })
-            .help("Sets number of retries if first lookup to nameserver fails"),
-    )
-    .arg(
-        Arg::with_name("timeout")
-            .long("timeout")
-            .value_name("TIMEOUT")
-            .default_value("5")
-            .validator(|str| {
-                u64::from_str(&str)
-                    .map(|_| ())
-                    .map_err(|_| "invalid number".to_string())
-            })
-            .help("Sets timeout in seconds for responses"),
-    )
-    .arg(
-        Arg::with_name("wait-multiple-responses")
-            .long("wait-multiple-responses")
-            .help("Waits until timeout for additional responses from nameservers"),
-    )
-    .arg(
-        Arg::with_name("no-abort-on-error")
-            .long("no-abort-on-error")
-            .help("Sets do-not-ignore errors from nameservers"),
-    )
-    .arg(
-        Arg::with_name("no-abort-on-timeout")
-            .long("no-abort-on-timeout")
-            .help("Sets do-not-ignore timeouts from nameservers"),
-    )
-    .arg(
-        Arg::with_name("no-aborts")
-            .long("no-aborts")
-            .help("Sets do-not-ignore errors and timeouts from nameservers"),
-    )
-    .arg(
-        Arg::with_name("output")
-            .short("o")
-            .long("output")
-            .value_name("FORMAT")
-            .takes_value(true)
-            .default_value("summary")
-            .possible_values(SUPPORTED_OUTPUT_FORMATS)
-            .help("Sets the output format for result presentation"),
-    )
-    .arg(
-        Arg::with_name("output-options")
-            .long("output-options")
-            .value_name("OPTIONS")
-            .multiple(true)
-            .use_delimiter(true)
-            .require_delimiter(true)
-            .default_value_if("output", Some("json"), "pretty")
-            .default_value_if("output", Some("summary"), "human")
-            .help("Sets output options")
-            .long_help(
-                "* Json: 'pretty': Prettifies output
+        .arg(
+            Arg::with_name("retries")
+                .long("retries")
+                .value_name("RETRIES")
+                .default_value("0")
+                .validator(|str| {
+                    usize::from_str(&str)
+                        .map(|_| ())
+                        .map_err(|_| "invalid number".to_string())
+                })
+                .help("Sets number of retries if first lookup to nameserver fails"),
+        )
+        .arg(
+            Arg::with_name("timeout")
+                .long("timeout")
+                .value_name("TIMEOUT")
+                .default_value("5")
+                .validator(|str| {
+                    u64::from_str(&str)
+                        .map(|_| ())
+                        .map_err(|_| "invalid number".to_string())
+                })
+                .help("Sets timeout in seconds for responses"),
+        )
+        .arg(
+            Arg::with_name("wait-multiple-responses")
+                .long("wait-multiple-responses")
+                .help("Waits until timeout for additional responses from nameservers"),
+        )
+        .arg(
+            Arg::with_name("no-abort-on-error")
+                .long("no-abort-on-error")
+                .help("Sets do-not-ignore errors from nameservers"),
+        )
+        .arg(
+            Arg::with_name("no-abort-on-timeout")
+                .long("no-abort-on-timeout")
+                .help("Sets do-not-ignore timeouts from nameservers"),
+        )
+        .arg(
+            Arg::with_name("no-aborts")
+                .long("no-aborts")
+                .help("Sets do-not-ignore errors and timeouts from nameservers"),
+        )
+        .arg(
+            Arg::with_name("output")
+                .short("o")
+                .long("output")
+                .value_name("FORMAT")
+                .takes_value(true)
+                .default_value("summary")
+                .possible_values(SUPPORTED_OUTPUT_FORMATS)
+                .help("Sets the output format for result presentation"),
+        )
+        .arg(
+            Arg::with_name("output-options")
+                .long("output-options")
+                .value_name("OPTIONS")
+                .multiple(true)
+                .use_delimiter(true)
+                .require_delimiter(true)
+                .default_value_if("output", Some("json"), "pretty")
+                .default_value_if("output", Some("summary"), "human")
+                .help("Sets output options")
+                .long_help(
+                    "* Json: 'pretty': Prettifies output
 * Summary: 'human': Uses human readable formatting, 'condensed': Simplifies output",
-            ),
-    )
-    .arg(
-        Arg::with_name("show-errors")
-            .long("show-errors")
-            .conflicts_with("quiet")
-            .help("Shows error counts"),
-    )
-    .arg(
-        Arg::with_name("quiet")
-            .short("q")
-            .long("quiet")
-            .help("Does not print anything but results"),
-    )
-    // This is a special option that is not reflected in GlobalConfig, but is checked during
-    // setup in `mhost.rs`.
-    .arg(
-        Arg::with_name("no-color")
-            .long("no-color")
-            .help("Disables colorful output"),
-    )
-    // This is a special option that is not reflected in GlobalConfig, but is checked during
-    // setup in `mhost.rs` and set the global AtomicBool `mhost::output::styles::ASCII_MODE`.
-    .arg(
-        Arg::with_name("ascii")
-            .long("ascii")
-            .help("Uses only ASCII compatible characters for output"),
-    )
-    .arg(
-        Arg::with_name("v")
-            .short("v")
-            .multiple(true)
-            .help("Sets the level of verbosity"),
-    )
-    .subcommands(subcommands())
+                ),
+        )
+        .arg(
+            Arg::with_name("show-errors")
+                .long("show-errors")
+                .conflicts_with("quiet")
+                .help("Shows error counts"),
+        )
+        .arg(
+            Arg::with_name("quiet")
+                .short("q")
+                .long("quiet")
+                .help("Does not print anything but results"),
+        )
+        // This is a special option that is not reflected in GlobalConfig, but is checked during
+        // setup in `mhost.rs`.
+        .arg(
+            Arg::with_name("no-color")
+                .long("no-color")
+                .help("Disables colorful output"),
+        )
+        // This is a special option that is not reflected in GlobalConfig, but is checked during
+        // setup in `mhost.rs` and set the global AtomicBool `mhost::output::styles::ASCII_MODE`.
+        .arg(
+            Arg::with_name("ascii")
+                .long("ascii")
+                .help("Uses only ASCII compatible characters for output"),
+        )
+        .arg(
+            Arg::with_name("v")
+                .short("v")
+                .multiple(true)
+                .help("Sets the level of verbosity"),
+        )
+        .subcommands(subcommands())
 }
 
 fn subcommands() -> Vec<App<'static, 'static>> {
@@ -233,9 +233,9 @@ fn subcommands() -> Vec<App<'static, 'static>> {
         lookup_subcommand(),
         soa_check_subcommand(),
     ]
-        .into_iter()
-        .map(|x| x.version(env!("CARGO_PKG_VERSION")).author(env!("CARGO_PKG_AUTHORS")))
-        .collect()
+    .into_iter()
+    .map(|x| x.version(env!("CARGO_PKG_VERSION")).author(env!("CARGO_PKG_AUTHORS")))
+    .collect()
 }
 
 fn download_server_lists_subcommand() -> App<'static, 'static> {
@@ -317,7 +317,6 @@ fn lookup_subcommand() -> App<'static, 'static> {
             .help("Retrieves Whois information about A, AAAA, and PTR records.")
         )
 }
-
 
 fn soa_check_subcommand() -> App<'static, 'static> {
     SubCommand::with_name("soa-check")
