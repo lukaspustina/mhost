@@ -10,7 +10,7 @@ build:
 
 test:
 	cargo test --doc
-	cargo test --bins --tests --benches --examples --all-features
+	cargo test --bins --tests --all-features
 
 fuzz: _cargo_fuzz
 	for i in $$(cargo fuzz list); do \
