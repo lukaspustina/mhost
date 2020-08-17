@@ -1,8 +1,7 @@
-use lit;
 use std::env;
 
-const CRATE_PATH: &'static str = env!("CARGO_MANIFEST_DIR");
-const DEBUG_TARGET_PATH: &'static str = "target/debug";
+const CRATE_PATH: &str = env!("CARGO_MANIFEST_DIR");
+const DEBUG_TARGET_PATH: &str = "target/debug";
 
 fn mhost_bin() -> String {
     format!("{}/{}/mhost{}", CRATE_PATH, DEBUG_TARGET_PATH, env::consts::EXE_SUFFIX)
