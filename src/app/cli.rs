@@ -8,6 +8,7 @@ use crate::resolver::{self, Lookups, ResolverGroup, ResolverGroupOpts, ResolverO
 use crate::services::server_lists::ServerListSpec;
 use crate::services::whois;
 use crate::statistics::Statistics;
+use std::fmt;
 
 /// `ExitStatus` represents the exit states that will be return to the OS after termination
 #[derive(Debug, Clone)]
@@ -131,7 +132,10 @@ pub fn print_estimates_whois(query: &whois::MultiQuery) {
     );
 }
 
-pub fn print_statistics<'a, T: Statistics<'a>>(data: &'a T, total_run_time: Duration) {
+pub fn print_statistics<'a, T: Statistics<'a>>(data: &'a T, total_run_time: Duration)
+where
+    <T as Statistics<'a>>::StatsOut: fmt::Display,
+{
     let statistics = data.statistics();
     println!(
         "{} Received {} within {} ms of total run time.",

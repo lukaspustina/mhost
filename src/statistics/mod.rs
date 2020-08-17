@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 pub mod lookups;
 pub mod server_lists;
 pub mod whois;
@@ -18,8 +16,7 @@ mod styles {
 }
 
 pub trait Statistics<'a> {
-    // This trait bound is currently necessary, because 'associated type bounds are unstable', cf. print_statistics
-    type StatsOut: Display;
+    type StatsOut;
 
     fn statistics(&'a self) -> Self::StatsOut;
 }
