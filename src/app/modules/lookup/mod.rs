@@ -109,7 +109,6 @@ pub async fn whois(global_config: &GlobalConfig, _config: &LookupConfig, lookups
 fn ips_from_lookups(lookups: &Lookups) -> Result<impl Iterator<Item = IpNetwork>> {
     let ptrs: Vec<_> = lookups
         .iter()
-        .filter(|x| x.result().is_response())
         .filter(|x| x.query().record_type == RecordType::PTR)
         .map(|x| x.query().name())
         .map(|x| x.to_ip_addr())
