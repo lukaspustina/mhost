@@ -59,7 +59,7 @@ _mhost() {
         (( CURRENT += 1 ))
         curcontext="${curcontext%:*:*}:mhost-command-$line[1]:"
         case $line[1] in
-            (download-server-lists)
+            (get-server-lists)
 _arguments "${_arguments_options[@]}" \
 '-o+[Sets path to output file]' \
 '--output-file=[Sets path to output file]' \
@@ -105,18 +105,18 @@ esac
 (( $+functions[_mhost_commands] )) ||
 _mhost_commands() {
     local commands; commands=(
-        "download-server-lists:Downloads known lists of name servers" \
+        "get-server-lists:Downloads known lists of name servers" \
 "lookup:Looks up a name, IP address or CIDR block" \
 "soa-check:Checks SOA records of authoritative name servers for deviations" \
     )
     _describe -t commands 'mhost commands' commands "$@"
 }
-(( $+functions[_mhost__download-server-lists_commands] )) ||
-_mhost__download-server-lists_commands() {
+(( $+functions[_mhost__get-server-lists_commands] )) ||
+_mhost__get-server-lists_commands() {
     local commands; commands=(
         
     )
-    _describe -t commands 'mhost download-server-lists commands' commands "$@"
+    _describe -t commands 'mhost get-server-lists commands' commands "$@"
 }
 (( $+functions[_mhost__lookup_commands] )) ||
 _mhost__lookup_commands() {

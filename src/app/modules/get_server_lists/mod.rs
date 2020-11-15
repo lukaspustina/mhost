@@ -1,5 +1,5 @@
 use crate::app::cli::{print_estimates_downloads, print_statistics, ExitStatus};
-use crate::app::modules::download_server_lists::config::DownloadServerListConfig;
+use crate::app::modules::get_server_lists::config::DownloadServerListConfig;
 use crate::app::GlobalConfig;
 use crate::output::styles::{self, CAPTION_PREFIX, OK_PREFIX};
 use crate::services::server_lists::{DownloadResponses, ServerListDownloader, ServerListDownloaderOpts};
@@ -15,8 +15,8 @@ use tokio::io::AsyncWriteExt;
 pub mod config;
 
 pub async fn run(args: &ArgMatches<'_>, global_config: &GlobalConfig) -> Result<ExitStatus> {
-    info!("download-server-lists module selected.");
-    let args = args.subcommand_matches("download-server-lists").unwrap();
+    info!("get-server-lists module selected.");
+    let args = args.subcommand_matches("get-server-lists").unwrap();
     let config: DownloadServerListConfig = args.try_into()?;
     download_server_lists(&global_config, config).await
 }

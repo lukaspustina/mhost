@@ -229,7 +229,7 @@ pub fn app() -> App<'static, 'static> {
 
 fn subcommands() -> Vec<App<'static, 'static>> {
     vec![
-        download_server_lists_subcommand(),
+        get_server_lists_subcommand(),
         lookup_subcommand(),
         soa_check_subcommand(),
     ]
@@ -238,8 +238,8 @@ fn subcommands() -> Vec<App<'static, 'static>> {
     .collect()
 }
 
-fn download_server_lists_subcommand() -> App<'static, 'static> {
-    SubCommand::with_name("download-server-lists")
+fn get_server_lists_subcommand() -> App<'static, 'static> {
+    SubCommand::with_name("get-server-lists")
         .about("Downloads known lists of name servers")
         .arg(
             Arg::with_name("server_list_spec")
