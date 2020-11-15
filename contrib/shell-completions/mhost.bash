@@ -132,7 +132,7 @@ _mhost() {
             return 0
             ;;
         mhost__lookup)
-            opts=" -R -w -h -V -t  --all --randomized-lookup --whois --help --version --record-type  <NAME | IP ADDR | CIDR BLOCK> "
+            opts=" -S -w -h -V -t  --all --single-server-lookup --whois --help --version --record-type  <NAME | IP ADDR | CIDR BLOCK> "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

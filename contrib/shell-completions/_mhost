@@ -75,8 +75,8 @@ _arguments "${_arguments_options[@]}" \
 '*-t+[Sets record type to lookup, will be ignored in case of IP address lookup]: :(A AAAA ANAME CNAME MX NULL NS PTR SOA SRV TXT)' \
 '*--record-type=[Sets record type to lookup, will be ignored in case of IP address lookup]: :(A AAAA ANAME CNAME MX NULL NS PTR SOA SRV TXT)' \
 '--all[Enables lookups for all record types]' \
-'-R[Switches into randomize lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.]' \
-'--randomized-lookup[Switches into randomize lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.]' \
+'-S[Switches into single server lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.]' \
+'--single-server-lookup[Switches into single server lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.]' \
 '-w[Retrieves Whois information about A, AAAA, and PTR records.]' \
 '--whois[Retrieves Whois information about A, AAAA, and PTR records.]' \
 '-h[Prints help information]' \

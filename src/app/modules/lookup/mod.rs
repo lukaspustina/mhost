@@ -58,7 +58,7 @@ pub async fn lookups(global_config: &GlobalConfig, config: &LookupConfig) -> Res
 
     info!("Running lookups");
     let start_time = Instant::now();
-    let lookups: Lookups = resolver::lookup(config.randomized_lookup, query, resolvers).await?;
+    let lookups: Lookups = resolver::lookup(config.single_server_lookup, query, resolvers).await?;
     let total_run_time = Instant::now() - start_time;
     info!("Finished Lookups.");
 

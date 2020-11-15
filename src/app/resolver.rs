@@ -150,10 +150,12 @@ pub fn load_system_nameservers(config: &GlobalConfig) -> Result<NameServerConfig
     Ok(system_nameserver_group)
 }
 
-pub async fn lookup(randomized_lookup: bool, query: MultiQuery, resolvers: ResolverGroup) -> Result<Lookups> {
-    if randomized_lookup {
-        resolvers.rnd_lookup(query).await
+pub async fn lookup(single_server_lookup: bool, query: MultiQuery, resolvers: ResolverGroup) -> Result<Lookups> {
+    if single_server_lookup {
+        info!("Running in single server lookup mode");
+        resolvers.single_server_lookup(query).await
     } else {
+        info!("Running in normal mode");
         resolvers.lookup(query).await
     }
     .context("Failed to execute lookups")

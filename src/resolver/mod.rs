@@ -228,7 +228,7 @@ impl ResolverGroup {
         Ok(lookups)
     }
 
-    pub async fn rnd_lookup<T: Into<MultiQuery>>(&self, query: T) -> ResolverResult<Lookups> {
+    pub async fn single_server_lookup<T: Into<MultiQuery>>(&self, query: T) -> ResolverResult<Lookups> {
         let mut rng = rand::thread_rng();
         let multi_query = query.into();
         let resolvers = self.resolvers.as_slice();

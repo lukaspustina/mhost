@@ -10,7 +10,7 @@ use crate::RecordType;
 pub struct LookupConfig {
     pub domain_name: String,
     pub record_types: Vec<RecordType>,
-    pub randomized_lookup: bool,
+    pub single_server_lookup: bool,
     pub whois: bool,
 }
 
@@ -24,7 +24,7 @@ impl TryFrom<&ArgMatches<'_>> for LookupConfig {
                 .context("No domain name to lookup specified")?
                 .to_string(),
             record_types: record_types(&args)?,
-            randomized_lookup: args.is_present("randomized-lookup"),
+            single_server_lookup: args.is_present("single-server-lookup"),
             whois: args.is_present("whois"),
         };
 
