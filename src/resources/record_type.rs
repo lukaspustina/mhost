@@ -53,18 +53,12 @@ impl RecordType {
 
     #[inline]
     pub fn is_ip_addr(self) -> bool {
-        match self {
-            RecordType::A | RecordType::AAAA => true,
-            _ => false,
-        }
+        matches!(self, RecordType::A | RecordType::AAAA)
     }
 
     #[inline]
     pub fn is_unknown(self) -> bool {
-        match self {
-            RecordType::Unknown(_) => true,
-            _ => false,
-        }
+        matches!(self, RecordType::Unknown(_))
     }
 }
 

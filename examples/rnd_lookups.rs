@@ -34,7 +34,10 @@ async fn main() {
     )
     .expect("Failed to create multi-query");
     let start_time = Instant::now();
-    let lookups = resolvers.single_server_lookup(mq).await.expect("failed to execute lookups");
+    let lookups = resolvers
+        .single_server_lookup(mq)
+        .await
+        .expect("failed to execute lookups");
     let total_run_time = Instant::now() - start_time;
 
     let statistics = lookups.statistics();

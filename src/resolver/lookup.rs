@@ -269,24 +269,15 @@ pub enum LookupResult {
 
 impl LookupResult {
     pub fn is_response(&self) -> bool {
-        match self {
-            LookupResult::Response { .. } => true,
-            _ => false,
-        }
+        matches!(self, LookupResult::Response { .. })
     }
 
     pub fn is_nxdomain(&self) -> bool {
-        match self {
-            LookupResult::NxDomain { .. } => true,
-            _ => false,
-        }
+        matches!(self, LookupResult::NxDomain { .. })
     }
 
     pub fn is_err(&self) -> bool {
-        match self {
-            LookupResult::Error { .. } => true,
-            _ => false,
-        }
+        matches!(self, LookupResult::Error { .. })
     }
 
     pub fn response(&self) -> Option<&Response> {
