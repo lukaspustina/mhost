@@ -7,6 +7,7 @@ description = "More than host - uses multiple DNS servers massively parallel and
 repository = "https://github.com/lukaspustina/mhost.git"
 readme = "README.md"
 license = "MIT"
+categories = ["command-line-utilities"]
 keywords = ["network", "dns", "host", "dig", "cli"]
 include = [
   "README.md",
@@ -49,7 +50,8 @@ serde_json = "1.0"
 smallvec = "1.4"
 tabwriter = "1.2"
 thiserror = "1"
-trust-dns-resolver = { version = "0.19", features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls", "dnssec-ring", "mdns", "system-config", "serde-config"] }
+# trust-dns-resolver = { version = "0.19", features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls", "dnssec-ring", "mdns", "system-config", "serde-config"] }
+trust-dns-resolver = { version = "0.20.0-alpha.3", features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls", "dnssec-ring", "system-config", "serde-config"] }
 yansi = "0.5"
 
 [build-dependencies.clap]
@@ -64,3 +66,9 @@ spectral = "0.6"
 
 [features]
 bin = ["anyhow", "clap", "env_logger"]
+
+[profile.release]
+lto = true
+overflow-checks = true
+panic = "abort"
+

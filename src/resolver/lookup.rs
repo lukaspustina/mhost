@@ -326,7 +326,6 @@ impl Response {
 #[derive(Debug, Clone, Serialize)]
 pub struct NxDomain {
     response_time: Duration,
-    valid_until: Option<DateTime<Utc>>,
 }
 
 pub async fn lookup<T: Into<MultiQuery>>(resolver: Resolver, query: T) -> ResolverResult<Lookups> {
@@ -356,6 +355,8 @@ fn create_breaker(on_error: bool, on_timeout: bool) -> Box<dyn Fn(&Lookup) -> bo
 async fn single_lookup(resolver: Resolver, query: UniQuery) -> Lookup {
     let dns_request_options = DnsRequestOptions {
         expects_multiple_responses: resolver.opts.expects_multiple_responses,
+        // TODO: Check if I want this; right now I'm setting this to satisfy the compiler
+        use_edns: false,
     };
     let q = query.clone();
     let start_time = Instant::now();
@@ -421,9 +422,8 @@ impl IntoLookup for std::result::Result<trust_dns_resolver::lookup::Lookup, Reso
                 })
             }
             Err(err) => match err.kind() {
-                ResolveErrorKind::NoRecordsFound { valid_until, .. } => LookupResult::NxDomain(NxDomain {
+                ResolveErrorKind::NoRecordsFound { .. } => LookupResult::NxDomain(NxDomain {
                     response_time: Instant::now() - start_time,
-                    valid_until: valid_until.map(instant_to_utc),
                 }),
                 _ => {
                     let err = Error::from(err);

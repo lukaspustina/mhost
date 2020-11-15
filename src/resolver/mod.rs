@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use futures::future::join_all;
 use futures::stream::{self, StreamExt};
-use futures::{Future, TryFutureExt};
+use futures::Future;
 use rand::seq::SliceRandom;
 use tokio::task;
 
@@ -134,12 +134,8 @@ impl Resolver {
     pub async fn new(config: ResolverConfig, opts: ResolverOpts) -> ResolverResult<Self> {
         let name_server = config.name_server_config.clone();
         let tr_opts = opts.clone().into();
-        let tr_resolver = task::spawn(async move {
-            trust_dns_resolver::TokioAsyncResolver::tokio(config.into(), tr_opts)
-                .map_err(Error::from)
-                .await
-        })
-        .await??;
+        let tr_resolver = trust_dns_resolver::TokioAsyncResolver::tokio(config.into(), tr_opts)
+                .map_err(Error::from)?;
 
         Ok(Resolver {
             inner: Arc::new(tr_resolver),

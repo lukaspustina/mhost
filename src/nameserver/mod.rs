@@ -285,6 +285,7 @@ impl From<NameServerConfig> for trust_dns_resolver::config::NameServerConfig {
             } => trust_dns_resolver::config::NameServerConfig {
                 socket_addr: SocketAddr::new(ip_addr, port),
                 protocol: protocol.into(),
+                trust_nx_responses: true,
                 tls_dns_name: None,
                 tls_config: None,
             },
@@ -296,6 +297,7 @@ impl From<NameServerConfig> for trust_dns_resolver::config::NameServerConfig {
             } => trust_dns_resolver::config::NameServerConfig {
                 socket_addr: SocketAddr::new(ip_addr, port),
                 protocol: protocol.into(),
+                trust_nx_responses: true,
                 tls_dns_name: None,
                 tls_config: None,
             },
@@ -308,6 +310,7 @@ impl From<NameServerConfig> for trust_dns_resolver::config::NameServerConfig {
             } => trust_dns_resolver::config::NameServerConfig {
                 socket_addr: SocketAddr::new(ip_addr, port),
                 protocol: protocol.into(),
+                trust_nx_responses: true,
                 tls_dns_name: Some(spki),
                 tls_config: None,
             },
@@ -320,6 +323,7 @@ impl From<NameServerConfig> for trust_dns_resolver::config::NameServerConfig {
             } => trust_dns_resolver::config::NameServerConfig {
                 socket_addr: SocketAddr::new(ip_addr, port),
                 protocol: protocol.into(),
+                trust_nx_responses: true,
                 tls_dns_name: Some(spki),
                 tls_config: None,
             },
