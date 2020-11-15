@@ -134,8 +134,7 @@ impl Resolver {
     pub async fn new(config: ResolverConfig, opts: ResolverOpts) -> ResolverResult<Self> {
         let name_server = config.name_server_config.clone();
         let tr_opts = opts.clone().into();
-        let tr_resolver = trust_dns_resolver::TokioAsyncResolver::tokio(config.into(), tr_opts)
-                .map_err(Error::from)?;
+        let tr_resolver = trust_dns_resolver::TokioAsyncResolver::tokio(config.into(), tr_opts).map_err(Error::from)?;
 
         Ok(Resolver {
             inner: Arc::new(tr_resolver),
