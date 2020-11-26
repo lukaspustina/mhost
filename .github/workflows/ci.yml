@@ -33,6 +33,16 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: build
+      - run: |
+          pwd
+          echo /home/runner/work/mhost2/
+          ls /home/runner/work/mhost2/
+          echo /home/runner/work/mhost2/mhost2
+          ls /home/runner/work/mhost2/mhost2
+          echo /home/runner/work/mhost2/mhost2/target
+          ls /home/runner/work/mhost2/mhost2/target
+          echo /home/runner/work/mhost2/mhost2/target/debug
+          ls /home/runner/work/mhost2/mhost2/target/debug
       - uses: actions-rs/cargo@v1
         with:
           command: test
