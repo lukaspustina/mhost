@@ -1,62 +1,125 @@
 use crate as mhost;
 use crate::app::GlobalConfig;
 use crate::nameserver::{predefined, NameServerConfig, NameServerConfigGroup, Protocol};
-use crate::resolver::{Lookups, MultiQuery, ResolverConfigGroup, ResolverGroup, ResolverGroupOpts, ResolverOpts};
+use crate::resolver::{
+    Lookups, MultiQuery, ResolverConfig, ResolverConfigGroup, ResolverGroup, ResolverGroupOpts, ResolverOpts,
+};
 use crate::{IpNetwork, RecordType};
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use futures::future::join_all;
 use log::info;
 use std::collections::HashSet;
 use std::str::FromStr;
+use std::sync::Arc;
 
-pub fn build_query(domain_name: &str, record_types: &[RecordType]) -> Result<MultiQuery> {
-    if let Ok(ip_network) = IpNetwork::from_str(domain_name) {
-        ptr_query(ip_network)
-    } else {
-        name_query(domain_name, record_types)
+pub struct AppQuery {}
+
+impl AppQuery {
+    pub fn query(domain_name: &str, record_types: &[RecordType]) -> Result<MultiQuery> {
+        if let Ok(ip_network) = IpNetwork::from_str(domain_name) {
+            Self::ptr_query(ip_network)
+        } else {
+            Self::name_query(domain_name, record_types)
+        }
+    }
+
+    fn ptr_query(ip_network: IpNetwork) -> Result<MultiQuery> {
+        let q = MultiQuery::multi_name(ip_network.iter(), RecordType::PTR).context("Failed to create query")?;
+        info!("Prepared query for reverse lookups.");
+        Ok(q)
+    }
+
+    fn name_query(name: &str, record_types: &[RecordType]) -> Result<MultiQuery> {
+        let record_types_len = record_types.len();
+        let q = MultiQuery::multi_record(name, record_types.to_vec()).context("Failed to build query")?;
+        info!("Prepared query for name lookup for {} record types.", record_types_len);
+        Ok(q)
     }
 }
 
-fn ptr_query(ip_network: IpNetwork) -> Result<MultiQuery> {
-    let q = MultiQuery::multi_name(ip_network.iter(), RecordType::PTR).context("Failed to create query")?;
-    info!("Prepared query for reverse lookups.");
-    Ok(q)
+pub struct AppResolver {
+    resolvers: Arc<ResolverGroup>,
+    single_server_lookup: bool,
 }
 
-fn name_query(name: &str, record_types: &[RecordType]) -> Result<MultiQuery> {
-    let record_types_len = record_types.len();
-    let q = MultiQuery::multi_record(name, record_types.to_vec()).context("Failed to build query")?;
-    info!("Prepared query for name lookup for {} record types.", record_types_len);
-    Ok(q)
-}
+impl AppResolver {
+    pub async fn from_configs<T: IntoIterator<Item = ResolverConfig>>(
+        configs: T,
+        global_config: &GlobalConfig,
+    ) -> Result<AppResolver> {
+        let resolver_group_opts = load_resolver_group_opts(&global_config)?;
+        let resolver_opts = load_resolver_opts(&global_config)?;
 
-pub async fn create_resolvers(
-    config: &GlobalConfig,
-    resolver_group_opts: ResolverGroupOpts,
-    resolver_opts: ResolverOpts,
-) -> Result<ResolverGroup> {
-    let system_resolver_group: ResolverConfigGroup = load_system_nameservers(config)?.into();
-    let mut system_resolvers = ResolverGroup::from_configs(
-        system_resolver_group,
-        resolver_opts.clone(),
-        resolver_group_opts.clone(),
-    )
-    .await
-    .context("Failed to create system resolvers")?;
-    info!("Created {} system resolvers.", system_resolvers.len());
+        let resolvers = ResolverGroup::from_configs(configs, resolver_opts, resolver_group_opts).await?;
+        if resolvers.is_empty() {
+            return Err(anyhow!("empty resolver group"));
+        }
+        Ok(AppResolver {
+            resolvers: Arc::new(resolvers),
+            single_server_lookup: false,
+        })
+    }
 
-    let resolver_group: ResolverConfigGroup = load_nameservers(config, &mut system_resolvers).await?.into();
-    let resolvers = ResolverGroup::from_configs(resolver_group, resolver_opts, resolver_group_opts.clone())
+    pub async fn create_resolvers(config: &GlobalConfig) -> Result<AppResolver> {
+        let resolver_group_opts = load_resolver_group_opts(&config)?;
+        let resolver_opts = load_resolver_opts(&config)?;
+
+        let system_resolver_group: ResolverConfigGroup = load_system_nameservers(config)?.into();
+        let mut system_resolvers = ResolverGroup::from_configs(
+            system_resolver_group,
+            resolver_opts.clone(),
+            resolver_group_opts.clone(),
+        )
         .await
-        .context("Failed to load resolvers")?;
-    info!("Created {} resolvers.", resolvers.len());
+        .context("Failed to create system resolvers")?;
+        info!("Created {} system resolvers.", system_resolvers.len());
 
-    system_resolvers.merge(resolvers);
+        let resolver_group: ResolverConfigGroup = load_nameservers(config, &mut system_resolvers).await?.into();
+        let mut resolvers = ResolverGroup::from_configs(resolver_group, resolver_opts, resolver_group_opts)
+            .await
+            .context("Failed to load resolvers")?;
+        info!("Created {} resolvers.", resolvers.len());
 
-    Ok(system_resolvers)
+        resolvers.merge(system_resolvers);
+
+        Ok(AppResolver {
+            resolvers: Arc::new(resolvers),
+            single_server_lookup: false,
+        })
+    }
+
+    pub fn with_single_server_lookup(self, single_server_lookup: bool) -> AppResolver {
+        AppResolver {
+            resolvers: self.resolvers,
+            single_server_lookup,
+        }
+    }
+
+    pub async fn lookup(&self, query: MultiQuery) -> Result<Lookups> {
+        if self.single_server_lookup {
+            info!("Running in single server lookup mode");
+            self.resolvers.clone().single_server_lookup(query).await
+        } else {
+            info!("Running in normal mode");
+            self.resolvers.clone().lookup(query).await
+        }
+        .context("Failed to execute lookups")
+    }
+
+    pub fn resolvers(&self) -> &ResolverGroup {
+        &self.resolvers
+    }
+
+    pub fn resolver_group_opts(&self) -> &ResolverGroupOpts {
+        &self.resolvers.opts()
+    }
+
+    pub fn resolver_opts(&self) -> &ResolverOpts {
+        &self.resolvers.resolvers()[0].opts.as_ref() // Safe, because we created resolver
+    }
 }
 
-pub async fn load_nameservers(
+async fn load_nameservers(
     config: &GlobalConfig,
     system_resolvers: &mut ResolverGroup,
 ) -> Result<NameServerConfigGroup> {
@@ -148,15 +211,4 @@ pub fn load_system_nameservers(config: &GlobalConfig) -> Result<NameServerConfig
     };
 
     Ok(system_nameserver_group)
-}
-
-pub async fn lookup(single_server_lookup: bool, query: MultiQuery, resolvers: ResolverGroup) -> Result<Lookups> {
-    if single_server_lookup {
-        info!("Running in single server lookup mode");
-        resolvers.single_server_lookup(query).await
-    } else {
-        info!("Running in normal mode");
-        resolvers.lookup(query).await
-    }
-    .context("Failed to execute lookups")
 }

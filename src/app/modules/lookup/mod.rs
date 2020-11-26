@@ -11,8 +11,8 @@ use crate::app::cli::{
     print_error_counts, print_estimates_lookups, print_estimates_whois, print_opts, print_statistics, ExitStatus,
 };
 use crate::app::modules::lookup::config::LookupConfig;
-use crate::app::resolver::{build_query, create_resolvers, load_resolver_group_opts, load_resolver_opts};
-use crate::app::{output, resolver, GlobalConfig};
+use crate::app::resolver::{AppQuery, AppResolver};
+use crate::app::{output, GlobalConfig};
 use crate::output::styles::{self, CAPTION_PREFIX};
 use crate::resolver::lookup::Uniquify;
 use crate::resolver::Lookups;
@@ -37,28 +37,23 @@ pub async fn run(args: &ArgMatches<'_>, global_config: &GlobalConfig) -> Result<
 }
 
 pub async fn lookups(global_config: &GlobalConfig, config: &LookupConfig) -> Result<Lookups> {
-    let query = build_query(&config.domain_name, &config.record_types)?;
-
-    let resolver_group_opts = load_resolver_group_opts(&global_config)?;
-    let resolver_opts = load_resolver_opts(&global_config)?;
-
-    if !global_config.quiet {
-        print_opts(&resolver_group_opts, &resolver_opts);
-    }
-
-    let resolvers = create_resolvers(global_config, resolver_group_opts, resolver_opts).await?;
+    let query = AppQuery::query(&config.domain_name, &config.record_types)?;
+    let app_resolver = AppResolver::create_resolvers(global_config)
+        .await?
+        .with_single_server_lookup(config.single_server_lookup);
 
     if !global_config.quiet {
+        print_opts(app_resolver.resolver_group_opts(), &app_resolver.resolver_opts());
         println!(
             "{}",
             styles::EMPH.paint(format!("{} Running DNS lookups.", &*CAPTION_PREFIX))
         );
-        print_estimates_lookups(&resolvers, &query);
+        print_estimates_lookups(app_resolver.resolvers(), &query);
     }
 
     info!("Running lookups");
     let start_time = Instant::now();
-    let lookups: Lookups = resolver::lookup(config.single_server_lookup, query, resolvers).await?;
+    let lookups: Lookups = app_resolver.lookup(query).await?;
     let total_run_time = Instant::now() - start_time;
     info!("Finished Lookups.");
 

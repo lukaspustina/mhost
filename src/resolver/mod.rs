@@ -261,6 +261,10 @@ impl ResolverGroup {
         &self.opts
     }
 
+    pub fn resolvers(&self) -> &[Resolver] {
+        self.resolvers.as_slice()
+    }
+
     pub fn len(&self) -> usize {
         self.resolvers.len()
     }
