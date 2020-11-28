@@ -3,7 +3,7 @@ RUN: @mhost_bin --ascii --no-color lookup dns.google
 CHECK: > Options: concurrent nameservers=10, max. nameservers=100, concurrent requests=5, retries=0, timeout=5 s, abort on error, abort on timeout
 CHECK-NEXT: > Running DNS lookups.
 CHECK-NEXT: - Sending [[\d+]] request[[s*]] to [[\d+]] nameserver[[s*]] for 3 record types of 1 name.
-CHECK: * A:     8.8.[[\d+]].[[\d+]],
-CHECK-NEXT: * A:     8.8.[[\d+]].[[\d+]],
-CHECK-NEXT: * AAAA:  2001:4860:4860::88[[\d+]],
-CHECK-NEXT: * AAAA:  2001:4860:4860::88[[\d+]],
+CHECK: * A:     8.8.[[\d+]].[[\d+]]
+CHECK-NEXT: * A:     8.8.[[\d+]].[[\d+]]
+CHECK-NEXT: * AAAA:  2001:4860:4860::88[[\d+]]
+CHECK-NEXT: * AAAA:  2001:4860:4860::88[[\d+]]

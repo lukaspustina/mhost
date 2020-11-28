@@ -1,0 +1,6 @@
+RUN: @mhost_bin --ascii --no-color soa-check example.com
+
+CHECK: > Running DNS lookups for SOA records.
+CHECK-NEXT: - Sending 4 requests to 4 nameservers for 1 record type of 1 name.
+CHECK:  * SOA:  origin NS ns.icann.org., responsible party noc.dns.icann.org., serial [[\d+]], refresh [[\d+]][[\w+]], retry [[\d+]][[\w+]], expire [[\d+]][[\w+]], negative response TTL [[\d+]][[\w+]] expires in [[\d+]][[\w+]] ([[\d+]])
+CHECK-NEXT: = All SOA records in sync.

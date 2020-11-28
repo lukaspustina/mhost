@@ -50,7 +50,7 @@ fn output_records<W: Write>(writer: &mut W, records: Vec<&Record>, opts: &Summar
             let ttl_summary = crate::statistics::Summary::summary(ttls.as_slice());
 
             let ttl = format_ttl_summary(&ttl_summary, opts);
-            format!(", {} ({})", ttl, set.len())
+            format!(" {} ({})", ttl, set.len())
         };
 
         writeln!(
