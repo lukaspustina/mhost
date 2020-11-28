@@ -2,7 +2,7 @@ use std::convert::TryInto;
 use std::net::IpAddr;
 use std::time::Instant;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::ArgMatches;
 use ipnetwork::IpNetwork;
 use log::info;
@@ -11,15 +11,16 @@ use crate::app::cli::{
     print_error_counts, print_estimates_lookups, print_estimates_whois, print_opts, print_statistics, ExitStatus,
 };
 use crate::app::modules::lookup::config::LookupConfig;
-use crate::app::resolver::{AppQuery, AppResolver};
+use crate::app::resolver::AppResolver;
 use crate::app::{output, GlobalConfig};
 use crate::output::styles::{self, CAPTION_PREFIX};
 use crate::resolver::lookup::Uniquify;
-use crate::resolver::Lookups;
+use crate::resolver::{Lookups, MultiQuery};
 use crate::resources::NameToIpAddr;
-use crate::services::whois::{MultiQuery, QueryType, WhoisClient, WhoisClientOpts, WhoisResponses};
+use crate::services::whois::{self, QueryType, WhoisClient, WhoisClientOpts, WhoisResponses};
 use crate::RecordType;
 use std::collections::HashSet;
+use std::str::FromStr;
 
 pub mod config;
 
@@ -37,7 +38,7 @@ pub async fn run(args: &ArgMatches<'_>, global_config: &GlobalConfig) -> Result<
 }
 
 pub async fn lookups(global_config: &GlobalConfig, config: &LookupConfig) -> Result<Lookups> {
-    let query = AppQuery::query(&config.domain_name, &config.record_types)?;
+    let query = build_query(&config.domain_name, &config.record_types)?;
     let app_resolver = AppResolver::create_resolvers(global_config)
         .await?
         .with_single_server_lookup(config.single_server_lookup);
@@ -70,10 +71,31 @@ pub async fn lookups(global_config: &GlobalConfig, config: &LookupConfig) -> Res
     Ok(lookups)
 }
 
+fn build_query(domain_name: &str, record_types: &[RecordType]) -> Result<MultiQuery> {
+    if let Ok(ip_network) = IpNetwork::from_str(domain_name) {
+        ptr_query(ip_network)
+    } else {
+        name_query(domain_name, record_types)
+    }
+}
+
+fn ptr_query(ip_network: IpNetwork) -> Result<MultiQuery> {
+    let q = MultiQuery::multi_name(ip_network.iter(), RecordType::PTR).context("Failed to create query")?;
+    info!("Prepared query for reverse lookups.");
+    Ok(q)
+}
+
+fn name_query(name: &str, record_types: &[RecordType]) -> Result<MultiQuery> {
+    let record_types_len = record_types.len();
+    let q = MultiQuery::multi_record(name, record_types.to_vec()).context("Failed to build query")?;
+    info!("Prepared query for name lookup for {} record types.", record_types_len);
+    Ok(q)
+}
+
 pub async fn whois(global_config: &GlobalConfig, _config: &LookupConfig, lookups: &Lookups) -> Result<WhoisResponses> {
     let ip_addresses = ips_from_lookups(lookups)?;
     let query_types = vec![QueryType::NetworkInfo, QueryType::GeoLocation, QueryType::Whois];
-    let query = MultiQuery::from_iter(ip_addresses, query_types);
+    let query = whois::MultiQuery::from_iter(ip_addresses, query_types);
 
     let opts = WhoisClientOpts::new(8, global_config.abort_on_error);
     let whois_client = WhoisClient::new(opts);

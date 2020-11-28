@@ -4,38 +4,12 @@ use crate::nameserver::{predefined, NameServerConfig, NameServerConfigGroup, Pro
 use crate::resolver::{
     Lookups, MultiQuery, ResolverConfig, ResolverConfigGroup, ResolverGroup, ResolverGroupOpts, ResolverOpts,
 };
-use crate::{IpNetwork, RecordType};
 use anyhow::{anyhow, Context, Result};
 use futures::future::join_all;
 use log::info;
 use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::Arc;
-
-pub struct AppQuery {}
-
-impl AppQuery {
-    pub fn query(domain_name: &str, record_types: &[RecordType]) -> Result<MultiQuery> {
-        if let Ok(ip_network) = IpNetwork::from_str(domain_name) {
-            Self::ptr_query(ip_network)
-        } else {
-            Self::name_query(domain_name, record_types)
-        }
-    }
-
-    fn ptr_query(ip_network: IpNetwork) -> Result<MultiQuery> {
-        let q = MultiQuery::multi_name(ip_network.iter(), RecordType::PTR).context("Failed to create query")?;
-        info!("Prepared query for reverse lookups.");
-        Ok(q)
-    }
-
-    fn name_query(name: &str, record_types: &[RecordType]) -> Result<MultiQuery> {
-        let record_types_len = record_types.len();
-        let q = MultiQuery::multi_record(name, record_types.to_vec()).context("Failed to build query")?;
-        info!("Prepared query for name lookup for {} record types.", record_types_len);
-        Ok(q)
-    }
-}
 
 pub struct AppResolver {
     resolvers: Arc<ResolverGroup>,
