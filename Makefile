@@ -3,7 +3,9 @@ FUZZ_TIME=600
 all: check build test
 
 check:
-	cargo check --bins --tests --benches --examples --all-features
+	cargo check --bins --examples --all-features
+	cargo check --tests --all-features
+	cargo check --benches --all-features
 
 build:
 	cargo build --bins --tests --benches --examples --all-features
