@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use futures::stream::{self, StreamExt};
 use futures::Future;
@@ -11,18 +11,21 @@ pub use service::{Authority, GeoLocation, LocatedResource, Location, NetworkInfo
 
 use crate::services::{Error, Result};
 use crate::utils::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
+use crate::utils::serialize::ser_to_string;
 use std::slice::Iter;
+use lru_time_cache::LruCache;
+use std::time::Duration;
 
 mod service;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum QueryType {
     GeoLocation,
     NetworkInfo,
     Whois,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct UniQuery {
     resource: IpNetwork,
     query_type: QueryType,
@@ -91,6 +94,8 @@ impl MultiQuery {
 pub struct WhoisClientOpts {
     max_concurrent_requests: usize,
     abort_on_error: bool,
+    lru_size: Option<usize>,
+    lru_ttl: Option<Duration>,
 }
 
 impl WhoisClientOpts {
@@ -98,6 +103,17 @@ impl WhoisClientOpts {
         WhoisClientOpts {
             max_concurrent_requests,
             abort_on_error,
+            lru_size: None,
+            lru_ttl: None,
+        }
+    }
+
+    pub fn with_cache(max_concurrent_requests: usize, abort_on_error: bool, cache_size: usize, cache_ttl: Duration) -> WhoisClientOpts {
+        WhoisClientOpts {
+            max_concurrent_requests,
+            abort_on_error,
+            lru_size: Some(cache_size),
+            lru_ttl: Some(cache_ttl),
         }
     }
 }
@@ -112,15 +128,25 @@ impl Default for WhoisClientOpts {
 pub struct WhoisClient {
     inner: Arc<service::RipeStatsClient>,
     opts: Arc<WhoisClientOpts>,
+    lru_cache: Option<Arc<Mutex<LruCache<UniQuery, WhoisResponse>>>>
 }
 
 impl WhoisClient {
     pub fn new(opts: WhoisClientOpts) -> WhoisClient {
+        let lru_cache = match (opts.lru_size, opts.lru_ttl) {
+            (Some(size), Some(ttl)) => {
+                let cache = LruCache::with_expiry_duration_and_capacity(ttl, size);
+                Some(Arc::new(Mutex::new(cache)))
+            }
+            _ => None,
+        };
         WhoisClient {
             inner: Arc::new(service::RipeStatsClient::new()),
             opts: Arc::new(opts),
+            lru_cache,
         }
     }
+
     pub async fn query(&self, query: MultiQuery) -> Result<WhoisResponses> {
         let breaker = create_breaker(self.opts.abort_on_error);
 
@@ -141,6 +167,34 @@ fn create_breaker(on_error: bool) -> Box<dyn Fn(&WhoisResponse) -> bool + Send> 
 }
 
 async fn single_query(whois: WhoisClient, query: UniQuery) -> WhoisResponse {
+    if let Some(cache_arc) = whois.lru_cache.clone().as_ref() {
+        single_query_with_cache(cache_arc, whois, query).await
+    } else {
+        send_query(whois, query).await
+    }
+}
+
+async fn single_query_with_cache(cache_arc: &Arc<Mutex<LruCache<UniQuery, WhoisResponse>>>, whois: WhoisClient, query: UniQuery) -> WhoisResponse {
+    // This extra block is necessary, to convince the compiler that the Mutex not cross a thread
+    // boundary: So to keep this future `Send`
+    {
+        let mut cache = cache_arc.lock().unwrap();
+        if let Some(v) = cache.get(&query) {
+            trace!("Hit cache for whois query {:?}", query);
+            return v.clone()
+        }
+    }
+
+    let response = send_query(whois.clone(), query.clone()).await;
+
+    let mut cache = cache_arc.lock().unwrap();
+    trace!("Inserting response {:?} into cache for whois query {:?}", response, query);
+    cache.insert(query, response.clone());
+
+    response
+}
+
+async fn send_query(whois: WhoisClient, query: UniQuery) -> WhoisResponse {
     trace!(
         "Sending Whois query for '{}', query type {:?}.",
         &query.resource,
@@ -174,7 +228,7 @@ async fn single_query(whois: WhoisClient, query: UniQuery) -> WhoisResponse {
             .await
             .into_whois_response(|x| WhoisResponse::Whois { resource, whois: x }),
     }
-    .or_else::<Error, _>(|err| Ok(WhoisResponse::Error { resource, err }))
+    .or_else::<Error, _>(|err| Ok(WhoisResponse::Error { resource, err: Arc::new(err) }))
     .unwrap();
 
     debug!(
@@ -223,7 +277,7 @@ impl Default for WhoisClient {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub enum WhoisResponse {
     GeoLocation {
         resource: IpNetwork,
@@ -239,7 +293,8 @@ pub enum WhoisResponse {
     },
     Error {
         resource: IpNetwork,
-        err: Error,
+        #[serde(serialize_with = "ser_to_string")]
+        err: Arc<Error>,
     },
 }
 

@@ -21,6 +21,7 @@ use crate::services::whois::{self, QueryType, WhoisClient, WhoisClientOpts, Whoi
 use crate::RecordType;
 use std::collections::HashSet;
 use std::str::FromStr;
+use tokio::time::Duration;
 
 pub mod config;
 
@@ -97,7 +98,7 @@ pub async fn whois(global_config: &GlobalConfig, _config: &LookupConfig, lookups
     let query_types = vec![QueryType::NetworkInfo, QueryType::GeoLocation, QueryType::Whois];
     let query = whois::MultiQuery::from_iter(ip_addresses, query_types);
 
-    let opts = WhoisClientOpts::new(8, global_config.abort_on_error);
+    let opts = WhoisClientOpts::with_cache(8, global_config.abort_on_error, 1024, Duration::from_secs(60));
     let whois_client = WhoisClient::new(opts);
 
     if !global_config.quiet {

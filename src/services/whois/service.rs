@@ -28,7 +28,7 @@ pub struct Response<T> {
     pub data: Option<T>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GeoLocation {
     located_resources: Vec<LocatedResource>,
 }
@@ -39,7 +39,7 @@ impl GeoLocation {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct LocatedResource {
     resource: String,
     locations: Vec<Location>,
@@ -55,7 +55,7 @@ impl LocatedResource {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Location {
     city: String,
     country: String,
@@ -84,7 +84,7 @@ impl Location {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct NetworkInfo {
     asns: Vec<String>,
     prefix: IpNetwork,
@@ -100,7 +100,7 @@ impl NetworkInfo {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct Whois {
     resource: String,
     /// List of authories that have been involved in answering the request
