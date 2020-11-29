@@ -12,8 +12,8 @@ pub use service::{Authority, GeoLocation, LocatedResource, Location, NetworkInfo
 use crate::services::{Error, Result};
 use crate::utils::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
 use crate::utils::serialize::ser_to_string;
-use std::slice::Iter;
 use lru_time_cache::LruCache;
+use std::slice::Iter;
 use std::time::Duration;
 
 mod service;
@@ -108,7 +108,12 @@ impl WhoisClientOpts {
         }
     }
 
-    pub fn with_cache(max_concurrent_requests: usize, abort_on_error: bool, cache_size: usize, cache_ttl: Duration) -> WhoisClientOpts {
+    pub fn with_cache(
+        max_concurrent_requests: usize,
+        abort_on_error: bool,
+        cache_size: usize,
+        cache_ttl: Duration,
+    ) -> WhoisClientOpts {
         WhoisClientOpts {
             max_concurrent_requests,
             abort_on_error,
@@ -128,7 +133,7 @@ impl Default for WhoisClientOpts {
 pub struct WhoisClient {
     inner: Arc<service::RipeStatsClient>,
     opts: Arc<WhoisClientOpts>,
-    lru_cache: Option<Arc<Mutex<LruCache<UniQuery, WhoisResponse>>>>
+    lru_cache: Option<Arc<Mutex<LruCache<UniQuery, WhoisResponse>>>>,
 }
 
 impl WhoisClient {
@@ -174,21 +179,29 @@ async fn single_query(whois: WhoisClient, query: UniQuery) -> WhoisResponse {
     }
 }
 
-async fn single_query_with_cache(cache_arc: &Arc<Mutex<LruCache<UniQuery, WhoisResponse>>>, whois: WhoisClient, query: UniQuery) -> WhoisResponse {
+async fn single_query_with_cache(
+    cache_arc: &Arc<Mutex<LruCache<UniQuery, WhoisResponse>>>,
+    whois: WhoisClient,
+    query: UniQuery,
+) -> WhoisResponse {
     // This extra block is necessary, to convince the compiler that the Mutex not cross a thread
     // boundary: So to keep this future `Send`
     {
         let mut cache = cache_arc.lock().unwrap();
         if let Some(v) = cache.get(&query) {
             trace!("Hit cache for whois query {:?}", query);
-            return v.clone()
+            return v.clone();
         }
     }
 
     let response = send_query(whois.clone(), query.clone()).await;
 
     let mut cache = cache_arc.lock().unwrap();
-    trace!("Inserting response {:?} into cache for whois query {:?}", response, query);
+    trace!(
+        "Inserting response {:?} into cache for whois query {:?}",
+        response,
+        query
+    );
     cache.insert(query, response.clone());
 
     response
@@ -228,7 +241,12 @@ async fn send_query(whois: WhoisClient, query: UniQuery) -> WhoisResponse {
             .await
             .into_whois_response(|x| WhoisResponse::Whois { resource, whois: x }),
     }
-    .or_else::<Error, _>(|err| Ok(WhoisResponse::Error { resource, err: Arc::new(err) }))
+    .or_else::<Error, _>(|err| {
+        Ok(WhoisResponse::Error {
+            resource,
+            err: Arc::new(err),
+        })
+    })
     .unwrap();
 
     debug!(

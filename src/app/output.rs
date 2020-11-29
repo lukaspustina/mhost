@@ -1,4 +1,4 @@
-use crate::output::{Output, OutputFormat, OutputConfig};
+use crate::output::{Output, OutputConfig, OutputFormat};
 use anyhow::{Context, Result};
 use std::io;
 
