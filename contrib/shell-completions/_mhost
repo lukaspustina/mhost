@@ -59,7 +59,20 @@ _mhost() {
         (( CURRENT += 1 ))
         curcontext="${curcontext%:*:*}:mhost-command-$line[1]:"
         case $line[1] in
-            (get-server-lists)
+            (discover)
+_arguments "${_arguments_options[@]}" \
+'-p[Shows results after each lookup step]' \
+'--show-partial-results[Shows results after each lookup step]' \
+'-S[Switches into single server lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.]' \
+'--single-server-lookup[Switches into single server lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.]' \
+'-h[Prints help information]' \
+'--help[Prints help information]' \
+'-V[Prints version information]' \
+'--version[Prints version information]' \
+'::domain name -- domain name to check:_files' \
+&& ret=0
+;;
+(get-server-lists)
 _arguments "${_arguments_options[@]}" \
 '-o+[Sets path to output file]' \
 '--output-file=[Sets path to output file]' \
@@ -105,11 +118,19 @@ esac
 (( $+functions[_mhost_commands] )) ||
 _mhost_commands() {
     local commands; commands=(
-        "get-server-lists:Downloads known lists of name servers" \
+        "discover:Discovers records of a domain using multiple heuristics" \
+"get-server-lists:Downloads known lists of name servers" \
 "lookup:Looks up a name, IP address or CIDR block" \
 "soa-check:Checks SOA records of authoritative name servers for deviations" \
     )
     _describe -t commands 'mhost commands' commands "$@"
+}
+(( $+functions[_mhost__discover_commands] )) ||
+_mhost__discover_commands() {
+    local commands; commands=(
+        
+    )
+    _describe -t commands 'mhost discover commands' commands "$@"
 }
 (( $+functions[_mhost__get-server-lists_commands] )) ||
 _mhost__get-server-lists_commands() {

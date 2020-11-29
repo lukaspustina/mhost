@@ -13,6 +13,9 @@ _mhost() {
                 cmd="mhost"
                 ;;
             
+            discover)
+                cmd+="__discover"
+                ;;
             get-server-lists)
                 cmd+="__get__server__lists"
                 ;;
@@ -29,7 +32,7 @@ _mhost() {
 
     case "${cmd}" in
         mhost)
-            opts=" -p -q -v -h -V -S -s -f -o  --no-system-resolv-opt --no-system-nameservers --predefined --list-predefined --wait-multiple-responses --no-abort-on-error --no-abort-on-timeout --no-aborts --show-errors --quiet --no-color --ascii --help --version --resolv-conf --system-nameserver --nameserver --predefined-filter --nameservers-from-file --limit --max-concurrent-servers --max-concurrent-requests --retries --timeout --output --output-options   get-server-lists lookup soa-check"
+            opts=" -p -q -v -h -V -S -s -f -o  --no-system-resolv-opt --no-system-nameservers --predefined --list-predefined --wait-multiple-responses --no-abort-on-error --no-abort-on-timeout --no-aborts --show-errors --quiet --no-color --ascii --help --version --resolv-conf --system-nameserver --nameserver --predefined-filter --nameservers-from-file --limit --max-concurrent-servers --max-concurrent-requests --retries --timeout --output --output-options   discover get-server-lists lookup soa-check"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -108,6 +111,21 @@ _mhost() {
             return 0
             ;;
         
+        mhost__discover)
+            opts=" -p -S -h -V  --show-partial-results --single-server-lookup --help --version  <NAME> "
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         mhost__get__server__lists)
             opts=" -h -V -o  --help --version --output-file  <SERVER_LIST_SPEC>... "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then

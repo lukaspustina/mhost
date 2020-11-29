@@ -20,6 +20,14 @@ impl GetServerLists {
             ServerListDownloaderOpts::new(global_config.max_concurrent_requests, global_config.abort_on_error);
         let downloader = ServerListDownloader::new(opts);
 
+        if !global_config.quiet {
+            println!(
+                "{}",
+                styles::EMPH.paint(format!("{} Downloading server lists.", &*CAPTION_PREFIX))
+            );
+            print_estimates_downloads(&config.server_list_specs);
+        }
+
         Ok(DownloadServerLists {
             global_config,
             config,
@@ -36,14 +44,6 @@ pub struct DownloadServerLists<'a> {
 
 impl<'a> DownloadServerLists<'a> {
     pub async fn download_server_lists(self) -> Result<ModuleStep<FileWriter<'a>>> {
-        if !self.global_config.quiet {
-            println!(
-                "{}",
-                styles::EMPH.paint(format!("{} Downloading server lists.", &*CAPTION_PREFIX))
-            );
-            print_estimates_downloads(&self.config.server_list_specs);
-        }
-
         info!("Downloading lists");
         let start_time = Instant::now();
         let servers = self.downloader.download(self.config.server_list_specs).await?;

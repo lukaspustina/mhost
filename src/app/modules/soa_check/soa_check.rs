@@ -28,6 +28,17 @@ impl SoaCheck {
         let query = MultiQuery::single(config.domain_name.as_str(), RecordType::NS)?;
         let app_resolver = AppResolver::create_resolvers(global_config).await?;
 
+        if !global_config.quiet && config.partial_results {
+            print_opts(app_resolver.resolver_group_opts(), &app_resolver.resolver_opts());
+            if config.partial_results {
+                println!(
+                    "{}",
+                    styles::EMPH.paint(format!("{} Running DNS lookups of name servers.", &*CAPTION_PREFIX))
+                );
+                print_estimates_lookups(&app_resolver.resolvers(), &query);
+            }
+        }
+
         Ok(AuthoritativeNameServers {
             global_config,
             config,
@@ -46,20 +57,6 @@ pub struct AuthoritativeNameServers<'a> {
 
 impl<'a> AuthoritativeNameServers<'a> {
     pub async fn lookup_authoritative_name_servers(self) -> Result<ModuleStep<NameServerIps<'a>>> {
-        if !self.global_config.quiet && self.config.partial_results {
-            print_opts(
-                self.app_resolver.resolver_group_opts(),
-                &self.app_resolver.resolver_opts(),
-            );
-            if self.config.partial_results {
-                println!(
-                    "{}",
-                    styles::EMPH.paint(format!("{} Running DNS lookups of name servers.", &*CAPTION_PREFIX))
-                );
-                print_estimates_lookups(&self.app_resolver.resolvers(), &self.query);
-            }
-        }
-
         info!("Running lookups for authoritative name servers");
         let start_time = Instant::now();
         let lookups = self.app_resolver.lookup(self.query).await?;

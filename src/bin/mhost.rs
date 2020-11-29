@@ -36,8 +36,9 @@ async fn run() -> Result<ExitStatus> {
     }
 
     let res = match args.subcommand_name() {
+        Some("discover") => modules::discover::run(&args, &global_config).await,
+        Some("get-server-lists") => modules::get_server_lists::run(&args, &global_config).await,
         Some("lookup") => modules::lookup::run(&args, &global_config).await,
-        Some("download-server-lists") => modules::get_server_lists::run(&args, &global_config).await,
         Some("soa-check") => modules::soa_check::run(&args, &global_config).await,
         _ => {
             global_config::show_help();

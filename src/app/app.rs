@@ -1,5 +1,6 @@
-use clap::{crate_name, App, AppSettings, Arg, SubCommand};
 use std::str::FromStr;
+
+use clap::{crate_name, App, AppSettings, Arg, SubCommand};
 
 pub static SUPPORTED_RECORD_TYPES: &[&str] = &[
     "A", "AAAA", "ANAME", "CNAME", "MX", "NULL", "NS", "PTR", "SOA", "SRV", "TXT",
@@ -229,6 +230,7 @@ pub fn app() -> App<'static, 'static> {
 
 fn subcommands() -> Vec<App<'static, 'static>> {
     vec![
+        discover_subcommand(),
         get_server_lists_subcommand(),
         lookup_subcommand(),
         soa_check_subcommand(),
@@ -236,6 +238,31 @@ fn subcommands() -> Vec<App<'static, 'static>> {
     .into_iter()
     .map(|x| x.version(env!("CARGO_PKG_VERSION")).author(env!("CARGO_PKG_AUTHORS")))
     .collect()
+}
+
+fn discover_subcommand() -> App<'static, 'static> {
+    SubCommand::with_name("discover")
+        .about("Discovers records of a domain using multiple heuristics")
+        .arg(
+            Arg::with_name("domain name")
+                .index(1)
+                .value_name("NAME")
+                .next_line_help(false)
+                .help("domain name to check")
+                .long_help("* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de"),
+        )
+        .arg(
+            Arg::with_name("partial-results")
+                .short("p")
+                .long("show-partial-results")
+                .help("Shows results after each lookup step"),
+        )
+        .arg(
+            Arg::with_name("single-server-lookup")
+                .short("S")
+                .long("single-server-lookup")
+                .help("Switches into single server lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.")
+        )
 }
 
 fn get_server_lists_subcommand() -> App<'static, 'static> {
