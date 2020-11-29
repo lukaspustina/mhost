@@ -1,0 +1,13 @@
+---
+repos:
+  - repo: https://github.com/editorconfig-checker/editorconfig-checker.python
+    rev: master
+    hooks:
+      - id: editorconfig-checker
+        name: Check editorconfig compliance
+  - repo: https://github.com/doublify/pre-commit-rust
+    rev: master
+    hooks:
+      - id: fmt
+        name: Rust fmt check
+        args: ['--', '--check', '--files-with-diff']

@@ -39,3 +39,9 @@ fmt:
 
 install:
 	cargo install --all-features --path .
+
+
+init:
+	brew install pre-commit
+	pre-commit install
+
