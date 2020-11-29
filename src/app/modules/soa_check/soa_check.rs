@@ -76,7 +76,7 @@ impl<'a> AuthoritativeNameServers<'a> {
             print_statistics(&lookups, total_run_time);
         }
         if config.partial_results {
-            output::output(global_config, &lookups)?;
+            output::output(&global_config.output_config, &lookups)?;
         }
         if !lookups.has_records() {
             println!(
@@ -145,7 +145,7 @@ impl<'a> NameServerIps<'a> {
             print_statistics(&lookups, total_run_time);
         }
         if config.partial_results {
-            output::output(global_config, &lookups)?;
+            output::output(&global_config.output_config, &lookups)?;
         }
         if !lookups.has_records() {
             println!(
@@ -215,7 +215,7 @@ impl SoaRecords {
         if !global_config.quiet {
             print_statistics(&lookups, total_run_time);
         }
-        output::output(global_config, &lookups)?;
+        output::output(&global_config.output_config, &lookups)?;
         if !lookups.has_records() {
             println!(
                 "{} No SOA records from authoritative nameservers found. Aborting.",

@@ -5,7 +5,7 @@ use std::time::Instant;
 use anyhow::{Context, Result};
 use clap::ArgMatches;
 use ipnetwork::IpNetwork;
-use log::info;
+use log::{debug, info};
 
 use crate::app::cli::{
     print_error_counts, print_estimates_lookups, print_estimates_whois, print_opts, print_statistics, ExitStatus,
@@ -29,7 +29,9 @@ pub async fn run(args: &ArgMatches<'_>, global_config: &GlobalConfig) -> Result<
     info!("lookup module selected.");
     let args = args.subcommand_matches("lookup").unwrap();
     let config: LookupConfig = args.try_into()?;
+
     let lookups = lookups(&global_config, &config).await?;
+    debug!("Received lookups: {:#?}", lookups);
 
     if config.whois {
         whois(global_config, &config, &lookups).await?;
@@ -63,7 +65,7 @@ pub async fn lookups(global_config: &GlobalConfig, config: &LookupConfig) -> Res
         print_statistics(&lookups, total_run_time);
     }
 
-    output::output(global_config, &lookups)?;
+    output::output(&global_config.output_config, &lookups)?;
 
     if !global_config.quiet && global_config.show_errors {
         print_error_counts(&lookups);
@@ -119,14 +121,17 @@ pub async fn whois(global_config: &GlobalConfig, _config: &LookupConfig, lookups
         print_statistics(&whois, total_run_time);
     }
 
-    output::output(global_config, &whois)?;
+    output::output(&global_config.output_config, &whois)?;
 
     Ok(whois)
 }
 
 fn ips_from_lookups(lookups: &Lookups) -> Result<impl Iterator<Item = IpNetwork>> {
+    // First, let's get the successful PTR responses. These contain the IP to Name queries which
+    // have been successfully looked up. Then convert those IP address types.
     let ptrs: Vec<_> = lookups
         .iter()
+        .filter(|x| x.result().is_response())
         .filter(|x| x.query().record_type == RecordType::PTR)
         .map(|x| x.query().name())
         .map(|x| x.to_ip_addr())
@@ -134,6 +139,8 @@ fn ips_from_lookups(lookups: &Lookups) -> Result<impl Iterator<Item = IpNetwork>
     let ptrs: crate::Result<Vec<_>> = ptrs.into_iter().collect();
     let ptrs = ptrs?;
     let ptrs: HashSet<IpAddr> = ptrs.into_iter().collect();
+
+    // Second, check if the lookups contain any A or AAAA responses which point to IP addresses.
     let ips = lookups
         .a()
         .unique()
@@ -142,5 +149,7 @@ fn ips_from_lookups(lookups: &Lookups) -> Result<impl Iterator<Item = IpNetwork>
         .map(IpAddr::V4)
         .chain(lookups.aaaa().unique().to_owned().into_iter().map(IpAddr::V6))
         .map(IpNetwork::from);
+
+    // At last, combine these two sets of IP addresses for the Whois lookup
     Ok(ptrs.into_iter().map(IpNetwork::from).chain(ips))
 }
