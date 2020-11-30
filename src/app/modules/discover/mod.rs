@@ -9,6 +9,7 @@ use crate::app::GlobalConfig;
 pub mod config;
 #[allow(clippy::module_inception)]
 mod discover;
+mod wordlist;
 
 use config::DiscoverConfig;
 use discover::Discover;
@@ -23,6 +24,8 @@ pub async fn run(args: &ArgMatches<'_>, global_config: &GlobalConfig) -> Result<
         .request_all_records()
         .await?
         .check_wildcard_resolution()
+        .await?
+        .wordlist_lookups()
         .await?
         .output()
 }
