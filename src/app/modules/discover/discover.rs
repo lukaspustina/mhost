@@ -32,6 +32,10 @@ impl Discover {
             .await?
             .with_single_server_lookup(config.single_server_lookup);
 
+        // TODO: Set show-domain-names
+        // Showing partial results only makes sense, if the queried domain name is shown for every response,
+        // because this modules generates domain names, e.g., wildcard resolution, wordlists
+
         if !global_config.quiet {
             print_opts(app_resolver.resolver_group_opts(), &app_resolver.resolver_opts());
         }
@@ -226,6 +230,7 @@ impl<'a> WordlistLookups<'a> {
         info!("Finished Lookups.");
 
         // Filter wildcard responses
+        // TODO: Currently only for A records
         let lookups = if let Some(ref wildcards) = self.wildcard_resolutions {
             let wildcards = wildcards.a().unique().to_owned();
             let lookups = lookups

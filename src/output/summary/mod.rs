@@ -13,6 +13,8 @@ pub struct SummaryOptions {
     human: bool,
     /// Reduce output to an as concise as possible form
     condensed: bool,
+    /// Show domain names queried
+    show_domain_names: bool,
 }
 
 impl Default for SummaryOptions {
@@ -20,6 +22,7 @@ impl Default for SummaryOptions {
         SummaryOptions {
             human: true,
             condensed: false,
+            show_domain_names: false,
         }
     }
 }
@@ -32,6 +35,7 @@ impl<'a> TryFrom<Vec<&'a str>> for SummaryOptions {
         Ok(SummaryOptions {
             human: options.contains("human"),
             condensed: options.contains("condensed"),
+            show_domain_names: options.contains("show-domain-names"),
         })
     }
 }

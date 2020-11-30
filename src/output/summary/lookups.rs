@@ -43,7 +43,7 @@ fn output_records<W: Write>(writer: &mut W, records: Vec<&Record>, opts: &Summar
     let records_counted = summarize_records(records);
 
     for (r, set) in records_counted {
-        let suffix = if opts.condensed {
+        let mut suffix = if opts.condensed {
             "".to_string()
         } else {
             let ttls: Vec<_> = set.iter().map(|x| x.ttl()).collect();
@@ -52,6 +52,14 @@ fn output_records<W: Write>(writer: &mut W, records: Vec<&Record>, opts: &Summar
             let ttl = format_ttl_summary(&ttl_summary, opts);
             format!(" {} ({})", ttl, set.len())
         };
+
+        if opts.show_domain_names {
+            if opts.human {
+                suffix = format!("{} for domain name {}", suffix, r.name_labels())
+            } else {
+                suffix = format!("{} q={}", suffix, r.name_labels())
+            }
+        }
 
         writeln!(
             writer,

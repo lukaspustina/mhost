@@ -189,8 +189,12 @@ pub fn app() -> App<'static, 'static> {
                 .default_value_if("output", Some("summary"), "human")
                 .help("Sets output options")
                 .long_help(
-                    "* Json: 'pretty': Prettifies output
-* Summary: 'human': Uses human readable formatting, 'condensed': Simplifies output",
+                    "* Json:
+  * 'pretty': Prettifies output
+* Summary:
+  * 'condensed': Simplifies output,
+  * 'human': Uses human readable formatting
+  * 'show-domain-name': Shows queried domain names",
                 ),
         )
         .arg(
