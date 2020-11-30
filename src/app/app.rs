@@ -3,7 +3,7 @@ use std::str::FromStr;
 use clap::{crate_name, App, AppSettings, Arg, SubCommand};
 
 pub static SUPPORTED_RECORD_TYPES: &[&str] = &[
-    "A", "AAAA", "ANAME", "CNAME", "MX", "NULL", "NS", "PTR", "SOA", "SRV", "TXT",
+    "A", "AAAA", "ANAME", "ANY", "CNAME", "MX", "NULL", "NS", "PTR", "SOA", "SRV", "TXT",
 ];
 
 pub static SUPPORTED_OUTPUT_FORMATS: &[&str] = &["json", "summary"];

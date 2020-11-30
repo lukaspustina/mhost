@@ -36,6 +36,7 @@ fn record_types(args: &ArgMatches<'_>) -> Result<Vec<RecordType>> {
     if args.is_present("all-record-types") {
         Ok(SUPPORTED_RECORD_TYPES
             .iter()
+            .filter(|x| **x != "ANY")
             .map(|x| RecordType::from_str(x).unwrap())
             .collect())
     } else {

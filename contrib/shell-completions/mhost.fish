@@ -38,7 +38,7 @@ complete -c mhost -n "__fish_seen_subcommand_from discover" -s V -l version -d '
 complete -c mhost -n "__fish_seen_subcommand_from get-server-lists" -s o -l output-file -d 'Sets path to output file'
 complete -c mhost -n "__fish_seen_subcommand_from get-server-lists" -s h -l help -d 'Prints help information'
 complete -c mhost -n "__fish_seen_subcommand_from get-server-lists" -s V -l version -d 'Prints version information'
-complete -c mhost -n "__fish_seen_subcommand_from lookup" -s t -l record-type -d 'Sets record type to lookup, will be ignored in case of IP address lookup' -r -f -a "A AAAA ANAME CNAME MX NULL NS PTR SOA SRV TXT"
+complete -c mhost -n "__fish_seen_subcommand_from lookup" -s t -l record-type -d 'Sets record type to lookup, will be ignored in case of IP address lookup' -r -f -a "A AAAA ANAME ANY CNAME MX NULL NS PTR SOA SRV TXT"
 complete -c mhost -n "__fish_seen_subcommand_from lookup" -l all -d 'Enables lookups for all record types'
 complete -c mhost -n "__fish_seen_subcommand_from lookup" -s S -l single-server-lookup -d 'Switches into single server lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.'
 complete -c mhost -n "__fish_seen_subcommand_from lookup" -s w -l whois -d 'Retrieves Whois information about A, AAAA, and PTR records.'

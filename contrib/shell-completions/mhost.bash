@@ -166,11 +166,11 @@ _mhost() {
             case "${prev}" in
                 
                 --record-type)
-                    COMPREPLY=($(compgen -W "A AAAA ANAME CNAME MX NULL NS PTR SOA SRV TXT" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "A AAAA ANAME ANY CNAME MX NULL NS PTR SOA SRV TXT" -- "${cur}"))
                     return 0
                     ;;
                     -t)
-                    COMPREPLY=($(compgen -W "A AAAA ANAME CNAME MX NULL NS PTR SOA SRV TXT" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "A AAAA ANAME ANY CNAME MX NULL NS PTR SOA SRV TXT" -- "${cur}"))
                     return 0
                     ;;
                 *)
