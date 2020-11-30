@@ -8,7 +8,7 @@ use tokio::io::AsyncWriteExt;
 
 use crate::app::cli::{print_estimates_downloads, print_statistics, ExitStatus};
 use crate::app::modules::get_server_lists::config::DownloadServerListConfig;
-use crate::app::{GlobalConfig, ModuleStep};
+use crate::app::{GlobalConfig, Partial};
 use crate::output::styles::{self, CAPTION_PREFIX, OK_PREFIX};
 use crate::services::server_lists::{DownloadResponses, ServerListDownloader, ServerListDownloaderOpts};
 
@@ -19,14 +19,6 @@ impl GetServerLists {
         let opts: ServerListDownloaderOpts =
             ServerListDownloaderOpts::new(global_config.max_concurrent_requests, global_config.abort_on_error);
         let downloader = ServerListDownloader::new(opts);
-
-        if !global_config.quiet {
-            println!(
-                "{}",
-                styles::EMPH.paint(format!("{} Downloading server lists.", &*CAPTION_PREFIX))
-            );
-            print_estimates_downloads(&config.server_list_specs);
-        }
 
         Ok(DownloadServerLists {
             global_config,
@@ -43,7 +35,15 @@ pub struct DownloadServerLists<'a> {
 }
 
 impl<'a> DownloadServerLists<'a> {
-    pub async fn download_server_lists(self) -> Result<ModuleStep<FileWriter<'a>>> {
+    pub async fn download_server_lists(self) -> Result<Partial<FileWriter<'a>>> {
+        if !self.global_config.quiet {
+            println!(
+                "{}",
+                styles::EMPH.paint(format!("{} Downloading server lists.", &*CAPTION_PREFIX))
+            );
+            print_estimates_downloads(&self.config.server_list_specs);
+        }
+
         info!("Downloading lists");
         let start_time = Instant::now();
         let servers = self.downloader.download(self.config.server_list_specs).await?;
@@ -54,7 +54,7 @@ impl<'a> DownloadServerLists<'a> {
             print_statistics(&servers, total_run_time);
         }
 
-        Ok(ModuleStep::Next(FileWriter {
+        Ok(Partial::Next(FileWriter {
             global_config: self.global_config,
             output_file_path: self.config.output_file_path,
             servers,
@@ -62,11 +62,11 @@ impl<'a> DownloadServerLists<'a> {
     }
 }
 
-impl<'a> ModuleStep<FileWriter<'a>> {
+impl<'a> Partial<FileWriter<'a>> {
     pub async fn write_servers_to_file(self) -> Result<ExitStatus> {
         match self {
-            ModuleStep::Next(next) => next.write_servers_to_file().await,
-            ModuleStep::ExitStatus(e) => Ok(e),
+            Partial::Next(next) => next.write_servers_to_file().await,
+            Partial::ExitStatus(e) => Ok(e),
         }
     }
 }

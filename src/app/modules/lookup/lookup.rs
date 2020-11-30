@@ -30,15 +30,6 @@ impl Lookup {
             .await?
             .with_single_server_lookup(config.single_server_lookup);
 
-        if !global_config.quiet {
-            print_opts(app_resolver.resolver_group_opts(), &app_resolver.resolver_opts());
-            println!(
-                "{}",
-                styles::EMPH.paint(format!("{} Running DNS lookups.", &*CAPTION_PREFIX))
-            );
-            print_estimates_lookups(app_resolver.resolvers(), &query);
-        }
-
         Ok(DnsLookups {
             global_config,
             config,
@@ -78,6 +69,18 @@ pub struct DnsLookups<'a> {
 
 impl<'a> DnsLookups<'a> {
     pub async fn lookups(self) -> Result<Whois<'a>> {
+        if !self.global_config.quiet {
+            print_opts(
+                self.app_resolver.resolver_group_opts(),
+                &self.app_resolver.resolver_opts(),
+            );
+            println!(
+                "{}",
+                styles::EMPH.paint(format!("{} Running DNS lookups.", &*CAPTION_PREFIX))
+            );
+            print_estimates_lookups(self.app_resolver.resolvers(), &self.query);
+        }
+
         info!("Running lookups");
         let start_time = Instant::now();
         let lookups: Lookups = self.app_resolver.lookup(self.query).await?;

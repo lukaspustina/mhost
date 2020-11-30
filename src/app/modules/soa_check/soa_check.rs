@@ -9,7 +9,7 @@ use log::info;
 use crate::app::cli::{print_estimates_lookups, print_opts, print_statistics, ExitStatus};
 use crate::app::modules::soa_check::config::SoaCheckConfig;
 use crate::app::resolver::AppResolver;
-use crate::app::{output, GlobalConfig, ModuleStep};
+use crate::app::{output, GlobalConfig, Partial};
 use crate::diff::SetDiffer;
 use crate::nameserver::NameServerConfig;
 use crate::output::styles::{self, ATTENTION_PREFIX, CAPTION_PREFIX, ERROR_PREFIX, OK_PREFIX};
@@ -28,17 +28,6 @@ impl SoaCheck {
         let query = MultiQuery::single(config.domain_name.as_str(), RecordType::NS)?;
         let app_resolver = AppResolver::create_resolvers(global_config).await?;
 
-        if !global_config.quiet && config.partial_results {
-            print_opts(app_resolver.resolver_group_opts(), &app_resolver.resolver_opts());
-            if config.partial_results {
-                println!(
-                    "{}",
-                    styles::EMPH.paint(format!("{} Running DNS lookups of name servers.", &*CAPTION_PREFIX))
-                );
-                print_estimates_lookups(&app_resolver.resolvers(), &query);
-            }
-        }
-
         Ok(AuthoritativeNameServers {
             global_config,
             config,
@@ -56,7 +45,21 @@ pub struct AuthoritativeNameServers<'a> {
 }
 
 impl<'a> AuthoritativeNameServers<'a> {
-    pub async fn lookup_authoritative_name_servers(self) -> Result<ModuleStep<NameServerIps<'a>>> {
+    pub async fn lookup_authoritative_name_servers(self) -> Result<Partial<NameServerIps<'a>>> {
+        if !self.global_config.quiet && self.config.partial_results {
+            print_opts(
+                self.app_resolver.resolver_group_opts(),
+                &self.app_resolver.resolver_opts(),
+            );
+            if self.config.partial_results {
+                println!(
+                    "{}",
+                    styles::EMPH.paint(format!("{} Running DNS lookups of name servers.", &*CAPTION_PREFIX))
+                );
+                print_estimates_lookups(&self.app_resolver.resolvers(), &self.query);
+            }
+        }
+
         info!("Running lookups for authoritative name servers");
         let start_time = Instant::now();
         let lookups = self.app_resolver.lookup(self.query).await?;
@@ -74,12 +77,12 @@ impl<'a> AuthoritativeNameServers<'a> {
                 "{} No authoritative nameservers found. Aborting.",
                 styles::ATTENTION.paint(&*ERROR_PREFIX)
             );
-            return Ok(ModuleStep::ExitStatus(ExitStatus::Abort));
+            return Ok(Partial::ExitStatus(ExitStatus::Abort));
         }
 
         let name_servers = lookups.ns().unique().to_owned();
 
-        Ok(ModuleStep::Next(NameServerIps {
+        Ok(Partial::Next(NameServerIps {
             global_config: self.global_config,
             config: self.config,
             app_resolver: self.app_resolver,
@@ -88,11 +91,11 @@ impl<'a> AuthoritativeNameServers<'a> {
     }
 }
 
-impl<'a> ModuleStep<NameServerIps<'a>> {
-    pub async fn lookup_name_server_ips(self) -> Result<ModuleStep<SoaRecords<'a>>> {
+impl<'a> Partial<NameServerIps<'a>> {
+    pub async fn lookup_name_server_ips(self) -> Result<Partial<SoaRecords<'a>>> {
         match self {
-            ModuleStep::Next(next) => next.lookup_name_server_ips().await,
-            ModuleStep::ExitStatus(e) => Ok(ModuleStep::ExitStatus(e)),
+            Partial::Next(next) => next.lookup_name_server_ips().await,
+            Partial::ExitStatus(e) => Ok(Partial::ExitStatus(e)),
         }
     }
 }
@@ -105,7 +108,7 @@ pub struct NameServerIps<'a> {
 }
 
 impl<'a> NameServerIps<'a> {
-    async fn lookup_name_server_ips(self) -> Result<ModuleStep<SoaRecords<'a>>> {
+    async fn lookup_name_server_ips(self) -> Result<Partial<SoaRecords<'a>>> {
         let query = MultiQuery::new(self.name_servers, vec![RecordType::A, RecordType::AAAA])?;
         if !self.global_config.quiet && self.config.partial_results {
             println!(
@@ -135,7 +138,7 @@ impl<'a> NameServerIps<'a> {
                 "{} No IP addresses for authoritative nameservers found. Aborting.",
                 styles::ATTENTION.paint(&*ERROR_PREFIX)
             );
-            return Ok(ModuleStep::ExitStatus(ExitStatus::Abort));
+            return Ok(Partial::ExitStatus(ExitStatus::Abort));
         }
 
         let name_server_ips = lookups
@@ -147,7 +150,7 @@ impl<'a> NameServerIps<'a> {
             .chain(lookups.aaaa().unique().to_owned().into_iter().map(IpAddr::from))
             .collect();
 
-        Ok(ModuleStep::Next(SoaRecords {
+        Ok(Partial::Next(SoaRecords {
             global_config: self.global_config,
             config: self.config,
             name_server_ips,
@@ -155,11 +158,11 @@ impl<'a> NameServerIps<'a> {
     }
 }
 
-impl<'a> ModuleStep<SoaRecords<'a>> {
-    pub async fn lookup_soa_records(self) -> Result<ModuleStep<SoaDiff>> {
+impl<'a> Partial<SoaRecords<'a>> {
+    pub async fn lookup_soa_records(self) -> Result<Partial<SoaDiff>> {
         match self {
-            ModuleStep::Next(next) => next.lookup_soa_records().await,
-            ModuleStep::ExitStatus(e) => Ok(ModuleStep::ExitStatus(e)),
+            Partial::Next(next) => next.lookup_soa_records().await,
+            Partial::ExitStatus(e) => Ok(Partial::ExitStatus(e)),
         }
     }
 }
@@ -171,7 +174,7 @@ pub struct SoaRecords<'a> {
 }
 
 impl<'a> SoaRecords<'a> {
-    async fn lookup_soa_records(self) -> Result<ModuleStep<SoaDiff>> {
+    async fn lookup_soa_records(self) -> Result<Partial<SoaDiff>> {
         let authoritative_name_servers = self
             .name_server_ips
             .into_iter()
@@ -203,20 +206,20 @@ impl<'a> SoaRecords<'a> {
                 "{} No SOA records from authoritative nameservers found. Aborting.",
                 styles::ATTENTION.paint(&*ERROR_PREFIX)
             );
-            return Ok(ModuleStep::ExitStatus(ExitStatus::Abort));
+            return Ok(Partial::ExitStatus(ExitStatus::Abort));
         }
 
         let soa_records: IndexSet<_> = lookups.soa().unique().to_owned().into_iter().collect();
 
-        Ok(ModuleStep::Next(SoaDiff { records: soa_records }))
+        Ok(Partial::Next(SoaDiff { records: soa_records }))
     }
 }
 
-impl<'a> ModuleStep<SoaDiff> {
+impl<'a> Partial<SoaDiff> {
     pub fn diff(self) -> Result<ExitStatus> {
         match self {
-            ModuleStep::Next(next) => next.diff(),
-            ModuleStep::ExitStatus(e) => Ok(e),
+            Partial::Next(next) => next.diff(),
+            Partial::ExitStatus(e) => Ok(e),
         }
     }
 }

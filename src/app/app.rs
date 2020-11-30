@@ -263,6 +263,30 @@ fn discover_subcommand() -> App<'static, 'static> {
                 .long("single-server-lookup")
                 .help("Switches into single server lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.")
         )
+        .arg(
+            Arg::with_name("rnd-names-number")
+                .long("rnd-names-number")
+                .value_name("NUMBER")
+                .default_value("3")
+                .validator(|str| {
+                    u64::from_str(&str)
+                        .map(|_| ())
+                        .map_err(|_| "invalid number".to_string())
+                })
+                .help("Sets number of random domain names to generate for wildcard resolution check")
+        )
+        .arg(
+            Arg::with_name("rnd-names-len")
+                .long("rnd-names-len")
+                .value_name("len")
+                .default_value("32")
+                .validator(|str| {
+                    u64::from_str(&str)
+                        .map(|_| ())
+                        .map_err(|_| "invalid number".to_string())
+                })
+                .help("Sets length of random domain names to generate for wildcard resolution check")
+        )
 }
 
 fn get_server_lists_subcommand() -> App<'static, 'static> {

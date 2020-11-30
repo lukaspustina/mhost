@@ -18,5 +18,11 @@ pub async fn run(args: &ArgMatches<'_>, global_config: &GlobalConfig) -> Result<
     let args = args.subcommand_matches("discover").unwrap();
     let config: DiscoverConfig = args.try_into()?;
 
-    Discover::init(global_config, &config).await
+    Discover::init(global_config, &config)
+        .await?
+        .request_all_records()
+        .await?
+        .check_wildcard_resolution()
+        .await?
+        .output()
 }

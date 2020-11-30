@@ -61,6 +61,8 @@ _mhost() {
         case $line[1] in
             (discover)
 _arguments "${_arguments_options[@]}" \
+'--rnd-names-number=[Sets number of random domain names to generate for wildcard resolution check]' \
+'--rnd-names-len=[Sets length of random domain names to generate for wildcard resolution check]' \
 '-p[Shows results after each lookup step]' \
 '--show-partial-results[Shows results after each lookup step]' \
 '-S[Switches into single server lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.]' \

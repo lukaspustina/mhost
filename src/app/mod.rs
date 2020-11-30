@@ -19,7 +19,7 @@ pub use global_config::GlobalConfig;
  *
  * Think of it as a means for early returns.
  */
-pub enum ModuleStep<T> {
+pub enum Partial<T> {
     Next(T),
     ExitStatus(cli::ExitStatus),
 }

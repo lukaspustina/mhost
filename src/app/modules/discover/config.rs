@@ -2,11 +2,14 @@ use std::convert::TryFrom;
 
 use anyhow::Context;
 use clap::ArgMatches;
+use std::str::FromStr;
 
 pub struct DiscoverConfig {
     pub domain_name: String,
     pub partial_results: bool,
     pub single_server_lookup: bool,
+    pub rnd_names_number: usize,
+    pub rnd_names_len: usize,
 }
 
 impl TryFrom<&ArgMatches<'_>> for DiscoverConfig {
@@ -20,6 +23,14 @@ impl TryFrom<&ArgMatches<'_>> for DiscoverConfig {
                 .to_string(),
             partial_results: args.is_present("partial-results"),
             single_server_lookup: args.is_present("single-server-lookup"),
+            rnd_names_number: args
+                .value_of("rnd-names-number")
+                .map(|x| usize::from_str(x).context("failed to parse rnd-names-number"))
+                .unwrap()?, // Safe unwrap, because of clap's validation
+            rnd_names_len: args
+                .value_of("rnd-names-len")
+                .map(|x| usize::from_str(x).context("failed to parse rnd-names-len"))
+                .unwrap()?, // Safe unwrap, because of clap's validation
         };
 
         Ok(config)
