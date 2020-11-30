@@ -112,13 +112,21 @@ _mhost() {
             ;;
         
         mhost__discover)
-            opts=" -p -S -h -V  --show-partial-results --single-server-lookup --help --version --rnd-names-number --rnd-names-len  <NAME> "
+            opts=" -p -S -h -V -w  --show-partial-results --single-server-lookup --help --version --wordlist-from-file --rnd-names-number --rnd-names-len  <NAME> "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 
+                --wordlist-from-file)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                    -w)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 --rnd-names-number)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0

@@ -29,6 +29,7 @@ complete -c mhost -n "__fish_use_subcommand" -f -a "discover" -d 'Discovers reco
 complete -c mhost -n "__fish_use_subcommand" -f -a "get-server-lists" -d 'Downloads known lists of name servers'
 complete -c mhost -n "__fish_use_subcommand" -f -a "lookup" -d 'Looks up a name, IP address or CIDR block'
 complete -c mhost -n "__fish_use_subcommand" -f -a "soa-check" -d 'Checks SOA records of authoritative name servers for deviations'
+complete -c mhost -n "__fish_seen_subcommand_from discover" -s w -l wordlist-from-file -d 'Uses wordlist from file'
 complete -c mhost -n "__fish_seen_subcommand_from discover" -l rnd-names-number -d 'Sets number of random domain names to generate for wildcard resolution check'
 complete -c mhost -n "__fish_seen_subcommand_from discover" -l rnd-names-len -d 'Sets length of random domain names to generate for wildcard resolution check'
 complete -c mhost -n "__fish_seen_subcommand_from discover" -s p -l show-partial-results -d 'Shows results after each lookup step'

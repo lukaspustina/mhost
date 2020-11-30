@@ -1,9 +1,14 @@
+use std::collections::HashSet;
+use std::io::Write;
 use std::net::IpAddr;
+use std::str::FromStr;
 use std::time::Instant;
 
 use anyhow::{Context, Result};
 use ipnetwork::IpNetwork;
 use log::info;
+use serde::Serialize;
+use tokio::time::Duration;
 
 use crate::app::cli::{
     print_error_counts, print_estimates_lookups, print_estimates_whois, print_opts, print_statistics, ExitStatus,
@@ -11,15 +16,14 @@ use crate::app::cli::{
 use crate::app::modules::lookup::config::LookupConfig;
 use crate::app::resolver::AppResolver;
 use crate::app::{output, GlobalConfig};
-use crate::output::styles::{self, CAPTION_PREFIX};
+use crate::output::styles::{self, CAPTION_PREFIX, FINISHED_PREFIX};
+use crate::output::summary::{SummaryFormatter, SummaryOptions};
+use crate::output::OutputType;
 use crate::resolver::lookup::Uniquify;
 use crate::resolver::{Lookups, MultiQuery};
 use crate::resources::NameToIpAddr;
-use crate::services::whois::{self, QueryType, WhoisClient, WhoisClientOpts};
+use crate::services::whois::{self, QueryType, WhoisClient, WhoisClientOpts, WhoisResponses};
 use crate::RecordType;
-use std::collections::HashSet;
-use std::str::FromStr;
-use tokio::time::Duration;
 
 pub struct Lookup {}
 
@@ -112,15 +116,19 @@ pub struct Whois<'a> {
 }
 
 impl<'a> Whois<'a> {
-    pub async fn optional_whois(self) -> Result<ExitStatus> {
+    pub async fn optional_whois(self) -> Result<LookupResult<'a>> {
         if self.config.whois {
             self.whois().await
         } else {
-            Ok(ExitStatus::Ok)
+            Ok(LookupResult {
+                global_config: self.global_config,
+                lookups: self.lookups,
+                whois: None,
+            })
         }
     }
 
-    async fn whois(self) -> Result<ExitStatus> {
+    async fn whois(self) -> Result<LookupResult<'a>> {
         let ip_addresses = Whois::ips_from_lookups(&self.lookups)?;
         let query_types = vec![QueryType::NetworkInfo, QueryType::GeoLocation, QueryType::Whois];
         let query = whois::MultiQuery::from_iter(ip_addresses, query_types);
@@ -148,7 +156,11 @@ impl<'a> Whois<'a> {
 
         output::output(&self.global_config.output_config, &whois)?;
 
-        Ok(ExitStatus::Ok)
+        Ok(LookupResult {
+            global_config: self.global_config,
+            lookups: self.lookups,
+            whois: Some(whois),
+        })
     }
 
     fn ips_from_lookups(lookups: &Lookups) -> Result<impl Iterator<Item = IpNetwork>> {
@@ -177,5 +189,48 @@ impl<'a> Whois<'a> {
 
         // At last, combine these two sets of IP addresses for the Whois lookup
         Ok(ptrs.into_iter().map(IpNetwork::from).chain(ips))
+    }
+}
+
+pub struct LookupResult<'a> {
+    global_config: &'a GlobalConfig,
+    lookups: Lookups,
+    whois: Option<WhoisResponses>,
+}
+
+impl<'a> LookupResult<'a> {
+    pub fn output(self) -> Result<ExitStatus> {
+        match self.global_config.output {
+            OutputType::Json => self.json_output(),
+            OutputType::Summary => self.summary_output(),
+        }
+    }
+
+    fn json_output(self) -> Result<ExitStatus> {
+        #[derive(Debug, Serialize)]
+        struct Json {
+            lookups: Lookups,
+            whois: Option<WhoisResponses>,
+        }
+        impl SummaryFormatter for Json {
+            fn output<W: Write>(&self, _: &mut W, _: &SummaryOptions) -> crate::Result<()> {
+                unimplemented!()
+            }
+        }
+        let data = Json {
+            lookups: self.lookups,
+            whois: self.whois,
+        };
+
+        output::output(&self.global_config.output_config, &data)?;
+        Ok(ExitStatus::Ok)
+    }
+
+    fn summary_output(self) -> Result<ExitStatus> {
+        if !self.global_config.quiet {
+            println!("{}", styles::EMPH.paint(format!("{} Finished.", &*FINISHED_PREFIX)));
+        }
+
+        Ok(ExitStatus::Ok)
     }
 }

@@ -8,8 +8,9 @@ use tokio::io::BufReader;
 
 use crate::{IntoName, Name};
 
-static DEFAULT_WORD_LIST: &str = include_str!("../../../../contrib/subdomains-top1mil-20000.txt");
+static DEFAULT_WORD_LIST: &str = include_str!("../../../../contrib/subdomains-top1mil-5000.txt");
 
+#[derive(Debug)]
 pub struct Wordlist {
     words: Vec<Name>,
 }
@@ -31,6 +32,7 @@ impl Wordlist {
             }
             trace!("Parsing wordlist item '{}'.", buffer);
             let name: Name = buffer
+                .trim_end() // BufReader::read_line returns trainling line break
                 .into_name()
                 .context("failed to read word list because of invalid domain name")?;
             words.push(name);
@@ -64,10 +66,12 @@ impl Wordlist {
         Wordlist::from_str(DEFAULT_WORD_LIST)
     }
 
+    #[allow(dead_code)]
     pub fn iter(&self) -> Iter<Name> {
         self.words.iter()
     }
 
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.words.len()
     }
@@ -79,5 +83,50 @@ impl IntoIterator for Wordlist {
 
     fn into_iter(self) -> Self::IntoIter {
         self.words.into_iter()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    use spectral::prelude::*;
+
+    #[tokio::test]
+    async fn read_from_file_5000() {
+        let path = "contrib/subdomains-top1mil-5000.txt";
+
+        let wordlist = Wordlist::from_file(path).await;
+
+        asserting("Wordlist with 5000 elements loaded from file")
+            .that(&wordlist)
+            .is_ok()
+            .map(|x| &x.words)
+            .has_length(5000)
+    }
+
+    #[tokio::test]
+    async fn read_from_file_20000() {
+        let path = "contrib/subdomains-top1mil-20000.txt";
+
+        let wordlist = Wordlist::from_file(path).await;
+
+        asserting("Wordlist with 20000 elements loaded from file")
+            .that(&wordlist)
+            .is_ok()
+            .map(|x| &x.words)
+            .has_length(19998)
+    }
+
+    #[test]
+    fn read_from_string() {
+        let wordlist = Wordlist::from_str(&DEFAULT_WORD_LIST);
+
+        asserting("Wordlist with 5000 elements loaded from string")
+            .that(&wordlist)
+            .is_ok()
+            .map(|x| &x.words)
+            .has_length(5000)
     }
 }

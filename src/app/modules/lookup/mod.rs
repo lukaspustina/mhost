@@ -24,5 +24,6 @@ pub async fn run(args: &ArgMatches<'_>, global_config: &GlobalConfig) -> Result<
         .lookups()
         .await?
         .optional_whois()
-        .await
+        .await?
+        .output()
 }

@@ -47,7 +47,7 @@ pub fn list_predefined_nameservers() {
 
 pub fn print_opts(group_opts: &ResolverGroupOpts, opts: &ResolverOpts) {
     println!(
-        "{} {}: concurrent nameservers={}, max. nameservers={}, concurrent requests={}, retries={}, timeout={} s{}{}{}",
+        "{} {}: concurrent nameservers={}, max. nameservers={}, concurrent requests={}, retries={}, timeout={}s{}{}{}",
         styles::EMPH.paint(&*CAPTION_PREFIX),
         styles::EMPH.paint("Options"),
         group_opts.max_concurrent,
@@ -102,7 +102,7 @@ pub fn print_estimates_lookups(resolvers: &ResolverGroup, query: &resolver::Mult
         "1 record type".to_string()
     };
     let names_str = if num_names > 1 {
-        format!("{} record types", num_names)
+        format!("{} names", num_names)
     } else {
         "1 name".to_string()
     };

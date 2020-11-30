@@ -17,6 +17,28 @@ pub struct SummaryOptions {
     show_domain_names: bool,
 }
 
+impl SummaryOptions {
+    pub fn new(human: bool, condensed: bool, show_domain_names: bool) -> SummaryOptions {
+        SummaryOptions {
+            human,
+            condensed,
+            show_domain_names,
+        }
+    }
+
+    pub fn human(&self) -> bool {
+        self.human
+    }
+
+    pub fn condensed(&self) -> bool {
+        self.condensed
+    }
+
+    pub fn show_domain_names(&self) -> bool {
+        self.show_domain_names
+    }
+}
+
 impl Default for SummaryOptions {
     fn default() -> Self {
         SummaryOptions {
@@ -48,6 +70,10 @@ pub struct SummaryFormat {
 impl SummaryFormat {
     pub fn new(opts: SummaryOptions) -> SummaryFormat {
         SummaryFormat { opts }
+    }
+
+    pub fn opts(&self) -> &SummaryOptions {
+        &self.opts
     }
 }
 

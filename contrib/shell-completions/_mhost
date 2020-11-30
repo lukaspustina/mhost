@@ -61,6 +61,8 @@ _mhost() {
         case $line[1] in
             (discover)
 _arguments "${_arguments_options[@]}" \
+'-w+[Uses wordlist from file]' \
+'--wordlist-from-file=[Uses wordlist from file]' \
 '--rnd-names-number=[Sets number of random domain names to generate for wildcard resolution check]' \
 '--rnd-names-len=[Sets length of random domain names to generate for wildcard resolution check]' \
 '-p[Shows results after each lookup step]' \

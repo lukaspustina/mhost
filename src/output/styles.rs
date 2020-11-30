@@ -23,5 +23,6 @@ lazy_static! {
     pub static ref ERROR_PREFIX: String = (if ASCII_MODE.load(SeqCst) { "!" } else { "⚡︎" }).to_string();
     pub static ref INFO_PREFIX: String = (if ASCII_MODE.load(SeqCst) { "-" } else { "▸" }).to_string();
     pub static ref ITEMAZATION_PREFIX: String = (if ASCII_MODE.load(SeqCst) { "*" } else { "∙" }).to_string();
+    pub static ref FINISHED_PREFIX: String = (if ASCII_MODE.load(SeqCst) { "+" } else { "❖" }).to_string();
     pub static ref OK_PREFIX: String = (if ASCII_MODE.load(SeqCst) { "=" } else { "✓" }).to_string();
 }

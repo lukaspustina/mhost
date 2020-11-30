@@ -26,5 +26,5 @@ pub async fn run(args: &ArgMatches<'_>, global_config: &GlobalConfig) -> Result<
         .await?
         .lookup_soa_records()
         .await?
-        .diff()
+        .output()
 }

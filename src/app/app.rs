@@ -268,6 +268,14 @@ fn discover_subcommand() -> App<'static, 'static> {
                 .help("Switches into single server lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.")
         )
         .arg(
+            Arg::with_name("wordlist-from-file")
+                .short("w")
+                .long("wordlist-from-file")
+                .value_name("FILE")
+                .takes_value(true)
+                .help("Uses wordlist from file"),
+        )
+        .arg(
             Arg::with_name("rnd-names-number")
                 .long("rnd-names-number")
                 .value_name("NUMBER")

@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::hash::Hash;
-use std::net::{Ipv4Addr, Ipv6Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::slice::Iter;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -46,9 +46,12 @@ macro_rules! lookups_record_accessor {
 
 impl Lookups {
     #[allow(dead_code)]
-    #[doc(hidden)]
-    pub(crate) fn new(inner: Vec<Lookup>) -> Lookups {
+    pub fn new(inner: Vec<Lookup>) -> Lookups {
         Lookups { inner }
+    }
+
+    pub fn empty() -> Lookups {
+        Lookups { inner: Vec::new() }
     }
 
     pub fn len(&self) -> usize {
@@ -65,6 +68,34 @@ impl Lookups {
 
     pub fn has_records(&self) -> bool {
         self.inner.iter().any(|x| x.result().is_response())
+    }
+
+    pub fn records(&self) -> Vec<&Record> {
+        self.inner
+            .iter()
+            .flat_map(|x| x.result().response())
+            .flat_map(|x| x.records())
+            .collect()
+    }
+
+    pub fn ips(&self) -> Vec<IpAddr> {
+        let ipv4s = self
+            .inner
+            .iter()
+            .flat_map(|x| x.result().response())
+            .flat_map(|x| x.records())
+            .flat_map(|x| x.rdata().a())
+            .cloned()
+            .map(IpAddr::V4);
+        let ipv6s = self
+            .inner
+            .iter()
+            .flat_map(|x| x.result().response())
+            .flat_map(|x| x.records())
+            .flat_map(|x| x.rdata().aaaa())
+            .cloned()
+            .map(IpAddr::V6);
+        ipv4s.chain(ipv6s).collect()
     }
 
     lookups_data_accessor!(a, Ipv4Addr);
@@ -121,6 +152,39 @@ impl Lookups {
 
     fn map_responses(&self) -> impl Iterator<Item = &Response> {
         self.inner.iter().map(|x| x.result().response()).flatten()
+    }
+
+    /** Merge two Lookups into one
+     *
+     * This operation consumes both Lookups and creates a new one without cloning or copying the
+     * contained `Lookups`.
+     */
+    pub fn merge(self, other: Self) -> Self {
+        let mut inner = self.inner;
+        let mut other = other.inner;
+        inner.append(&mut other);
+        Lookups { inner }
+    }
+
+    /** Combine this Lookups with another one
+     *
+     * This operation does not alter `this` or `other` by taking the `Lookup`'s from both, cloning
+     * them, and creating a new `Lookups` with the results.
+     */
+    pub fn combine<T: AsRef<Self>>(&self, other: T) -> Self {
+        let inner = self
+            .inner
+            .iter()
+            .cloned()
+            .chain(other.as_ref().iter().cloned())
+            .collect();
+        Lookups { inner }
+    }
+}
+
+impl AsRef<Lookups> for Lookups {
+    fn as_ref(&self) -> &Lookups {
+        self
     }
 }
 
@@ -220,6 +284,26 @@ impl Lookup {
 
     pub fn result(&self) -> &LookupResult {
         &self.result
+    }
+
+    pub fn ips(&self) -> Vec<IpAddr> {
+        let ipv4s = self
+            .result()
+            .response()
+            .into_iter()
+            .flat_map(|x| x.records())
+            .flat_map(|x| x.rdata().a())
+            .cloned()
+            .map(IpAddr::V4);
+        let ipv6s = self
+            .result()
+            .response()
+            .into_iter()
+            .flat_map(|x| x.records())
+            .flat_map(|x| x.rdata().aaaa())
+            .cloned()
+            .map(IpAddr::V6);
+        ipv4s.chain(ipv6s).collect()
     }
 
     lookup_data_accessor!(a, Ipv4Addr);
