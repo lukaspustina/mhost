@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::time::Instant;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use log::info;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
@@ -10,12 +10,17 @@ use crate::app::cli::{print_estimates_downloads, print_statistics, ExitStatus};
 use crate::app::modules::get_server_lists::config::DownloadServerListConfig;
 use crate::app::{GlobalConfig, Partial};
 use crate::output::styles::{self, CAPTION_PREFIX, OK_PREFIX};
+use crate::output::OutputType;
 use crate::services::server_lists::{DownloadResponses, ServerListDownloader, ServerListDownloaderOpts};
 
 pub struct GetServerLists {}
 
 impl GetServerLists {
     pub fn init(global_config: &GlobalConfig, config: DownloadServerListConfig) -> Result<DownloadServerLists> {
+        if global_config.output == OutputType::Json {
+            return Err(anyhow!("JSON output is not support"));
+        }
+
         let opts: ServerListDownloaderOpts =
             ServerListDownloaderOpts::new(global_config.max_concurrent_requests, global_config.abort_on_error);
         let downloader = ServerListDownloader::new(opts);

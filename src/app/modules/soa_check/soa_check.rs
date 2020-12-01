@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::net::IpAddr;
 use std::time::Instant;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use indexmap::set::IndexSet;
 use log::info;
 
@@ -13,6 +13,7 @@ use crate::app::{output, GlobalConfig, Partial};
 use crate::diff::SetDiffer;
 use crate::nameserver::NameServerConfig;
 use crate::output::styles::{self, ATTENTION_PREFIX, CAPTION_PREFIX, ERROR_PREFIX, FINISHED_PREFIX, OK_PREFIX};
+use crate::output::OutputType;
 use crate::resolver::lookup::Uniquify;
 use crate::resolver::{Lookups, MultiQuery, ResolverConfig};
 use crate::{Name, RecordType};
@@ -24,6 +25,10 @@ impl SoaCheck {
         global_config: &'a GlobalConfig,
         config: &'a SoaCheckConfig,
     ) -> Result<AuthoritativeNameServers<'a>> {
+        if global_config.output == OutputType::Json && config.partial_results {
+            return Err(anyhow!("JSON output is incompatible with partial result output"));
+        }
+
         let query = MultiQuery::single(config.domain_name.as_str(), RecordType::NS)?;
         let app_resolver = AppResolver::create_resolvers(global_config).await?;
 

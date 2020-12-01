@@ -4,7 +4,7 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use std::time::Instant;
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use ipnetwork::IpNetwork;
 use log::info;
 use serde::Serialize;
@@ -95,7 +95,9 @@ impl<'a> DnsLookups<'a> {
             print_statistics(&lookups, total_run_time);
         }
 
-        output::output(&self.global_config.output_config, &lookups)?;
+        if self.global_config.output != OutputType::Json {
+            output::output(&self.global_config.output_config, &lookups)?;
+        }
 
         if !self.global_config.quiet && self.global_config.show_errors {
             print_error_counts(&lookups);
@@ -154,7 +156,9 @@ impl<'a> Whois<'a> {
             print_statistics(&whois, total_run_time);
         }
 
-        output::output(&self.global_config.output_config, &whois)?;
+        if self.global_config.output != OutputType::Json {
+            output::output(&self.global_config.output_config, &whois)?;
+        }
 
         Ok(LookupResult {
             global_config: self.global_config,

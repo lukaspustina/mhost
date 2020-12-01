@@ -3,7 +3,7 @@ use std::iter;
 use std::str::FromStr;
 use std::time::{Duration, Instant};
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use log::{debug, info};
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
@@ -26,6 +26,10 @@ pub struct Discover {}
 
 impl Discover {
     pub async fn init<'a>(global_config: &'a GlobalConfig, config: &'a DiscoverConfig) -> Result<RequestAll<'a>> {
+        if global_config.output == OutputType::Json && config.partial_results {
+            return Err(anyhow!("JSON output is incompatible with partial result output"));
+        }
+
         let domain_name: Name = config
             .domain_name
             .as_str()

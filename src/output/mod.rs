@@ -12,7 +12,7 @@ pub mod json;
 pub mod styles;
 pub mod summary;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OutputType {
     Json,
     Summary,
