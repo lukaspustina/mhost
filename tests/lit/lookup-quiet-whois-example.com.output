@@ -1,0 +1,7 @@
+RUN: @mhost_bin --ascii --no-color -q lookup example.com --whois
+
+CHECK: * MX:
+CHECK-NEXT: * A:
+CHECK-NEXT: * AAAA:
+CHECK-NEXT: [[.+]] AS 15133
+CHECK-NEXT: [[.+]] AS 15133

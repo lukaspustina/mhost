@@ -4,7 +4,7 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use std::time::Instant;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use ipnetwork::IpNetwork;
 use log::info;
 use serde::Serialize;

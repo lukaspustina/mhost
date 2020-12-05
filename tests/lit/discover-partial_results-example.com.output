@@ -1,0 +1,28 @@
+RUN: @mhost_bin --ascii --no-color discover example.com -p
+
+CHECK: > Options: concurrent nameservers=10, max. nameservers=100, concurrent requests=5, retries=0, timeout=5s, abort on error, abort on timeout
+CHECK-NEXT: > Requesting all record types.
+CHECK-NEXT: - Sending
+CHECK-NEXT: - Received
+CHECK-NEXT: * SOA:
+CHECK-NEXT: * NS:
+CHECK-NEXT: * NS:
+CHECK-NEXT: * MX:
+CHECK-NEXT: * TXT:
+CHECK: * TXT:
+CHECK: * A:
+CHECK-NEXT: * AAAA:
+CHECK-NEXT: * DNSSEC:
+CHECK-NEXT: > Checking wildcard resolution.
+CHECK-NEXT: - Sending
+CHECK-NEXT: - Received
+CHECK-NEXT: > Wordlist lookups.
+CHECK-NEXT: - Sending
+CHECK-NEXT: - Received
+CHECK-NEXT: * A:
+CHECK-NEXT: * AAAA:
+CHECK-NEXT: + Finished.
+CHECK-NEXT: - Received
+CHECK-NEXT: - No wildcard resolution discovered
+CHECK-NEXT: * .example.com.
+CHECK-NEXT: * www.example.com.

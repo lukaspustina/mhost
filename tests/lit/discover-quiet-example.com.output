@@ -1,0 +1,4 @@
+RUN: @mhost_bin --ascii --no-color -q discover example.com
+
+CHECK:  * .example.com.
+CHECK-NEXT:  * www.example.com.

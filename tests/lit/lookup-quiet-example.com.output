@@ -1,0 +1,5 @@
+RUN: @mhost_bin --ascii --no-color lookup example.com
+
+CHECK: * MX:
+CHECK-NEXT: * A:
+CHECK-NEXT: * AAAA:

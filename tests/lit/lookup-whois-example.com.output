@@ -1,0 +1,15 @@
+RUN: @mhost_bin --ascii --no-color lookup example.com --whois
+
+CHECK: > Options: concurrent nameservers=10, max. nameservers=100, concurrent requests=5, retries=0, timeout=5s, abort on error, abort on timeout
+CHECK-NEXT: > Running DNS lookups.
+CHECK-NEXT: - Sending [[\d+]] request[[s*]] to [[\d+]] nameserver[[s*]] for 3 record types of 1 name.
+CHECK-NEXT: - Received [[\d+]] responses with [[\d+]] RR [[.]][[\d+]] A, [[\d+]] AAAA, [[\d+]] MX[[.]], [[\d+]] Nx, [[\d+]] Err in (min [[\d+]], max [[\d+]]) ms from [[\d+]] server[[.*]] within [[\d+]] ms of total run time.
+CHECK-NEXT: * MX:
+CHECK-NEXT: * A:
+CHECK-NEXT: * AAAA:
+CHECK-NEXT: > Running WHOIS queries.
+CHECK-NEXT: - Sending up to 6 requests for 3 query types of 2 resources.
+CHECK-NEXT: - Received 6 responses [GL 2, NI 2, WI 2], 0 Err within [[\d+]] ms of total run time.
+CHECK-NEXT: [[.+]] AS 15133
+CHECK-NEXT: [[.+]] AS 15133
+CHECK-NEXT: + Finished.

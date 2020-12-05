@@ -1,0 +1,8 @@
+RUN: @mhost_bin --ascii --no-color discover example.com
+
+CHECK: > Options: concurrent nameservers=10, max. nameservers=100, concurrent requests=5, retries=0, timeout=5s, abort on error, abort on timeout
+CHECK-NEXT: + Finished.
+CHECK-NEXT: - Received [[\d+]] responses
+CHECK-NEXT: - No wildcard resolution discovered
+CHECK-NEXT:  * .example.com.
+CHECK-NEXT:  * www.example.com.

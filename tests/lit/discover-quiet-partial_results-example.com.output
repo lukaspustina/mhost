@@ -1,0 +1,15 @@
+RUN: @mhost_bin --ascii --no-color -q discover example.com -p
+
+CHECK: * SOA:
+CHECK-NEXT: * NS:
+CHECK-NEXT: * NS:
+CHECK-NEXT: * MX:
+CHECK-NEXT: * TXT:
+CHECK: * TXT:
+CHECK: * A:
+CHECK-NEXT: * AAAA:
+CHECK-NEXT: * DNSSEC:
+CHECK-NEXT: * A:
+CHECK-NEXT: * AAAA:
+CHECK-NEXT: * .example.com.
+CHECK-NEXT: * www.example.com.
