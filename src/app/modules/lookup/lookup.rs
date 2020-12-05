@@ -11,11 +11,11 @@ use serde::Serialize;
 use tokio::time::Duration;
 
 use crate::app::console::{
-    print_error_counts, print_estimates_lookups, print_estimates_whois, print_opts, print_statistics, ExitStatus,
+    print_error_counts, print_estimates_lookups, print_estimates_whois, print_opts, print_statistics,
 };
 use crate::app::modules::lookup::config::LookupConfig;
 use crate::app::resolver::AppResolver;
-use crate::app::{output, AppConfig};
+use crate::app::{output, AppConfig, ExitStatus};
 use crate::output::styles::{self, CAPTION_PREFIX, FINISHED_PREFIX};
 use crate::output::summary::{SummaryFormatter, SummaryOptions};
 use crate::output::OutputType;

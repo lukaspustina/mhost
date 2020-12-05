@@ -2,48 +2,12 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use crate::estimate::Estimate;
-use crate::nameserver::predefined;
 use crate::output::styles::{self, CAPTION_PREFIX, INFO_PREFIX, ITEMAZATION_PREFIX, OK_PREFIX};
 use crate::resolver::{self, Lookups, ResolverGroup, ResolverGroupOpts, ResolverOpts};
 use crate::services::server_lists::ServerListSpec;
 use crate::services::whois;
 use crate::statistics::Statistics;
 use std::fmt;
-
-/// `ExitStatus` represents the exit states that will be return to the OS after termination
-#[derive(Debug, Clone)]
-pub enum ExitStatus {
-    /// All fine.
-    Ok = 0,
-    /// CLI argument parsing failed.
-    CliParsingFailed = 1,
-    /// CLI argument parsing failed.
-    ConfigParsingFailed = 2,
-    /// An unrecoverable error occurred. This is worst case and should not happen.
-    UnrecoverableError = 3,
-    /// A module failed to properly execute.
-    Failed = 10,
-    /// A module check failed.
-    CheckFailed = 11,
-    /// A module could not proceed because of invalid preconditions of the succeeding step.
-    Abort = 12,
-}
-
-/* Unstable :(
-use std::process::Termination;
-impl Termination for ExitStatus {
-    fn report(self) -> i32 {
-        self as i32
-    }
-}
-*/
-
-pub fn list_predefined_nameservers() {
-    println!("List of predefined servers:");
-    for ns in predefined::nameserver_configs() {
-        println!(" {} {}", &*ITEMAZATION_PREFIX, ns);
-    }
-}
 
 pub fn print_opts(group_opts: &ResolverGroupOpts, opts: &ResolverOpts) {
     println!(

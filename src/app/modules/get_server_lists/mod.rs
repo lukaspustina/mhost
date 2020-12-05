@@ -1,6 +1,6 @@
-use crate::app::console::ExitStatus;
 use crate::app::modules::get_server_lists::config::DownloadServerListConfig;
 use crate::app::AppConfig;
+use crate::app::ExitStatus;
 use anyhow::Result;
 use clap::ArgMatches;
 use log::info;

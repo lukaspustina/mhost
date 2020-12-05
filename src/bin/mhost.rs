@@ -3,12 +3,12 @@ use std::convert::TryInto;
 use anyhow::Result;
 use log::info;
 
-use mhost::app::cli_parser;
-use mhost::app::console::{list_predefined_nameservers, ExitStatus};
 use mhost::app::logging::start_logging_for_level;
 use mhost::app::modules;
 use mhost::app::AppConfig;
-use mhost::output::styles::ERROR_PREFIX;
+use mhost::app::{cli_parser, ExitStatus};
+use mhost::nameserver::predefined;
+use mhost::output::styles::{ERROR_PREFIX, ITEMAZATION_PREFIX};
 
 async fn run() -> Result<ExitStatus> {
     let args = cli_parser::create_parser().get_matches();
@@ -48,6 +48,13 @@ async fn run() -> Result<ExitStatus> {
     info!("Finished.");
 
     res
+}
+
+pub fn list_predefined_nameservers() {
+    println!("List of predefined servers:");
+    for ns in predefined::nameserver_configs() {
+        println!(" {} {}", &*ITEMAZATION_PREFIX, ns);
+    }
 }
 
 #[tokio::main]

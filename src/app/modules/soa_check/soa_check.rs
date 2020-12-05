@@ -6,11 +6,11 @@ use anyhow::{anyhow, Result};
 use indexmap::set::IndexSet;
 use log::info;
 
-use crate::app::console::{print_estimates_lookups, print_opts, print_statistics, ExitStatus};
+use crate::app::console::{print_estimates_lookups, print_opts, print_statistics};
 use crate::app::modules::soa_check::config::SoaCheckConfig;
 use crate::app::modules::Partial;
 use crate::app::resolver::AppResolver;
-use crate::app::{output, AppConfig};
+use crate::app::{output, AppConfig, ExitStatus};
 use crate::diff::SetDiffer;
 use crate::nameserver::NameServerConfig;
 use crate::output::styles::{self, ATTENTION_PREFIX, CAPTION_PREFIX, ERROR_PREFIX, FINISHED_PREFIX, OK_PREFIX};

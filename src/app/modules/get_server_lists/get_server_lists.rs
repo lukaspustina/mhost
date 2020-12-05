@@ -6,10 +6,10 @@ use log::info;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 
-use crate::app::console::{print_estimates_downloads, print_statistics, ExitStatus};
+use crate::app::console::{print_estimates_downloads, print_statistics};
 use crate::app::modules::get_server_lists::config::DownloadServerListConfig;
 use crate::app::modules::Partial;
-use crate::app::AppConfig;
+use crate::app::{AppConfig, ExitStatus};
 use crate::output::styles::{self, CAPTION_PREFIX, OK_PREFIX};
 use crate::output::OutputType;
 use crate::services::server_lists::{DownloadResponses, ServerListDownloader, ServerListDownloaderOpts};

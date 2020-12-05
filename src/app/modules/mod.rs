@@ -1,4 +1,4 @@
-use crate::app::console;
+use crate::app;
 
 pub mod discover;
 pub mod get_server_lists;
@@ -17,5 +17,5 @@ pub mod soa_check;
  */
 pub enum Partial<T> {
     Next(T),
-    ExitStatus(console::ExitStatus),
+    ExitStatus(app::ExitStatus),
 }

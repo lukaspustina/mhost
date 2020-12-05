@@ -10,12 +10,12 @@ use rand::{thread_rng, Rng};
 use serde::Serialize;
 use trust_dns_resolver::IntoName;
 
-use crate::app::console::{print_estimates_lookups, print_opts, print_statistics, ExitStatus};
+use crate::app::console::{print_estimates_lookups, print_opts, print_statistics};
 use crate::app::modules::discover::config::DiscoverConfig;
 use crate::app::modules::discover::wordlist::Wordlist;
 use crate::app::modules::Partial;
 use crate::app::resolver::AppResolver;
-use crate::app::{output, AppConfig};
+use crate::app::{output, AppConfig, ExitStatus};
 use crate::output::styles::{self, ATTENTION_PREFIX, CAPTION_PREFIX, FINISHED_PREFIX, INFO_PREFIX, ITEMAZATION_PREFIX};
 use crate::output::summary::{SummaryFormat, SummaryFormatter, SummaryOptions};
 use crate::output::{OutputConfig, OutputType};
