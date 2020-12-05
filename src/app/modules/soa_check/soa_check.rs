@@ -6,10 +6,11 @@ use anyhow::{anyhow, Result};
 use indexmap::set::IndexSet;
 use log::info;
 
-use crate::app::cli::{print_estimates_lookups, print_opts, print_statistics, ExitStatus};
+use crate::app::console::{print_estimates_lookups, print_opts, print_statistics, ExitStatus};
 use crate::app::modules::soa_check::config::SoaCheckConfig;
+use crate::app::modules::Partial;
 use crate::app::resolver::AppResolver;
-use crate::app::{output, GlobalConfig, Partial};
+use crate::app::{output, AppConfig};
 use crate::diff::SetDiffer;
 use crate::nameserver::NameServerConfig;
 use crate::output::styles::{self, ATTENTION_PREFIX, CAPTION_PREFIX, ERROR_PREFIX, FINISHED_PREFIX, OK_PREFIX};
@@ -22,22 +23,22 @@ pub struct SoaCheck {}
 
 impl SoaCheck {
     pub async fn init<'a>(
-        global_config: &'a GlobalConfig,
+        app_config: &'a AppConfig,
         config: &'a SoaCheckConfig,
     ) -> Result<AuthoritativeNameServers<'a>> {
-        if global_config.output == OutputType::Json && config.partial_results {
+        if app_config.output == OutputType::Json && config.partial_results {
             return Err(anyhow!("JSON output is incompatible with partial result output"));
         }
 
         let query = MultiQuery::single(config.domain_name.as_str(), RecordType::NS)?;
-        let app_resolver = AppResolver::create_resolvers(global_config).await?;
+        let app_resolver = AppResolver::create_resolvers(app_config).await?;
 
-        if !global_config.quiet {
+        if !app_config.quiet {
             print_opts(&app_resolver.resolver_group_opts(), &app_resolver.resolver_opts());
         }
 
         Ok(AuthoritativeNameServers {
-            global_config,
+            app_config,
             config,
             query,
             app_resolver,
@@ -46,7 +47,7 @@ impl SoaCheck {
 }
 
 pub struct AuthoritativeNameServers<'a> {
-    global_config: &'a GlobalConfig,
+    app_config: &'a AppConfig,
     config: &'a SoaCheckConfig,
     query: MultiQuery,
     app_resolver: AppResolver,
@@ -54,7 +55,7 @@ pub struct AuthoritativeNameServers<'a> {
 
 impl<'a> AuthoritativeNameServers<'a> {
     pub async fn lookup_authoritative_name_servers(self) -> Result<Partial<NameServerIps<'a>>> {
-        if !self.global_config.quiet && self.config.partial_results {
+        if !self.app_config.quiet && self.config.partial_results {
             println!(
                 "{}",
                 styles::EMPH.paint(format!("{} Running DNS lookups of name servers.", &*CAPTION_PREFIX))
@@ -68,11 +69,11 @@ impl<'a> AuthoritativeNameServers<'a> {
         let total_run_time = Instant::now() - start_time;
         info!("Finished Lookups.");
 
-        if !self.global_config.quiet && self.config.partial_results {
+        if !self.app_config.quiet && self.config.partial_results {
             print_statistics(&lookups, total_run_time);
         }
         if self.config.partial_results {
-            output::output(&self.global_config.output_config, &lookups)?;
+            output::output(&self.app_config.output_config, &lookups)?;
         }
         if !lookups.has_records() {
             println!(
@@ -85,7 +86,7 @@ impl<'a> AuthoritativeNameServers<'a> {
         let name_servers = lookups.ns().unique().to_owned();
 
         Ok(Partial::Next(NameServerIps {
-            global_config: self.global_config,
+            app_config: self.app_config,
             config: self.config,
             app_resolver: self.app_resolver,
             name_servers,
@@ -103,7 +104,7 @@ impl<'a> Partial<NameServerIps<'a>> {
 }
 
 pub struct NameServerIps<'a> {
-    global_config: &'a GlobalConfig,
+    app_config: &'a AppConfig,
     config: &'a SoaCheckConfig,
     app_resolver: AppResolver,
     name_servers: HashSet<Name>,
@@ -112,7 +113,7 @@ pub struct NameServerIps<'a> {
 impl<'a> NameServerIps<'a> {
     async fn lookup_name_server_ips(self) -> Result<Partial<SoaRecords<'a>>> {
         let query = MultiQuery::new(self.name_servers, vec![RecordType::A, RecordType::AAAA])?;
-        if !self.global_config.quiet && self.config.partial_results {
+        if !self.app_config.quiet && self.config.partial_results {
             println!(
                 "{}",
                 styles::EMPH.paint(format!(
@@ -129,11 +130,11 @@ impl<'a> NameServerIps<'a> {
         let total_run_time = Instant::now() - start_time;
         info!("Finished Lookups.");
 
-        if !self.global_config.quiet && self.config.partial_results {
+        if !self.app_config.quiet && self.config.partial_results {
             print_statistics(&lookups, total_run_time);
         }
         if self.config.partial_results {
-            output::output(&self.global_config.output_config, &lookups)?;
+            output::output(&self.app_config.output_config, &lookups)?;
         }
         if !lookups.has_records() {
             println!(
@@ -153,7 +154,7 @@ impl<'a> NameServerIps<'a> {
             .collect();
 
         Ok(Partial::Next(SoaRecords {
-            global_config: self.global_config,
+            app_config: self.app_config,
             config: self.config,
             name_server_ips,
         }))
@@ -170,7 +171,7 @@ impl<'a> Partial<SoaRecords<'a>> {
 }
 
 pub struct SoaRecords<'a> {
-    global_config: &'a GlobalConfig,
+    app_config: &'a AppConfig,
     config: &'a SoaCheckConfig,
     name_server_ips: Vec<IpAddr>,
 }
@@ -182,10 +183,10 @@ impl<'a> SoaRecords<'a> {
             .into_iter()
             .map(|ip| NameServerConfig::udp((ip, 53)))
             .map(ResolverConfig::new);
-        let resolvers = AppResolver::from_configs(authoritative_name_servers, &self.global_config).await?;
+        let resolvers = AppResolver::from_configs(authoritative_name_servers, &self.app_config).await?;
 
         let query = MultiQuery::single(self.config.domain_name.as_str(), RecordType::SOA)?;
-        if !self.global_config.quiet && self.config.partial_results {
+        if !self.app_config.quiet && self.config.partial_results {
             println!(
                 "{}",
                 styles::EMPH.paint(format!("{} Running DNS lookups for SOA records.", &*CAPTION_PREFIX))
@@ -199,11 +200,11 @@ impl<'a> SoaRecords<'a> {
         let total_run_time = Instant::now() - start_time;
         info!("Finished Lookups.");
 
-        if !self.global_config.quiet && self.config.partial_results {
+        if !self.app_config.quiet && self.config.partial_results {
             print_statistics(&lookups, total_run_time);
         }
         if self.config.partial_results {
-            output::output(&self.global_config.output_config, &lookups)?;
+            output::output(&self.app_config.output_config, &lookups)?;
         }
 
         if !lookups.has_records() {
@@ -215,7 +216,7 @@ impl<'a> SoaRecords<'a> {
         }
 
         Ok(Partial::Next(SoaCheckResult {
-            global_config: self.global_config,
+            app_config: self.app_config,
             soa_lookups: lookups,
         }))
     }
@@ -231,7 +232,7 @@ impl<'a> Partial<SoaCheckResult<'a>> {
 }
 
 pub struct SoaCheckResult<'a> {
-    global_config: &'a GlobalConfig,
+    app_config: &'a AppConfig,
     soa_lookups: Lookups,
 }
 
@@ -240,7 +241,7 @@ impl<'a> SoaCheckResult<'a> {
         let records: IndexSet<_> = self.soa_lookups.soa().unique().to_owned().into_iter().collect();
         let diffs = records.differences();
 
-        if !self.global_config.quiet {
+        if !self.app_config.quiet {
             println!("{}", styles::EMPH.paint(format!("{} Finished.", &*FINISHED_PREFIX)));
         }
 

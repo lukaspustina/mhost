@@ -10,12 +10,12 @@ use log::info;
 use serde::Serialize;
 use tokio::time::Duration;
 
-use crate::app::cli::{
+use crate::app::console::{
     print_error_counts, print_estimates_lookups, print_estimates_whois, print_opts, print_statistics, ExitStatus,
 };
 use crate::app::modules::lookup::config::LookupConfig;
 use crate::app::resolver::AppResolver;
-use crate::app::{output, GlobalConfig};
+use crate::app::{output, AppConfig};
 use crate::output::styles::{self, CAPTION_PREFIX, FINISHED_PREFIX};
 use crate::output::summary::{SummaryFormatter, SummaryOptions};
 use crate::output::OutputType;
@@ -28,14 +28,14 @@ use crate::RecordType;
 pub struct Lookup {}
 
 impl Lookup {
-    pub async fn init<'a>(global_config: &'a GlobalConfig, config: &'a LookupConfig) -> Result<DnsLookups<'a>> {
+    pub async fn init<'a>(app_config: &'a AppConfig, config: &'a LookupConfig) -> Result<DnsLookups<'a>> {
         let query = Lookup::build_query(&config.domain_name, &config.record_types)?;
-        let app_resolver = AppResolver::create_resolvers(global_config)
+        let app_resolver = AppResolver::create_resolvers(app_config)
             .await?
             .with_single_server_lookup(config.single_server_lookup);
 
         Ok(DnsLookups {
-            global_config,
+            app_config,
             config,
             query,
             app_resolver,
@@ -65,7 +65,7 @@ impl Lookup {
 }
 
 pub struct DnsLookups<'a> {
-    global_config: &'a GlobalConfig,
+    app_config: &'a AppConfig,
     config: &'a LookupConfig,
     query: MultiQuery,
     app_resolver: AppResolver,
@@ -73,7 +73,7 @@ pub struct DnsLookups<'a> {
 
 impl<'a> DnsLookups<'a> {
     pub async fn lookups(self) -> Result<Whois<'a>> {
-        if !self.global_config.quiet {
+        if !self.app_config.quiet {
             print_opts(
                 self.app_resolver.resolver_group_opts(),
                 &self.app_resolver.resolver_opts(),
@@ -91,20 +91,20 @@ impl<'a> DnsLookups<'a> {
         let total_run_time = Instant::now() - start_time;
         info!("Finished Lookups.");
 
-        if !self.global_config.quiet {
+        if !self.app_config.quiet {
             print_statistics(&lookups, total_run_time);
         }
 
-        if self.global_config.output != OutputType::Json {
-            output::output(&self.global_config.output_config, &lookups)?;
+        if self.app_config.output != OutputType::Json {
+            output::output(&self.app_config.output_config, &lookups)?;
         }
 
-        if !self.global_config.quiet && self.global_config.show_errors {
+        if !self.app_config.quiet && self.app_config.show_errors {
             print_error_counts(&lookups);
         }
 
         Ok(Whois {
-            global_config: self.global_config,
+            app_config: self.app_config,
             config: self.config,
             lookups,
         })
@@ -112,7 +112,7 @@ impl<'a> DnsLookups<'a> {
 }
 
 pub struct Whois<'a> {
-    global_config: &'a GlobalConfig,
+    app_config: &'a AppConfig,
     config: &'a LookupConfig,
     lookups: Lookups,
 }
@@ -123,7 +123,7 @@ impl<'a> Whois<'a> {
             self.whois().await
         } else {
             Ok(LookupResult {
-                global_config: self.global_config,
+                app_config: self.app_config,
                 lookups: self.lookups,
                 whois: None,
             })
@@ -135,10 +135,10 @@ impl<'a> Whois<'a> {
         let query_types = vec![QueryType::NetworkInfo, QueryType::GeoLocation, QueryType::Whois];
         let query = whois::MultiQuery::from_iter(ip_addresses, query_types);
 
-        let opts = WhoisClientOpts::with_cache(8, self.global_config.abort_on_error, 1024, Duration::from_secs(60));
+        let opts = WhoisClientOpts::with_cache(8, self.app_config.abort_on_error, 1024, Duration::from_secs(60));
         let whois_client = WhoisClient::new(opts);
 
-        if !self.global_config.quiet {
+        if !self.app_config.quiet {
             println!(
                 "{}",
                 styles::EMPH.paint(format!("{} Running WHOIS queries.", &*CAPTION_PREFIX))
@@ -152,16 +152,16 @@ impl<'a> Whois<'a> {
         let total_run_time = Instant::now() - start_time;
         info!("Finished queries.");
 
-        if !self.global_config.quiet {
+        if !self.app_config.quiet {
             print_statistics(&whois, total_run_time);
         }
 
-        if self.global_config.output != OutputType::Json {
-            output::output(&self.global_config.output_config, &whois)?;
+        if self.app_config.output != OutputType::Json {
+            output::output(&self.app_config.output_config, &whois)?;
         }
 
         Ok(LookupResult {
-            global_config: self.global_config,
+            app_config: self.app_config,
             lookups: self.lookups,
             whois: Some(whois),
         })
@@ -197,14 +197,14 @@ impl<'a> Whois<'a> {
 }
 
 pub struct LookupResult<'a> {
-    global_config: &'a GlobalConfig,
+    app_config: &'a AppConfig,
     lookups: Lookups,
     whois: Option<WhoisResponses>,
 }
 
 impl<'a> LookupResult<'a> {
     pub fn output(self) -> Result<ExitStatus> {
-        match self.global_config.output {
+        match self.app_config.output {
             OutputType::Json => self.json_output(),
             OutputType::Summary => self.summary_output(),
         }
@@ -226,12 +226,12 @@ impl<'a> LookupResult<'a> {
             whois: self.whois,
         };
 
-        output::output(&self.global_config.output_config, &data)?;
+        output::output(&self.app_config.output_config, &data)?;
         Ok(ExitStatus::Ok)
     }
 
     fn summary_output(self) -> Result<ExitStatus> {
-        if !self.global_config.quiet {
+        if !self.app_config.quiet {
             println!("{}", styles::EMPH.paint(format!("{} Finished.", &*FINISHED_PREFIX)));
         }
 

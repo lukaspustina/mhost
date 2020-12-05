@@ -6,9 +6,10 @@ use log::info;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 
-use crate::app::cli::{print_estimates_downloads, print_statistics, ExitStatus};
+use crate::app::console::{print_estimates_downloads, print_statistics, ExitStatus};
 use crate::app::modules::get_server_lists::config::DownloadServerListConfig;
-use crate::app::{GlobalConfig, Partial};
+use crate::app::modules::Partial;
+use crate::app::AppConfig;
 use crate::output::styles::{self, CAPTION_PREFIX, OK_PREFIX};
 use crate::output::OutputType;
 use crate::services::server_lists::{DownloadResponses, ServerListDownloader, ServerListDownloaderOpts};
@@ -16,17 +17,17 @@ use crate::services::server_lists::{DownloadResponses, ServerListDownloader, Ser
 pub struct GetServerLists {}
 
 impl GetServerLists {
-    pub fn init(global_config: &GlobalConfig, config: DownloadServerListConfig) -> Result<DownloadServerLists> {
-        if global_config.output == OutputType::Json {
+    pub fn init(app_config: &AppConfig, config: DownloadServerListConfig) -> Result<DownloadServerLists> {
+        if app_config.output == OutputType::Json {
             return Err(anyhow!("JSON output is not support"));
         }
 
         let opts: ServerListDownloaderOpts =
-            ServerListDownloaderOpts::new(global_config.max_concurrent_requests, global_config.abort_on_error);
+            ServerListDownloaderOpts::new(app_config.max_concurrent_requests, app_config.abort_on_error);
         let downloader = ServerListDownloader::new(opts);
 
         Ok(DownloadServerLists {
-            global_config,
+            app_config,
             config,
             downloader,
         })
@@ -34,14 +35,14 @@ impl GetServerLists {
 }
 
 pub struct DownloadServerLists<'a> {
-    global_config: &'a GlobalConfig,
+    app_config: &'a AppConfig,
     config: DownloadServerListConfig,
     downloader: ServerListDownloader,
 }
 
 impl<'a> DownloadServerLists<'a> {
     pub async fn download_server_lists(self) -> Result<Partial<FileWriter<'a>>> {
-        if !self.global_config.quiet {
+        if !self.app_config.quiet {
             println!(
                 "{}",
                 styles::EMPH.paint(format!("{} Downloading server lists.", &*CAPTION_PREFIX))
@@ -55,12 +56,12 @@ impl<'a> DownloadServerLists<'a> {
         let total_run_time = Instant::now() - start_time;
         info!("Finished downloads.");
 
-        if !self.global_config.quiet {
+        if !self.app_config.quiet {
             print_statistics(&servers, total_run_time);
         }
 
         Ok(Partial::Next(FileWriter {
-            global_config: self.global_config,
+            app_config: self.app_config,
             output_file_path: self.config.output_file_path,
             servers,
         }))
@@ -77,7 +78,7 @@ impl<'a> Partial<FileWriter<'a>> {
 }
 
 pub struct FileWriter<'a> {
-    global_config: &'a GlobalConfig,
+    app_config: &'a AppConfig,
     output_file_path: String,
     servers: DownloadResponses,
 }
@@ -88,7 +89,7 @@ impl<'a> FileWriter<'a> {
         FileWriter::write_servers(&self.output_file_path, &self.servers).await?;
         info!("Finished writing.");
 
-        if !self.global_config.quiet {
+        if !self.app_config.quiet {
             println!("{} Saved to file '{}'.", &*OK_PREFIX, &self.output_file_path);
         }
 

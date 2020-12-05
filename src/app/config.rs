@@ -5,13 +5,12 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use clap::ArgMatches;
 
-use crate::app::app;
 use crate::output::json::JsonOptions;
 use crate::output::summary::SummaryOptions;
 use crate::output::{OutputConfig, OutputType};
 use crate::resolver::ResolverOpts;
 
-pub struct GlobalConfig {
+pub struct AppConfig {
     pub list_predefined: bool,
     pub max_concurrent_servers: usize,
     pub ignore_system_resolv_opt: bool,
@@ -35,7 +34,7 @@ pub struct GlobalConfig {
     pub output_config: OutputConfig,
 }
 
-impl TryFrom<&ArgMatches<'_>> for GlobalConfig {
+impl TryFrom<&ArgMatches<'_>> for AppConfig {
     type Error = anyhow::Error;
 
     fn try_from(args: &ArgMatches) -> std::result::Result<Self, Self::Error> {
@@ -43,7 +42,7 @@ impl TryFrom<&ArgMatches<'_>> for GlobalConfig {
             .value_of("output")
             .map(|x| OutputType::try_from(x).context("failed to parse output type"))
             .unwrap()?; // Safe unwrap, because of clap's validation
-        let config = GlobalConfig {
+        let config = AppConfig {
             list_predefined: args.is_present("list-predefined"),
             max_concurrent_servers: args
                 .value_of("max-concurrent-servers")
@@ -96,7 +95,7 @@ impl TryFrom<&ArgMatches<'_>> for GlobalConfig {
     }
 }
 
-impl GlobalConfig {
+impl AppConfig {
     pub fn resolver_opts(&self, default_opts: ResolverOpts) -> ResolverOpts {
         ResolverOpts {
             retries: self.retries,
@@ -108,11 +107,6 @@ impl GlobalConfig {
             ..default_opts
         }
     }
-}
-
-pub fn show_help() {
-    let _ = app::app().print_help();
-    println!();
 }
 
 fn output_config(output_type: OutputType, args: &ArgMatches<'_>) -> Result<OutputConfig> {

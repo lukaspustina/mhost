@@ -1,3 +1,7 @@
+//! This file is used by the build script. Therefore all functions generating the app command line parser must be included
+//! here. It would be nicer to move at least the subcommands to the corresponding modules, but then all logic, all crates
+//! etc. used there have to be available for the build script which makes it much more complex.
+
 use std::str::FromStr;
 
 use clap::{crate_name, App, AppSettings, Arg, SubCommand};
@@ -8,7 +12,7 @@ pub static SUPPORTED_RECORD_TYPES: &[&str] = &[
 
 pub static SUPPORTED_OUTPUT_FORMATS: &[&str] = &["json", "summary"];
 
-pub fn app() -> App<'static, 'static> {
+pub fn create_parser() -> App<'static, 'static> {
     App::new(crate_name!())
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
@@ -398,4 +402,9 @@ fn soa_check_subcommand() -> App<'static, 'static> {
                 .long("show-partial-results")
                 .help("Shows results after each lookup step"),
         )
+}
+
+pub fn show_help() {
+    let _ = create_parser().print_help();
+    println!();
 }

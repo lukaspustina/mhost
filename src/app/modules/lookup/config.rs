@@ -4,7 +4,7 @@ use std::str::FromStr;
 use anyhow::{Context, Result};
 use clap::ArgMatches;
 
-use crate::app::app::SUPPORTED_RECORD_TYPES;
+use crate::app::cli_parser::SUPPORTED_RECORD_TYPES;
 use crate::RecordType;
 
 pub struct LookupConfig {

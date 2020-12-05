@@ -1,5 +1,5 @@
 use crate as mhost;
-use crate::app::GlobalConfig;
+use crate::app::AppConfig;
 use crate::nameserver::{predefined, NameServerConfig, NameServerConfigGroup, Protocol};
 use crate::resolver::{
     Lookups, MultiQuery, ResolverConfig, ResolverConfigGroup, ResolverGroup, ResolverGroupOpts, ResolverOpts,
@@ -19,10 +19,10 @@ pub struct AppResolver {
 impl AppResolver {
     pub async fn from_configs<T: IntoIterator<Item = ResolverConfig>>(
         configs: T,
-        global_config: &GlobalConfig,
+        app_config: &AppConfig,
     ) -> Result<AppResolver> {
-        let resolver_group_opts = load_resolver_group_opts(&global_config)?;
-        let resolver_opts = load_resolver_opts(&global_config)?;
+        let resolver_group_opts = load_resolver_group_opts(&app_config)?;
+        let resolver_opts = load_resolver_opts(&app_config)?;
 
         let resolvers = ResolverGroup::from_configs(configs, resolver_opts, resolver_group_opts).await?;
         if resolvers.is_empty() {
@@ -34,7 +34,7 @@ impl AppResolver {
         })
     }
 
-    pub async fn create_resolvers(config: &GlobalConfig) -> Result<AppResolver> {
+    pub async fn create_resolvers(config: &AppConfig) -> Result<AppResolver> {
         let resolver_group_opts = load_resolver_group_opts(&config)?;
         let resolver_opts = load_resolver_opts(&config)?;
 
@@ -93,10 +93,7 @@ impl AppResolver {
     }
 }
 
-async fn load_nameservers(
-    config: &GlobalConfig,
-    system_resolvers: &mut ResolverGroup,
-) -> Result<NameServerConfigGroup> {
+async fn load_nameservers(config: &AppConfig, system_resolvers: &mut ResolverGroup) -> Result<NameServerConfigGroup> {
     let mut nameservers_group = NameServerConfigGroup::new(Vec::new());
     if let Some(configs) = &config.nameservers {
         let configs: Vec<_> = configs
@@ -137,7 +134,7 @@ async fn load_nameservers(
     Ok(nameservers_group)
 }
 
-pub fn load_resolver_group_opts(config: &GlobalConfig) -> Result<ResolverGroupOpts> {
+pub fn load_resolver_group_opts(config: &AppConfig) -> Result<ResolverGroupOpts> {
     let resolver_group_opts = ResolverGroupOpts {
         max_concurrent: config.max_concurrent_servers,
         limit: Some(config.limit),
@@ -147,7 +144,7 @@ pub fn load_resolver_group_opts(config: &GlobalConfig) -> Result<ResolverGroupOp
     Ok(resolver_group_opts)
 }
 
-pub fn load_resolver_opts(config: &GlobalConfig) -> Result<ResolverOpts> {
+pub fn load_resolver_opts(config: &AppConfig) -> Result<ResolverOpts> {
     let default_opts = if config.ignore_system_resolv_opt {
         Default::default()
     } else {
@@ -160,7 +157,7 @@ pub fn load_resolver_opts(config: &GlobalConfig) -> Result<ResolverOpts> {
     Ok(resolver_opts)
 }
 
-pub fn load_system_nameservers(config: &GlobalConfig) -> Result<NameServerConfigGroup> {
+pub fn load_system_nameservers(config: &AppConfig) -> Result<NameServerConfigGroup> {
     let mut system_nameserver_group = NameServerConfigGroup::new(Vec::new());
 
     if !config.ignore_system_nameservers {
