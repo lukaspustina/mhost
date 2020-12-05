@@ -8,7 +8,81 @@ use tokio::io::BufReader;
 
 use crate::{IntoName, Name};
 
-static DEFAULT_WORD_LIST: &str = include_str!("../../../../contrib/subdomains-top1mil-5000.txt");
+static DEFAULT_WORD_LIST: &str = r#"admin
+alpha
+api
+app
+assets
+auth
+beta
+blog
+chat
+cms
+confluence
+ct
+dashboard
+dev
+development
+dialin
+download
+epaper
+exchange
+external
+foto
+ftp
+gatekeeper
+gateway
+git
+gitlab
+gw
+hq
+id
+in
+intern
+iphone
+jobs
+ldap
+listserv
+login
+m
+mail
+mailhost
+meet
+mobi
+mx
+newsletter
+ns
+presse
+public
+radio
+redirector
+relay
+reporting
+rss
+sales
+sftp
+shop
+smtp
+smtp01
+smtp02
+smtp1
+smtp2
+special
+sso
+staging
+static
+svn
+test
+ticket
+tp
+tr
+update
+upload
+web
+www
+www-server
+www-test
+wwwtest"#;
 
 #[derive(Debug)]
 pub struct Wordlist {
