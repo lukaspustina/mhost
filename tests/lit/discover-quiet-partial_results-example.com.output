@@ -8,8 +8,7 @@ CHECK-NEXT: * TXT:
 CHECK: * TXT:
 CHECK: * A:
 CHECK-NEXT: * AAAA:
-CHECK-NEXT: * DNSSEC:
-CHECK-NEXT: * A:
+CHECK: * A:
 CHECK-NEXT: * AAAA:
 CHECK-NEXT: * .example.com.
 CHECK-NEXT: * www.example.com.

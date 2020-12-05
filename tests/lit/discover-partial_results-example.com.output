@@ -12,8 +12,7 @@ CHECK-NEXT: * TXT:
 CHECK: * TXT:
 CHECK: * A:
 CHECK-NEXT: * AAAA:
-CHECK-NEXT: * DNSSEC:
-CHECK-NEXT: > Checking wildcard resolution.
+CHECK: > Checking wildcard resolution.
 CHECK-NEXT: - Sending
 CHECK-NEXT: - Received
 CHECK-NEXT: > Wordlist lookups.
