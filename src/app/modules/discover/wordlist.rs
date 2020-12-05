@@ -201,6 +201,6 @@ mod tests {
             .that(&wordlist)
             .is_ok()
             .map(|x| &x.words)
-            .has_length(5000)
+            .has_length(75)
     }
 }
