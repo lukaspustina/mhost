@@ -73,7 +73,6 @@ impl NameToIpAddr for Name {
             let octets: SmallVec<[u8; 16]> = nibble
                 .as_slice()
                 .chunks_exact(2)
-                //.inspect(|byte| eprintln!("0: {}, 1: {}", byte[0], byte[1]))
                 // The modulo protects us from "attempt to multiply with overflow" and "attempt to add with overflow" in case a value larger than 16 sneaks in.
                 // This does not happen with valid ipv6 address, but may happen in invalid input -- cf. `tests::fuzz*`
                 .map(|byte| byte[0] % 16 * 16 + byte[1] % 16)

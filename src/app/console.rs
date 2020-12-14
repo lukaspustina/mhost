@@ -182,8 +182,12 @@ impl Console {
         self.emphazise(format!("{} {}", &*CAPTION_PREFIX, str.as_ref()));
     }
 
-    pub fn error<T: AsRef<str>>(&self, str: T) {
+    pub fn failed<T: AsRef<str>>(&self, str: T) {
         println!("{} {}", Fmt::attention(&*ERROR_PREFIX), str.as_ref());
+    }
+
+    pub fn error<T: AsRef<str>>(&self, str: T) {
+        eprintln!("{} {}", Fmt::attention(&*ERROR_PREFIX), str.as_ref());
     }
 
     pub fn ok<T: AsRef<str>>(&self, str: T) {

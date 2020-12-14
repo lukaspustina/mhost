@@ -406,5 +406,6 @@ fn soa_check_subcommand() -> App<'static, 'static> {
 
 pub fn show_help() {
     let _ = create_parser().print_help();
+    // Add line break after last line of help
     println!();
 }

@@ -3,12 +3,12 @@ use std::convert::TryInto;
 use anyhow::Result;
 use log::info;
 
+use mhost::app::console::Console;
 use mhost::app::logging::start_logging_for_level;
 use mhost::app::modules;
 use mhost::app::AppConfig;
 use mhost::app::{cli_parser, ExitStatus};
 use mhost::nameserver::predefined;
-use mhost::output::styles::{ERROR_PREFIX, ITEMAZATION_PREFIX};
 
 async fn run() -> Result<ExitStatus> {
     let args = cli_parser::create_parser().get_matches();
@@ -30,8 +30,10 @@ async fn run() -> Result<ExitStatus> {
     };
     info!("Parsed global args.");
 
+    let console = Console::new(&app_config);
+
     if app_config.list_predefined {
-        list_predefined_nameservers();
+        list_predefined_nameservers(&console);
         return Ok(ExitStatus::Ok);
     }
 
@@ -50,10 +52,10 @@ async fn run() -> Result<ExitStatus> {
     res
 }
 
-pub fn list_predefined_nameservers() {
-    println!("List of predefined servers:");
+pub fn list_predefined_nameservers(console: &Console) {
+    console.caption("Predefined servers:");
     for ns in predefined::nameserver_configs() {
-        println!(" {} {}", &*ITEMAZATION_PREFIX, ns);
+        console.itemize(format!("{}", ns));
     }
 }
 
@@ -64,7 +66,8 @@ async fn main() {
     let exit_status = match res {
         Ok(exit_status) => exit_status,
         Err(err) => {
-            eprintln!("{} Failed: {:#}", &*ERROR_PREFIX, err);
+            let console = Console::default();
+            console.error(format!("Error: {:#}", err));
             ExitStatus::Failed
         }
     };

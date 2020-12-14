@@ -71,7 +71,7 @@ impl<'a> AuthoritativeNameServers<'a> {
         console::print_partial_results(&self.env, &lookups, total_run_time)?;
 
         if !lookups.has_records() {
-            self.env.console.error("No authoritative nameservers found. Aborting.");
+            self.env.console.failed("No authoritative nameservers found. Aborting.");
             return Ok(Partial::ExitStatus(ExitStatus::Abort));
         }
 
@@ -124,7 +124,7 @@ impl<'a> NameServerIps<'a> {
         if !lookups.has_records() {
             self.env
                 .console
-                .error("No IP addresses for authoritative nameservers found. Aborting.");
+                .failed("No IP addresses for authoritative nameservers found. Aborting.");
             return Ok(Partial::ExitStatus(ExitStatus::Abort));
         }
 
@@ -184,7 +184,7 @@ impl<'a> SoaRecords<'a> {
         if !lookups.has_records() {
             self.env
                 .console
-                .error("No SOA records from authoritative nameservers found. Aborting.");
+                .failed("No SOA records from authoritative nameservers found. Aborting.");
             return Ok(Partial::ExitStatus(ExitStatus::Abort));
         }
 
