@@ -1,9 +1,9 @@
 use std::time::{Duration, Instant};
 use std::{env, io};
 
+use mhost::app::output::summary::SummaryOptions;
+use mhost::app::output::{Output, OutputConfig, OutputFormat};
 use mhost::nameserver::NameServerConfigGroup;
-use mhost::output::summary::SummaryOptions;
-use mhost::output::{Output, OutputConfig, OutputFormat};
 use mhost::resolver::{MultiQuery, ResolverConfigGroup, ResolverGroup, ResolverGroupOpts, ResolverOpts};
 use mhost::statistics::Statistics;
 use mhost::RecordType;

@@ -1,8 +1,8 @@
 use std::net::SocketAddr;
 use std::{env, io};
 
+use mhost::app::output::{Output, OutputConfig, OutputFormat};
 use mhost::nameserver::NameServerConfig;
-use mhost::output::{Output, OutputConfig, OutputFormat};
 use mhost::resolver::{MultiQuery, Resolver, ResolverConfig};
 use mhost::RecordType;
 

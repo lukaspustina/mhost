@@ -14,10 +14,10 @@ async fn run() -> Result<ExitStatus> {
     let args = cli_parser::create_parser().get_matches();
 
     if args.is_present("no-color") {
-        mhost::output::styles::no_color_mode();
+        mhost::app::output::styles::no_color_mode();
     }
     if args.is_present("ascii") {
-        mhost::output::styles::ascii_mode();
+        mhost::app::output::styles::ascii_mode();
     }
 
     start_logging_for_level(args.occurrences_of("v"));

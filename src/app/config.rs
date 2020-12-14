@@ -5,9 +5,9 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use clap::ArgMatches;
 
-use crate::output::json::JsonOptions;
-use crate::output::summary::SummaryOptions;
-use crate::output::{OutputConfig, OutputType};
+use crate::app::output::json::JsonOptions;
+use crate::app::output::summary::SummaryOptions;
+use crate::app::output::{OutputConfig, OutputType};
 use crate::resolver::ResolverOpts;
 
 pub struct AppConfig {

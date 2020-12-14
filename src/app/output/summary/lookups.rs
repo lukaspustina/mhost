@@ -13,7 +13,7 @@ use crate::resources::{NameToIpAddr, Record};
 use crate::{Error, RecordType};
 
 use super::*;
-use crate::output::styles::ITEMAZATION_PREFIX;
+use crate::app::output::styles::ITEMAZATION_PREFIX;
 
 impl SummaryFormatter for Lookups {
     fn output<W: Write>(&self, writer: &mut W, opts: &SummaryOptions) -> Result<()> {

@@ -1,8 +1,8 @@
 use std::time::Instant;
 use std::{env, io};
 
-use mhost::output::summary::SummaryOptions;
-use mhost::output::{Output, OutputConfig, OutputFormat};
+use mhost::app::output::summary::SummaryOptions;
+use mhost::app::output::{Output, OutputConfig, OutputFormat};
 use mhost::resolver::{MultiQuery, ResolverGroup};
 use mhost::statistics::Statistics;
 use mhost::RecordType;

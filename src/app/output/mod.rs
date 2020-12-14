@@ -1,16 +1,22 @@
 use std::cmp::Ordering;
-use std::io::Write;
+use std::io::{self, Write};
 
 use nom::lib::std::convert::TryFrom;
 
 use crate::services::whois::WhoisResponse;
-use crate::Result;
-use crate::{Error, RecordType};
+use crate::{Error, RecordType, Result};
 use serde::Serialize;
 
 pub mod json;
 pub mod styles;
 pub mod summary;
+
+pub fn output<T: Serialize + summary::SummaryFormatter>(config: &OutputConfig, data: &T) -> Result<()> {
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
+
+    Output::new(config).output(&mut handle, data)
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OutputType {

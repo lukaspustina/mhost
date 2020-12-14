@@ -5,11 +5,11 @@ use std::time::Duration;
 use yansi::Paint;
 
 use crate::app::modules::Environment;
-use crate::app::{output, AppConfig};
-use crate::estimate::Estimate;
-use crate::output::styles::{
+use crate::app::output::styles::{
     self, ATTENTION_PREFIX, CAPTION_PREFIX, ERROR_PREFIX, FINISHED_PREFIX, INFO_PREFIX, ITEMAZATION_PREFIX, OK_PREFIX,
 };
+use crate::app::{output, AppConfig};
+use crate::estimate::Estimate;
 use crate::resolver::{self, Lookups, ResolverGroup, ResolverGroupOpts, ResolverOpts};
 use crate::services::server_lists::ServerListSpec;
 use crate::services::whois;

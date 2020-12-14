@@ -9,8 +9,8 @@ use tokio::io::AsyncWriteExt;
 use crate::app::console::Console;
 use crate::app::modules::get_server_lists::config::DownloadServerListConfig;
 use crate::app::modules::{Environment, Partial};
+use crate::app::output::OutputType;
 use crate::app::{AppConfig, ExitStatus};
-use crate::output::OutputType;
 use crate::services::server_lists::{DownloadResponses, ServerListDownloader, ServerListDownloaderOpts};
 
 pub struct GetServerLists {}

@@ -4,7 +4,6 @@ pub mod diff;
 pub mod error;
 pub mod estimate;
 pub mod nameserver;
-pub mod output;
 pub mod resolver;
 pub mod resources;
 pub mod services;
