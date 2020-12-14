@@ -10,13 +10,12 @@ use rand::{thread_rng, Rng};
 use serde::Serialize;
 use trust_dns_resolver::IntoName;
 
-use crate::app::console::{print_estimates_lookups, print_opts, print_statistics};
+use crate::app::console::{self, Console, Fmt};
 use crate::app::modules::discover::config::DiscoverConfig;
 use crate::app::modules::discover::wordlist::Wordlist;
-use crate::app::modules::Partial;
+use crate::app::modules::{Environment, Partial};
 use crate::app::resolver::AppResolver;
 use crate::app::{output, AppConfig, ExitStatus};
-use crate::output::styles::{self, ATTENTION_PREFIX, CAPTION_PREFIX, FINISHED_PREFIX, INFO_PREFIX, ITEMAZATION_PREFIX};
 use crate::output::summary::{SummaryFormat, SummaryFormatter, SummaryOptions};
 use crate::output::{OutputConfig, OutputType};
 use crate::resolver::lookup::Uniquify;
@@ -30,6 +29,8 @@ impl Discover {
         if app_config.output == OutputType::Json && config.partial_results {
             return Err(anyhow!("JSON output is incompatible with partial result output"));
         }
+        let console = Console::with_partial_results(app_config, config.partial_results);
+        let env = Environment::new(app_config, config, console);
 
         let domain_name: Name = config
             .domain_name
@@ -42,22 +43,22 @@ impl Discover {
 
         // Showing partial results only makes sense, if the queried domain name is shown for every response,
         // because this modules generates domain names, e.g., wildcard resolution, wordlists
-        let partial_output_config = Discover::create_partial_output_config(&app_config);
+        let partial_output_config = Discover::create_partial_output_config(&env.app_config);
 
-        if !app_config.quiet {
-            print_opts(app_resolver.resolver_group_opts(), &app_resolver.resolver_opts());
+        if env.console.not_quiet() {
+            env.console
+                .print_opts(app_resolver.resolver_group_opts(), &app_resolver.resolver_opts());
         }
 
         Ok(RequestAll {
-            app_config,
-            config,
+            env,
             partial_output_config,
             domain_name,
             app_resolver,
         })
     }
 
-    fn create_partial_output_config(app_config: &&AppConfig) -> OutputConfig {
+    fn create_partial_output_config(app_config: &AppConfig) -> OutputConfig {
         let partial_output_config = OutputConfig::Summary {
             format: match &app_config.output_config {
                 OutputConfig::Json { .. } => SummaryFormat::new(SummaryOptions::new(
@@ -77,8 +78,7 @@ impl Discover {
 }
 
 pub struct RequestAll<'a> {
-    app_config: &'a AppConfig,
-    config: &'a DiscoverConfig,
+    env: Environment<'a, DiscoverConfig>,
     partial_output_config: OutputConfig,
     domain_name: Name,
     app_resolver: AppResolver,
@@ -102,12 +102,11 @@ impl<'a> RequestAll<'a> {
             ],
         )?;
 
-        if !self.app_config.quiet && self.config.partial_results {
-            println!(
-                "{}",
-                styles::EMPH.paint(format!("{} Requesting all record types.", &*CAPTION_PREFIX))
-            );
-            print_estimates_lookups(&self.app_resolver.resolvers(), &query);
+        if self.env.console.show_partial_headers() {
+            self.env.console.caption("Requesting all record types.");
+            self.env
+                .console
+                .print_estimates_lookups(&self.app_resolver.resolvers(), &query);
         }
 
         info!("Requesting all record types.");
@@ -116,16 +115,10 @@ impl<'a> RequestAll<'a> {
         let total_run_time = Instant::now() - start_time;
         info!("Finished Lookups.");
 
-        if !self.app_config.quiet && self.config.partial_results {
-            print_statistics(&lookups, total_run_time);
-        }
-        if self.config.partial_results {
-            output::output(&self.partial_output_config, &lookups)?;
-        }
+        console::print_partial_results(&self.env, &lookups, total_run_time)?;
 
         Ok(Partial::Next(WildcardCheck {
-            app_config: self.app_config,
-            config: self.config,
+            env: self.env,
             partial_output_config: self.partial_output_config,
             domain_name: self.domain_name,
             app_resolver: self.app_resolver,
@@ -145,8 +138,7 @@ impl<'a> Partial<WildcardCheck<'a>> {
 }
 
 pub struct WildcardCheck<'a> {
-    app_config: &'a AppConfig,
-    config: &'a DiscoverConfig,
+    env: Environment<'a, DiscoverConfig>,
     partial_output_config: OutputConfig,
     domain_name: Name,
     app_resolver: AppResolver,
@@ -156,17 +148,17 @@ pub struct WildcardCheck<'a> {
 
 impl<'a> WildcardCheck<'a> {
     async fn check_wildcard_resolution(self) -> Result<Partial<WordlistLookups<'a>>> {
-        let rnd_names = WildcardCheck::rnd_names(self.config.rnd_names_number, self.config.rnd_names_len)
-            .into_iter()
-            .map(|x| Name::from_str(&x).unwrap().append_domain(&self.domain_name)); // Safe unwrap, we constructed the names
+        let rnd_names =
+            WildcardCheck::rnd_names(self.env.mod_config.rnd_names_number, self.env.mod_config.rnd_names_len)
+                .into_iter()
+                .map(|x| Name::from_str(&x).unwrap().append_domain(&self.domain_name)); // Safe unwrap, we constructed the names
         let query = MultiQuery::new(rnd_names, vec![RecordType::A, RecordType::AAAA])?;
 
-        if !self.app_config.quiet && self.config.partial_results {
-            println!(
-                "{}",
-                styles::EMPH.paint(format!("{} Checking wildcard resolution.", &*CAPTION_PREFIX))
-            );
-            print_estimates_lookups(&self.app_resolver.resolvers(), &query);
+        if self.env.console.show_partial_headers() {
+            self.env.console.caption("Checking wildcard resolution.");
+            self.env
+                .console
+                .print_estimates_lookups(&self.app_resolver.resolvers(), &query);
         }
 
         info!("Checking wildcard resolution.");
@@ -175,16 +167,10 @@ impl<'a> WildcardCheck<'a> {
         let total_run_time = Instant::now() - start_time;
         info!("Finished Lookups.");
 
-        if !self.app_config.quiet && self.config.partial_results {
-            print_statistics(&lookups, total_run_time);
-        }
-        if self.config.partial_results {
-            output::output(&self.partial_output_config, &lookups)?;
-        }
+        console::print_partial_results(&self.env, &lookups, total_run_time)?;
 
         Ok(Partial::Next(WordlistLookups {
-            app_config: self.app_config,
-            config: self.config,
+            env: self.env,
             partial_output_config: self.partial_output_config,
             domain_name: self.domain_name,
             app_resolver: self.app_resolver,
@@ -217,8 +203,7 @@ impl<'a> Partial<WordlistLookups<'a>> {
 }
 
 pub struct WordlistLookups<'a> {
-    app_config: &'a AppConfig,
-    config: &'a DiscoverConfig,
+    env: Environment<'a, DiscoverConfig>,
     partial_output_config: OutputConfig,
     domain_name: Name,
     app_resolver: AppResolver,
@@ -243,12 +228,11 @@ impl<'a> WordlistLookups<'a> {
             ],
         )?;
 
-        if !self.app_config.quiet && self.config.partial_results {
-            println!(
-                "{}",
-                styles::EMPH.paint(format!("{} Wordlist lookups.", &*CAPTION_PREFIX))
-            );
-            print_estimates_lookups(&self.app_resolver.resolvers(), &query);
+        if self.env.console.show_partial_headers() {
+            self.env.console.caption("Wordlist lookups.");
+            self.env
+                .console
+                .print_estimates_lookups(&self.app_resolver.resolvers(), &query);
         }
 
         info!("Wordlist lookups.");
@@ -260,19 +244,13 @@ impl<'a> WordlistLookups<'a> {
         // Filter wildcard responses
         let lookups = self.filter_wildcard_responses(lookups);
 
-        if !self.app_config.quiet && self.config.partial_results {
-            print_statistics(&lookups, total_run_time);
-        }
-        if self.config.partial_results {
-            output::output(&self.partial_output_config, &lookups)?;
-        }
+        console::print_partial_results(&self.env, &lookups, total_run_time)?;
 
         // Merge lookups from this step with previous step
         let lookups = lookups.merge(self.lookups);
 
         Ok(Partial::Next(DiscoverResult {
-            app_config: self.app_config,
-            config: self.config,
+            env: self.env,
             domain_name: self.domain_name,
             total_run_time: self.total_run_time + total_run_time,
             wildcard_resolutions: self.wildcard_resolutions,
@@ -294,7 +272,7 @@ impl<'a> WordlistLookups<'a> {
     }
 
     async fn load_wordlist(&self, append_domain_name: &Name) -> Result<Vec<Name>> {
-        let wordlist: Vec<_> = if let Some(ref path) = self.config.wordlist_file_path {
+        let wordlist: Vec<_> = if let Some(ref path) = self.env.mod_config.wordlist_file_path {
             Wordlist::from_file(path).await?
         } else {
             Wordlist::default()?
@@ -318,8 +296,7 @@ impl<'a> Partial<DiscoverResult<'a>> {
 }
 
 pub struct DiscoverResult<'a> {
-    app_config: &'a AppConfig,
-    config: &'a DiscoverConfig,
+    env: Environment<'a, DiscoverConfig>,
     domain_name: Name,
     total_run_time: Duration,
     wildcard_resolutions: Option<Lookups>,
@@ -328,7 +305,7 @@ pub struct DiscoverResult<'a> {
 
 impl<'a> DiscoverResult<'a> {
     fn output(self) -> Result<ExitStatus> {
-        match self.app_config.output {
+        match self.env.app_config.output {
             OutputType::Json => self.json_output(),
             OutputType::Summary => self.summary_output(),
         }
@@ -350,7 +327,7 @@ impl<'a> DiscoverResult<'a> {
             lookups: self.lookups,
         };
 
-        output::output(&self.app_config.output_config, &data)?;
+        output::output(&self.env.app_config.output_config, &data)?;
         Ok(ExitStatus::Ok)
     }
 
@@ -360,18 +337,12 @@ impl<'a> DiscoverResult<'a> {
             .lookups
             .combine(self.wildcard_resolutions.as_ref().unwrap_or(&empty));
 
-        if !self.app_config.quiet {
-            println!("{}", styles::EMPH.paint(format!("{} Finished.", &*FINISHED_PREFIX)));
-            print_statistics(&all_lookups, self.total_run_time);
+        if self.env.console.not_quiet() {
+            self.env.console.finished();
+            self.env.console.print_statistics(&all_lookups, self.total_run_time);
             self.print_wildcard();
         }
-
-        let mut names = self.unique_names();
-        names.sort();
-
-        for name in names {
-            print_fancy_name_by_domain(&name, &self.domain_name);
-        }
+        self.print_fancy_names();
 
         Ok(ExitStatus::Ok)
     }
@@ -379,23 +350,27 @@ impl<'a> DiscoverResult<'a> {
     fn print_wildcard(&self) {
         if let Some(ref wildcard) = self.wildcard_resolutions {
             let uniq_responses = wildcard.ips().unique().len();
-            println!(
-                "{} Wildcard resolution discovered: {} unique {} for {} random sub {}",
-                styles::ATTENTION.paint(&*ATTENTION_PREFIX),
+            self.env.console.attention(format!(
+                "Wildcard resolution discovered: {} unique {} for {} random sub {}",
                 uniq_responses,
                 if uniq_responses > 1 { "answers" } else { "answer" },
-                self.config.rnd_names_number,
-                if self.config.rnd_names_number > 1 {
+                self.env.mod_config.rnd_names_number,
+                if self.env.mod_config.rnd_names_number > 1 {
                     "domains"
                 } else {
                     "domains"
                 },
-            );
+            ));
         } else {
-            println!(
-                "{} No wildcard resolution discovered",
-                styles::EMPH.paint(&*INFO_PREFIX)
-            );
+            self.env.console.info("No wildcard resolution discovered");
+        }
+    }
+
+    fn print_fancy_names(&self) {
+        let mut names = self.unique_names();
+        names.sort();
+        for name in names {
+            self.print_fancy_name_by_domain(&name, &self.domain_name);
         }
     }
 
@@ -409,20 +384,19 @@ impl<'a> DiscoverResult<'a> {
             .into_iter()
             .collect()
     }
-}
 
-fn print_fancy_name_by_domain(name: &Name, domain_name: &Name) {
-    if domain_name.zone_of(&name) {
-        let domain_len = domain_name.num_labels();
-        let sub_domain = Name::from_labels(name.iter().take((&name.num_labels() - domain_len) as usize)).unwrap();
-        println!(
-            " {} {}{}{}",
-            &*ITEMAZATION_PREFIX,
-            styles::EMPH.paint(&sub_domain),
-            domain_name,
-            if name.is_fqdn() { "." } else { "" }
-        );
-    } else {
-        println!(" {} {}", &*ITEMAZATION_PREFIX, &name);
+    fn print_fancy_name_by_domain(&self, name: &Name, domain_name: &Name) {
+        if domain_name.zone_of(&name) {
+            let domain_len = domain_name.num_labels();
+            let sub_domain = Name::from_labels(name.iter().take((&name.num_labels() - domain_len) as usize)).unwrap();
+            self.env.console.itemize(format!(
+                "{}{}{}",
+                Fmt::emph(&sub_domain),
+                domain_name,
+                if name.is_fqdn() { "." } else { "" }
+            ));
+        } else {
+            self.env.console.itemize(name.to_string());
+        }
     }
 }

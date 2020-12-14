@@ -18,7 +18,7 @@ mod opennic;
 mod parser;
 mod public_dns;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ServerListSpec {
     PublicDns { spec: PublicDns },
     OpenNic { spec: OpenNic },
@@ -40,7 +40,7 @@ impl ServerListSpec {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct PublicDns {
     country: Option<String>,
 }
@@ -57,7 +57,7 @@ impl PublicDns {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct OpenNic {
     anon: bool,
     number: usize,
@@ -76,7 +76,7 @@ impl Default for OpenNic {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum IPV {
     V4,
     V6,

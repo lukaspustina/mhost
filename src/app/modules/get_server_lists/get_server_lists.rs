@@ -6,65 +6,62 @@ use log::info;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 
-use crate::app::console::{print_estimates_downloads, print_statistics};
+use crate::app::console::Console;
 use crate::app::modules::get_server_lists::config::DownloadServerListConfig;
-use crate::app::modules::Partial;
+use crate::app::modules::{Environment, Partial};
 use crate::app::{AppConfig, ExitStatus};
-use crate::output::styles::{self, CAPTION_PREFIX, OK_PREFIX};
 use crate::output::OutputType;
 use crate::services::server_lists::{DownloadResponses, ServerListDownloader, ServerListDownloaderOpts};
 
 pub struct GetServerLists {}
 
 impl GetServerLists {
-    pub fn init(app_config: &AppConfig, config: DownloadServerListConfig) -> Result<DownloadServerLists> {
+    pub fn init<'a>(
+        app_config: &'a AppConfig,
+        config: &'a DownloadServerListConfig,
+    ) -> Result<DownloadServerLists<'a>> {
         if app_config.output == OutputType::Json {
             return Err(anyhow!("JSON output is not support"));
         }
+        let console = Console::new(app_config);
+        let env = Environment::new(app_config, config, console);
 
         let opts: ServerListDownloaderOpts =
             ServerListDownloaderOpts::new(app_config.max_concurrent_requests, app_config.abort_on_error);
         let downloader = ServerListDownloader::new(opts);
 
-        Ok(DownloadServerLists {
-            app_config,
-            config,
-            downloader,
-        })
+        Ok(DownloadServerLists { env, downloader })
     }
 }
 
 pub struct DownloadServerLists<'a> {
-    app_config: &'a AppConfig,
-    config: DownloadServerListConfig,
+    env: Environment<'a, DownloadServerListConfig>,
     downloader: ServerListDownloader,
 }
 
 impl<'a> DownloadServerLists<'a> {
     pub async fn download_server_lists(self) -> Result<Partial<FileWriter<'a>>> {
-        if !self.app_config.quiet {
-            println!(
-                "{}",
-                styles::EMPH.paint(format!("{} Downloading server lists.", &*CAPTION_PREFIX))
-            );
-            print_estimates_downloads(&self.config.server_list_specs);
+        if self.env.console.not_quiet() {
+            self.env.console.caption("Downloading server lists.");
+            self.env
+                .console
+                .print_estimates_downloads(&self.env.mod_config.server_list_specs);
         }
 
         info!("Downloading lists");
         let start_time = Instant::now();
-        let servers = self.downloader.download(self.config.server_list_specs).await?;
+        let servers = self
+            .downloader
+            .download(self.env.mod_config.server_list_specs.clone())
+            .await?;
         let total_run_time = Instant::now() - start_time;
         info!("Finished downloads.");
 
-        if !self.app_config.quiet {
-            print_statistics(&servers, total_run_time);
+        if self.env.console.not_quiet() {
+            self.env.console.print_statistics(&servers, total_run_time);
         }
 
-        Ok(Partial::Next(FileWriter {
-            app_config: self.app_config,
-            output_file_path: self.config.output_file_path,
-            servers,
-        }))
+        Ok(Partial::Next(FileWriter { env: self.env, servers }))
     }
 }
 
@@ -78,19 +75,20 @@ impl<'a> Partial<FileWriter<'a>> {
 }
 
 pub struct FileWriter<'a> {
-    app_config: &'a AppConfig,
-    output_file_path: String,
+    env: Environment<'a, DownloadServerListConfig>,
     servers: DownloadResponses,
 }
 
 impl<'a> FileWriter<'a> {
     async fn write_servers_to_file(self) -> Result<ExitStatus> {
         info!("Writing nameserver configs to file.");
-        FileWriter::write_servers(&self.output_file_path, &self.servers).await?;
+        FileWriter::write_servers(&self.env.mod_config.output_file_path, &self.servers).await?;
         info!("Finished writing.");
 
-        if !self.app_config.quiet {
-            println!("{} Saved to file '{}'.", &*OK_PREFIX, &self.output_file_path);
+        if self.env.console.not_quiet() {
+            self.env
+                .console
+                .ok(format!("Saved to file '{}'.", &self.env.mod_config.output_file_path));
         }
 
         Ok(ExitStatus::Ok)

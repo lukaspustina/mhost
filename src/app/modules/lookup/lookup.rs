@@ -10,13 +10,11 @@ use log::info;
 use serde::Serialize;
 use tokio::time::Duration;
 
-use crate::app::console::{
-    print_error_counts, print_estimates_lookups, print_estimates_whois, print_opts, print_statistics,
-};
+use crate::app::console::Console;
 use crate::app::modules::lookup::config::LookupConfig;
+use crate::app::modules::Environment;
 use crate::app::resolver::AppResolver;
 use crate::app::{output, AppConfig, ExitStatus};
-use crate::output::styles::{self, CAPTION_PREFIX, FINISHED_PREFIX};
 use crate::output::summary::{SummaryFormatter, SummaryOptions};
 use crate::output::OutputType;
 use crate::resolver::lookup::Uniquify;
@@ -29,14 +27,16 @@ pub struct Lookup {}
 
 impl Lookup {
     pub async fn init<'a>(app_config: &'a AppConfig, config: &'a LookupConfig) -> Result<DnsLookups<'a>> {
+        let console = Console::new(app_config);
+        let env = Environment::new(app_config, config, console);
+
         let query = Lookup::build_query(&config.domain_name, &config.record_types)?;
         let app_resolver = AppResolver::create_resolvers(app_config)
             .await?
             .with_single_server_lookup(config.single_server_lookup);
 
         Ok(DnsLookups {
-            app_config,
-            config,
+            env,
             query,
             app_resolver,
         })
@@ -65,24 +65,22 @@ impl Lookup {
 }
 
 pub struct DnsLookups<'a> {
-    app_config: &'a AppConfig,
-    config: &'a LookupConfig,
+    env: Environment<'a, LookupConfig>,
     query: MultiQuery,
     app_resolver: AppResolver,
 }
 
 impl<'a> DnsLookups<'a> {
     pub async fn lookups(self) -> Result<Whois<'a>> {
-        if !self.app_config.quiet {
-            print_opts(
+        if self.env.console.not_quiet() {
+            self.env.console.print_opts(
                 self.app_resolver.resolver_group_opts(),
                 &self.app_resolver.resolver_opts(),
             );
-            println!(
-                "{}",
-                styles::EMPH.paint(format!("{} Running DNS lookups.", &*CAPTION_PREFIX))
-            );
-            print_estimates_lookups(self.app_resolver.resolvers(), &self.query);
+            self.env.console.caption("Running DNS lookups.");
+            self.env
+                .console
+                .print_estimates_lookups(self.app_resolver.resolvers(), &self.query);
         }
 
         info!("Running lookups");
@@ -91,39 +89,32 @@ impl<'a> DnsLookups<'a> {
         let total_run_time = Instant::now() - start_time;
         info!("Finished Lookups.");
 
-        if !self.app_config.quiet {
-            print_statistics(&lookups, total_run_time);
+        if self.env.console.not_quiet() {
+            self.env.console.print_statistics(&lookups, total_run_time);
+        }
+        if self.env.app_config.output != OutputType::Json {
+            output::output(&self.env.app_config.output_config, &lookups)?;
+        }
+        if self.env.console.show_errors() {
+            self.env.console.print_error_counts(&lookups);
         }
 
-        if self.app_config.output != OutputType::Json {
-            output::output(&self.app_config.output_config, &lookups)?;
-        }
-
-        if !self.app_config.quiet && self.app_config.show_errors {
-            print_error_counts(&lookups);
-        }
-
-        Ok(Whois {
-            app_config: self.app_config,
-            config: self.config,
-            lookups,
-        })
+        Ok(Whois { env: self.env, lookups })
     }
 }
 
 pub struct Whois<'a> {
-    app_config: &'a AppConfig,
-    config: &'a LookupConfig,
+    env: Environment<'a, LookupConfig>,
     lookups: Lookups,
 }
 
 impl<'a> Whois<'a> {
     pub async fn optional_whois(self) -> Result<LookupResult<'a>> {
-        if self.config.whois {
+        if self.env.mod_config.whois {
             self.whois().await
         } else {
             Ok(LookupResult {
-                app_config: self.app_config,
+                env: self.env,
                 lookups: self.lookups,
                 whois: None,
             })
@@ -135,15 +126,12 @@ impl<'a> Whois<'a> {
         let query_types = vec![QueryType::NetworkInfo, QueryType::GeoLocation, QueryType::Whois];
         let query = whois::MultiQuery::from_iter(ip_addresses, query_types);
 
-        let opts = WhoisClientOpts::with_cache(8, self.app_config.abort_on_error, 1024, Duration::from_secs(60));
+        let opts = WhoisClientOpts::with_cache(8, self.env.app_config.abort_on_error, 1024, Duration::from_secs(60));
         let whois_client = WhoisClient::new(opts);
 
-        if !self.app_config.quiet {
-            println!(
-                "{}",
-                styles::EMPH.paint(format!("{} Running WHOIS queries.", &*CAPTION_PREFIX))
-            );
-            print_estimates_whois(&query);
+        if self.env.console.not_quiet() {
+            self.env.console.caption("Running WHOIS queries.");
+            self.env.console.print_estimates_whois(&query);
         }
 
         info!("Running Whois queries");
@@ -152,16 +140,15 @@ impl<'a> Whois<'a> {
         let total_run_time = Instant::now() - start_time;
         info!("Finished queries.");
 
-        if !self.app_config.quiet {
-            print_statistics(&whois, total_run_time);
+        if self.env.console.not_quiet() {
+            self.env.console.print_statistics(&whois, total_run_time);
         }
-
-        if self.app_config.output != OutputType::Json {
-            output::output(&self.app_config.output_config, &whois)?;
+        if self.env.app_config.output != OutputType::Json {
+            output::output(&self.env.app_config.output_config, &whois)?;
         }
 
         Ok(LookupResult {
-            app_config: self.app_config,
+            env: self.env,
             lookups: self.lookups,
             whois: Some(whois),
         })
@@ -197,14 +184,14 @@ impl<'a> Whois<'a> {
 }
 
 pub struct LookupResult<'a> {
-    app_config: &'a AppConfig,
+    env: Environment<'a, LookupConfig>,
     lookups: Lookups,
     whois: Option<WhoisResponses>,
 }
 
 impl<'a> LookupResult<'a> {
     pub fn output(self) -> Result<ExitStatus> {
-        match self.app_config.output {
+        match self.env.app_config.output {
             OutputType::Json => self.json_output(),
             OutputType::Summary => self.summary_output(),
         }
@@ -226,13 +213,13 @@ impl<'a> LookupResult<'a> {
             whois: self.whois,
         };
 
-        output::output(&self.app_config.output_config, &data)?;
+        output::output(&self.env.app_config.output_config, &data)?;
         Ok(ExitStatus::Ok)
     }
 
     fn summary_output(self) -> Result<ExitStatus> {
-        if !self.app_config.quiet {
-            println!("{}", styles::EMPH.paint(format!("{} Finished.", &*FINISHED_PREFIX)));
+        if self.env.console.not_quiet() {
+            self.env.console.finished();
         }
 
         Ok(ExitStatus::Ok)

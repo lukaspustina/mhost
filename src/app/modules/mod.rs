@@ -1,4 +1,5 @@
-use crate::app;
+use crate::app::console::Console;
+use crate::app::{self, AppConfig};
 
 pub mod discover;
 pub mod get_server_lists;
@@ -18,4 +19,22 @@ pub mod soa_check;
 pub enum Partial<T> {
     Next(T),
     ExitStatus(app::ExitStatus),
+}
+
+/** Pass environment like configs and console access from step to step
+ */
+pub struct Environment<'a, T> {
+    pub app_config: &'a AppConfig,
+    pub mod_config: &'a T,
+    pub console: Console,
+}
+
+impl<'a, T> Environment<'a, T> {
+    pub fn new(app_config: &'a AppConfig, mod_config: &'a T, console: Console) -> Environment<'a, T> {
+        Environment {
+            app_config,
+            mod_config,
+            console,
+        }
+    }
 }
