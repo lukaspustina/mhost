@@ -198,7 +198,7 @@ pub fn create_parser() -> App<'static, 'static> {
 * Summary:
   * 'condensed': Simplifies output,
   * 'human': Uses human readable formatting
-  * 'show-domain-name': Shows queried domain names",
+  * 'show-domain-names': Shows queried domain names",
                 ),
         )
         .arg(

@@ -10,6 +10,7 @@ use crate::app::output::summary::SummaryOptions;
 use crate::app::output::{OutputConfig, OutputType};
 use crate::resolver::ResolverOpts;
 
+#[derive(Debug)]
 pub struct AppConfig {
     pub list_predefined: bool,
     pub max_concurrent_servers: usize,

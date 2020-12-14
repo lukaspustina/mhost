@@ -115,7 +115,7 @@ impl<'a> RequestAll<'a> {
         let total_run_time = Instant::now() - start_time;
         info!("Finished Lookups.");
 
-        console::print_partial_results(&self.env, &lookups, total_run_time)?;
+        console::print_partial_results(&self.env.console, &self.partial_output_config, &lookups, total_run_time)?;
 
         Ok(Partial::Next(WildcardCheck {
             env: self.env,
@@ -167,7 +167,7 @@ impl<'a> WildcardCheck<'a> {
         let total_run_time = Instant::now() - start_time;
         info!("Finished Lookups.");
 
-        console::print_partial_results(&self.env, &lookups, total_run_time)?;
+        console::print_partial_results(&self.env.console, &self.partial_output_config, &lookups, total_run_time)?;
 
         Ok(Partial::Next(WordlistLookups {
             env: self.env,
@@ -244,7 +244,7 @@ impl<'a> WordlistLookups<'a> {
         // Filter wildcard responses
         let lookups = self.filter_wildcard_responses(lookups);
 
-        console::print_partial_results(&self.env, &lookups, total_run_time)?;
+        console::print_partial_results(&self.env.console, &self.partial_output_config, &lookups, total_run_time)?;
 
         // Merge lookups from this step with previous step
         let lookups = lookups.merge(self.lookups);

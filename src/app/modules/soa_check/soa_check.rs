@@ -68,7 +68,12 @@ impl<'a> AuthoritativeNameServers<'a> {
         let total_run_time = Instant::now() - start_time;
         info!("Finished Lookups.");
 
-        console::print_partial_results(&self.env, &lookups, total_run_time)?;
+        console::print_partial_results(
+            &self.env.console,
+            &self.env.app_config.output_config,
+            &lookups,
+            total_run_time,
+        )?;
 
         if !lookups.has_records() {
             self.env.console.failed("No authoritative nameservers found. Aborting.");
@@ -119,7 +124,12 @@ impl<'a> NameServerIps<'a> {
         let total_run_time = Instant::now() - start_time;
         info!("Finished Lookups.");
 
-        console::print_partial_results(&self.env, &lookups, total_run_time)?;
+        console::print_partial_results(
+            &self.env.console,
+            &self.env.app_config.output_config,
+            &lookups,
+            total_run_time,
+        )?;
 
         if !lookups.has_records() {
             self.env
@@ -179,7 +189,12 @@ impl<'a> SoaRecords<'a> {
         let total_run_time = Instant::now() - start_time;
         info!("Finished Lookups.");
 
-        console::print_partial_results(&self.env, &lookups, total_run_time)?;
+        console::print_partial_results(
+            &self.env.console,
+            &self.env.app_config.output_config,
+            &lookups,
+            total_run_time,
+        )?;
 
         if !lookups.has_records() {
             self.env

@@ -4,10 +4,10 @@ use std::time::Duration;
 
 use yansi::Paint;
 
-use crate::app::modules::Environment;
 use crate::app::output::styles::{
     self, ATTENTION_PREFIX, CAPTION_PREFIX, ERROR_PREFIX, FINISHED_PREFIX, INFO_PREFIX, ITEMAZATION_PREFIX, OK_PREFIX,
 };
+use crate::app::output::OutputConfig;
 use crate::app::{output, AppConfig};
 use crate::estimate::Estimate;
 use crate::resolver::{self, Lookups, ResolverGroup, ResolverGroupOpts, ResolverOpts};
@@ -243,19 +243,20 @@ impl Fmt {
     }
 }
 
-pub fn print_partial_results<T>(
-    env: &Environment<T>,
+pub fn print_partial_results(
+    console: &Console,
+    output_config: &OutputConfig,
     lookups: &Lookups,
     total_run_time: Duration,
 ) -> anyhow::Result<()> {
-    if env.console.show_partial_headers() {
-        env.console.print_statistics(lookups, total_run_time);
+    if console.show_partial_headers() {
+        console.print_statistics(lookups, total_run_time);
     }
-    if env.console.show_partial_results() {
-        output::output(&env.app_config.output_config, lookups)?;
+    if console.show_partial_results() {
+        output::output(output_config, lookups)?;
     }
-    if env.console.show_errors() {
-        env.console.print_error_counts(lookups);
+    if console.show_errors() {
+        console.print_error_counts(lookups);
     }
 
     Ok(())
