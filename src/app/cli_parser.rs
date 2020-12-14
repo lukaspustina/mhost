@@ -76,7 +76,7 @@ pub fn create_parser() -> App<'static, 'static> {
                 .require_delimiter(true)
                 .default_value("udp,tcp,https,tls")
                 .possible_values(&["udp", "tcp", "https", "tls"])
-                .default_value_if("predefined", None, "udp,tcp,https,tls")
+                .default_value_if("predefined", None, "udp")
                 .help("Filters predefined nameservers by protocol"),
         )
         .arg(
