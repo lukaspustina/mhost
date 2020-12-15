@@ -34,7 +34,7 @@ clap = { version = "2", optional = true }
 chrono = { version = "0.4", features = ["serde"] }
 env_logger = { version = "0.8.*", optional = true }
 futures = { version = "0.3.*"}
-humantime = "2"
+humantime = { version = "2", optional = true }
 indexmap = "1.5"
 ipnetwork = "0.17"
 lazy_static = "1.4"
@@ -42,6 +42,7 @@ log = "0.4.*"
 lru_time_cache = "0.11"
 nom = "5"
 rand = "0.7"
+# Sync with trust-dns-resolver if possible, to reduce dependencies to build and link
 reqwest = { version = "0.10", default-features = false, features = ["rustls-tls", "json", "trust-dns"] }
 pin-project = "1"
 resolv-conf = "0.7"
@@ -49,7 +50,7 @@ tokio = { version = "0.2.*", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 smallvec = "1.4"
-tabwriter = "1.2"
+tabwriter = { version = "1.2", optional = true }
 thiserror = "1"
 # trust-dns-resolver = { version = "0.19", features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls", "dnssec-ring", "mdns", "system-config", "serde-config"] }
 trust-dns-resolver = { version = "0.20.0-alpha.3", features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls", "dnssec-ring", "system-config", "serde-config"] }
@@ -66,7 +67,7 @@ lit = "1"
 spectral = "0.6"
 
 [features]
-bin = ["anyhow", "clap", "env_logger"]
+bin = ["anyhow", "clap", "env_logger", "humantime", "tabwriter"]
 
 [profile.release]
 lto = true
