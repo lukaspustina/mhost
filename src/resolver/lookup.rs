@@ -70,6 +70,10 @@ impl Lookups {
         self.inner.iter().any(|x| x.result().is_response())
     }
 
+    pub fn responses(&self) -> Vec<&Response> {
+        self.map_responses().collect()
+    }
+
     pub fn records(&self) -> Vec<&Record> {
         self.inner
             .iter()

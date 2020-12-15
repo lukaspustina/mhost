@@ -1,11 +1,12 @@
-use mhost::resolver::{MultiQuery, ResolverGroup};
-use mhost::{IpNetwork, RecordType};
 use std::env;
 use std::str::FromStr;
 
+use mhost::resolver::{MultiQuery, ResolverGroup};
+use mhost::{IpNetwork, RecordType};
+
 #[tokio::main]
 async fn main() {
-    let cidr = env::args().nth(1).unwrap_or_else(|| "93.184.216.34".to_string());
+    let cidr = env::args().nth(1).unwrap_or_else(|| "8.8.8.8".to_string());
     let ips = IpNetwork::from_str(&cidr).expect("failed to parse cidr ");
 
     let resolvers = ResolverGroup::from_system_config(Default::default())

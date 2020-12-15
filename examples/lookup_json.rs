@@ -1,7 +1,6 @@
+use std::env;
 use std::net::SocketAddr;
-use std::{env, io};
 
-use mhost::app::output::{Output, OutputConfig, OutputFormat};
 use mhost::nameserver::NameServerConfig;
 use mhost::resolver::{MultiQuery, Resolver, ResolverConfig};
 use mhost::RecordType;
@@ -22,13 +21,6 @@ async fn main() {
         .expect("Failed to create multi-query");
     let lookups = resolver.lookup(mq).await.expect("failed to execute lookups");
 
-    let stdout = io::stdout();
-    let mut handle = stdout.lock();
-
-    let opts = Default::default();
-    let config = OutputConfig::json(opts);
-    let output = Output::new(&config);
-    output
-        .output(&mut handle, &lookups)
-        .expect("failed to serialize to stdout");
+    let json = serde_json::to_string_pretty(&lookups).expect("failed to serialize lookups");
+    println!("{}", &json);
 }

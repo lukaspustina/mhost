@@ -1,8 +1,6 @@
+use std::env;
 use std::time::Instant;
-use std::{env, io};
 
-use mhost::app::output::summary::SummaryOptions;
-use mhost::app::output::{Output, OutputConfig, OutputFormat};
 use mhost::resolver::{predefined, MultiQuery, ResolverGroup};
 use mhost::statistics::Statistics;
 use mhost::RecordType;
@@ -46,14 +44,5 @@ async fn main() {
         statistics,
         total_run_time.as_millis()
     );
-
-    let stdout = io::stdout();
-    let mut handle = stdout.lock();
-
-    let opts = SummaryOptions::default();
-    let config = OutputConfig::summary(opts);
-    let output = Output::new(&config);
-    output
-        .output(&mut handle, &lookups)
-        .expect("failed to serialize to stdout");
+    println!("Results:\n{:#?}", &lookups);
 }
