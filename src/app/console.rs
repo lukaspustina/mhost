@@ -51,13 +51,14 @@ impl Console {
 
     pub fn print_opts(&self, group_opts: &ResolverGroupOpts, opts: &ResolverOpts) {
         self.caption(format!(
-            "{}: concurrent nameservers={}, max. nameservers={}, concurrent requests={}, retries={}, timeout={}s{}{}{}",
+            "{}: concurrent nameservers={}, max. nameservers={}, concurrent requests={}, retries={}, timeout={}s, ndots={}{}{}{}",
             Fmt::emph("Options"),
             group_opts.max_concurrent,
             group_opts.limit.unwrap(), // Safe unwrap, because of Clap's default value
             opts.max_concurrent_requests,
             opts.retries,
             opts.timeout.as_secs(),
+            opts.ndots,
             if opts.expects_multiple_responses {
                 ", wait for additional responses"
             } else {

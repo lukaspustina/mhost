@@ -8,7 +8,7 @@ use crate::RecordType;
 /// UniQuery
 ///
 /// Name's labels are all Rc, so clone is cheap
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
 pub struct UniQuery {
     pub(crate) name: Name,
     pub(crate) record_type: RecordType,

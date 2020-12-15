@@ -41,6 +41,14 @@ pub fn create_parser() -> App<'static, 'static> {
                 .help("Uses alternative resolv.conf file"),
         )
         .arg(
+            Arg::with_name("ndots")
+                .long("ndots")
+                .value_name("NUMBER")
+                .default_value("1")
+                .validator(|str| u8::from_str(&str).map(|_| ()).map_err(|_| "invalid number".to_string()))
+                .help("Sets number of dots to qualify domain name as FQDN"),
+        )
+        .arg(
             Arg::with_name("system nameservers")
                 .short("S")
                 .long("system-nameserver")

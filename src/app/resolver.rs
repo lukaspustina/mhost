@@ -4,12 +4,38 @@ use crate::nameserver::{predefined, NameServerConfig, NameServerConfigGroup, Pro
 use crate::resolver::{
     Lookups, MultiQuery, ResolverConfig, ResolverConfigGroup, ResolverGroup, ResolverGroupOpts, ResolverOpts,
 };
+use crate::{IntoName, Name};
 use anyhow::{anyhow, Context, Result};
 use futures::future::join_all;
 use log::info;
 use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::Arc;
+
+/** NameBuilder offers a safe way to transform a string into a `Name``
+ *
+ * `NameBuilder` takes `AppConfig` into account. For examples `ndots` is used to qualify a name a FQDN or not.
+ */
+pub struct NameBuilder {
+    ndots: u8,
+}
+
+impl NameBuilder {
+    pub fn new(app_config: &AppConfig) -> NameBuilder {
+        NameBuilder {
+            ndots: app_config.ndots,
+        }
+    }
+
+    pub fn from_str(&self, str: &str) -> Result<Name> {
+        let mut domain_name: Name = str.into_name().context("failed to parse domain name")?;
+        if domain_name.num_labels() > self.ndots {
+            domain_name.set_fqdn(true)
+        }
+
+        Ok(domain_name)
+    }
+}
 
 pub struct AppResolver {
     resolvers: Arc<ResolverGroup>,
@@ -146,10 +172,17 @@ pub fn load_resolver_group_opts(config: &AppConfig) -> Result<ResolverGroupOpts>
 
 pub fn load_resolver_opts(config: &AppConfig) -> Result<ResolverOpts> {
     let default_opts = if config.ignore_system_resolv_opt {
-        Default::default()
+        ResolverOpts {
+            ndots: config.ndots as usize,
+            ..Default::default()
+        }
     } else {
-        ResolverOpts::from_system_config_path(&config.resolv_conf_path)
-            .context("Failed to load system resolver options")?
+        ResolverOpts {
+            // TODO: This is not correct. We should take the value from resolv.conf and only apply app_config.ndots if given
+            ndots: config.ndots as usize,
+            ..ResolverOpts::from_system_config_path(&config.resolv_conf_path)
+                .context("Failed to load system resolver options")?
+        }
     };
     let resolver_opts = config.resolver_opts(default_opts);
     info!("Loaded resolver opts.");

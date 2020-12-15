@@ -3,12 +3,11 @@ use std::iter;
 use std::str::FromStr;
 use std::time::{Duration, Instant};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use log::{debug, info};
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use serde::Serialize;
-use trust_dns_resolver::IntoName;
 
 use crate::app::console::{self, Console, Fmt};
 use crate::app::modules::discover::config::DiscoverConfig;
@@ -16,7 +15,7 @@ use crate::app::modules::discover::wordlist::Wordlist;
 use crate::app::modules::{Environment, Partial};
 use crate::app::output::summary::{SummaryFormat, SummaryFormatter, SummaryOptions};
 use crate::app::output::{OutputConfig, OutputType};
-use crate::app::resolver::AppResolver;
+use crate::app::resolver::{AppResolver, NameBuilder};
 use crate::app::{output, AppConfig, ExitStatus};
 use crate::resolver::lookup::Uniquify;
 use crate::resolver::{Lookups, MultiQuery};
@@ -32,11 +31,8 @@ impl Discover {
         let console = Console::with_partial_results(app_config, config.partial_results);
         let env = Environment::new(app_config, config, console);
 
-        let domain_name: Name = config
-            .domain_name
-            .as_str()
-            .into_name()
-            .context("failed to parse domain name")?;
+        let name_builder = NameBuilder::new(app_config);
+        let domain_name = name_builder.from_str(&config.domain_name)?;
         let app_resolver = AppResolver::create_resolvers(app_config)
             .await?
             .with_single_server_lookup(config.single_server_lookup);
@@ -375,10 +371,16 @@ impl<'a> DiscoverResult<'a> {
     }
 
     fn unique_names(&self) -> Vec<Name> {
+        let query_names = self
+            .lookups
+            .iter()
+            .filter(|x| x.result().is_response())
+            .map(|x| x.query().name());
         self.lookups
             .records()
             .iter()
             .map(|x| x.name_labels())
+            .chain(query_names)
             .unique()
             .to_owned()
             .into_iter()
@@ -389,12 +391,9 @@ impl<'a> DiscoverResult<'a> {
         if domain_name.zone_of(&name) {
             let domain_len = domain_name.num_labels();
             let sub_domain = Name::from_labels(name.iter().take((&name.num_labels() - domain_len) as usize)).unwrap();
-            self.env.console.itemize(format!(
-                "{}{}{}",
-                Fmt::emph(&sub_domain),
-                domain_name,
-                if name.is_fqdn() { "." } else { "" }
-            ));
+            self.env
+                .console
+                .itemize(format!("{}{}", Fmt::emph(&sub_domain), domain_name,));
         } else {
             self.env.console.itemize(name.to_string());
         }

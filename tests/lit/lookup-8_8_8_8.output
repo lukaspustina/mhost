@@ -1,6 +1,6 @@
 RUN: @mhost_bin --ascii --no-color lookup 8.8.8.8 --whois
 
-CHECK: > Options: concurrent nameservers=10, max. nameservers=100, concurrent requests=5, retries=0, timeout=5s, abort on error, abort on timeout
+CHECK: > Options: concurrent nameservers=10, max. nameservers=100, concurrent requests=5, retries=0, timeout=5s, ndots=1, abort on error, abort on timeout
 CHECK-NEXT: > Running DNS lookups.
 CHECK-NEXT: - Sending [[\d+]] request[[s*]] to [[\d+]] nameserver[[s*]] for 1 record type of 1 name.
 CHECK:  * PTR:  8.8.8.8:  dns.google.

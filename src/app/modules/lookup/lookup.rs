@@ -15,13 +15,13 @@ use crate::app::modules::lookup::config::LookupConfig;
 use crate::app::modules::Environment;
 use crate::app::output::summary::{SummaryFormatter, SummaryOptions};
 use crate::app::output::OutputType;
-use crate::app::resolver::AppResolver;
+use crate::app::resolver::{AppResolver, NameBuilder};
 use crate::app::{output, AppConfig, ExitStatus};
 use crate::resolver::lookup::Uniquify;
 use crate::resolver::{Lookups, MultiQuery};
 use crate::resources::NameToIpAddr;
 use crate::services::whois::{self, QueryType, WhoisClient, WhoisClientOpts, WhoisResponses};
-use crate::RecordType;
+use crate::{Name, RecordType};
 
 pub struct Lookup {}
 
@@ -30,7 +30,8 @@ impl Lookup {
         let console = Console::new(app_config);
         let env = Environment::new(app_config, config, console);
 
-        let query = Lookup::build_query(&config.domain_name, &config.record_types)?;
+        let name_builder = NameBuilder::new(app_config);
+        let query = Lookup::build_query(&name_builder, &config.domain_name, &config.record_types)?;
         let app_resolver = AppResolver::create_resolvers(app_config)
             .await?
             .with_single_server_lookup(config.single_server_lookup);
@@ -42,10 +43,11 @@ impl Lookup {
         })
     }
 
-    fn build_query(domain_name: &str, record_types: &[RecordType]) -> Result<MultiQuery> {
+    fn build_query(name_builder: &NameBuilder, domain_name: &str, record_types: &[RecordType]) -> Result<MultiQuery> {
         if let Ok(ip_network) = IpNetwork::from_str(domain_name) {
             Lookup::ptr_query(ip_network)
         } else {
+            let domain_name = name_builder.from_str(domain_name)?;
             Lookup::name_query(domain_name, record_types)
         }
     }
@@ -56,7 +58,7 @@ impl Lookup {
         Ok(q)
     }
 
-    fn name_query(name: &str, record_types: &[RecordType]) -> Result<MultiQuery> {
+    fn name_query(name: Name, record_types: &[RecordType]) -> Result<MultiQuery> {
         let record_types_len = record_types.len();
         let q = MultiQuery::multi_record(name, record_types.to_vec()).context("Failed to build query")?;
         info!("Prepared query for name lookup for {} record types.", record_types_len);

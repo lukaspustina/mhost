@@ -10,7 +10,7 @@ use crate::app::console::Console;
 use crate::app::modules::soa_check::config::SoaCheckConfig;
 use crate::app::modules::{Environment, Partial};
 use crate::app::output::OutputType;
-use crate::app::resolver::AppResolver;
+use crate::app::resolver::{AppResolver, NameBuilder};
 use crate::app::{console, AppConfig, ExitStatus};
 use crate::diff::SetDiffer;
 use crate::nameserver::NameServerConfig;
@@ -31,7 +31,9 @@ impl SoaCheck {
         let console = Console::with_partial_results(app_config, config.partial_results);
         let env = Environment::new(app_config, config, console);
 
-        let query = MultiQuery::single(config.domain_name.as_str(), RecordType::NS)?;
+        let name_builder = NameBuilder::new(app_config);
+        let domain_name = name_builder.from_str(&config.domain_name)?;
+        let query = MultiQuery::single(domain_name, RecordType::NS)?;
         let app_resolver = AppResolver::create_resolvers(app_config).await?;
 
         if env.console.not_quiet() {

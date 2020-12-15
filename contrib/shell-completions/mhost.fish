@@ -1,4 +1,5 @@
 complete -c mhost -n "__fish_use_subcommand" -l resolv-conf -d 'Uses alternative resolv.conf file'
+complete -c mhost -n "__fish_use_subcommand" -l ndots -d 'Sets number of dots to qualify domain name as FQDN'
 complete -c mhost -n "__fish_use_subcommand" -s S -l system-nameserver -d 'Adds system nameserver for system lookups; only IP addresses allowed'
 complete -c mhost -n "__fish_use_subcommand" -s s -l nameserver -d 'Adds nameserver for lookups'
 complete -c mhost -n "__fish_use_subcommand" -l predefined-filter -d 'Filters predefined nameservers by protocol' -r -f -a "udp tcp https tls"

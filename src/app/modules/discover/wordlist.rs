@@ -9,11 +9,14 @@ use tokio::io::BufReader;
 use crate::{IntoName, Name};
 
 static DEFAULT_WORD_LIST: &str = r#"admin
+_amazonses
+admin
 alpha
 api
 app
 assets
 auth
+aws
 beta
 blog
 chat
@@ -71,6 +74,8 @@ special
 sso
 staging
 static
+status
+support
 svn
 test
 ticket
@@ -79,10 +84,13 @@ tr
 update
 upload
 web
+wopi
 www
 www-server
 www-test
-wwwtest"#;
+wwwtest
+zendesk1
+zendeskverification"#;
 
 #[derive(Debug)]
 pub struct Wordlist {
@@ -201,6 +209,6 @@ mod tests {
             .that(&wordlist)
             .is_ok()
             .map(|x| &x.words)
-            .has_length(75)
+            .has_length(83)
     }
 }
