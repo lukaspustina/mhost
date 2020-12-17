@@ -111,7 +111,7 @@ pub mod cloudflare {
     }
 
     pub fn https6() -> NameServerConfig {
-        NameServerConfig::https_with_name((IPV6_1, 663), "cloudflare-dns.com", "Cloudflare 1".to_string())
+        NameServerConfig::https_with_name((IPV6_1, 443), "cloudflare-dns.com", "Cloudflare 1".to_string())
     }
 
     pub fn tls6() -> NameServerConfig {
@@ -128,7 +128,7 @@ pub mod cloudflare {
     }
 
     pub fn https6_2() -> NameServerConfig {
-        NameServerConfig::https_with_name((IPV6_2, 663), "cloudflare-dns.com", "Cloudflare 2".to_string())
+        NameServerConfig::https_with_name((IPV6_2, 443), "cloudflare-dns.com", "Cloudflare 2".to_string())
     }
 
     pub fn tls6_2() -> NameServerConfig {
@@ -294,7 +294,7 @@ pub mod quad9 {
     }
 
     pub fn https6() -> NameServerConfig {
-        NameServerConfig::https_with_name((IPV6_1, 663), "dns.quad9.net", "Quad9 1".to_string())
+        NameServerConfig::https_with_name((IPV6_1, 443), "dns.quad9.net", "Quad9 1".to_string())
     }
 
     pub fn tls6() -> NameServerConfig {
@@ -311,7 +311,7 @@ pub mod quad9 {
     }
 
     pub fn https6_2() -> NameServerConfig {
-        NameServerConfig::https_with_name((IPV6_2, 663), "dns.quad9.net", "Quad9 2".to_string())
+        NameServerConfig::https_with_name((IPV6_2, 443), "dns.quad9.net", "Quad9 2".to_string())
     }
 
     pub fn tls6_2() -> NameServerConfig {
