@@ -7,10 +7,10 @@ use crate::resolver::{
 use crate::{IntoName, Name};
 use anyhow::{anyhow, Context, Result};
 use futures::future::join_all;
-use log::info;
 use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::Arc;
+use tracing::info;
 
 /** NameBuilder offers a safe way to transform a string into a `Name``
  *

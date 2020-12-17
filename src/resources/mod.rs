@@ -102,6 +102,7 @@ mod tests {
 
     #[test]
     fn test_192_168_101_1() {
+        crate::utils::tests::logging::init();
         let ip_expected = Ipv4Addr::new(192, 168, 101, 1);
         let name: Name = ip_expected.into_name().unwrap();
 
@@ -113,6 +114,7 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn test_2a0a_a955_bef6__ad7_fad3_c233_2c() {
+        crate::utils::tests::logging::init();
         let ip_expected = Ipv6Addr::from_str("2a0a:a955:bef6::ad7:fad3:c233:2c").unwrap();
         let name: Name = ip_expected.into_name().unwrap();
 
@@ -124,6 +126,7 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn fuzz_a_a_aB_ip6_arpa_() {
+        crate::utils::tests::logging::init();
         // This is not a valid ipv6 address
         let name: Name = "a.a.aB.ip6.arpa.".into_name().unwrap();
 
@@ -136,6 +139,7 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn fuzz_a_a_aa_a_ip6_arpa_() {
+        crate::utils::tests::logging::init();
         // This is not a valid ipv6 address
         let name: Name = "a.a.aa.a.ip6.arpa.".into_name().unwrap();
 

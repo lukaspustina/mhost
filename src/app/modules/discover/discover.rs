@@ -4,10 +4,10 @@ use std::str::FromStr;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
-use log::{debug, info};
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use serde::Serialize;
+use tracing::{debug, info};
 
 use crate::app::console::{self, Console, Fmt};
 use crate::app::modules::discover::config::DiscoverConfig;

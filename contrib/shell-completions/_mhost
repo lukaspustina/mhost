@@ -47,6 +47,7 @@ _mhost() {
 '--no-color[Disables colorful output]' \
 '--ascii[Uses only ASCII compatible characters for output]' \
 '*-v[Sets the level of verbosity]' \
+'--debug[Uses debug formatting for logging -- much more verbose]' \
 '-h[Prints help information]' \
 '--help[Prints help information]' \
 '-V[Prints version information]' \

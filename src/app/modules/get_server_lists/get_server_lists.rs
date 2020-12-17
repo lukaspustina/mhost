@@ -2,9 +2,9 @@ use std::path::Path;
 use std::time::Instant;
 
 use anyhow::{anyhow, Result};
-use log::info;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
+use tracing::info;
 
 use crate::app::console::Console;
 use crate::app::modules::get_server_lists::config::DownloadServerListConfig;

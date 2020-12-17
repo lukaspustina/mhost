@@ -100,6 +100,7 @@ pub(crate) mod parser {
 
         #[test]
         fn google() {
+            crate::utils::tests::logging::init();
             // https://en.wikipedia.org/wiki/TXT_record#Example_usage
             let record = "google-site-verification=6P08Ow5E-8Q0m6vQ7FMAqAYIDprkVV8fUf_7hZ4Qvc8";
 
@@ -116,6 +117,7 @@ pub(crate) mod parser {
 
         #[test]
         fn some_page() {
+            crate::utils::tests::logging::init();
             let record = "some-page-domain-verification=zguxndlw863b";
 
             let expected = DomainVerification {
@@ -131,6 +133,7 @@ pub(crate) mod parser {
 
         #[test]
         fn microsoft_office_365() {
+            crate::utils::tests::logging::init();
             let record = "MS=ms86874996";
 
             let expected = DomainVerification {
@@ -146,6 +149,7 @@ pub(crate) mod parser {
 
         #[test]
         fn zoom() {
+            crate::utils::tests::logging::init();
             let record = "ZOOM_verify_-JDnDhrHAeeegADdwefC-Q";
 
             let expected = DomainVerification {

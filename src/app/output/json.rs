@@ -66,6 +66,7 @@ mod tests {
 
     #[test]
     fn json_serialization() {
+        crate::utils::tests::logging::init();
         let opts = JsonOptions::default();
         let config = OutputConfig::json(opts);
         let output = Output::new(&config);

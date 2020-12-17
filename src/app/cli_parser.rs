@@ -235,11 +235,20 @@ pub fn create_parser() -> App<'static, 'static> {
                 .long("ascii")
                 .help("Uses only ASCII compatible characters for output"),
         )
+        // This is a special option that is not reflected in GlobalConfig, but is checked during
+        // setup in `mhost.rs`.
         .arg(
             Arg::with_name("v")
                 .short("v")
                 .multiple(true)
                 .help("Sets the level of verbosity"),
+        )
+        // This is a special option that is not reflected in GlobalConfig, but is checked during
+        // setup in `mhost.rs`.
+        .arg(
+            Arg::with_name("debug")
+                .long("debug")
+                .help("Uses debug formatting for logging -- much more verbose"),
         )
         .subcommands(subcommands())
 }

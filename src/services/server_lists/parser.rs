@@ -117,6 +117,7 @@ mod tests {
 
     #[test]
     fn public_dns_default() {
+        crate::utils::tests::logging::init();
         let str = "public-dns";
         let expected = ServerListSpec::PublicDns {
             spec: Default::default(),
@@ -129,6 +130,7 @@ mod tests {
 
     #[test]
     fn public_country() {
+        crate::utils::tests::logging::init();
         let str = "public-dns:de";
         let expected = ServerListSpec::PublicDns {
             spec: PublicDns {
@@ -143,6 +145,7 @@ mod tests {
 
     #[test]
     fn public_separator_missing_country() {
+        crate::utils::tests::logging::init();
         let str = "public-dns:";
 
         let res = parse_server_list_spec(&str);
@@ -152,6 +155,7 @@ mod tests {
 
     #[test]
     fn opennic_default() {
+        crate::utils::tests::logging::init();
         let str = "opennic";
         let expected = ServerListSpec::OpenNic {
             spec: Default::default(),
@@ -168,6 +172,7 @@ mod tests {
 
     #[test]
     fn opennic_anon() {
+        crate::utils::tests::logging::init();
         let str = "opennic:anon";
         let expected = ServerListSpec::OpenNic {
             spec: OpenNic {
@@ -187,6 +192,7 @@ mod tests {
 
     #[test]
     fn opennic_number() {
+        crate::utils::tests::logging::init();
         let str = "opennic:number=100";
         let expected = ServerListSpec::OpenNic {
             spec: OpenNic {
@@ -202,6 +208,7 @@ mod tests {
 
     #[test]
     fn opennic_reliability() {
+        crate::utils::tests::logging::init();
         let str = "opennic:reliability=40";
         let expected = ServerListSpec::OpenNic {
             spec: OpenNic {
@@ -217,6 +224,7 @@ mod tests {
 
     #[test]
     fn opennic_ipv4() {
+        crate::utils::tests::logging::init();
         let str = "opennic:ipv=4";
         let expected = ServerListSpec::OpenNic {
             spec: OpenNic {
@@ -232,6 +240,7 @@ mod tests {
 
     #[test]
     fn opennic_all() {
+        crate::utils::tests::logging::init();
         let str = "opennic:anon,number=100,reliability=50,ipv=6";
         let expected = ServerListSpec::OpenNic {
             spec: OpenNic {

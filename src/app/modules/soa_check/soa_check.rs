@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use anyhow::{anyhow, Result};
 use indexmap::set::IndexSet;
-use log::info;
+use tracing::info;
 
 use crate::app::console::Console;
 use crate::app::modules::soa_check::config::SoaCheckConfig;

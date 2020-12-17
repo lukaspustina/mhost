@@ -3,9 +3,9 @@ use std::sync::{Arc, Mutex};
 use futures::stream::{self, StreamExt};
 use futures::Future;
 use ipnetwork::IpNetwork;
-use log::{debug, trace};
 use serde::Serialize;
 use tokio::task;
+use tracing::{debug, info, instrument, trace};
 
 pub use service::{Authority, GeoLocation, LocatedResource, Location, NetworkInfo, Whois};
 
@@ -152,15 +152,19 @@ impl WhoisClient {
         }
     }
 
+    #[instrument(name = "query", level = "info", skip(self, query), fields(rs = ?query.resources, ts = ?query.query_types))]
     pub async fn query(&self, query: MultiQuery) -> Result<WhoisResponses> {
         let breaker = create_breaker(self.opts.abort_on_error);
 
+        debug!("Creating queries");
         let query_futures: Vec<_> = query
             .into_uni_queries()
             .into_iter()
             .map(|q| single_query(self.clone(), q))
             .collect();
         let queries = sliding_window_lookups(query_futures, breaker, self.opts.max_concurrent_requests);
+
+        debug!("Spawning queries");
         let responses = task::spawn(queries).await?;
 
         Ok(responses)
@@ -171,12 +175,27 @@ fn create_breaker(on_error: bool) -> Box<dyn Fn(&WhoisResponse) -> bool + Send> 
     Box::new(move |r: &WhoisResponse| r.is_err() && on_error)
 }
 
+#[instrument(name = "single query", level = "info", skip(whois, query), fields(r = %query.resource, t = ?query.query_type))]
 async fn single_query(whois: WhoisClient, query: UniQuery) -> WhoisResponse {
-    if let Some(cache_arc) = whois.lru_cache.clone().as_ref() {
+    let response = if let Some(cache_arc) = whois.lru_cache.clone().as_ref() {
+        debug!("Sending query request using cache");
         single_query_with_cache(cache_arc, whois, query).await
     } else {
+        debug!("Sending query request");
         send_query(whois, query).await
-    }
+    };
+
+    info!(
+        "Received {}",
+        if let Some(err) = response.err() {
+            format!("{:?} error", err)
+        } else {
+            format!("response: {:?} ", response.response_type())
+        }
+    );
+    trace!("Received {:?}", response);
+
+    response
 }
 
 async fn single_query_with_cache(
@@ -208,12 +227,8 @@ async fn single_query_with_cache(
 }
 
 async fn send_query(whois: WhoisClient, query: UniQuery) -> WhoisResponse {
-    trace!(
-        "Sending Whois query for '{}', query type {:?}.",
-        &query.resource,
-        &query.query_type
-    );
     let resource = query.resource;
+
     let result: WhoisResponse = match query.query_type {
         QueryType::GeoLocation => {
             whois
@@ -249,13 +264,6 @@ async fn send_query(whois: WhoisClient, query: UniQuery) -> WhoisResponse {
     })
     .unwrap();
 
-    debug!(
-        "Whois response returned for '{}', record type {:?}: {}",
-        &query.resource,
-        &query.query_type,
-        if result.is_err() { "error" } else { "ok" },
-    );
-
     result
 }
 
@@ -283,7 +291,6 @@ async fn sliding_window_lookups(
 ) -> WhoisResponses {
     let responses = stream::iter(futures)
         .buffered_unordered_with_breaker(max_concurrent, breaker)
-        .inspect(|response| trace!("Received Whois response {:?}", response))
         .collect::<Vec<_>>()
         .await;
     WhoisResponses { responses }
@@ -293,6 +300,14 @@ impl Default for WhoisClient {
     fn default() -> Self {
         WhoisClient::new(Default::default())
     }
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub enum WhoisResponseType {
+    GeoLocation,
+    NetworkInfo,
+    Whois,
+    Error,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -345,6 +360,15 @@ impl WhoisResponse {
             WhoisResponse::NetworkInfo { ref resource, .. } => resource,
             WhoisResponse::Whois { ref resource, .. } => resource,
             WhoisResponse::Error { ref resource, .. } => resource,
+        }
+    }
+
+    pub fn response_type(&self) -> WhoisResponseType {
+        match self {
+            WhoisResponse::GeoLocation { .. } => WhoisResponseType::GeoLocation,
+            WhoisResponse::NetworkInfo { .. } => WhoisResponseType::NetworkInfo,
+            WhoisResponse::Whois { .. } => WhoisResponseType::Whois,
+            WhoisResponse::Error { .. } => WhoisResponseType::Error,
         }
     }
 
@@ -410,6 +434,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_1_1_1_1() {
+        crate::utils::tests::logging::init();
         let whois = WhoisClient::default();
 
         let ip_network = IpNetwork::from_str("1.1.1.1").unwrap();
@@ -427,6 +452,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_5x_1_1_1_1() {
+        crate::utils::tests::logging::init();
         let whois = WhoisClient::default();
 
         let ip_network = IpNetwork::from_str("1.1.1.1").unwrap();

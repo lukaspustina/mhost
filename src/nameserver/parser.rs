@@ -222,6 +222,7 @@ mod test {
 
     #[tokio::test]
     async fn ipv4_8_8_8_8() {
+        crate::utils::tests::logging::init();
         let resolvers = ResolverGroup::from_system_config(Default::default())
             .await
             .expect("failed to create system resolver");
@@ -235,6 +236,7 @@ mod test {
 
     #[tokio::test]
     async fn tcp_8_8_8_8() {
+        crate::utils::tests::logging::init();
         let resolvers = ResolverGroup::from_system_config(Default::default())
             .await
             .expect("failed to create system resolver");
@@ -248,6 +250,7 @@ mod test {
 
     #[tokio::test]
     async fn ipv4_8_8_8_8_port() {
+        crate::utils::tests::logging::init();
         let resolvers = ResolverGroup::from_system_config(Default::default())
             .await
             .expect("failed to create system resolver");
@@ -261,6 +264,7 @@ mod test {
 
     #[tokio::test]
     async fn tcp_8_8_8_8_port() {
+        crate::utils::tests::logging::init();
         let resolvers = ResolverGroup::from_system_config(Default::default())
             .await
             .expect("failed to create system resolver");
@@ -274,6 +278,7 @@ mod test {
 
     #[tokio::test]
     async fn tcp_8_8_8_8_port_name() {
+        crate::utils::tests::logging::init();
         let resolvers = ResolverGroup::from_system_config(Default::default())
             .await
             .expect("failed to create system resolver");
@@ -287,6 +292,7 @@ mod test {
 
     #[tokio::test]
     async fn tcp_8_8_8_8_port_spki() {
+        crate::utils::tests::logging::init();
         let resolvers = ResolverGroup::from_system_config(Default::default())
             .await
             .expect("failed to create system resolver");
@@ -300,6 +306,7 @@ mod test {
     #[tokio::test]
     #[allow(non_snake_case)]
     async fn ipv4_2606_4700__6810_f9f9() {
+        crate::utils::tests::logging::init();
         let resolvers = ResolverGroup::from_system_config(Default::default())
             .await
             .expect("failed to create system resolver");
@@ -313,6 +320,7 @@ mod test {
 
     #[tokio::test]
     async fn dns_google() {
+        crate::utils::tests::logging::init();
         let resolvers = ResolverGroup::from_system_config(Default::default())
             .await
             .expect("failed to create system resolver");
@@ -328,6 +336,7 @@ mod test {
 
     #[tokio::test]
     async fn tls_cloudflare_dns_com_spki() {
+        crate::utils::tests::logging::init();
         let resolvers = ResolverGroup::from_system_config(Default::default())
             .await
             .expect("failed to create system resolver");
@@ -349,6 +358,7 @@ mod test {
 
     #[tokio::test]
     async fn tls_104_16_249_249_spki_name() {
+        crate::utils::tests::logging::init();
         let resolvers = ResolverGroup::from_system_config(Default::default())
             .await
             .expect("failed to create system resolver");
@@ -367,6 +377,7 @@ mod test {
     #[tokio::test]
     #[allow(non_snake_case)]
     async fn https_slash_slash_2606_4700__6810_f8f9_spki_name() {
+        crate::utils::tests::logging::init();
         let resolvers = ResolverGroup::from_system_config(Default::default())
             .await
             .expect("failed to create system resolver");
@@ -559,6 +570,7 @@ pub(crate) mod parser {
 
         #[test]
         fn ipv4_127_0_0_1() {
+            crate::utils::tests::logging::init();
             let str = "127.0.0.1";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 53);
 
@@ -569,6 +581,7 @@ pub(crate) mod parser {
 
         #[test]
         fn udp_127_0_0_1() {
+            crate::utils::tests::logging::init();
             let str = "udp:127.0.0.1";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 53);
 
@@ -579,6 +592,7 @@ pub(crate) mod parser {
 
         #[test]
         fn ipv4_127_0_0_1_port() {
+            crate::utils::tests::logging::init();
             let str = "127.0.0.1:35";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 35);
 
@@ -589,6 +603,7 @@ pub(crate) mod parser {
 
         #[test]
         fn ipv4_127_0_0_1_name() {
+            crate::utils::tests::logging::init();
             let str = "127.0.0.1,name=localhost";
             let expected = NameServerConfig::new_with_spki_and_name(
                 Protocol::Udp,
@@ -605,6 +620,7 @@ pub(crate) mod parser {
 
         #[test]
         fn udp_127_0_0_1_port() {
+            crate::utils::tests::logging::init();
             let str = "udp:127.0.0.1:35";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 35);
 
@@ -615,6 +631,7 @@ pub(crate) mod parser {
 
         #[test]
         fn udp_slash_slash_127_0_0_1() {
+            crate::utils::tests::logging::init();
             let str = "udp://127.0.0.1";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 53);
 
@@ -625,6 +642,7 @@ pub(crate) mod parser {
 
         #[test]
         fn udp_slash_slash_127_0_0_1_port() {
+            crate::utils::tests::logging::init();
             let str = "udp://127.0.0.1:35";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 35);
 
@@ -635,6 +653,7 @@ pub(crate) mod parser {
 
         #[test]
         fn tcp_127_0_0_1() {
+            crate::utils::tests::logging::init();
             let str = "tcp:127.0.0.1";
             let expected = NameServerConfig::new(Protocol::Tcp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 53);
 
@@ -645,6 +664,7 @@ pub(crate) mod parser {
 
         #[test]
         fn tcp_slash_slash_127_0_0_1() {
+            crate::utils::tests::logging::init();
             let str = "tcp://127.0.0.1";
             let expected = NameServerConfig::new(Protocol::Tcp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 53);
 
@@ -656,6 +676,7 @@ pub(crate) mod parser {
         #[test]
         #[allow(non_snake_case)]
         fn ipv6___1_128() {
+            crate::utils::tests::logging::init();
             let str = "::1";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv6(Ipv6Addr::from_str(&str).unwrap()), 53);
 
@@ -667,6 +688,7 @@ pub(crate) mod parser {
         #[test]
         #[allow(non_snake_case)]
         fn ipv6_with_port() {
+            crate::utils::tests::logging::init();
             let str = "[2001:0db8:85a3:08d3::0370:7344]:5353";
             let expected = NameServerConfig::new(
                 Protocol::Udp,
@@ -681,6 +703,7 @@ pub(crate) mod parser {
 
         #[test]
         fn localhost() {
+            crate::utils::tests::logging::init();
             let str = "localhost";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 53);
 
@@ -691,6 +714,7 @@ pub(crate) mod parser {
 
         #[test]
         fn dns_google() {
+            crate::utils::tests::logging::init();
             let str = "dns.google";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Name("dns.google"), 53);
 
@@ -701,6 +725,7 @@ pub(crate) mod parser {
 
         #[test]
         fn dns_google_name() {
+            crate::utils::tests::logging::init();
             let str = "dns.google,name=Google";
             let expected =
                 NameServerConfig::new_with_spki_and_name(Protocol::Udp, Target::Name("dns.google"), 53, None, "Google");
@@ -712,6 +737,7 @@ pub(crate) mod parser {
 
         #[test]
         fn tls_cloudflare_dns_com_spki() {
+            crate::utils::tests::logging::init();
             let str = "tls:cloudflare-dns.com,spki=cloudflare-dns.com";
             let expected = NameServerConfig::new_with_spki_and_name(
                 Protocol::Tls,
@@ -728,6 +754,7 @@ pub(crate) mod parser {
 
         #[test]
         fn tls_dns_google_spki() {
+            crate::utils::tests::logging::init();
             let str = "tls:dns.google,spki=dns.google";
             let expected = NameServerConfig::new_with_spki_and_name(
                 Protocol::Tls,
@@ -744,6 +771,7 @@ pub(crate) mod parser {
 
         #[test]
         fn tls_dns_google_port_spki() {
+            crate::utils::tests::logging::init();
             let str = "tls:dns.google:8853,spki=dns.google";
             let expected = NameServerConfig::new_with_spki_and_name(
                 Protocol::Tls,
@@ -760,6 +788,7 @@ pub(crate) mod parser {
 
         #[test]
         fn tls_dns_google_port_spki_name() {
+            crate::utils::tests::logging::init();
             let str = "tls:dns.google:8853,spki=dns.google,name=Google";
             let expected = NameServerConfig::new_with_spki_and_name(
                 Protocol::Tls,

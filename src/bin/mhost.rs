@@ -1,26 +1,31 @@
 use std::convert::TryInto;
 
 use anyhow::Result;
-use log::info;
+use tracing::info;
 
 use mhost::app::console::Console;
-use mhost::app::logging::start_logging_for_level;
+use mhost::app::logging::Logging;
 use mhost::app::modules;
 use mhost::app::AppConfig;
 use mhost::app::{cli_parser, ExitStatus};
 use mhost::nameserver::predefined;
+use std::env;
 
 async fn run() -> Result<ExitStatus> {
     let args = cli_parser::create_parser().get_matches();
+    let color = !args.is_present("no-color");
+    let debug = args.is_present("debug");
 
-    if args.is_present("no-color") {
+    if !color {
         mhost::app::output::styles::no_color_mode();
     }
     if args.is_present("ascii") {
         mhost::app::output::styles::ascii_mode();
     }
 
-    start_logging_for_level(args.occurrences_of("v"));
+    Logging::new(args.occurrences_of("v"), env::var_os("RUST_LOG"), color, debug)
+        .start()
+        .expect("failed to initialize logging");
     info!("Set up logging.");
 
     let app_config: AppConfig = if let Ok(config) = (&args).try_into() {

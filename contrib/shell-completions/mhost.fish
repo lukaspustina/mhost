@@ -24,6 +24,7 @@ complete -c mhost -n "__fish_use_subcommand" -s q -l quiet -d 'Does not print an
 complete -c mhost -n "__fish_use_subcommand" -l no-color -d 'Disables colorful output'
 complete -c mhost -n "__fish_use_subcommand" -l ascii -d 'Uses only ASCII compatible characters for output'
 complete -c mhost -n "__fish_use_subcommand" -s v -d 'Sets the level of verbosity'
+complete -c mhost -n "__fish_use_subcommand" -l debug -d 'Uses debug formatting for logging -- much more verbose'
 complete -c mhost -n "__fish_use_subcommand" -s h -l help -d 'Prints help information'
 complete -c mhost -n "__fish_use_subcommand" -s V -l version -d 'Prints version information'
 complete -c mhost -n "__fish_use_subcommand" -f -a "discover" -d 'Discovers records of a domain using multiple heuristics'

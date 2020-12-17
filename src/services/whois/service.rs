@@ -414,6 +414,7 @@ mod tests {
 
     #[tokio::test]
     async fn geo_location() {
+        crate::utils::tests::logging::init();
         let client = RipeStatsClient::new();
         let ip_address = IpAddr::V4(Ipv4Addr::new(89, 0, 248, 55));
 
@@ -424,6 +425,7 @@ mod tests {
 
     #[tokio::test]
     async fn network_info() {
+        crate::utils::tests::logging::init();
         let client = RipeStatsClient::new();
         let ip_address = IpAddr::V4(Ipv4Addr::new(89, 0, 248, 55));
 
@@ -434,6 +436,7 @@ mod tests {
 
     #[tokio::test]
     async fn whois() {
+        crate::utils::tests::logging::init();
         let client = RipeStatsClient::new();
         let ip_address = IpAddr::V4(Ipv4Addr::new(89, 0, 248, 55)).to_string();
 
@@ -444,6 +447,7 @@ mod tests {
 
     #[test]
     fn parse_whois_ripe() {
+        crate::utils::tests::logging::init();
         let response_json = r#"{
     "messages": [
         [
@@ -683,6 +687,7 @@ mod tests {
 
     #[test]
     fn parse_whois_arin() {
+        crate::utils::tests::logging::init();
         let response_json = r#"{
     "messages": [
         [

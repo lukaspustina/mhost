@@ -264,6 +264,7 @@ mod test {
 
     #[test]
     fn xmas() {
+        crate::utils::tests::logging::init();
         let record = "v=spf1 ip4:192.168.0.0/24 +ip6:fc00::/7 ?a a/24 a:offsite.example.com/24 ~mx mx/24 mx:mx.example.com/24 -ptr +ptr:mx.example.com exists:%{ir}.%{l1r+-}._spf.%{d} ?include:_spf.example.com redirect=_spf.example.com exp=explain._spf.%{d} -all";
 
         let expected = Spf {
@@ -330,6 +331,7 @@ mod test {
 
     #[test]
     fn example_com() {
+        crate::utils::tests::logging::init();
         let record = "v=spf1 ip4:192.0.2.0/24 ip4:198.51.100.123 a -all";
 
         let expected = Spf {
@@ -355,6 +357,7 @@ mod test {
 
     #[test]
     fn fail() {
+        crate::utils::tests::logging::init();
         let record = "v=spfx ip4:192.0.2.0/24 ip4:198.51.100.123 a -all";
 
         let res = spf(record);

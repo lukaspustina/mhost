@@ -3,8 +3,8 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use std::time::Duration;
 
-use log::trace;
 use serde::Deserialize;
+use tracing::trace;
 
 use crate::nameserver::NameServerConfig;
 use crate::services::server_lists::{PublicDns, ServerListDownloader};

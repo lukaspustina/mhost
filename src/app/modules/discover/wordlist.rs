@@ -1,10 +1,10 @@
 use anyhow::{Context, Result};
-use log::trace;
 use std::path::Path;
 use std::slice::Iter;
 use tokio::fs::File;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
+use tracing::trace;
 
 use crate::{IntoName, Name};
 
@@ -177,6 +177,7 @@ mod tests {
 
     #[tokio::test]
     async fn read_from_file_5000() {
+        crate::utils::tests::logging::init();
         let path = "contrib/subdomains-top1mil-5000.txt";
 
         let wordlist = Wordlist::from_file(path).await;
@@ -190,6 +191,7 @@ mod tests {
 
     #[tokio::test]
     async fn read_from_file_20000() {
+        crate::utils::tests::logging::init();
         let path = "contrib/subdomains-top1mil-20000.txt";
 
         let wordlist = Wordlist::from_file(path).await;
@@ -203,6 +205,7 @@ mod tests {
 
     #[test]
     fn read_from_string() {
+        crate::utils::tests::logging::init();
         let wordlist = Wordlist::from_str(&DEFAULT_WORD_LIST);
 
         asserting("Wordlist with 5000 elements loaded from string")

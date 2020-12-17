@@ -122,6 +122,7 @@ mod tests {
 
     #[test]
     fn soa_set_differences() {
+        crate::utils::tests::logging::init();
         let left = crate::resources::rdata::SOA::new(
             "dns01.p04.nsone.net".into_name().unwrap(),
             "hostmaster.nsone.net".into_name().unwrap(),
@@ -174,6 +175,7 @@ mod tests {
 
         #[test]
         fn equal() {
+            crate::utils::tests::logging::init();
             let left = crate::resources::rdata::MX::new(10, "mx.pustina.de".into_name().unwrap());
 
             let diff = left.difference(&left);
@@ -183,6 +185,7 @@ mod tests {
 
         #[test]
         fn diff_all() {
+            crate::utils::tests::logging::init();
             let left = crate::resources::rdata::MX::new(10, "mx.pustina.de".into_name().unwrap());
 
             let right = crate::resources::rdata::MX::new(20, "mail.pustina.de".into_name().unwrap());
@@ -203,6 +206,7 @@ mod tests {
 
         #[test]
         fn equal() {
+            crate::utils::tests::logging::init();
             let left = crate::resources::rdata::SOA::new(
                 "dns01.p04.nsone.net".into_name().unwrap(),
                 "hostmaster.nsone.net".into_name().unwrap(),
@@ -220,6 +224,7 @@ mod tests {
 
         #[test]
         fn diff_all() {
+            crate::utils::tests::logging::init();
             let left = crate::resources::rdata::SOA::new(
                 "dns01.p04.nsone.net".into_name().unwrap(),
                 "hostmaster.nsone.net".into_name().unwrap(),
@@ -261,6 +266,7 @@ mod tests {
 
         #[test]
         fn equal() {
+            crate::utils::tests::logging::init();
             let left = crate::resources::rdata::SRV::new(10, 10, 50, "service.pustina.de".into_name().unwrap());
 
             let diff = left.difference(&left);
@@ -270,6 +276,7 @@ mod tests {
 
         #[test]
         fn diff_all() {
+            crate::utils::tests::logging::init();
             let left = crate::resources::rdata::SRV::new(10, 10, 50, "service.pustina.de".into_name().unwrap());
 
             let right = crate::resources::rdata::SRV::new(20, 20, 150, "dienst.pustina.de".into_name().unwrap());
@@ -291,6 +298,7 @@ mod tests {
 
         #[test]
         fn equal() {
+            crate::utils::tests::logging::init();
             let left = crate::resources::rdata::UNKNOWN::new(10, Default::default());
 
             let diff = left.difference(&left);
@@ -300,6 +308,7 @@ mod tests {
 
         #[test]
         fn diff_code() {
+            crate::utils::tests::logging::init();
             let left = crate::resources::rdata::UNKNOWN::new(10, Default::default());
 
             let right = crate::resources::rdata::UNKNOWN::new(11, Default::default());

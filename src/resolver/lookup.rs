@@ -8,9 +8,9 @@ use std::time::{Duration, Instant};
 use chrono::{DateTime, Utc};
 use futures::stream::{self, StreamExt};
 use futures::Future;
-use log::{debug, trace};
 use serde::Serialize;
 use tokio::task;
+use tracing::{debug, field, info, instrument, trace, Span};
 use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
 use trust_dns_resolver::proto::xfer::DnsRequestOptions;
 
@@ -21,6 +21,7 @@ use crate::resources::{RData, Record};
 use crate::utils::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
 use crate::utils::serialize::ser_arc_nameserver_config;
 use crate::RecordType;
+use tracing_futures::Instrument;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Lookups {
@@ -416,17 +417,25 @@ pub struct NxDomain {
     response_time: Duration,
 }
 
+#[instrument(name = "multi lookup", level = "info", skip(resolver, query), fields(r = %resolver.name_server, ns = field::Empty, ts = field::Empty))]
 pub async fn lookup<T: Into<MultiQuery>>(resolver: Resolver, query: T) -> ResolverResult<Lookups> {
     let breaker = create_breaker(resolver.opts.abort_on_error, resolver.opts.abort_on_timeout);
     let query = query.into();
 
+    let span = Span::current();
+    span.record("ns", &format!("{:?}", query.names).as_str());
+    span.record("rs", &format!("{:?}", query.record_types).as_str());
+
+    debug!("Creating lookups");
     let lookup_futures: Vec<_> = query
         .into_uni_queries()
         .drain(..)
         .map(|q| single_lookup(resolver.clone(), q))
         .collect();
     let lookups = sliding_window_lookups(lookup_futures, breaker, resolver.opts.max_concurrent_requests);
-    let lookups = task::spawn(lookups).await?;
+
+    debug!("Spawning lookups");
+    let lookups = task::spawn(lookups).instrument(span).await?;
 
     Ok(lookups)
 }
@@ -440,6 +449,7 @@ fn create_breaker(on_error: bool, on_timeout: bool) -> Box<dyn Fn(&Lookup) -> bo
     })
 }
 
+#[instrument(name = "single lookup", level = "info", skip(resolver, query), fields(r = %resolver.name_server, n = %query.name, t = ?query.record_type))]
 async fn single_lookup(resolver: Resolver, query: UniQuery) -> Lookup {
     let dns_request_options = DnsRequestOptions {
         expects_multiple_responses: resolver.opts.expects_multiple_responses,
@@ -448,24 +458,23 @@ async fn single_lookup(resolver: Resolver, query: UniQuery) -> Lookup {
     };
     let q = query.clone();
     let start_time = Instant::now();
-    trace!(
-        "Sending Query for '{}', record type {} to {:?}.",
-        &query.name,
-        &query.record_type,
-        resolver.name()
-    );
+
+    debug!("Sending lookup request");
     let result = resolver
         .inner
         .lookup(q.name, q.record_type.into(), dns_request_options)
         .await
         .into_lookup(start_time);
-    debug!(
-        "Lookup returned for '{}', record type {} from {:?}: {}",
-        &query.name,
-        &query.record_type,
-        resolver.name(),
-        if result.is_err() { "error" } else { "ok" },
+
+    info!(
+        "Received {}",
+        match &result {
+            LookupResult::Response(response) => format!("response with {:?} records", response.records.len()),
+            LookupResult::NxDomain(_) => format!("nonexistent domain"),
+            LookupResult::Error(err) => format!("{:?} error", err),
+        }
     );
+    trace!("Received {:?}", result);
 
     Lookup {
         query,
@@ -481,7 +490,6 @@ async fn sliding_window_lookups(
 ) -> Lookups {
     stream::iter(futures)
         .buffered_unordered_with_breaker(max_concurrent, breaker)
-        .inspect(|lookup| trace!("Received lookup {:?}", lookup))
         .collect::<Vec<_>>()
         .await
         .into()
@@ -515,7 +523,6 @@ impl IntoLookup for std::result::Result<trust_dns_resolver::lookup::Lookup, Reso
                 }),
                 _ => {
                     let err = Error::from(err);
-                    debug!("Lookup error: {}", &err);
                     LookupResult::Error(err)
                 }
             },

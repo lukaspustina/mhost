@@ -3,8 +3,8 @@ use crate::app::AppConfig;
 use crate::app::ExitStatus;
 use anyhow::Result;
 use clap::ArgMatches;
-use log::info;
 use std::convert::TryInto;
+use tracing::info;
 
 pub mod config;
 #[allow(clippy::module_inception)]

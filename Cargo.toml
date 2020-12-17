@@ -32,13 +32,11 @@ path = "src/lib.rs"
 anyhow = { version = "1", optional = true }
 clap = { version = "2", optional = true }
 chrono = { version = "0.4", features = ["serde"] }
-env_logger = { version = "0.8.*", optional = true }
 futures = { version = "0.3.*"}
 humantime = { version = "2", optional = true }
 indexmap = "1.5"
 ipnetwork = "0.17"
 lazy_static = "1.4"
-log = "0.4.*"
 lru_time_cache = "0.11"
 nom = "5"
 rand = "0.7"
@@ -52,22 +50,24 @@ serde_json = "1.0"
 smallvec = "1.4"
 tabwriter = { version = "1.2", optional = true }
 thiserror = "1"
+tracing = "0.1"
+tracing-futures = "0.2"
+tracing-log = { version = "0.1", optional = true }
+tracing-subscriber = { version = "0.2", features = ["registry", "env-filter"], optional = true }
 # trust-dns-resolver = { version = "0.19", features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls", "dnssec-ring", "mdns", "system-config", "serde-config"] }
 trust-dns-resolver = { version = "0.20.0-alpha.3", features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls", "dnssec-ring", "system-config", "serde-config"] }
 yansi = "0.5"
 
-[build-dependencies.clap]
-version = "2"
-default-features = false
-features = ["suggestions"]
+[build-dependencies]
+clap = { version = "2", default-features = false, features = ["suggestions"] }
 
 [dev-dependencies]
-env_logger = { version = "0.8.*" }
+tracing-subscriber = { version = "0.2", features = ["registry", "env-filter"] }
 lit = "1"
 spectral = "0.6"
 
 [features]
-bin = ["anyhow", "clap", "env_logger", "humantime", "tabwriter"]
+bin = ["anyhow", "clap", "humantime", "tabwriter", "tracing-log", "tracing-subscriber"]
 
 [profile.release]
 lto = true

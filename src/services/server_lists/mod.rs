@@ -4,9 +4,9 @@ use std::sync::Arc;
 
 use futures::stream::{self, StreamExt};
 use futures::Future;
-use log::{debug, trace};
 use nom::Err;
 use tokio::task;
+use tracing::{debug, trace};
 
 use crate::nameserver::NameServerConfig;
 use crate::services::{Error, Result};

@@ -6,9 +6,9 @@ use std::time::Instant;
 
 use anyhow::{Context, Result};
 use ipnetwork::IpNetwork;
-use log::info;
 use serde::Serialize;
 use tokio::time::Duration;
+use tracing::info;
 
 use crate::app::console::Console;
 use crate::app::modules::lookup::config::LookupConfig;

@@ -514,6 +514,7 @@ mod tests {
 
     #[test]
     fn summary() {
+        crate::utils::tests::logging::init();
         let opts = SummaryOptions::default();
         let config = OutputConfig::summary(opts);
         let output = Output::new(&config);

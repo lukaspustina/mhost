@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::ArgMatches;
-use log::info;
 use std::convert::TryInto;
+use tracing::info;
 
 use crate::app::AppConfig;
 use crate::app::ExitStatus;

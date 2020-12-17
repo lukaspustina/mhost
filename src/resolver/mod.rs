@@ -7,6 +7,7 @@ use futures::stream::{self, StreamExt};
 use futures::Future;
 use rand::seq::SliceRandom;
 use tokio::task;
+use tracing::instrument;
 
 pub use error::Error;
 pub use lookup::{Lookup, Lookups};
@@ -131,6 +132,7 @@ impl Resolver {
     /// Creates a new Resolver.
     ///
     /// May panic if underlying tasks panic
+    #[instrument(name =  "create resolver", level = "info", skip(config, opts), fields(server = %config.name_server_config))]
     pub async fn new(config: ResolverConfig, opts: ResolverOpts) -> ResolverResult<Self> {
         let name_server = config.name_server_config.clone();
         let tr_opts = opts.clone().into();
