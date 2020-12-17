@@ -2,7 +2,7 @@ use nom::Err;
 
 use crate::{Error, Result};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Spf<'a> {
     version: u32,
     words: Vec<Word<'a>>,
@@ -35,13 +35,13 @@ impl<'a> Spf<'a> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Word<'a> {
     Word(Qualifier, Mechanism<'a>),
     Modifier(Modifier<'a>),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Qualifier {
     // +
     Pass,
@@ -53,7 +53,7 @@ pub enum Qualifier {
     Fail,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Mechanism<'a> {
     All,
     A {
@@ -71,7 +71,7 @@ pub enum Mechanism<'a> {
     Include(&'a str),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Modifier<'a> {
     Redirect(&'a str),
     Exp(&'a str),

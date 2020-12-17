@@ -110,6 +110,8 @@ differ!(
 
 differ!(srv, SRV, priority: Priority, weight: Weight, port: Port, target: Target);
 
+differ!(txt, TXT, txt_data: TxtData);
+
 differ!(unknown, UNKNOWN, code: Code, rdata: RData);
 
 #[cfg(test)]
@@ -292,9 +294,50 @@ mod tests {
         }
     }
 
-    mod unknown {
+    mod txt {
+        use crate::diff::txt;
+
         use super::*;
+
+        #[test]
+        fn equal() {
+            crate::utils::tests::logging::init();
+            let left = crate::resources::rdata::TXT::new(vec![
+                "v=spf1 mx a ip4:195.230.126.196/26 include:spf.crsend.com include:spf.protection.outlook.com ~all"
+                    .to_string(),
+            ]);
+
+            let diff = left.difference(&left);
+
+            assert_that(&diff).is_none();
+        }
+
+        #[test]
+        fn diff_code() {
+            crate::utils::tests::logging::init();
+            let left = crate::resources::rdata::TXT::new(vec![
+                "v=spf1 mx a ip4:195.230.126.196/26 include:spf.crsend.com include:spf.protection.outlook.com ~all"
+                    .to_string(),
+            ]);
+
+            let right = crate::resources::rdata::TXT::new(vec![
+                "v=spf1 a mx ip4:195.230.126.196/26 include:spf.crsend.com include:spf.protection.outlook.com include:antispameurope.com ~all"
+                    .to_string(),
+            ]);
+
+            let diff = left.difference(&right);
+
+            assert_that(&diff)
+                .is_some()
+                .map(|x| &x.fields)
+                .is_equal_to(&vec![txt::Field::TxtData]);
+        }
+    }
+
+    mod unknown {
         use crate::diff::unknown;
+
+        use super::*;
 
         #[test]
         fn equal() {

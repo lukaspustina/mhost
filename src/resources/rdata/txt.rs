@@ -24,6 +24,15 @@ impl TXT {
     pub fn iter(&self) -> Iter<Box<[u8]>> {
         self.txt_data.iter()
     }
+
+    pub fn is_spf(&self) -> bool {
+        if let Some(first) = self.iter().next() {
+            let str = String::from_utf8_lossy(first);
+            str.starts_with("v=spf")
+        } else {
+            false
+        }
+    }
 }
 
 #[doc(hidden)]
@@ -32,5 +41,33 @@ impl From<trust_dns_resolver::proto::rr::rdata::TXT> for TXT {
     fn from(txt: trust_dns_resolver::proto::rr::rdata::TXT) -> Self {
         let txt_data = txt.iter().map(|s| s.clone()).collect::<Vec<_>>().into_boxed_slice();
         TXT { txt_data }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    use spectral::prelude::*;
+
+    #[test]
+    fn is_spf() {
+        crate::utils::tests::logging::init();
+        let record = "v=spf1 ip4:192.168.0.0/24 +ip6:fc00::/7 ?a a/24 a:offsite.example.com/24 ~mx mx/24 mx:mx.example.com/24 -ptr +ptr:mx.example.com exists:%{ir}.%{l1r+-}._spf.%{d} ?include:_spf.example.com redirect=_spf.example.com exp=explain._spf.%{d} -all";
+
+        let txt = TXT::new(vec![record.to_string()]);
+
+        asserting("txt record is SPF record").that(&txt.is_spf()).is_true();
+    }
+
+    #[test]
+    fn is_not_spf() {
+        crate::utils::tests::logging::init();
+        let record = "3897592857random_stuff09389025";
+
+        let txt = TXT::new(vec![record.to_string()]);
+
+        asserting("txt record is SPF record").that(&txt.is_spf()).is_false();
     }
 }
