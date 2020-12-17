@@ -72,10 +72,12 @@ impl MultiQuery {
         Ok(MultiQuery { names, record_types })
     }
 
+    /// Lookup a single name for a single records type
     pub fn single<N: IntoName>(name: N, record_type: RecordType) -> ResolverResult<MultiQuery> {
         MultiQuery::new(vec![name], vec![record_type])
     }
 
+    /// Lookup a multiple names for a single records type
     pub fn multi_name<N: IntoName, S: IntoIterator<Item = N>>(
         names: S,
         record_type: RecordType,
@@ -83,6 +85,7 @@ impl MultiQuery {
         MultiQuery::new(names, vec![record_type])
     }
 
+    /// Lookup a single name for a multiple records types
     pub fn multi_record<N: IntoName, T: IntoIterator<Item = RecordType>>(
         name: N,
         record_types: T,
@@ -90,6 +93,7 @@ impl MultiQuery {
         MultiQuery::new(vec![name], record_types)
     }
 
+    /// Converts this `MultiQuery` into individual `UniQuery`s
     pub fn into_uni_queries(self) -> Vec<UniQuery> {
         let mut queries = Vec::new();
         for name in self.names.iter() {
@@ -104,10 +108,12 @@ impl MultiQuery {
         queries
     }
 
+    /// Returns number of names of this `MultiQuery`
     pub fn num_names(&self) -> usize {
         self.names.len()
     }
 
+    /// Returns number of record types of this `MultiQuery`
     pub fn num_record_types(&self) -> usize {
         self.record_types.len()
     }

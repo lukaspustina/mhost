@@ -1,5 +1,6 @@
-use serde::Serialize;
 use std::slice::Iter;
+
+use serde::Serialize;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
 pub struct TXT {
@@ -33,6 +34,13 @@ impl TXT {
             false
         }
     }
+
+    pub fn as_string(&self) -> String {
+        self.iter()
+            .map(|x| String::from_utf8_lossy(x))
+            .collect::<Vec<_>>()
+            .join("")
+    }
 }
 
 #[doc(hidden)]
@@ -46,10 +54,9 @@ impl From<trust_dns_resolver::proto::rr::rdata::TXT> for TXT {
 
 #[cfg(test)]
 mod tests {
+    use spectral::prelude::*;
 
     use super::*;
-
-    use spectral::prelude::*;
 
     #[test]
     fn is_spf() {

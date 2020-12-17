@@ -255,6 +255,7 @@ pub fn create_parser() -> App<'static, 'static> {
 
 fn subcommands() -> Vec<App<'static, 'static>> {
     vec![
+        check_subcommand(),
         discover_subcommand(),
         get_server_lists_subcommand(),
         lookup_subcommand(),
@@ -265,6 +266,26 @@ fn subcommands() -> Vec<App<'static, 'static>> {
     .collect()
 }
 
+fn check_subcommand() -> App<'static, 'static> {
+    SubCommand::with_name("check")
+        .about("Checks all available records for known misconfigurations or mistakes")
+        .arg(
+            Arg::with_name("domain name")
+                .index(1)
+                .value_name("NAME")
+                .next_line_help(false)
+                .help("domain name to check")
+                .long_help("* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de"),
+        )
+        .arg(
+            Arg::with_name("partial-results")
+                .short("p")
+                .long("show-partial-results")
+                .help("Shows results after each lookup step"),
+        )
+        .arg(Arg::with_name("no-spf").long("no-spf").help("Does not run SPF check"))
+}
+
 fn discover_subcommand() -> App<'static, 'static> {
     SubCommand::with_name("discover")
         .about("Discovers records of a domain using multiple heuristics")
@@ -273,7 +294,7 @@ fn discover_subcommand() -> App<'static, 'static> {
                 .index(1)
                 .value_name("NAME")
                 .next_line_help(false)
-                .help("domain name to check")
+                .help("domain name to discover")
                 .long_help("* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de"),
         )
         .arg(

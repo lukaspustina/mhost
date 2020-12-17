@@ -60,6 +60,15 @@ impl RecordType {
     pub fn is_unknown(self) -> bool {
         matches!(self, RecordType::Unknown(_))
     }
+
+    #[inline]
+    pub fn all() -> Vec<RecordType> {
+        use RecordType::*;
+        vec![
+            A, AAAA, ANAME, ANY, AXFR, CAA, CNAME, IXFR, MX, NAPTR, NS, NULL, OPENPGPKEY, OPT, PTR, SOA, SRV, SSHFP,
+            TLSA, TXT, DNSSEC, ZERO,
+        ]
+    }
 }
 
 #[doc(hidden)]

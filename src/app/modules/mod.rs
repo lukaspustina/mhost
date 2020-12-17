@@ -1,6 +1,7 @@
 use crate::app::console::Console;
 use crate::app::{self, AppConfig};
 
+pub mod check;
 pub mod discover;
 pub mod get_server_lists;
 pub mod lookup;

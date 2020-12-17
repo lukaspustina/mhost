@@ -13,6 +13,9 @@ _mhost() {
                 cmd="mhost"
                 ;;
             
+            check)
+                cmd+="__check"
+                ;;
             discover)
                 cmd+="__discover"
                 ;;
@@ -32,7 +35,7 @@ _mhost() {
 
     case "${cmd}" in
         mhost)
-            opts=" -p -q -v -h -V -S -s -f -o  --no-system-resolv-opt --no-system-nameservers --predefined --list-predefined --wait-multiple-responses --no-abort-on-error --no-abort-on-timeout --no-aborts --show-errors --quiet --no-color --ascii --debug --help --version --resolv-conf --ndots --system-nameserver --nameserver --predefined-filter --nameservers-from-file --limit --max-concurrent-servers --max-concurrent-requests --retries --timeout --output --output-options   discover get-server-lists lookup soa-check"
+            opts=" -p -q -v -h -V -S -s -f -o  --no-system-resolv-opt --no-system-nameservers --predefined --list-predefined --wait-multiple-responses --no-abort-on-error --no-abort-on-timeout --no-aborts --show-errors --quiet --no-color --ascii --debug --help --version --resolv-conf --ndots --system-nameserver --nameserver --predefined-filter --nameservers-from-file --limit --max-concurrent-servers --max-concurrent-requests --retries --timeout --output --output-options   check discover get-server-lists lookup soa-check"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -115,6 +118,21 @@ _mhost() {
             return 0
             ;;
         
+        mhost__check)
+            opts=" -p -h -V  --show-partial-results --no-spf --help --version  <NAME> "
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         mhost__discover)
             opts=" -p -S -h -V -w  --show-partial-results --single-server-lookup --help --version --wordlist-from-file --rnd-names-number --rnd-names-len  <NAME> "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then

@@ -61,7 +61,19 @@ _mhost() {
         (( CURRENT += 1 ))
         curcontext="${curcontext%:*:*}:mhost-command-$line[1]:"
         case $line[1] in
-            (discover)
+            (check)
+_arguments "${_arguments_options[@]}" \
+'-p[Shows results after each lookup step]' \
+'--show-partial-results[Shows results after each lookup step]' \
+'--no-spf[Does not run SPF check]' \
+'-h[Prints help information]' \
+'--help[Prints help information]' \
+'-V[Prints version information]' \
+'--version[Prints version information]' \
+'::domain name -- domain name to check:_files' \
+&& ret=0
+;;
+(discover)
 _arguments "${_arguments_options[@]}" \
 '-w+[Uses wordlist from file]' \
 '--wordlist-from-file=[Uses wordlist from file]' \
@@ -75,7 +87,7 @@ _arguments "${_arguments_options[@]}" \
 '--help[Prints help information]' \
 '-V[Prints version information]' \
 '--version[Prints version information]' \
-'::domain name -- domain name to check:_files' \
+'::domain name -- domain name to discover:_files' \
 && ret=0
 ;;
 (get-server-lists)
@@ -124,12 +136,20 @@ esac
 (( $+functions[_mhost_commands] )) ||
 _mhost_commands() {
     local commands; commands=(
-        "discover:Discovers records of a domain using multiple heuristics" \
+        "check:Checks all available records for known misconfigurations or mistakes" \
+"discover:Discovers records of a domain using multiple heuristics" \
 "get-server-lists:Downloads known lists of name servers" \
 "lookup:Looks up a name, IP address or CIDR block" \
 "soa-check:Checks SOA records of authoritative name servers for deviations" \
     )
     _describe -t commands 'mhost commands' commands "$@"
+}
+(( $+functions[_mhost__check_commands] )) ||
+_mhost__check_commands() {
+    local commands; commands=(
+        
+    )
+    _describe -t commands 'mhost check commands' commands "$@"
 }
 (( $+functions[_mhost__discover_commands] )) ||
 _mhost__discover_commands() {

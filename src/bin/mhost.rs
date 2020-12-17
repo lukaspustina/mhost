@@ -43,6 +43,7 @@ async fn run() -> Result<ExitStatus> {
     }
 
     let res = match args.subcommand_name() {
+        Some("check") => modules::check::run(&args, &app_config).await,
         Some("discover") => modules::discover::run(&args, &app_config).await,
         Some("get-server-lists") => modules::get_server_lists::run(&args, &app_config).await,
         Some("lookup") => modules::lookup::run(&args, &app_config).await,

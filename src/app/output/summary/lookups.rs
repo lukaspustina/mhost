@@ -319,12 +319,8 @@ impl Rendering for TXT {
 impl TXT {
     fn human<'a, T: Into<Option<&'a str>>>(&self, suffix: T, _: &SummaryOptions) -> String {
         let suffix = suffix.into().unwrap_or("");
-        let txt = self
-            .iter()
-            .map(|x| String::from_utf8_lossy(x))
-            .collect::<Vec<_>>()
-            .join("");
 
+        let txt = self.as_string();
         match ParsedTxt::from_str(&txt) {
             Ok(ParsedTxt::Spf(ref spf)) => TXT::format_spf(spf, suffix),
             Ok(ParsedTxt::DomainVerification(ref dv)) => TXT::format_dv(dv, suffix),

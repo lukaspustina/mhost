@@ -220,6 +220,10 @@ impl<'a, T: Clone + Eq + Hash> Uniquified<'a, T> {
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
+
+    pub fn iter(&'a self) -> impl Iterator<Item = &'a T> {
+        self.inner.iter().map(|x| *x)
+    }
 }
 
 impl<'a, S, T> Uniquify<'a, T> for S
