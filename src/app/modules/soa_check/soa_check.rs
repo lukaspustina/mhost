@@ -2,13 +2,13 @@ use std::collections::HashSet;
 use std::net::IpAddr;
 use std::time::Instant;
 
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
 use indexmap::set::IndexSet;
 use tracing::info;
 
 use crate::app::console::Console;
 use crate::app::modules::soa_check::config::SoaCheckConfig;
-use crate::app::modules::{Environment, Partial};
+use crate::app::modules::{Environment, PartialError, PartialResult};
 use crate::app::output::OutputType;
 use crate::app::resolver::{AppResolver, NameBuilder};
 use crate::app::{console, AppConfig, ExitStatus};
@@ -24,9 +24,9 @@ impl SoaCheck {
     pub async fn init<'a>(
         app_config: &'a AppConfig,
         config: &'a SoaCheckConfig,
-    ) -> Result<AuthoritativeNameServers<'a>> {
+    ) -> PartialResult<AuthoritativeNameServers<'a>> {
         if app_config.output == OutputType::Json && config.partial_results {
-            return Err(anyhow!("JSON output is incompatible with partial result output"));
+            return Err(anyhow!("JSON output is incompatible with partial result output").into());
         }
         let console = Console::with_partial_results(app_config, config.partial_results);
         let env = Environment::new(app_config, config, console);
@@ -56,7 +56,7 @@ pub struct AuthoritativeNameServers<'a> {
 }
 
 impl<'a> AuthoritativeNameServers<'a> {
-    pub async fn lookup_authoritative_name_servers(self) -> Result<Partial<NameServerIps<'a>>> {
+    pub async fn lookup_authoritative_name_servers(self) -> PartialResult<NameServerIps<'a>> {
         if self.env.console.show_partial_headers() {
             self.env.console.caption("Running DNS lookups of name servers.");
             self.env
@@ -78,26 +78,17 @@ impl<'a> AuthoritativeNameServers<'a> {
         )?;
 
         if !lookups.has_records() {
-            self.env.console.failed("No authoritative nameservers found. Aborting.");
-            return Ok(Partial::ExitStatus(ExitStatus::Abort));
+            self.env.console.failed("No records found. Aborting.");
+            return Err(PartialError::Failed(ExitStatus::Abort));
         }
 
         let name_servers = lookups.ns().unique().to_owned();
 
-        Ok(Partial::Next(NameServerIps {
+        Ok(NameServerIps {
             env: self.env,
             app_resolver: self.app_resolver,
             name_servers,
-        }))
-    }
-}
-
-impl<'a> Partial<NameServerIps<'a>> {
-    pub async fn lookup_name_server_ips(self) -> Result<Partial<SoaRecords<'a>>> {
-        match self {
-            Partial::Next(next) => next.lookup_name_server_ips().await,
-            Partial::ExitStatus(e) => Ok(Partial::ExitStatus(e)),
-        }
+        })
     }
 }
 
@@ -108,7 +99,7 @@ pub struct NameServerIps<'a> {
 }
 
 impl<'a> NameServerIps<'a> {
-    async fn lookup_name_server_ips(self) -> Result<Partial<SoaRecords<'a>>> {
+    pub async fn lookup_name_server_ips(self) -> PartialResult<SoaRecords<'a>> {
         let query = MultiQuery::new(self.name_servers, vec![RecordType::A, RecordType::AAAA])?;
 
         if self.env.console.show_partial_headers() {
@@ -137,7 +128,7 @@ impl<'a> NameServerIps<'a> {
             self.env
                 .console
                 .failed("No IP addresses for authoritative nameservers found. Aborting.");
-            return Ok(Partial::ExitStatus(ExitStatus::Abort));
+            return Err(PartialError::Failed(ExitStatus::Abort));
         }
 
         let name_server_ips = lookups
@@ -149,19 +140,10 @@ impl<'a> NameServerIps<'a> {
             .chain(lookups.aaaa().unique().to_owned().into_iter().map(IpAddr::from))
             .collect();
 
-        Ok(Partial::Next(SoaRecords {
+        Ok(SoaRecords {
             env: self.env,
             name_server_ips,
-        }))
-    }
-}
-
-impl<'a> Partial<SoaRecords<'a>> {
-    pub async fn lookup_soa_records(self) -> Result<Partial<SoaCheckResult<'a>>> {
-        match self {
-            Partial::Next(next) => next.lookup_soa_records().await,
-            Partial::ExitStatus(e) => Ok(Partial::ExitStatus(e)),
-        }
+        })
     }
 }
 
@@ -171,7 +153,7 @@ pub struct SoaRecords<'a> {
 }
 
 impl<'a> SoaRecords<'a> {
-    async fn lookup_soa_records(self) -> Result<Partial<SoaCheckResult<'a>>> {
+    pub async fn lookup_soa_records(self) -> PartialResult<OutputSoaCheckResult<'a>> {
         let authoritative_name_servers = self
             .name_server_ips
             .into_iter()
@@ -202,32 +184,23 @@ impl<'a> SoaRecords<'a> {
             self.env
                 .console
                 .failed("No SOA records from authoritative nameservers found. Aborting.");
-            return Ok(Partial::ExitStatus(ExitStatus::Abort));
+            return Err(PartialError::Failed(ExitStatus::Abort));
         }
 
-        Ok(Partial::Next(SoaCheckResult {
+        Ok(OutputSoaCheckResult {
             env: self.env,
             soa_lookups: lookups,
-        }))
+        })
     }
 }
 
-impl<'a> Partial<SoaCheckResult<'a>> {
-    pub fn output(self) -> Result<ExitStatus> {
-        match self {
-            Partial::Next(next) => next.output(),
-            Partial::ExitStatus(e) => Ok(e),
-        }
-    }
-}
-
-pub struct SoaCheckResult<'a> {
+pub struct OutputSoaCheckResult<'a> {
     env: Environment<'a, SoaCheckConfig>,
     soa_lookups: Lookups,
 }
 
-impl<'a> SoaCheckResult<'a> {
-    pub fn output(self) -> Result<ExitStatus> {
+impl<'a> OutputSoaCheckResult<'a> {
+    pub fn output(self) -> PartialResult<ExitStatus> {
         let records: IndexSet<_> = self.soa_lookups.soa().unique().to_owned().into_iter().collect();
         let diffs = records.differences();
 

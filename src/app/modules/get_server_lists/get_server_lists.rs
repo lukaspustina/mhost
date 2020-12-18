@@ -8,7 +8,7 @@ use tracing::info;
 
 use crate::app::console::Console;
 use crate::app::modules::get_server_lists::config::DownloadServerListConfig;
-use crate::app::modules::{Environment, Partial};
+use crate::app::modules::{Environment, PartialResult};
 use crate::app::output::OutputType;
 use crate::app::{AppConfig, ExitStatus};
 use crate::services::server_lists::{DownloadResponses, ServerListDownloader, ServerListDownloaderOpts};
@@ -19,9 +19,9 @@ impl GetServerLists {
     pub fn init<'a>(
         app_config: &'a AppConfig,
         config: &'a DownloadServerListConfig,
-    ) -> Result<DownloadServerLists<'a>> {
+    ) -> PartialResult<DownloadServerLists<'a>> {
         if app_config.output == OutputType::Json {
-            return Err(anyhow!("JSON output is not support"));
+            return Err(anyhow!("JSON output is not support").into());
         }
         let console = Console::new(app_config);
         let env = Environment::new(app_config, config, console);
@@ -40,7 +40,7 @@ pub struct DownloadServerLists<'a> {
 }
 
 impl<'a> DownloadServerLists<'a> {
-    pub async fn download_server_lists(self) -> Result<Partial<FileWriter<'a>>> {
+    pub async fn download_server_lists(self) -> PartialResult<FileWriter<'a>> {
         if self.env.console.not_quiet() {
             self.env.console.caption("Downloading server lists.");
             self.env
@@ -61,16 +61,7 @@ impl<'a> DownloadServerLists<'a> {
             self.env.console.print_statistics(&servers, total_run_time);
         }
 
-        Ok(Partial::Next(FileWriter { env: self.env, servers }))
-    }
-}
-
-impl<'a> Partial<FileWriter<'a>> {
-    pub async fn write_servers_to_file(self) -> Result<ExitStatus> {
-        match self {
-            Partial::Next(next) => next.write_servers_to_file().await,
-            Partial::ExitStatus(e) => Ok(e),
-        }
+        Ok(FileWriter { env: self.env, servers })
     }
 }
 
@@ -80,7 +71,7 @@ pub struct FileWriter<'a> {
 }
 
 impl<'a> FileWriter<'a> {
-    async fn write_servers_to_file(self) -> Result<ExitStatus> {
+    pub async fn write_servers_to_file(self) -> PartialResult<ExitStatus> {
         info!("Writing nameserver configs to file.");
         FileWriter::write_servers(&self.env.mod_config.output_file_path, &self.servers).await?;
         info!("Finished writing.");

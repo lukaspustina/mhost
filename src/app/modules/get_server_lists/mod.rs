@@ -1,6 +1,8 @@
 use crate::app::modules::get_server_lists::config::DownloadServerListConfig;
+use crate::app::modules::PartialResultExt;
 use crate::app::AppConfig;
 use crate::app::ExitStatus;
+
 use anyhow::Result;
 use clap::ArgMatches;
 use std::convert::TryInto;
@@ -22,4 +24,5 @@ pub async fn run(args: &ArgMatches<'_>, app_config: &AppConfig) -> Result<ExitSt
         .await?
         .write_servers_to_file()
         .await
+        .into_result()
 }

@@ -3,6 +3,7 @@ use clap::ArgMatches;
 use std::convert::TryInto;
 use tracing::info;
 
+use crate::app::modules::PartialResultExt;
 use crate::app::AppConfig;
 use crate::app::ExitStatus;
 
@@ -24,4 +25,5 @@ pub async fn run(args: &ArgMatches<'_>, app_config: &AppConfig) -> Result<ExitSt
         .await?
         .spf()?
         .output()
+        .into_result()
 }

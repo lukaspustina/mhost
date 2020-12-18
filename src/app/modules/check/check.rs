@@ -1,11 +1,11 @@
 use std::time::Instant;
 
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
 use tracing::info;
 
 use crate::app::console::Console;
 use crate::app::modules::check::config::CheckConfig;
-use crate::app::modules::{Environment, Partial};
+use crate::app::modules::{Environment, PartialError, PartialResult};
 use crate::app::output::OutputType;
 use crate::app::resolver::{AppResolver, NameBuilder};
 use crate::app::{console, AppConfig, ExitStatus};
@@ -15,18 +15,18 @@ use crate::resources::rdata::{parsed_txt, TXT};
 use crate::{Name, RecordType};
 
 #[derive(Debug)]
-pub struct PartialResults {
+pub struct CheckResults {
     lookups: Lookups,
-    spf: Option<Vec<PartialResult>>,
+    spf: Option<Vec<CheckResult>>,
 }
 
-impl PartialResults {
-    pub fn new(lookups: Lookups) -> PartialResults {
-        PartialResults { lookups, spf: None }
+impl CheckResults {
+    pub fn new(lookups: Lookups) -> CheckResults {
+        CheckResults { lookups, spf: None }
     }
 
-    pub fn spf(self, spf: Option<Vec<PartialResult>>) -> PartialResults {
-        PartialResults { spf, ..self }
+    pub fn spf(self, spf: Option<Vec<CheckResult>>) -> CheckResults {
+        CheckResults { spf, ..self }
     }
 
     pub fn has_warnings(&self) -> bool {
@@ -39,29 +39,29 @@ impl PartialResults {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum PartialResult {
+pub enum CheckResult {
     NotFound(),
     Ok(String),
     Warning(String),
     Failed(String),
 }
 
-impl PartialResult {
+impl CheckResult {
     pub fn is_warning(&self) -> bool {
-        matches!(self, PartialResult::Warning(_))
+        matches!(self, CheckResult::Warning(_))
     }
 
     pub fn is_failed(&self) -> bool {
-        matches!(self, PartialResult::Failed(_))
+        matches!(self, CheckResult::Failed(_))
     }
 }
 
 pub struct Check {}
 
 impl Check {
-    pub async fn init<'a>(app_config: &'a AppConfig, config: &'a CheckConfig) -> Result<LookupAllThereIs<'a>> {
+    pub async fn init<'a>(app_config: &'a AppConfig, config: &'a CheckConfig) -> PartialResult<LookupAllThereIs<'a>> {
         if app_config.output == OutputType::Json && config.partial_results {
-            return Err(anyhow!("JSON output is incompatible with partial result output"));
+            return Err(anyhow!("JSON output is incompatible with partial result output").into());
         }
         let console = Console::with_partial_results(app_config, config.partial_results);
         let env = Environment::new(app_config, config, console);
@@ -90,7 +90,7 @@ pub struct LookupAllThereIs<'a> {
 }
 
 impl<'a> LookupAllThereIs<'a> {
-    pub async fn lookup_all_records(self) -> Result<Partial<Spf<'a>>> {
+    pub async fn lookup_all_records(self) -> PartialResult<Spf<'a>> {
         let query = MultiQuery::multi_record(self.domain_name.clone(), RecordType::all())?;
 
         if self.env.console.show_partial_headers() {
@@ -117,26 +117,17 @@ impl<'a> LookupAllThereIs<'a> {
 
         if !lookups.has_records() {
             self.env.console.failed("No records found. Aborting.");
-            return Ok(Partial::ExitStatus(ExitStatus::Abort));
+            return Err(PartialError::Failed(ExitStatus::Abort));
         }
 
-        let partial_results = PartialResults::new(lookups);
+        let check_results = CheckResults::new(lookups);
 
-        Ok(Partial::Next(Spf {
+        Ok(Spf {
             env: self.env,
             domain_name: self.domain_name,
             app_resolver: self.app_resolver,
-            partial_results,
-        }))
-    }
-}
-
-impl<'a> Partial<Spf<'a>> {
-    pub fn spf(self) -> Result<Partial<CheckResult<'a>>> {
-        match self {
-            Partial::Next(next) => next.spf(),
-            Partial::ExitStatus(e) => Ok(Partial::ExitStatus(e)),
-        }
+            check_results,
+        })
     }
 }
 
@@ -144,32 +135,32 @@ pub struct Spf<'a> {
     env: Environment<'a, CheckConfig>,
     domain_name: Name,
     app_resolver: AppResolver,
-    partial_results: PartialResults,
+    check_results: CheckResults,
 }
 
 impl<'a> Spf<'a> {
-    fn spf(self) -> Result<Partial<CheckResult<'a>>> {
+    pub fn spf(self) -> PartialResult<OutputCheckResults<'a>> {
         let result = if self.env.mod_config.spf {
             Some(self.do_spf())
         } else {
             None
         };
 
-        Ok(Partial::Next(CheckResult {
+        Ok(OutputCheckResults {
             env: self.env,
             domain_name: self.domain_name,
-            partial_results: self.partial_results.spf(result),
-        }))
+            check_results: self.check_results.spf(result),
+        })
     }
 
-    fn do_spf(&self) -> Vec<PartialResult> {
+    fn do_spf(&self) -> Vec<CheckResult> {
         if self.env.console.show_partial_headers() {
             self.env.console.caption("Checking SPF TXT records");
         }
         let mut results = Vec::new();
 
         let spfs: Vec<String> = self
-            .partial_results
+            .check_results
             .lookups
             .txt()
             .unique()
@@ -184,10 +175,10 @@ impl<'a> Spf<'a> {
         if self.env.console.show_partial_results() {
             for r in &results {
                 match r {
-                    PartialResult::NotFound() => self.env.console.info("No SPF records found."),
-                    PartialResult::Ok(str) => self.env.console.ok(str),
-                    PartialResult::Warning(str) => self.env.console.attention(str),
-                    PartialResult::Failed(str) => self.env.console.failed(str),
+                    CheckResult::NotFound() => self.env.console.info("No SPF records found."),
+                    CheckResult::Ok(str) => self.env.console.ok(str),
+                    CheckResult::Warning(str) => self.env.console.attention(str),
+                    CheckResult::Failed(str) => self.env.console.failed(str),
                 }
             }
         }
@@ -195,11 +186,11 @@ impl<'a> Spf<'a> {
         results
     }
 
-    fn check_num_of_spf_records(spfs: &[String], results: &mut Vec<PartialResult>) {
+    fn check_num_of_spf_records(spfs: &[String], results: &mut Vec<CheckResult>) {
         let check = match spfs.len() {
-            0 => PartialResult::NotFound(),
-            1 => PartialResult::Ok("Found exactly one SPF record".to_string()),
-            n => PartialResult::Failed(format!(
+            0 => CheckResult::NotFound(),
+            1 => CheckResult::Ok("Found exactly one SPF record".to_string()),
+            n => CheckResult::Failed(format!(
                 "Found {} SPF records, but a domain MUST NOT have multiple records; cf. RFC 4408, section 3.1.2",
                 n
             )),
@@ -207,43 +198,34 @@ impl<'a> Spf<'a> {
         results.push(check);
     }
 
-    fn check_parse_spf_records(spfs: &[String], results: &mut Vec<PartialResult>) {
+    fn check_parse_spf_records(spfs: &[String], results: &mut Vec<CheckResult>) {
         for spf in spfs {
             let res = parsed_txt::Spf::from_str(&spf);
             if res.is_ok() {
-                results.push(PartialResult::Ok("Successfully parsed SPF record".to_string()));
+                results.push(CheckResult::Ok("Successfully parsed SPF record".to_string()));
             } else {
-                results.push(PartialResult::Failed("Failed to parse SPF record".to_string()));
+                results.push(CheckResult::Failed("Failed to parse SPF record".to_string()));
             }
         }
     }
 }
 
-impl<'a> Partial<CheckResult<'a>> {
-    pub fn output(self) -> Result<ExitStatus> {
-        match self {
-            Partial::Next(next) => next.output(),
-            Partial::ExitStatus(e) => Ok(e),
-        }
-    }
-}
-
-pub struct CheckResult<'a> {
+pub struct OutputCheckResults<'a> {
     env: Environment<'a, CheckConfig>,
     domain_name: Name,
-    partial_results: PartialResults,
+    check_results: CheckResults,
 }
 
-impl<'a> CheckResult<'a> {
-    pub fn output(self) -> Result<ExitStatus> {
+impl<'a> OutputCheckResults<'a> {
+    pub fn output(self) -> PartialResult<ExitStatus> {
         if self.env.console.not_quiet() {
             self.env.console.finished();
         }
 
-        if self.partial_results.has_failures() {
+        if self.check_results.has_failures() {
             self.env.console.failed("Found failures");
             Ok(ExitStatus::CheckFailed)
-        } else if self.partial_results.has_warnings() {
+        } else if self.check_results.has_warnings() {
             self.env.console.attention("Found warnings");
             Ok(ExitStatus::CheckFailed)
         } else {

@@ -5,7 +5,7 @@ use tracing::info;
 
 use mhost::app::console::Console;
 use mhost::app::logging::Logging;
-use mhost::app::modules;
+use mhost::app::modules::{self, PartialError};
 use mhost::app::AppConfig;
 use mhost::app::{cli_parser, ExitStatus};
 use mhost::nameserver::predefined;
@@ -50,6 +50,7 @@ async fn run() -> Result<ExitStatus> {
         Some("soa-check") => modules::soa_check::run(&args, &app_config).await,
         _ => {
             cli_parser::show_help();
+            // TODO: This should be CliParsingFailed, but then the lit test failed because of exit status != 0.
             Ok(ExitStatus::Ok)
         }
     };
@@ -71,11 +72,14 @@ async fn main() {
 
     let exit_status = match res {
         Ok(exit_status) => exit_status,
-        Err(err) => {
-            let console = Console::default();
-            console.error(format!("Error: {:#}", err));
-            ExitStatus::Failed
-        }
+        Err(err) => match err.downcast_ref::<PartialError>() {
+            Some(PartialError::Failed(exit_status)) => exit_status.to_owned(),
+            _ => {
+                let console = Console::default();
+                console.error(format!("Error: {:#}", err));
+                ExitStatus::UnrecoverableError
+            }
+        },
     };
 
     std::process::exit(exit_status as i32);

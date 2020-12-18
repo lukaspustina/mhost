@@ -12,7 +12,7 @@ use tracing::info;
 
 use crate::app::console::Console;
 use crate::app::modules::lookup::config::LookupConfig;
-use crate::app::modules::Environment;
+use crate::app::modules::{Environment, PartialResult};
 use crate::app::output::summary::{SummaryFormatter, SummaryOptions};
 use crate::app::output::OutputType;
 use crate::app::resolver::{AppResolver, NameBuilder};
@@ -26,7 +26,7 @@ use crate::{Name, RecordType};
 pub struct Lookup {}
 
 impl Lookup {
-    pub async fn init<'a>(app_config: &'a AppConfig, config: &'a LookupConfig) -> Result<DnsLookups<'a>> {
+    pub async fn init<'a>(app_config: &'a AppConfig, config: &'a LookupConfig) -> PartialResult<DnsLookups<'a>> {
         let console = Console::new(app_config);
         let env = Environment::new(app_config, config, console);
 
@@ -73,7 +73,7 @@ pub struct DnsLookups<'a> {
 }
 
 impl<'a> DnsLookups<'a> {
-    pub async fn lookups(self) -> Result<Whois<'a>> {
+    pub async fn lookups(self) -> PartialResult<Whois<'a>> {
         if self.env.console.not_quiet() {
             self.env.console.print_opts(
                 self.app_resolver.resolver_group_opts(),
@@ -111,7 +111,7 @@ pub struct Whois<'a> {
 }
 
 impl<'a> Whois<'a> {
-    pub async fn optional_whois(self) -> Result<LookupResult<'a>> {
+    pub async fn optional_whois(self) -> PartialResult<LookupResult<'a>> {
         if self.env.mod_config.whois {
             self.whois().await
         } else {
@@ -123,7 +123,7 @@ impl<'a> Whois<'a> {
         }
     }
 
-    async fn whois(self) -> Result<LookupResult<'a>> {
+    async fn whois(self) -> PartialResult<LookupResult<'a>> {
         let ip_addresses = Whois::ips_from_lookups(&self.lookups)?;
         let query_types = vec![QueryType::NetworkInfo, QueryType::GeoLocation, QueryType::Whois];
         let query = whois::MultiQuery::from_iter(ip_addresses, query_types);
@@ -192,14 +192,14 @@ pub struct LookupResult<'a> {
 }
 
 impl<'a> LookupResult<'a> {
-    pub fn output(self) -> Result<ExitStatus> {
+    pub fn output(self) -> PartialResult<ExitStatus> {
         match self.env.app_config.output {
             OutputType::Json => self.json_output(),
             OutputType::Summary => self.summary_output(),
         }
     }
 
-    fn json_output(self) -> Result<ExitStatus> {
+    fn json_output(self) -> PartialResult<ExitStatus> {
         #[derive(Debug, Serialize)]
         struct Json {
             lookups: Lookups,
@@ -219,7 +219,7 @@ impl<'a> LookupResult<'a> {
         Ok(ExitStatus::Ok)
     }
 
-    fn summary_output(self) -> Result<ExitStatus> {
+    fn summary_output(self) -> PartialResult<ExitStatus> {
         if self.env.console.not_quiet() {
             self.env.console.finished();
         }

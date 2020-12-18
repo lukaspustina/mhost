@@ -12,7 +12,7 @@ use tracing::{debug, info};
 use crate::app::console::{self, Console, Fmt};
 use crate::app::modules::discover::config::DiscoverConfig;
 use crate::app::modules::discover::wordlist::Wordlist;
-use crate::app::modules::{Environment, Partial};
+use crate::app::modules::{Environment, PartialResult};
 use crate::app::output::summary::{SummaryFormat, SummaryFormatter, SummaryOptions};
 use crate::app::output::{OutputConfig, OutputType};
 use crate::app::resolver::{AppResolver, NameBuilder};
@@ -24,9 +24,9 @@ use crate::{Name, RecordType};
 pub struct Discover {}
 
 impl Discover {
-    pub async fn init<'a>(app_config: &'a AppConfig, config: &'a DiscoverConfig) -> Result<RequestAll<'a>> {
+    pub async fn init<'a>(app_config: &'a AppConfig, config: &'a DiscoverConfig) -> PartialResult<RequestAll<'a>> {
         if app_config.output == OutputType::Json && config.partial_results {
-            return Err(anyhow!("JSON output is incompatible with partial result output"));
+            return Err(anyhow!("JSON output is incompatible with partial result output").into());
         }
         let console = Console::with_partial_results(app_config, config.partial_results);
         let env = Environment::new(app_config, config, console);
@@ -81,7 +81,7 @@ pub struct RequestAll<'a> {
 }
 
 impl<'a> RequestAll<'a> {
-    pub async fn request_all_records(self) -> Result<Partial<WildcardCheck<'a>>> {
+    pub async fn request_all_records(self) -> PartialResult<WildcardCheck<'a>> {
         let query = MultiQuery::multi_record(
             self.domain_name.clone(),
             vec![
@@ -113,23 +113,14 @@ impl<'a> RequestAll<'a> {
 
         console::print_partial_results(&self.env.console, &self.partial_output_config, &lookups, total_run_time)?;
 
-        Ok(Partial::Next(WildcardCheck {
+        Ok(WildcardCheck {
             env: self.env,
             partial_output_config: self.partial_output_config,
             domain_name: self.domain_name,
             app_resolver: self.app_resolver,
             total_run_time,
             lookups,
-        }))
-    }
-}
-
-impl<'a> Partial<WildcardCheck<'a>> {
-    pub async fn check_wildcard_resolution(self) -> Result<Partial<WordlistLookups<'a>>> {
-        match self {
-            Partial::Next(next) => next.check_wildcard_resolution().await,
-            Partial::ExitStatus(e) => Ok(Partial::ExitStatus(e)),
-        }
+        })
     }
 }
 
@@ -143,7 +134,7 @@ pub struct WildcardCheck<'a> {
 }
 
 impl<'a> WildcardCheck<'a> {
-    async fn check_wildcard_resolution(self) -> Result<Partial<WordlistLookups<'a>>> {
+    pub async fn check_wildcard_resolution(self) -> PartialResult<WordlistLookups<'a>> {
         let rnd_names =
             WildcardCheck::rnd_names(self.env.mod_config.rnd_names_number, self.env.mod_config.rnd_names_len)
                 .into_iter()
@@ -165,7 +156,7 @@ impl<'a> WildcardCheck<'a> {
 
         console::print_partial_results(&self.env.console, &self.partial_output_config, &lookups, total_run_time)?;
 
-        Ok(Partial::Next(WordlistLookups {
+        Ok(WordlistLookups {
             env: self.env,
             partial_output_config: self.partial_output_config,
             domain_name: self.domain_name,
@@ -173,7 +164,7 @@ impl<'a> WildcardCheck<'a> {
             total_run_time: self.total_run_time + total_run_time,
             wildcard_resolutions: if lookups.has_records() { Some(lookups) } else { None },
             lookups: self.lookups,
-        }))
+        })
     }
 
     fn rnd_names(number: usize, len: usize) -> Vec<String> {
@@ -189,15 +180,6 @@ impl<'a> WildcardCheck<'a> {
     }
 }
 
-impl<'a> Partial<WordlistLookups<'a>> {
-    pub async fn wordlist_lookups(self) -> Result<Partial<DiscoverResult<'a>>> {
-        match self {
-            Partial::Next(next) => next.wordlist_lookups().await,
-            Partial::ExitStatus(e) => Ok(Partial::ExitStatus(e)),
-        }
-    }
-}
-
 pub struct WordlistLookups<'a> {
     env: Environment<'a, DiscoverConfig>,
     partial_output_config: OutputConfig,
@@ -209,7 +191,7 @@ pub struct WordlistLookups<'a> {
 }
 
 impl<'a> WordlistLookups<'a> {
-    async fn wordlist_lookups(self) -> Result<Partial<DiscoverResult<'a>>> {
+    pub async fn wordlist_lookups(self) -> PartialResult<OutputDiscoverResult<'a>> {
         let wordlist = self.load_wordlist(&self.domain_name).await?;
 
         let query = MultiQuery::new(
@@ -245,13 +227,13 @@ impl<'a> WordlistLookups<'a> {
         // Merge lookups from this step with previous step
         let lookups = lookups.merge(self.lookups);
 
-        Ok(Partial::Next(DiscoverResult {
+        Ok(OutputDiscoverResult {
             env: self.env,
             domain_name: self.domain_name,
             total_run_time: self.total_run_time + total_run_time,
             wildcard_resolutions: self.wildcard_resolutions,
             lookups,
-        }))
+        })
     }
 
     fn filter_wildcard_responses(&self, lookups: Lookups) -> Lookups {
@@ -282,16 +264,7 @@ impl<'a> WordlistLookups<'a> {
     }
 }
 
-impl<'a> Partial<DiscoverResult<'a>> {
-    pub fn output(self) -> Result<ExitStatus> {
-        match self {
-            Partial::Next(next) => next.output(),
-            Partial::ExitStatus(e) => Ok(e),
-        }
-    }
-}
-
-pub struct DiscoverResult<'a> {
+pub struct OutputDiscoverResult<'a> {
     env: Environment<'a, DiscoverConfig>,
     domain_name: Name,
     total_run_time: Duration,
@@ -299,15 +272,15 @@ pub struct DiscoverResult<'a> {
     lookups: Lookups,
 }
 
-impl<'a> DiscoverResult<'a> {
-    fn output(self) -> Result<ExitStatus> {
+impl<'a> OutputDiscoverResult<'a> {
+    pub fn output(self) -> PartialResult<ExitStatus> {
         match self.env.app_config.output {
             OutputType::Json => self.json_output(),
             OutputType::Summary => self.summary_output(),
         }
     }
 
-    fn json_output(self) -> Result<ExitStatus> {
+    fn json_output(self) -> PartialResult<ExitStatus> {
         #[derive(Debug, Serialize)]
         struct Json {
             wildcard_resolutions: Option<Lookups>,
@@ -327,7 +300,7 @@ impl<'a> DiscoverResult<'a> {
         Ok(ExitStatus::Ok)
     }
 
-    fn summary_output(self) -> Result<ExitStatus> {
+    fn summary_output(self) -> PartialResult<ExitStatus> {
         let empty = Lookups::empty();
         let all_lookups = self
             .lookups
