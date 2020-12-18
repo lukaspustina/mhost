@@ -32,7 +32,7 @@ complete -c mhost -n "__fish_use_subcommand" -f -a "discover" -d 'Discovers reco
 complete -c mhost -n "__fish_use_subcommand" -f -a "get-server-lists" -d 'Downloads known lists of name servers'
 complete -c mhost -n "__fish_use_subcommand" -f -a "lookup" -d 'Looks up a name, IP address or CIDR block'
 complete -c mhost -n "__fish_use_subcommand" -f -a "soa-check" -d 'Checks SOA records of authoritative name servers for deviations'
-complete -c mhost -n "__fish_seen_subcommand_from check" -s p -l show-partial-results -d 'Shows results after each lookup step'
+complete -c mhost -n "__fish_seen_subcommand_from check" -s p -l show-partial-results -d 'Shows results after each check step'
 complete -c mhost -n "__fish_seen_subcommand_from check" -l no-spf -d 'Does not run SPF check'
 complete -c mhost -n "__fish_seen_subcommand_from check" -s h -l help -d 'Prints help information'
 complete -c mhost -n "__fish_seen_subcommand_from check" -s V -l version -d 'Prints version information'

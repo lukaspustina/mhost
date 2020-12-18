@@ -39,7 +39,7 @@ impl Logging {
         LogTracer::init()?;
 
         let log_level = Logging::log_level(self.verbosity);
-        let filter = if let Some(_) = self.rust_log {
+        let filter = if self.rust_log.is_some() {
             // This is controlled by the env variable RUST_LOG and overrides the max level, if set
             EnvFilter::from_default_env()
         } else {

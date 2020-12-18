@@ -124,7 +124,7 @@ impl Wordlist {
     }
 
     fn is_comment(line: &str) -> bool {
-        line.starts_with("//") || line.starts_with("#")
+        line.starts_with("//") || line.starts_with('#')
     }
 
     pub fn from_str(data: &str) -> Result<Wordlist> {

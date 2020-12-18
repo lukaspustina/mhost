@@ -281,7 +281,7 @@ fn check_subcommand() -> App<'static, 'static> {
             Arg::with_name("partial-results")
                 .short("p")
                 .long("show-partial-results")
-                .help("Shows results after each lookup step"),
+                .help("Shows results after each check step"),
         )
         .arg(Arg::with_name("no-spf").long("no-spf").help("Does not run SPF check"))
 }

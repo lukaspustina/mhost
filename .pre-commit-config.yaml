@@ -11,3 +11,6 @@ repos:
       - id: fmt
         name: Rust fmt check
         args: ['--', '--check', '--files-with-diff']
+      - id: clippy
+        name: Rust clippy check
+        args: ['--', '-D', 'warnings']

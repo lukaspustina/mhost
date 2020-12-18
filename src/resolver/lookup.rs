@@ -222,7 +222,7 @@ impl<'a, T: Clone + Eq + Hash> Uniquified<'a, T> {
     }
 
     pub fn iter(&'a self) -> impl Iterator<Item = &'a T> {
-        self.inner.iter().map(|x| *x)
+        self.inner.iter().copied()
     }
 }
 
@@ -474,7 +474,7 @@ async fn single_lookup(resolver: Resolver, query: UniQuery) -> Lookup {
         "Received {}",
         match &result {
             LookupResult::Response(response) => format!("response with {:?} records", response.records.len()),
-            LookupResult::NxDomain(_) => format!("nonexistent domain"),
+            LookupResult::NxDomain(_) => "nonexistent domain".to_string(),
             LookupResult::Error(err) => format!("{:?} error", err),
         }
     );

@@ -274,7 +274,7 @@ impl<'a> WordlistLookups<'a> {
             Wordlist::default()?
         }
         .into_iter()
-        .map(|x| x.clone().append_domain(&append_domain_name))
+        .map(|x| x.append_domain(&append_domain_name))
         .collect();
         debug!("Loaded wordlist with {} words", wordlist.len());
 
@@ -354,7 +354,7 @@ impl<'a> DiscoverResult<'a> {
                 if self.env.mod_config.rnd_names_number > 1 {
                     "domains"
                 } else {
-                    "domains"
+                    "domain"
                 },
             ));
         } else {
@@ -390,7 +390,7 @@ impl<'a> DiscoverResult<'a> {
     fn print_fancy_name_by_domain(&self, name: &Name, domain_name: &Name) {
         if domain_name.zone_of(&name) {
             let domain_len = domain_name.num_labels();
-            let sub_domain = Name::from_labels(name.iter().take((&name.num_labels() - domain_len) as usize)).unwrap();
+            let sub_domain = Name::from_labels(name.iter().take((name.num_labels() - domain_len) as usize)).unwrap();
             self.env
                 .console
                 .itemize(format!("{}{}", Fmt::emph(&sub_domain), domain_name,));

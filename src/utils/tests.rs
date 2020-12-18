@@ -1,5 +1,4 @@
 pub mod logging {
-    use lazy_static;
     use tracing::subscriber::set_global_default;
     use tracing_log::LogTracer;
     use tracing_subscriber::fmt;
@@ -12,7 +11,7 @@ pub mod logging {
             LogTracer::init()
                 .expect("failed to init logging for testing");
 
-            let filter = if let Some(_) = std::env::var_os("RUST_LOG") {
+            let filter = if std::env::var_os("RUST_LOG").is_some() {
                 // This is controlled by the env variable RUST_LOG
                 EnvFilter::from_default_env()
             } else {

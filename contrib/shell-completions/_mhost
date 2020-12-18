@@ -63,8 +63,8 @@ _mhost() {
         case $line[1] in
             (check)
 _arguments "${_arguments_options[@]}" \
-'-p[Shows results after each lookup step]' \
-'--show-partial-results[Shows results after each lookup step]' \
+'-p[Shows results after each check step]' \
+'--show-partial-results[Shows results after each check step]' \
 '--no-spf[Does not run SPF check]' \
 '-h[Prints help information]' \
 '--help[Prints help information]' \

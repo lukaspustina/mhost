@@ -9,11 +9,10 @@ use crate::app::modules::{Environment, Partial};
 use crate::app::output::OutputType;
 use crate::app::resolver::{AppResolver, NameBuilder};
 use crate::app::{console, AppConfig, ExitStatus};
-use crate::diff::SetDiffer;
 use crate::resolver::lookup::Uniquify;
 use crate::resolver::{Lookups, MultiQuery};
 use crate::resources::rdata::{parsed_txt, TXT};
-use crate::{Error, Name, RecordType};
+use crate::{Name, RecordType};
 
 #[derive(Debug)]
 pub struct PartialResults {
@@ -30,16 +29,12 @@ impl PartialResults {
         PartialResults { spf, ..self }
     }
 
-    pub fn has_issues(&self) -> bool {
-        (self.spf.is_some() && self.spf.as_ref().unwrap().iter().any(|x| x.is_issue()))
-    }
-
     pub fn has_warnings(&self) -> bool {
-        (self.spf.is_some() && self.spf.as_ref().unwrap().iter().any(|x| x.is_warning()))
+        self.spf.is_some() && self.spf.as_ref().unwrap().iter().any(|x| x.is_warning())
     }
 
     pub fn has_failures(&self) -> bool {
-        (self.spf.is_some() && self.spf.as_ref().unwrap().iter().any(|x| x.is_failed()))
+        self.spf.is_some() && self.spf.as_ref().unwrap().iter().any(|x| x.is_failed())
     }
 }
 
@@ -58,10 +53,6 @@ impl PartialResult {
 
     pub fn is_failed(&self) -> bool {
         matches!(self, PartialResult::Failed(_))
-    }
-
-    pub fn is_issue(&self) -> bool {
-        self.is_warning() || self.is_failed()
     }
 }
 
@@ -204,7 +195,7 @@ impl<'a> Spf<'a> {
         results
     }
 
-    fn check_num_of_spf_records(spfs: &Vec<String>, results: &mut Vec<PartialResult>) {
+    fn check_num_of_spf_records(spfs: &[String], results: &mut Vec<PartialResult>) {
         let check = match spfs.len() {
             0 => PartialResult::NotFound(),
             1 => PartialResult::Ok("Found exactly one SPF record".to_string()),
@@ -216,7 +207,7 @@ impl<'a> Spf<'a> {
         results.push(check);
     }
 
-    fn check_parse_spf_records(spfs: &Vec<String>, results: &mut Vec<PartialResult>) {
+    fn check_parse_spf_records(spfs: &[String], results: &mut Vec<PartialResult>) {
         for spf in spfs {
             let res = parsed_txt::Spf::from_str(&spf);
             if res.is_ok() {
