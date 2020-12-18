@@ -15,7 +15,8 @@ pub fn no_color_mode() {
 }
 
 lazy_static! {
-    pub static ref ATTENTION: Style = Style::new(Color::Red).bold();
+    pub static ref ATTENTION: Style = Style::new(Color::Yellow).bold();
+    pub static ref ERROR: Style = Style::new(Color::Red).bold();
     pub static ref EMPH: Style = Style::new(Color::White).bold();
     pub static ref OK: Style = Style::new(Color::Green).bold();
     pub static ref ATTENTION_PREFIX: String = (if ASCII_MODE.load(SeqCst) { "!" } else { "⚠︎" }).to_string();

@@ -194,6 +194,7 @@ impl<'a> WordlistLookups<'a> {
     pub async fn wordlist_lookups(self) -> PartialResult<OutputDiscoverResult<'a>> {
         let wordlist = self.load_wordlist(&self.domain_name).await?;
 
+        // TODO: This list should contain all types that return names and then combine this with the `check` list
         let query = MultiQuery::new(
             wordlist,
             vec![

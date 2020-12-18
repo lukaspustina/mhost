@@ -7,6 +7,7 @@ pub struct CheckConfig {
     pub domain_name: String,
     pub partial_results: bool,
     pub spf: bool,
+    pub record_type_lints: bool,
 }
 
 impl TryFrom<&ArgMatches<'_>> for CheckConfig {
@@ -20,6 +21,7 @@ impl TryFrom<&ArgMatches<'_>> for CheckConfig {
                 .to_string(),
             partial_results: args.is_present("partial-results"),
             spf: !args.is_present("no-spf"),
+            record_type_lints: !args.is_present("no-record-type-lint"),
         };
 
         Ok(config)

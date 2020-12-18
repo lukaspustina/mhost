@@ -184,11 +184,11 @@ impl Console {
     }
 
     pub fn failed<T: AsRef<str>>(&self, str: T) {
-        println!("{} {}", Fmt::attention(&*ERROR_PREFIX), str.as_ref());
+        println!("{} {}", Fmt::error(&*ERROR_PREFIX), str.as_ref());
     }
 
     pub fn error<T: AsRef<str>>(&self, str: T) {
-        eprintln!("{} {}", Fmt::attention(&*ERROR_PREFIX), str.as_ref());
+        eprintln!("{} {}", Fmt::error(&*ERROR_PREFIX), str.as_ref());
     }
 
     pub fn ok<T: AsRef<str>>(&self, str: T) {
@@ -237,6 +237,10 @@ impl Fmt {
 
     pub fn attention<T: fmt::Display>(item: T) -> Paint<T> {
         styles::ATTENTION.paint(item)
+    }
+
+    pub fn error<T: fmt::Display>(item: T) -> Paint<T> {
+        styles::ERROR.paint(item)
     }
 
     pub fn ok<T: fmt::Display>(item: T) -> Paint<T> {

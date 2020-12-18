@@ -34,6 +34,7 @@ complete -c mhost -n "__fish_use_subcommand" -f -a "lookup" -d 'Looks up a name,
 complete -c mhost -n "__fish_use_subcommand" -f -a "soa-check" -d 'Checks SOA records of authoritative name servers for deviations'
 complete -c mhost -n "__fish_seen_subcommand_from check" -s p -l show-partial-results -d 'Shows results after each check step'
 complete -c mhost -n "__fish_seen_subcommand_from check" -l no-spf -d 'Does not run SPF check'
+complete -c mhost -n "__fish_seen_subcommand_from check" -l no-record-type-lint -d 'Does not run record type lints'
 complete -c mhost -n "__fish_seen_subcommand_from check" -s h -l help -d 'Prints help information'
 complete -c mhost -n "__fish_seen_subcommand_from check" -s V -l version -d 'Prints version information'
 complete -c mhost -n "__fish_seen_subcommand_from discover" -s w -l wordlist-from-file -d 'Uses wordlist from file'

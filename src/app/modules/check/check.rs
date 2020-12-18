@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Result};
 use tracing::info;
 
 use crate::app::console::Console;
@@ -9,6 +9,7 @@ use crate::app::modules::{Environment, PartialError, PartialResult};
 use crate::app::output::OutputType;
 use crate::app::resolver::{AppResolver, NameBuilder};
 use crate::app::{console, AppConfig, ExitStatus};
+use crate::diff::Differ;
 use crate::resolver::lookup::Uniquify;
 use crate::resolver::{Lookups, MultiQuery};
 use crate::resources::rdata::{parsed_txt, TXT};
@@ -17,24 +18,38 @@ use crate::{Name, RecordType};
 #[derive(Debug)]
 pub struct CheckResults {
     lookups: Lookups,
+    record_type_lints: Option<Vec<CheckResult>>,
     spf: Option<Vec<CheckResult>>,
 }
 
 impl CheckResults {
     pub fn new(lookups: Lookups) -> CheckResults {
-        CheckResults { lookups, spf: None }
+        CheckResults {
+            lookups,
+            spf: None,
+            record_type_lints: None,
+        }
     }
 
     pub fn spf(self, spf: Option<Vec<CheckResult>>) -> CheckResults {
         CheckResults { spf, ..self }
     }
 
+    pub fn record_type_lints(self, record_type_lints: Option<Vec<CheckResult>>) -> CheckResults {
+        CheckResults {
+            record_type_lints,
+            ..self
+        }
+    }
+
     pub fn has_warnings(&self) -> bool {
-        self.spf.is_some() && self.spf.as_ref().unwrap().iter().any(|x| x.is_warning())
+        (self.record_type_lints.is_some() && self.record_type_lints.as_ref().unwrap().iter().any(|x| x.is_warning()))
+            || (self.spf.is_some() && self.spf.as_ref().unwrap().iter().any(|x| x.is_warning()))
     }
 
     pub fn has_failures(&self) -> bool {
-        self.spf.is_some() && self.spf.as_ref().unwrap().iter().any(|x| x.is_failed())
+        (self.record_type_lints.is_some() && self.record_type_lints.as_ref().unwrap().iter().any(|x| x.is_failed()))
+            || (self.spf.is_some() && self.spf.as_ref().unwrap().iter().any(|x| x.is_failed()))
     }
 }
 
@@ -90,8 +105,16 @@ pub struct LookupAllThereIs<'a> {
 }
 
 impl<'a> LookupAllThereIs<'a> {
-    pub async fn lookup_all_records(self) -> PartialResult<Spf<'a>> {
-        let query = MultiQuery::multi_record(self.domain_name.clone(), RecordType::all())?;
+    pub async fn lookup_all_records(self) -> PartialResult<RecordTypeLints<'a>> {
+        let record_types = {
+            use RecordType::*;
+            vec![
+                // TODO: AXFR seems to kill dnsmasq in the macOS test-env
+                //A, AAAA, ANAME, ANY, AXFR, CAA, CNAME, IXFR, MX, NS, OPT, SOA, SRV, TXT, DNSSEC,
+                A, AAAA, ANAME, ANY, CAA, CNAME, IXFR, MX, NS, OPT, SOA, SRV, TXT, DNSSEC,
+            ]
+        };
+        let query = MultiQuery::multi_record(self.domain_name.clone(), record_types)?;
 
         if self.env.console.show_partial_headers() {
             self.env
@@ -122,7 +145,7 @@ impl<'a> LookupAllThereIs<'a> {
 
         let check_results = CheckResults::new(lookups);
 
-        Ok(Spf {
+        Ok(RecordTypeLints {
             env: self.env,
             domain_name: self.domain_name,
             app_resolver: self.app_resolver,
@@ -131,9 +154,180 @@ impl<'a> LookupAllThereIs<'a> {
     }
 }
 
+pub struct RecordTypeLints<'a> {
+    env: Environment<'a, CheckConfig>,
+    domain_name: Name,
+    app_resolver: AppResolver,
+    check_results: CheckResults,
+}
+
+impl<'a> RecordTypeLints<'a> {
+    pub async fn record_type_lints(self) -> PartialResult<Spf<'a>> {
+        let result = if self.env.mod_config.record_type_lints {
+            let results = self.do_record_type_lints().await?;
+            Some(results)
+        } else {
+            None
+        };
+
+        Ok(Spf {
+            env: self.env,
+            domain_name: self.domain_name,
+            app_resolver: self.app_resolver,
+            check_results: self.check_results.record_type_lints(result),
+        })
+    }
+
+    async fn do_record_type_lints(&self) -> PartialResult<Vec<CheckResult>> {
+        if self.env.console.show_partial_headers() {
+            self.env.console.caption("Checking record type lints");
+        }
+        let mut results = Vec::new();
+
+        self.mx(&mut results).await?;
+        self.srv(&mut results).await?;
+        self.cname(&mut results).await?;
+
+        if self.env.console.show_partial_results() {
+            for r in &results {
+                match r {
+                    CheckResult::NotFound() => self.env.console.info("No records found."),
+                    CheckResult::Ok(str) => self.env.console.ok(str),
+                    CheckResult::Warning(str) => self.env.console.attention(str),
+                    CheckResult::Failed(str) => self.env.console.failed(str),
+                }
+            }
+        }
+
+        Ok(results)
+    }
+
+    async fn mx(&self, results: &mut Vec<CheckResult>) -> Result<()> {
+        let mx_names: Vec<Name> = self
+            .check_results
+            .lookups
+            .mx()
+            .unique()
+            .iter()
+            .map(|x| x.exchange())
+            .cloned()
+            .collect();
+        let query = MultiQuery::new(mx_names, vec![RecordType::CNAME])?;
+
+        if self.env.console.show_partial_headers() {
+            self.env.console.itemize("MX");
+            self.env
+                .console
+                .print_estimates_lookups(&self.app_resolver.resolvers(), &query);
+        }
+
+        info!("Running lookups for MX records of domain.");
+        let start_time = Instant::now();
+        let lookups = self.app_resolver.lookup(query).await?;
+        let total_run_time = Instant::now() - start_time;
+        info!("Finished Lookups.");
+
+        console::print_partial_results(
+            &self.env.console,
+            &self.env.app_config.output_config,
+            &lookups,
+            total_run_time,
+        )?;
+
+        if lookups.cname().is_empty() {
+            results.push(CheckResult::Ok("MX do not point to CNAME".to_string()));
+        } else {
+            results.push(CheckResult::Failed(
+                "MX points to CNAME: MX name must not be an alias; cf. RFC 2181, section 10.3".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+
+    async fn srv(&self, results: &mut Vec<CheckResult>) -> Result<()> {
+        let srv_names: Vec<Name> = self
+            .check_results
+            .lookups
+            .srv()
+            .unique()
+            .iter()
+            .map(|x| x.target())
+            .cloned()
+            .collect();
+        let query = MultiQuery::new(srv_names, vec![RecordType::CNAME])?;
+
+        if self.env.console.show_partial_headers() {
+            self.env.console.itemize("SRV");
+            self.env
+                .console
+                .print_estimates_lookups(&self.app_resolver.resolvers(), &query);
+        }
+
+        info!("Running lookups for SRV records of domain.");
+        let start_time = Instant::now();
+        let lookups = self.app_resolver.lookup(query).await?;
+        let total_run_time = Instant::now() - start_time;
+        info!("Finished Lookups.");
+
+        console::print_partial_results(
+            &self.env.console,
+            &self.env.app_config.output_config,
+            &lookups,
+            total_run_time,
+        )?;
+
+        if lookups.cname().is_empty() {
+            results.push(CheckResult::Ok("SRV do not point to CNAME".to_string()));
+        } else {
+            results.push(CheckResult::Failed(
+                "SRV points to CNAME: SRV name must not be an alias; cf. RFC 2782, section Target".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+
+    async fn cname(&self, results: &mut Vec<CheckResult>) -> Result<()> {
+        let cnames = self.check_results.lookups.cname().unique().to_owned();
+        let query = MultiQuery::new(cnames, vec![RecordType::CNAME])?;
+
+        if self.env.console.show_partial_headers() {
+            self.env.console.itemize("CNAME");
+            self.env
+                .console
+                .print_estimates_lookups(&self.app_resolver.resolvers(), &query);
+        }
+
+        info!("Running lookups for CNAME records of domain.");
+        let start_time = Instant::now();
+        let lookups = self.app_resolver.lookup(query).await?;
+        let total_run_time = Instant::now() - start_time;
+        info!("Finished Lookups.");
+
+        console::print_partial_results(
+            &self.env.console,
+            &self.env.app_config.output_config,
+            &lookups,
+            total_run_time,
+        )?;
+
+        if lookups.cname().is_empty() {
+            results.push(CheckResult::Ok("CNAME does not point to other CNAME".to_string()));
+        } else {
+            results.push(CheckResult::Warning(
+                "CNAME points to other CNAME: this should be avoided; cf. RFC 1034, section 3.6.2".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+}
+
 pub struct Spf<'a> {
     env: Environment<'a, CheckConfig>,
     domain_name: Name,
+    #[allow(dead_code)]
     app_resolver: AppResolver,
     check_results: CheckResults,
 }
@@ -170,7 +364,7 @@ impl<'a> Spf<'a> {
             .collect();
 
         Spf::check_num_of_spf_records(&spfs, &mut results);
-        Spf::check_parse_spf_records(&spfs, &mut results);
+        Spf::check_parsed_spf_records(&spfs, &mut results);
 
         if self.env.console.show_partial_results() {
             for r in &results {
@@ -191,20 +385,33 @@ impl<'a> Spf<'a> {
             0 => CheckResult::NotFound(),
             1 => CheckResult::Ok("Found exactly one SPF record".to_string()),
             n => CheckResult::Failed(format!(
-                "Found {} SPF records, but a domain MUST NOT have multiple records; cf. RFC 4408, section 3.1.2",
+                "Found {} SPF records: A domain must not have multiple records; cf. RFC 4408, section 3.1.2",
                 n
             )),
         };
         results.push(check);
     }
 
-    fn check_parse_spf_records(spfs: &[String], results: &mut Vec<CheckResult>) {
-        for spf in spfs {
-            let res = parsed_txt::Spf::from_str(&spf);
-            if res.is_ok() {
+    fn check_parsed_spf_records(spfs: &[String], results: &mut Vec<CheckResult>) {
+        // Check, if Txt records can be parsed into SPF records
+        let mut parsed_spfs = Vec::new();
+        for str in spfs {
+            if let Ok(spf) = parsed_txt::Spf::from_str(&str) {
                 results.push(CheckResult::Ok("Successfully parsed SPF record".to_string()));
+                parsed_spfs.push(spf)
             } else {
                 results.push(CheckResult::Failed("Failed to parse SPF record".to_string()));
+            }
+        }
+
+        // If there are multiple parsable SPF records, check if they at least are the same
+        if parsed_spfs.len() > 1 {
+            let mut it = parsed_spfs.into_iter();
+            let first = it.next().unwrap();
+            for next in it {
+                if first.difference(&next).is_some() {
+                    results.push(CheckResult::Warning("Spf records differ".to_string()));
+                }
             }
         }
     }
@@ -212,6 +419,7 @@ impl<'a> Spf<'a> {
 
 pub struct OutputCheckResults<'a> {
     env: Environment<'a, CheckConfig>,
+    #[allow(dead_code)]
     domain_name: Name,
     check_results: CheckResults,
 }

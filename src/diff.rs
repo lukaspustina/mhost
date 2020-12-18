@@ -64,7 +64,10 @@ macro_rules! differ {
     ($mod_name:ident, $rr_type:ty, $($accessor:ident: $field:ident),+) => {
         pub mod $mod_name {
             use super::*;
+            #[allow(unused_imports)]
             use crate::resources::rdata::*;
+            #[allow(unused_imports)]
+            use crate::resources::rdata::parsed_txt::*;
 
             #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
             pub enum Field {
@@ -111,6 +114,8 @@ differ!(
 differ!(srv, SRV, priority: Priority, weight: Weight, port: Port, target: Target);
 
 differ!(txt, TXT, txt_data: TxtData);
+
+differ!(spf, Spf<'_>, version: Version, words: Words);
 
 differ!(unknown, UNKNOWN, code: Code, rdata: RData);
 
@@ -316,12 +321,12 @@ mod tests {
         fn diff_code() {
             crate::utils::tests::logging::init();
             let left = crate::resources::rdata::TXT::new(vec![
-                "v=spf1 mx a ip4:195.230.126.196/26 include:spf.crsend.com include:spf.protection.outlook.com ~all"
+                "v=spf1 mx a ip4:192.168.126.196/26 include:spf.crsend.com include:spf.protection.outlook.com ~all"
                     .to_string(),
             ]);
 
             let right = crate::resources::rdata::TXT::new(vec![
-                "v=spf1 a mx ip4:195.230.126.196/26 include:spf.crsend.com include:spf.protection.outlook.com include:antispameurope.com ~all"
+                "v=spf1 a mx ip4:192.168.126.196/26 include:spf.crsend.com include:spf.protection.outlook.com include:antispameurope.com ~all"
                     .to_string(),
             ]);
 

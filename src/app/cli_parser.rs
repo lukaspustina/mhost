@@ -55,6 +55,9 @@ pub fn create_parser() -> App<'static, 'static> {
                 .value_name("IP ADDR")
                 .takes_value(true)
                 .multiple(true)
+                .use_delimiter(true)
+                .require_delimiter(true)
+                .value_delimiter(",")
                 .help("Adds system nameserver for system lookups; only IP addresses allowed"),
         )
         .arg(
@@ -66,7 +69,7 @@ pub fn create_parser() -> App<'static, 'static> {
                 .multiple(true)
                 .use_delimiter(true)
                 .require_delimiter(true)
-                .value_delimiter(";")
+                .value_delimiter(",")
                 .help("Adds nameserver for lookups"),
         )
         .arg(
@@ -284,6 +287,11 @@ fn check_subcommand() -> App<'static, 'static> {
                 .help("Shows results after each check step"),
         )
         .arg(Arg::with_name("no-spf").long("no-spf").help("Does not run SPF check"))
+        .arg(
+            Arg::with_name("no-record-type-lint")
+                .long("no-record-type-lint")
+                .help("Does not run record type lints"),
+        )
 }
 
 fn discover_subcommand() -> App<'static, 'static> {
@@ -402,7 +410,7 @@ fn lookup_subcommand() -> App<'static, 'static> {
             .multiple(true)
             .use_delimiter(true)
             .require_delimiter(true)
-            .default_value("A,AAAA,MX")
+            .default_value("A,AAAA,CNAME,MX")
             .possible_values(SUPPORTED_RECORD_TYPES)
             .help("Sets record type to lookup, will be ignored in case of IP address lookup")
         )
