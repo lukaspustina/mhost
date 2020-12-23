@@ -62,6 +62,7 @@ yansi = "0.5"
 clap = { version = "2", default-features = false, features = ["suggestions"] }
 
 [dev-dependencies]
+tracing-log = "0.1"
 tracing-subscriber = { version = "0.2", features = ["registry", "env-filter"] }
 lit = "1"
 spectral = "0.6"
