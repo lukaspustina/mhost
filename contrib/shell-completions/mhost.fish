@@ -1,6 +1,6 @@
 complete -c mhost -n "__fish_use_subcommand" -l resolv-conf -d 'Uses alternative resolv.conf file'
 complete -c mhost -n "__fish_use_subcommand" -l ndots -d 'Sets number of dots to qualify domain name as FQDN'
-complete -c mhost -n "__fish_use_subcommand" -s S -l system-nameserver -d 'Adds system nameserver for system lookups; only IP addresses allowed'
+complete -c mhost -n "__fish_use_subcommand" -l system-nameserver -d 'Adds system nameserver for system lookups; only IP addresses allowed'
 complete -c mhost -n "__fish_use_subcommand" -s s -l nameserver -d 'Adds nameserver for lookups'
 complete -c mhost -n "__fish_use_subcommand" -l predefined-filter -d 'Filters predefined nameservers by protocol' -r -f -a "udp tcp https tls"
 complete -c mhost -n "__fish_use_subcommand" -s f -l nameservers-from-file -d 'Adds nameserver for lookups from file'
@@ -13,6 +13,7 @@ complete -c mhost -n "__fish_use_subcommand" -s o -l output -d 'Sets the output 
 complete -c mhost -n "__fish_use_subcommand" -l output-options -d 'Sets output options'
 complete -c mhost -n "__fish_use_subcommand" -l no-system-resolv-opt -d 'Ignores options set in /etc/resolv.conf'
 complete -c mhost -n "__fish_use_subcommand" -l no-system-nameservers -d 'Ignores nameservers from /etc/resolv.conf'
+complete -c mhost -n "__fish_use_subcommand" -s S -l no-system-lookups -d 'Ignores system nameservers for lookups'
 complete -c mhost -n "__fish_use_subcommand" -s p -l predefined -d 'Adds predefined nameservers for lookups'
 complete -c mhost -n "__fish_use_subcommand" -l list-predefined -d 'Lists all predefined nameservers'
 complete -c mhost -n "__fish_use_subcommand" -l wait-multiple-responses -d 'Waits until timeout for additional responses from nameservers'

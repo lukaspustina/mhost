@@ -60,11 +60,11 @@ impl AppResolver {
         })
     }
 
-    pub async fn create_resolvers(config: &AppConfig) -> Result<AppResolver> {
-        let resolver_group_opts = load_resolver_group_opts(&config)?;
-        let resolver_opts = load_resolver_opts(&config)?;
+    pub async fn create_resolvers(app_config: &AppConfig) -> Result<AppResolver> {
+        let resolver_group_opts = load_resolver_group_opts(&app_config)?;
+        let resolver_opts = load_resolver_opts(&app_config)?;
 
-        let system_resolver_group: ResolverConfigGroup = load_system_nameservers(config)?.into();
+        let system_resolver_group: ResolverConfigGroup = load_system_nameservers(app_config)?.into();
         let mut system_resolvers = ResolverGroup::from_configs(
             system_resolver_group,
             resolver_opts.clone(),
@@ -74,13 +74,15 @@ impl AppResolver {
         .context("Failed to create system resolvers")?;
         info!("Created {} system resolvers.", system_resolvers.len());
 
-        let resolver_group: ResolverConfigGroup = load_nameservers(config, &mut system_resolvers).await?.into();
+        let resolver_group: ResolverConfigGroup = load_nameservers(app_config, &mut system_resolvers).await?.into();
         let mut resolvers = ResolverGroup::from_configs(resolver_group, resolver_opts, resolver_group_opts)
             .await
             .context("Failed to load resolvers")?;
         info!("Created {} resolvers.", resolvers.len());
 
-        resolvers.merge(system_resolvers);
+        if !app_config.no_system_lookups {
+            resolvers.merge(system_resolvers);
+        }
 
         Ok(AppResolver {
             resolvers: Arc::new(resolvers),

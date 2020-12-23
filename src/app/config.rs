@@ -26,6 +26,7 @@ pub struct AppConfig {
     pub show_errors: bool,
     pub quiet: bool,
     pub ignore_system_nameservers: bool,
+    pub no_system_lookups: bool,
     pub nameservers: Option<Vec<String>>,
     pub predefined: bool,
     pub predefined_filter: Option<Vec<String>>,
@@ -78,6 +79,7 @@ impl TryFrom<&ArgMatches<'_>> for AppConfig {
             show_errors: args.is_present("show-errors"),
             quiet: args.is_present("quiet"),
             ignore_system_nameservers: args.is_present("no-system-nameservers"),
+            no_system_lookups: args.is_present("no-system-lookups"),
             nameservers: args
                 .values_of("nameservers")
                 .map(|xs| xs.map(ToString::to_string).collect()),

@@ -17,7 +17,6 @@ _mhost() {
     _arguments "${_arguments_options[@]}" \
 '--resolv-conf=[Uses alternative resolv.conf file]' \
 '--ndots=[Sets number of dots to qualify domain name as FQDN]' \
-'*-S+[Adds system nameserver for system lookups; only IP addresses allowed]' \
 '*--system-nameserver=[Adds system nameserver for system lookups; only IP addresses allowed]' \
 '*-s+[Adds nameserver for lookups]' \
 '*--nameserver=[Adds nameserver for lookups]' \
@@ -34,6 +33,8 @@ _mhost() {
 '*--output-options=[Sets output options]' \
 '--no-system-resolv-opt[Ignores options set in /etc/resolv.conf]' \
 '--no-system-nameservers[Ignores nameservers from /etc/resolv.conf]' \
+'-S[Ignores system nameservers for lookups]' \
+'--no-system-lookups[Ignores system nameservers for lookups]' \
 '-p[Adds predefined nameservers for lookups]' \
 '--predefined[Adds predefined nameservers for lookups]' \
 '--list-predefined[Lists all predefined nameservers]' \

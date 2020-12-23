@@ -34,6 +34,12 @@ pub fn create_parser() -> App<'static, 'static> {
                 .help("Ignores nameservers from /etc/resolv.conf"),
         )
         .arg(
+            Arg::with_name("no-system-lookups")
+                .short("S")
+                .long("no-system-lookups")
+                .help("Ignores system nameservers for lookups"),
+        )
+        .arg(
             Arg::with_name("resolv-conf")
                 .long("resolv-conf")
                 .value_name("FILE")
@@ -50,7 +56,6 @@ pub fn create_parser() -> App<'static, 'static> {
         )
         .arg(
             Arg::with_name("system nameservers")
-                .short("S")
                 .long("system-nameserver")
                 .value_name("IP ADDR")
                 .takes_value(true)

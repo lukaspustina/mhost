@@ -1,8 +1,8 @@
-RUN: @mhost_bin --ascii --no-color -p --predefined-filter tcp,udp,tls,https --show-errors l -t A example.com
+RUN: @mhost_bin --ascii --no-color -S -p --predefined-filter tcp,udp,tls,https --show-errors l -t A example.com
 
 CHECK: > Options: concurrent nameservers=10, max. nameservers=100, concurrent requests=5, retries=0, timeout=5s, ndots=1, abort on error, abort on timeout
 CHECK-NEXT: > Running DNS lookups.
-CHECK-NEXT: - Sending 54 requests to 54 nameservers for 1 record type of 1 name.
+CHECK-NEXT: - Sending 52 requests to 52 nameservers for 1 record type of 1 name.
 CHECK-NEXT: - Received [[\d+]] responses with [[\d+]] RR [[.]][[\d+]] A[[.]], [[\d+]] Nx, [[\d+]] Err in (min [[\d+]], max [[\d+]]) ms from [[\d+]] server[[.*]] within [[\d+]] ms of total run time.
 CHECK-NEXT: * A:
 CHECK-NEXT: - Error counts
