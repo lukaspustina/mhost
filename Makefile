@@ -13,6 +13,7 @@ build:
 test:
 	cargo test --doc
 	cargo test --bins --tests --all-features
+	cargo test --bins --tests --all-features -- --ignored
 
 fuzz: _cargo_fuzz
 	for i in $$(cargo fuzz list); do \

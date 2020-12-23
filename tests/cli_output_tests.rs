@@ -19,3 +19,19 @@ fn cli_output_tests() {
     })
     .expect("cli output tests failed");
 }
+
+/// This test is set to ignore, because GitHub Actions have limited network capabilities, i.e., no
+/// IPv6. Tests requiring IPv6 must not be run in GitHub CI.
+#[ignore]
+#[test]
+fn cli_output_tests_no_ci() {
+    lit::run::tests(lit::event_handler::Default::default(), |config| {
+        config.add_search_path("tests/lit");
+        config.add_extension("output-no-ci");
+        config.constants.insert("mhost_bin".to_owned(), mhost_bin());
+        config
+            .constants
+            .insert("mhost_version".to_owned(), env!("CARGO_PKG_VERSION").to_owned());
+    })
+    .expect("cli output tests failed");
+}
