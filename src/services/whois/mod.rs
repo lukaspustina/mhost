@@ -1,3 +1,4 @@
+/**/
 use std::sync::{Arc, Mutex};
 
 use futures::stream::{self, StreamExt};
@@ -9,6 +10,7 @@ use tracing::{debug, info, instrument, trace};
 
 pub use service::{Authority, GeoLocation, LocatedResource, Location, NetworkInfo, Whois};
 
+use crate::error::Errors;
 use crate::services::{Error, Result};
 use crate::utils::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
 use crate::utils::serialize::ser_to_string;
@@ -293,7 +295,7 @@ async fn sliding_window_lookups(
         .buffered_unordered_with_breaker(max_concurrent, breaker)
         .collect::<Vec<_>>()
         .await;
-    WhoisResponses { responses }
+    WhoisResponses { inner: responses }
 }
 
 impl Default for WhoisClient {
@@ -385,28 +387,28 @@ impl WhoisResponse {
 
 #[derive(Debug, Serialize)]
 pub struct WhoisResponses {
-    responses: Vec<WhoisResponse>,
+    inner: Vec<WhoisResponse>,
 }
 
 macro_rules! responses_data_accessor {
     ($method:ident, $out_type:ty) => {
         pub fn $method(&self) -> impl Iterator<Item = &$out_type> {
-            self.responses.iter().map(|x| x.$method()).flatten()
+            self.inner.iter().map(|x| x.$method()).flatten()
         }
     };
 }
 
 impl WhoisResponses {
     pub fn len(&self) -> usize {
-        self.responses.len()
+        self.inner.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.responses.is_empty()
+        self.inner.is_empty()
     }
 
     pub fn iter(&self) -> Iter<WhoisResponse> {
-        self.responses.iter()
+        self.inner.iter()
     }
 
     responses_data_accessor!(geo_location, GeoLocation);
@@ -415,12 +417,21 @@ impl WhoisResponses {
     responses_data_accessor!(err, Error);
 }
 
+impl Errors for WhoisResponses {
+    fn errors(&self) -> Box<dyn Iterator<Item = Box<&dyn std::error::Error>> + '_> {
+        Box::new(self.inner.iter().map(|l| l.err()).flatten().map(|x| {
+            let ptr: Box<&dyn std::error::Error> = Box::new(x);
+            ptr
+        }))
+    }
+}
+
 impl IntoIterator for WhoisResponses {
     type Item = WhoisResponse;
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.responses.into_iter()
+        self.inner.into_iter()
     }
 }
 

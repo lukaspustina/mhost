@@ -3,7 +3,7 @@ use std::convert::TryInto;
 use anyhow::Result;
 use tracing::info;
 
-use mhost::app::console::Console;
+use mhost::app::console::{Console, ConsoleOpts};
 use mhost::app::logging::Logging;
 use mhost::app::modules::{self, PartialError};
 use mhost::app::AppConfig;
@@ -35,7 +35,8 @@ async fn run() -> Result<ExitStatus> {
     };
     info!("Parsed global args.");
 
-    let console = Console::new(&app_config);
+    let console_opts = ConsoleOpts::from(&app_config);
+    let console = Console::new(console_opts);
 
     if app_config.list_predefined {
         list_predefined_nameservers(&console);
@@ -75,7 +76,7 @@ async fn main() {
         Err(err) => match err.downcast_ref::<PartialError>() {
             Some(PartialError::Failed(exit_status)) => exit_status.to_owned(),
             _ => {
-                let console = Console::default();
+                let console = Console::new(ConsoleOpts::default());
                 console.error(format!("Error: {:#}", err));
                 ExitStatus::UnrecoverableError
             }

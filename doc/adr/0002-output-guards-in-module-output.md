@@ -4,7 +4,7 @@ Date: 2020-12-14
 
 ## Status
 
-Accepted
+Superceded by [4. Output Guards in Module Output](0004-output-guards-in-module-output.md)
 
 ## Context
 

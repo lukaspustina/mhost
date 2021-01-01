@@ -2,7 +2,6 @@ use std::collections::HashSet;
 use std::io::Write;
 use std::net::IpAddr;
 use std::str::FromStr;
-use std::time::Instant;
 
 use anyhow::{Context, Result};
 use ipnetwork::IpNetwork;
@@ -10,12 +9,13 @@ use serde::Serialize;
 use tokio::time::Duration;
 use tracing::info;
 
-use crate::app::console::Console;
+use crate::app::console::{Console, ConsoleOpts};
 use crate::app::modules::lookup::config::LookupConfig;
 use crate::app::modules::{Environment, PartialResult};
 use crate::app::output::summary::{SummaryFormatter, SummaryOptions};
 use crate::app::output::OutputType;
 use crate::app::resolver::{AppResolver, NameBuilder};
+use crate::app::utils::time;
 use crate::app::{output, AppConfig, ExitStatus};
 use crate::resolver::lookup::Uniquify;
 use crate::resolver::{Lookups, MultiQuery};
@@ -27,7 +27,8 @@ pub struct Lookup {}
 
 impl Lookup {
     pub async fn init<'a>(app_config: &'a AppConfig, config: &'a LookupConfig) -> PartialResult<DnsLookups<'a>> {
-        let console = Console::new(app_config);
+        let console_opts = ConsoleOpts::from(app_config).with_partial_results(true);
+        let console = Console::new(console_opts);
         let env = Environment::new(app_config, config, console);
 
         let name_builder = NameBuilder::new(app_config);
@@ -35,6 +36,9 @@ impl Lookup {
         let app_resolver = AppResolver::create_resolvers(app_config)
             .await?
             .with_single_server_lookup(config.single_server_lookup);
+
+        env.console
+            .print_resolver_opts(app_resolver.resolver_group_opts(), &app_resolver.resolver_opts());
 
         Ok(DnsLookups {
             env,
@@ -74,32 +78,17 @@ pub struct DnsLookups<'a> {
 
 impl<'a> DnsLookups<'a> {
     pub async fn lookups(self) -> PartialResult<Whois<'a>> {
-        if self.env.console.not_quiet() {
-            self.env.console.print_opts(
-                self.app_resolver.resolver_group_opts(),
-                &self.app_resolver.resolver_opts(),
-            );
-            self.env.console.caption("Running DNS lookups.");
-            self.env
-                .console
-                .print_estimates_lookups(self.app_resolver.resolvers(), &self.query);
-        }
+        self.env
+            .console
+            .print_partial_headers("Running lookups.", &self.app_resolver.resolvers(), &self.query);
 
         info!("Running lookups");
-        let start_time = Instant::now();
-        let lookups: Lookups = self.app_resolver.lookup(self.query).await?;
-        let total_run_time = Instant::now() - start_time;
+        let (lookups, run_time) = time(self.app_resolver.lookup(self.query)).await?;
         info!("Finished Lookups.");
 
-        if self.env.console.not_quiet() {
-            self.env.console.print_statistics(&lookups, total_run_time);
-        }
-        if self.env.app_config.output != OutputType::Json {
-            output::output(&self.env.app_config.output_config, &lookups)?;
-        }
-        if self.env.console.show_errors() {
-            self.env.console.print_error_counts(&lookups);
-        }
+        self.env
+            .console
+            .print_partial_results(&self.env.app_config.output_config, &lookups, run_time)?;
 
         Ok(Whois { env: self.env, lookups })
     }
@@ -131,23 +120,18 @@ impl<'a> Whois<'a> {
         let opts = WhoisClientOpts::with_cache(8, self.env.app_config.abort_on_error, 1024, Duration::from_secs(60));
         let whois_client = WhoisClient::new(opts);
 
-        if self.env.console.not_quiet() {
+        if self.env.console.show_partial_headers() {
             self.env.console.caption("Running WHOIS queries.");
-            self.env.console.print_estimates_whois(&query);
+            self.env.console.print_whois_estimates(&query);
         }
 
-        info!("Running Whois queries");
-        let start_time = Instant::now();
-        let whois = whois_client.query(query).await?;
-        let total_run_time = Instant::now() - start_time;
+        info!("Running Whois queries.");
+        let (whois, run_time) = time(whois_client.query(query)).await?;
         info!("Finished queries.");
 
-        if self.env.console.not_quiet() {
-            self.env.console.print_statistics(&whois, total_run_time);
-        }
-        if self.env.app_config.output != OutputType::Json {
-            output::output(&self.env.app_config.output_config, &whois)?;
-        }
+        self.env
+            .console
+            .print_partial_results(&self.env.app_config.output_config, &whois, run_time)?;
 
         Ok(LookupResult {
             env: self.env,

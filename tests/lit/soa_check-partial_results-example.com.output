@@ -1,19 +1,19 @@
 RUN: @mhost_bin --ascii --no-color soa-check example.com -p
 
 CHECK: > Options: concurrent nameservers=10, max. nameservers=100, concurrent requests=5, retries=0, timeout=5s, ndots=1, abort on error, abort on timeout
-CHECK-NEXT: > Running DNS lookups of name servers.
+CHECK-NEXT: > Running lookups for authoritative name servers
 CHECK-NEXT: - Sending [[\d+]] request[[s*]] to [[\d+]] nameserver[[s*]] for 1 record type of 1 name.
 CHECK-NEXT: - Received [[\d+]] responses with [[\d+]] RR [[.]][[\d+]] NS[[.]], [[\d+]] Nx, [[\d+]] Err in (min [[\d+]], max [[\d+]]) ms from [[\d+]] server[[.*]] within [[\d+]] ms of total run time.
 CHECK-NEXT:  * NS:  [[[ab]]].iana-servers.net.
 CHECK-NEXT:  * NS:  [[[ab]]].iana-servers.net.
-CHECK-NEXT: > Running DNS lookups of IPv4 and IPv6 addresses of name servers.
+CHECK-NEXT: > Running lookups for IP addresses of authoritative name servers.
 CHECK-NEXT: - Sending [[\d+]] request[[s*]] to [[\d+]] nameserver[[s*]] for 2 record types of 2 names.
 CHECK-NEXT: - Received [[\d+]] responses with [[\d+]] RR [[.]][[\d+]] A, [[\d+]] AAAA[[.]], [[\d+]] Nx, [[\d+]] Err in (min [[\d+]], max [[\d+]]) ms from [[\d+]] server[[.*]] within [[\d+]] ms of total run time.
 CHECK-NEXT:  * A:
 CHECK-NEXT:  * A:
 CHECK-NEXT:  * AAAA:
 CHECK-NEXT:  * AAAA:
-CHECK-NEXT: > Running DNS lookups for SOA records.
+CHECK-NEXT: > Running lookups for SOA records from authoritative name servers.
 CHECK-NEXT: - Sending [[\d+]] request[[s*]] to [[\d+]] nameserver[[s*]] for 1 record type of 1 name.
 CHECK-NEXT: - Received [[\d+]] responses with [[\d+]] RR [[.]][[\d+]] SOA[[.]], [[\d+]] Nx
 CHECK-NEXT:  * SOA:

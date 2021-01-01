@@ -1,15 +1,15 @@
 use std::path::Path;
-use std::time::Instant;
 
 use anyhow::{anyhow, Result};
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use tracing::info;
 
-use crate::app::console::Console;
+use crate::app::console::{Console, ConsoleOpts};
 use crate::app::modules::get_server_lists::config::DownloadServerListConfig;
 use crate::app::modules::{Environment, PartialResult};
 use crate::app::output::OutputType;
+use crate::app::utils::time;
 use crate::app::{AppConfig, ExitStatus};
 use crate::services::server_lists::{DownloadResponses, ServerListDownloader, ServerListDownloaderOpts};
 
@@ -23,7 +23,9 @@ impl GetServerLists {
         if app_config.output == OutputType::Json {
             return Err(anyhow!("JSON output is not support").into());
         }
-        let console = Console::new(app_config);
+
+        let console_opts = ConsoleOpts::from(app_config).with_partial_results(true);
+        let console = Console::new(console_opts);
         let env = Environment::new(app_config, config, console);
 
         let opts: ServerListDownloaderOpts =
@@ -41,24 +43,19 @@ pub struct DownloadServerLists<'a> {
 
 impl<'a> DownloadServerLists<'a> {
     pub async fn download_server_lists(self) -> PartialResult<FileWriter<'a>> {
-        if self.env.console.not_quiet() {
-            self.env.console.caption("Downloading server lists.");
+        if self.env.console.show_partial_headers() {
+            self.env.console.caption("Downloading name server lists.");
             self.env
                 .console
-                .print_estimates_downloads(&self.env.mod_config.server_list_specs);
+                .print_download_estimates(&self.env.mod_config.server_list_specs);
         }
 
-        info!("Downloading lists");
-        let start_time = Instant::now();
-        let servers = self
-            .downloader
-            .download(self.env.mod_config.server_list_specs.clone())
-            .await?;
-        let total_run_time = Instant::now() - start_time;
+        info!("Downloading name server lists.");
+        let (servers, run_time) = time(self.downloader.download(self.env.mod_config.server_list_specs.clone())).await?;
         info!("Finished downloads.");
 
-        if self.env.console.not_quiet() {
-            self.env.console.print_statistics(&servers, total_run_time);
+        if self.env.console.show_partial_results() {
+            self.env.console.print_statistics(&servers, run_time);
         }
 
         Ok(FileWriter { env: self.env, servers })

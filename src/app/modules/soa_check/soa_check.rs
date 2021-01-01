@@ -1,17 +1,17 @@
 use std::collections::HashSet;
 use std::net::IpAddr;
-use std::time::Instant;
 
 use anyhow::anyhow;
 use indexmap::set::IndexSet;
 use tracing::info;
 
-use crate::app::console::Console;
+use crate::app::console::{Console, ConsoleOpts};
 use crate::app::modules::soa_check::config::SoaCheckConfig;
 use crate::app::modules::{Environment, PartialError, PartialResult};
 use crate::app::output::OutputType;
 use crate::app::resolver::{AppResolver, NameBuilder};
-use crate::app::{console, AppConfig, ExitStatus};
+use crate::app::utils::time;
+use crate::app::{AppConfig, ExitStatus};
 use crate::diff::SetDiffer;
 use crate::nameserver::NameServerConfig;
 use crate::resolver::lookup::Uniquify;
@@ -28,7 +28,9 @@ impl SoaCheck {
         if app_config.output == OutputType::Json && config.partial_results {
             return Err(anyhow!("JSON output is incompatible with partial result output").into());
         }
-        let console = Console::with_partial_results(app_config, config.partial_results);
+
+        let console_opts = ConsoleOpts::from(app_config).with_partial_results(config.partial_results);
+        let console = Console::new(console_opts);
         let env = Environment::new(app_config, config, console);
 
         let name_builder = NameBuilder::new(app_config);
@@ -36,10 +38,8 @@ impl SoaCheck {
         let query = MultiQuery::single(domain_name, RecordType::NS)?;
         let app_resolver = AppResolver::create_resolvers(app_config).await?;
 
-        if env.console.not_quiet() {
-            env.console
-                .print_opts(app_resolver.resolver_group_opts(), &app_resolver.resolver_opts());
-        }
+        env.console
+            .print_resolver_opts(app_resolver.resolver_group_opts(), &app_resolver.resolver_opts());
 
         Ok(AuthoritativeNameServers {
             env,
@@ -57,25 +57,19 @@ pub struct AuthoritativeNameServers<'a> {
 
 impl<'a> AuthoritativeNameServers<'a> {
     pub async fn lookup_authoritative_name_servers(self) -> PartialResult<NameServerIps<'a>> {
-        if self.env.console.show_partial_headers() {
-            self.env.console.caption("Running DNS lookups of name servers.");
-            self.env
-                .console
-                .print_estimates_lookups(&self.app_resolver.resolvers(), &self.query);
-        }
+        self.env.console.print_partial_headers(
+            "Running lookups for authoritative name servers.",
+            &self.app_resolver.resolvers(),
+            &self.query,
+        );
 
-        info!("Running lookups for authoritative name servers");
-        let start_time = Instant::now();
-        let lookups = self.app_resolver.lookup(self.query).await?;
-        let total_run_time = Instant::now() - start_time;
+        info!("Running lookups for authoritative name servers.");
+        let (lookups, run_time) = time(self.app_resolver.lookup(self.query)).await?;
         info!("Finished Lookups.");
 
-        console::print_partial_results(
-            &self.env.console,
-            &self.env.app_config.output_config,
-            &lookups,
-            total_run_time,
-        )?;
+        self.env
+            .console
+            .print_partial_results(&self.env.app_config.output_config, &lookups, run_time)?;
 
         if !lookups.has_records() {
             self.env.console.failed("No records found. Aborting.");
@@ -102,27 +96,19 @@ impl<'a> NameServerIps<'a> {
     pub async fn lookup_name_server_ips(self) -> PartialResult<SoaRecords<'a>> {
         let query = MultiQuery::new(self.name_servers, vec![RecordType::A, RecordType::AAAA])?;
 
-        if self.env.console.show_partial_headers() {
-            self.env
-                .console
-                .caption("Running DNS lookups of IPv4 and IPv6 addresses of name servers.");
-            self.env
-                .console
-                .print_estimates_lookups(&self.app_resolver.resolvers(), &query);
-        }
+        self.env.console.print_partial_headers(
+            "Running lookups for IP addresses of authoritative name servers.",
+            &self.app_resolver.resolvers(),
+            &query,
+        );
 
-        info!("Running lookups for IP addresses of authoritative name servers");
-        let start_time = Instant::now();
-        let lookups = self.app_resolver.lookup(query).await?;
-        let total_run_time = Instant::now() - start_time;
+        info!("Running lookups for IP addresses of authoritative name servers.");
+        let (lookups, run_time) = time(self.app_resolver.lookup(query)).await?;
         info!("Finished Lookups.");
 
-        console::print_partial_results(
-            &self.env.console,
-            &self.env.app_config.output_config,
-            &lookups,
-            total_run_time,
-        )?;
+        self.env
+            .console
+            .print_partial_results(&self.env.app_config.output_config, &lookups, run_time)?;
 
         if !lookups.has_records() {
             self.env
@@ -162,23 +148,19 @@ impl<'a> SoaRecords<'a> {
         let resolvers = AppResolver::from_configs(authoritative_name_servers, &self.env.app_config).await?;
         let query = MultiQuery::single(self.env.mod_config.domain_name.as_str(), RecordType::SOA)?;
 
-        if self.env.console.show_partial_headers() {
-            self.env.console.caption("Running DNS lookups for SOA records.");
-            self.env.console.print_estimates_lookups(&resolvers.resolvers(), &query);
-        }
+        self.env.console.print_partial_headers(
+            "Running lookups for SOA records from authoritative name servers.",
+            &resolvers.resolvers(),
+            &query,
+        );
 
-        info!("Running lookups for SOA records of authoritative name servers");
-        let start_time = Instant::now();
-        let lookups = resolvers.lookup(query).await?;
-        let total_run_time = Instant::now() - start_time;
+        info!("Running lookups for SOA records from authoritative name servers.");
+        let (lookups, run_time) = time(resolvers.lookup(query)).await?;
         info!("Finished Lookups.");
 
-        console::print_partial_results(
-            &self.env.console,
-            &self.env.app_config.output_config,
-            &lookups,
-            total_run_time,
-        )?;
+        self.env
+            .console
+            .print_partial_results(&self.env.app_config.output_config, &lookups, run_time)?;
 
         if !lookups.has_records() {
             self.env
@@ -204,9 +186,7 @@ impl<'a> OutputSoaCheckResult<'a> {
         let records: IndexSet<_> = self.soa_lookups.soa().unique().to_owned().into_iter().collect();
         let diffs = records.differences();
 
-        if self.env.console.not_quiet() {
-            self.env.console.finished();
-        }
+        self.env.console.print_finished();
 
         if let Some(diffs) = diffs {
             self.env.console.attention("Found deviations in SOA records: ");

@@ -5,6 +5,7 @@ pub mod logging;
 pub mod modules;
 pub mod output;
 pub mod resolver;
+pub mod utils;
 
 pub use config::AppConfig;
 

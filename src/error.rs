@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -33,4 +34,9 @@ pub enum Error {
         #[from]
         source: serde_json::Error,
     },
+}
+
+/// This trait enables collections of results or responses to filter just for their errors.
+pub trait Errors {
+    fn errors(&self) -> Box<dyn Iterator<Item = Box<&dyn std::error::Error>> + '_>;
 }

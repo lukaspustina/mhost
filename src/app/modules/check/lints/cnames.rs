@@ -1,14 +1,12 @@
-use std::time::Instant;
-
 use anyhow::Result;
 use tracing::info;
 
-use crate::app::console;
 use crate::app::modules::check::config::CheckConfig;
 use crate::app::modules::check::lints::spf::Spf;
 use crate::app::modules::check::lints::{CheckResult, CheckResults};
 use crate::app::modules::{Environment, PartialResult};
 use crate::app::resolver::AppResolver;
+use crate::app::utils::time;
 use crate::resolver::lookup::Uniquify;
 use crate::resolver::MultiQuery;
 use crate::{Name, RecordType};
@@ -32,21 +30,16 @@ macro_rules! record_lint {
                 self.env.console.itemize(&symbol);
                 self.env
                     .console
-                    .print_estimates_lookups(&self.app_resolver.resolvers(), &query);
+                    .print_lookup_estimates(&self.app_resolver.resolvers(), &query);
             }
 
             info!("Running lookups for {} records of domain.", &symbol);
-            let start_time = Instant::now();
-            let lookups = self.app_resolver.lookup(query).await?;
-            let total_run_time = Instant::now() - start_time;
+            let (lookups, run_time) = time(self.app_resolver.lookup(query)).await?;
             info!("Finished Lookups.");
 
-            console::print_partial_results(
-                &self.env.console,
-                &self.env.app_config.output_config,
-                &lookups,
-                total_run_time,
-            )?;
+            self.env
+                .console
+                .print_partial_results(&self.env.app_config.output_config, &lookups, run_time)?;
 
             if lookups.cname().is_empty() {
                 results.push(CheckResult::Ok(format!("{} do not point to CNAME", &symbol)));

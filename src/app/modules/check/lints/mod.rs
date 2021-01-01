@@ -1,20 +1,19 @@
-use std::time::Instant;
-
 use anyhow::anyhow;
 use tracing::info;
 
-use crate::app::console::Console;
+use crate::app::console::{Console, ConsoleOpts};
 use crate::app::modules::check::config::CheckConfig;
 use crate::app::modules::{Environment, PartialError, PartialResult};
 use crate::app::output::OutputType;
 use crate::app::resolver::{AppResolver, NameBuilder};
-use crate::app::{console, AppConfig, ExitStatus};
+use crate::app::{AppConfig, ExitStatus};
 use crate::resolver::{Lookups, MultiQuery};
 use crate::{Name, RecordType};
 
 pub mod cnames;
 pub mod spf;
 
+use crate::app::utils::time;
 use cnames::Cnames;
 
 #[derive(Debug)]
@@ -77,17 +76,17 @@ impl Check {
         if app_config.output == OutputType::Json && config.partial_results {
             return Err(anyhow!("JSON output is incompatible with partial result output").into());
         }
-        let console = Console::with_partial_results(app_config, config.partial_results);
+
+        let console_opts = ConsoleOpts::from(app_config).with_partial_results(config.partial_results);
+        let console = Console::new(console_opts);
         let env = Environment::new(app_config, config, console);
 
         let name_builder = NameBuilder::new(app_config);
         let domain_name = name_builder.from_str(&config.domain_name)?;
         let app_resolver = AppResolver::create_resolvers(app_config).await?;
 
-        if env.console.not_quiet() {
-            env.console
-                .print_opts(app_resolver.resolver_group_opts(), &app_resolver.resolver_opts());
-        }
+        env.console
+            .print_resolver_opts(app_resolver.resolver_group_opts(), &app_resolver.resolver_opts());
 
         Ok(LookupAllThereIs {
             env,
@@ -115,27 +114,19 @@ impl<'a> LookupAllThereIs<'a> {
         };
         let query = MultiQuery::multi_record(self.domain_name.clone(), record_types)?;
 
-        if self.env.console.show_partial_headers() {
-            self.env
-                .console
-                .caption("Running DNS lookups for all available records.");
-            self.env
-                .console
-                .print_estimates_lookups(&self.app_resolver.resolvers(), &query);
-        }
+        self.env.console.print_partial_headers(
+            "Running DNS lookups for all available records.",
+            &self.app_resolver.resolvers(),
+            &query,
+        );
 
         info!("Running lookups of all records of domain.");
-        let start_time = Instant::now();
-        let lookups = self.app_resolver.lookup(query).await?;
-        let total_run_time = Instant::now() - start_time;
+        let (lookups, run_time) = time(self.app_resolver.lookup(query)).await?;
         info!("Finished Lookups.");
 
-        console::print_partial_results(
-            &self.env.console,
-            &self.env.app_config.output_config,
-            &lookups,
-            total_run_time,
-        )?;
+        self.env
+            .console
+            .print_partial_results(&self.env.app_config.output_config, &lookups, run_time)?;
 
         if !lookups.has_records() {
             self.env.console.failed("No records found. Aborting.");

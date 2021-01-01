@@ -14,6 +14,7 @@ use tracing::{debug, field, info, instrument, trace, Span};
 use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
 use trust_dns_resolver::proto::xfer::DnsRequestOptions;
 
+use crate::error::Errors;
 use crate::nameserver::NameServerConfig;
 use crate::resolver::{Error, MultiQuery, Resolver, ResolverResult, UniQuery};
 use crate::resources::rdata::{Name, MX, NULL, SOA, SRV, TXT, UNKNOWN};
@@ -21,6 +22,7 @@ use crate::resources::{RData, Record};
 use crate::utils::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
 use crate::utils::serialize::ser_arc_nameserver_config;
 use crate::RecordType;
+use std::fmt::Debug;
 use tracing_futures::Instrument;
 
 #[derive(Debug, Clone, Serialize)]
@@ -190,6 +192,15 @@ impl Lookups {
 impl AsRef<Lookups> for Lookups {
     fn as_ref(&self) -> &Lookups {
         self
+    }
+}
+
+impl Errors for Lookups {
+    fn errors(&self) -> Box<dyn Iterator<Item = Box<&dyn std::error::Error>> + '_> {
+        Box::new(self.inner.iter().map(|l| l.result().err()).flatten().map(|x| {
+            let ptr: Box<&dyn std::error::Error> = Box::new(x);
+            ptr
+        }))
     }
 }
 
