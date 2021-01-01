@@ -10,19 +10,19 @@ use crate::services::server_lists::{OpenNic, PublicDns, IPV};
 
 use super::*;
 
-pub(crate) fn parse_server_list_spec<'a>(input: &'a str) -> IResult<&'a str, ServerListSpec> {
+pub(crate) fn parse_server_list_spec(input: &str) -> IResult<&str, ServerListSpec> {
     let (input, spec) = alt((public_dns, opennic))(input)?;
 
     Ok((input, spec))
 }
 
-fn public_dns<'a>(input: &'a str) -> IResult<&'a str, ServerListSpec> {
+fn public_dns(input: &str) -> IResult<&str, ServerListSpec> {
     let (input, _) = tag("public-dns")(input)?;
     let (input, spec) = public_dns_spec(input)?;
     Ok((input, ServerListSpec::PublicDns { spec }))
 }
 
-fn public_dns_spec<'a>(input: &'a str) -> IResult<&'a str, PublicDns> {
+fn public_dns_spec(input: &str) -> IResult<&str, PublicDns> {
     if input.is_empty() {
         Ok((input, Default::default()))
     } else {
@@ -37,13 +37,13 @@ fn public_dns_spec<'a>(input: &'a str) -> IResult<&'a str, PublicDns> {
     }
 }
 
-fn opennic<'a>(input: &'a str) -> IResult<&'a str, ServerListSpec> {
+fn opennic(input: &str) -> IResult<&str, ServerListSpec> {
     let (input, _) = tag("opennic")(input)?;
     let (input, spec) = opennic_spec(input)?;
     Ok((input, ServerListSpec::OpenNic { spec }))
 }
 
-fn opennic_spec<'a>(input: &'a str) -> IResult<&'a str, OpenNic> {
+fn opennic_spec(input: &str) -> IResult<&str, OpenNic> {
     if input.is_empty() {
         Ok((input, Default::default()))
     } else {
@@ -52,7 +52,7 @@ fn opennic_spec<'a>(input: &'a str) -> IResult<&'a str, OpenNic> {
     }
 }
 
-fn opennic_spec_params<'a>(input: &'a str) -> IResult<&'a str, OpenNic> {
+fn opennic_spec_params(input: &str) -> IResult<&str, OpenNic> {
     let (input, _) = tag(":")(input)?;
     let spec = Cell::new(OpenNic::default());
     let (input, _) = separated_list(
