@@ -35,28 +35,27 @@ chrono = { version = "0.4", features = ["serde"] }
 futures = { version = "0.3.*"}
 hostname = { version = "0.3", optional = true }
 humantime = { version = "2", optional = true }
-indexmap = "1.5"
+indexmap = "1"
 ipnetwork = "0.17"
 lazy_static = "1.4"
 lru_time_cache = "0.11"
 nom = "5"
 rand = "0.7"
-# Sync with trust-dns-resolver if possible, to reduce dependencies to build and link
+# Sync with trust-dns-resolver and tokio if possible, to reduce dependencies to build and link
 reqwest = { version = "0.10", default-features = false, features = ["rustls-tls", "json", "trust-dns"] }
 pin-project = "1"
 resolv-conf = "0.7"
-tokio = { version = "0.2.*", features = ["full"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-smallvec = "1.4"
-tabwriter = { version = "1.2", optional = true }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+smallvec = "1"
+tabwriter = { version = "1", optional = true }
 thiserror = "1"
 tracing = "0.1"
 tracing-futures = "0.2"
 tracing-log = { version = "0.1", optional = true }
 tracing-subscriber = { version = "0.2", features = ["registry", "env-filter"], optional = true }
-# trust-dns-resolver = { version = "0.19", features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls", "dnssec-ring", "mdns", "system-config", "serde-config"] }
-trust-dns-resolver = { version = "0.20.0-alpha.3", features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls", "dnssec-ring", "system-config", "serde-config"] }
+trust-dns-resolver = { version = "0.20", features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls", "dnssec-ring", "system-config", "serde-config"] }
 yansi = "0.5"
 
 [build-dependencies]
