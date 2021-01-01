@@ -293,9 +293,9 @@ fn check_subcommand() -> App<'static, 'static> {
         )
         .arg(Arg::with_name("no-spf").long("no-spf").help("Does not run SPF check"))
         .arg(
-            Arg::with_name("no-record-type-lint")
-                .long("no-record-type-lint")
-                .help("Does not run record type lints"),
+            Arg::with_name("no-cnames")
+                .long("no-cnames")
+                .help("Does not run cname lints"),
         )
 }
 

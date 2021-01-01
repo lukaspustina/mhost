@@ -7,12 +7,12 @@ use crate::app::modules::PartialResultExt;
 use crate::app::AppConfig;
 use crate::app::ExitStatus;
 
-#[allow(clippy::module_inception)]
-mod check;
 pub mod config;
+#[allow(clippy::module_inception)]
+mod lints;
 
-use check::Check;
 use config::CheckConfig;
+use lints::Check;
 
 pub async fn run(args: &ArgMatches<'_>, app_config: &AppConfig) -> Result<ExitStatus> {
     info!("check module selected.");
@@ -23,7 +23,7 @@ pub async fn run(args: &ArgMatches<'_>, app_config: &AppConfig) -> Result<ExitSt
         .await?
         .lookup_all_records()
         .await?
-        .record_type_lints()
+        .cnames()
         .await?
         .spf()?
         .output()

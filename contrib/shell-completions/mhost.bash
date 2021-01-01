@@ -115,7 +115,7 @@ _mhost() {
             ;;
         
         mhost__check)
-            opts=" -p -h -V  --show-partial-results --no-spf --no-record-type-lint --help --version  <NAME> "
+            opts=" -p -h -V  --show-partial-results --no-spf --no-cnames --help --version  <NAME> "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
