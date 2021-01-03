@@ -75,7 +75,18 @@ pub fn create_parser() -> App<'static, 'static> {
                 .use_delimiter(true)
                 .require_delimiter(true)
                 .value_delimiter(",")
-                .help("Adds nameserver for lookups"),
+                .help("Adds nameserver for lookups")
+                .long_help(
+                    r#"Adds nameserver for lookups. A nameserver can be specified by protocol, hostname or IP address, and port number, delimited by coloons, e.g., udp:dns.google:53. Supported protocols are udp,tcp,tls,https.
+Additionally, further parameters like an SKPI or a name may be added separated by commas. If protocol or port number are omitted, the defaults udp and 53 are used, respectively.
+Examples:
+* 127.0.0.1 is udp:127.0.0.1:53
+* ::1 is udp:[::1]:53
+* tcp:127.0.0.1 is tcp:127.0.0.1:53
+* tls:8.8.8.8:853,dns.google,name="Google 1"
+* https:[2001:4860:4860::8888]:443,dns.google,name="Google 1"
+
+"#),
         )
         .arg(
             Arg::with_name("predefined")
@@ -209,12 +220,14 @@ pub fn create_parser() -> App<'static, 'static> {
                 .default_value_if("output", Some("summary"), "human")
                 .help("Sets output options")
                 .long_help(
-                    "* Json:
+                    r#"* Json:
   * 'pretty': Prettifies output
 * Summary:
   * 'condensed': Simplifies output,
   * 'human': Uses human readable formatting
-  * 'show-domain-names': Shows queried domain names",
+  * 'show-domain-names': Shows queried domain names
+  
+"#,
                 ),
         )
         .arg(
@@ -378,6 +391,7 @@ fn get_server_lists_subcommand() -> App<'static, 'static> {
    'reliability=<1..100> - only return server with reliability of 'reliability'% or more; default 95
    'ipv=<4|6|all> - return IPv4, IPv6, or both servers; default all
     Example: opennic:anon,number=10,ipv=4
+    
 "#,
                 ),
         )
@@ -402,10 +416,12 @@ fn lookup_subcommand() -> App<'static, 'static> {
             .next_line_help(false)
             .help("domain name, IP address, or CIDR block to lookup")
             .long_help(
-                "* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de
+                r#"* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de
 * IP ADDR may be any valid IPv4 or IPv4 address, e.g., 192.168.0.1
 * CIDR BLOCK may be any valid IPv4 or IPv6 subnet in CIDR notation, e.g., 192.168.0.1/24
-  all valid IP addresses of a CIDR block will be queried for a reverse lookup")
+  all valid IP addresses of a CIDR block will be queried for a reverse lookup
+  
+"#)
         )
         .arg(Arg::with_name("record types")
             .short("t")
