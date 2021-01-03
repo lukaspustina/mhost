@@ -77,7 +77,7 @@ pub fn create_parser() -> App<'static, 'static> {
                 .value_delimiter(",")
                 .help("Adds nameserver for lookups")
                 .long_help(
-                    r#"Adds nameserver for lookups. A nameserver can be specified by protocol, hostname or IP address, and port number, delimited by coloons, e.g., udp:dns.google:53. Supported protocols are udp,tcp,tls,https.
+                    r#"Adds nameserver for lookups. A nameserver may be specified by protocol, hostname or IP address, and port number, delimited by coloons, e.g., udp:dns.google:53. Supported protocols are udp,tcp,tls,https.
 Additionally, further parameters like an SKPI or a name may be added separated by commas. If protocol or port number are omitted, the defaults udp and 53 are used, respectively.
 Examples:
 * 127.0.0.1 is udp:127.0.0.1:53
@@ -158,7 +158,7 @@ Examples:
         .arg(
             Arg::with_name("retries")
                 .long("retries")
-                .value_name("RETRIES")
+                .value_name("NUMBER")
                 .default_value("0")
                 .validator(|str| {
                     usize::from_str(&str)
@@ -280,6 +280,7 @@ fn subcommands() -> Vec<App<'static, 'static>> {
         discover_subcommand(),
         get_server_lists_subcommand(),
         lookup_subcommand(),
+        service_subcommand(),
         soa_check_subcommand(),
     ]
     .into_iter()
@@ -358,7 +359,7 @@ fn discover_subcommand() -> App<'static, 'static> {
         .arg(
             Arg::with_name("rnd-names-len")
                 .long("rnd-names-len")
-                .value_name("len")
+                .value_name("LEN")
                 .default_value("32")
                 .validator(|str| {
                     u64::from_str(&str)
@@ -375,7 +376,7 @@ fn get_server_lists_subcommand() -> App<'static, 'static> {
         .arg(
             Arg::with_name("server_list_spec")
                 .index(1)
-                .value_name("SERVER_LIST_SPEC")
+                .value_name("SERVER LIST SPEC")
                 .multiple(true)
                 .required(true)
                 .next_line_help(false)
@@ -412,11 +413,12 @@ fn lookup_subcommand() -> App<'static, 'static> {
         .arg(Arg::with_name("domain name")
             .required_unless("list-predefined")
             .index(1)
-            .value_name("NAME | IP ADDR | CIDR BLOCK")
+            .value_name("DOMAIN NAME | IP ADDR | CIDR BLOCK")
             .next_line_help(false)
             .help("domain name, IP address, or CIDR block to lookup")
             .long_help(
-                r#"* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de
+                r#"domain name, IP address, or CIDR block to lookup"
+* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de
 * IP ADDR may be any valid IPv4 or IPv4 address, e.g., 192.168.0.1
 * CIDR BLOCK may be any valid IPv4 or IPv6 subnet in CIDR notation, e.g., 192.168.0.1/24
   all valid IP addresses of a CIDR block will be queried for a reverse lookup
@@ -452,16 +454,33 @@ fn lookup_subcommand() -> App<'static, 'static> {
         )
 }
 
+fn service_subcommand() -> App<'static, 'static> {
+    SubCommand::with_name("service")
+        .about("Looks up a service using convenient service specification")
+        .arg(
+            Arg::with_name("service spec")
+                .index(1)
+                .value_name("SERVICE SPEC")
+                .help("service spec to look up")
+                .long_help(r#"service name to look up
+Service specification may be specified by name, protocol, and domain name, delimited by colons. If protocol is omitted, tcp is assumed. Examples:
+* dns:udp:example.com is _dns._udp.example.com
+* smtp:tcp:example.com is _smtp._tcp.example.com
+* smtp::example.com is _smtp._tcp.example.com
+"#),
+        )
+}
+
 fn soa_check_subcommand() -> App<'static, 'static> {
     SubCommand::with_name("soa-check")
         .about("Checks SOA records of authoritative name servers for deviations")
         .arg(
             Arg::with_name("domain name")
                 .index(1)
-                .value_name("NAME")
+                .value_name("DOMAIN NAME")
                 .next_line_help(false)
                 .help("domain name to check")
-                .long_help("* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de"),
+                .long_help("domain name to check; DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de"),
         )
         .arg(
             Arg::with_name("partial-results")
@@ -473,6 +492,6 @@ fn soa_check_subcommand() -> App<'static, 'static> {
 
 pub fn show_help() {
     let _ = create_parser().print_help();
-    // Add line break after last line of help
+    // Force line break; otherwise the shell prompt starts at last line of help.
     println!();
 }

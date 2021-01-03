@@ -25,6 +25,9 @@ _mhost() {
             lookup)
                 cmd+="__lookup"
                 ;;
+            service)
+                cmd+="__service"
+                ;;
             soa-check)
                 cmd+="__soa__check"
                 ;;
@@ -35,7 +38,7 @@ _mhost() {
 
     case "${cmd}" in
         mhost)
-            opts=" -S -p -q -v -h -V -s -f -o  --no-system-resolv-opt --no-system-nameservers --no-system-lookups --predefined --list-predefined --wait-multiple-responses --no-abort-on-error --no-abort-on-timeout --no-aborts --show-errors --quiet --no-color --ascii --debug --help --version --resolv-conf --ndots --system-nameserver --nameserver --predefined-filter --nameservers-from-file --limit --max-concurrent-servers --max-concurrent-requests --retries --timeout --output --output-options   check discover get-server-lists lookup soa-check"
+            opts=" -S -p -q -v -h -V -s -f -o  --no-system-resolv-opt --no-system-nameservers --no-system-lookups --predefined --list-predefined --wait-multiple-responses --no-abort-on-error --no-abort-on-timeout --no-aborts --show-errors --quiet --no-color --ascii --debug --help --version --resolv-conf --ndots --system-nameserver --nameserver --predefined-filter --nameservers-from-file --limit --max-concurrent-servers --max-concurrent-requests --retries --timeout --output --output-options   check discover get-server-lists lookup service soa-check"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -161,7 +164,7 @@ _mhost() {
             return 0
             ;;
         mhost__get__server__lists)
-            opts=" -h -V -o  --help --version --output-file  <SERVER_LIST_SPEC>... "
+            opts=" -h -V -o  --help --version --output-file  <SERVER LIST SPEC>... "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -184,7 +187,7 @@ _mhost() {
             return 0
             ;;
         mhost__lookup)
-            opts=" -S -w -h -V -t  --all --single-server-lookup --whois --help --version --record-type  <NAME | IP ADDR | CIDR BLOCK> "
+            opts=" -S -w -h -V -t  --all --single-server-lookup --whois --help --version --record-type  <DOMAIN NAME | IP ADDR | CIDR BLOCK> "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -206,8 +209,23 @@ _mhost() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        mhost__service)
+            opts=" -h -V  --help --version  <SERVICE SPEC> "
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         mhost__soa__check)
-            opts=" -p -h -V  --show-partial-results --help --version  <NAME> "
+            opts=" -p -h -V  --show-partial-results --help --version  <DOMAIN NAME> "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

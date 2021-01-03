@@ -153,9 +153,7 @@ pub struct OutputCheckResults<'a> {
 
 impl<'a> OutputCheckResults<'a> {
     pub fn output(self) -> PartialResult<ExitStatus> {
-        if self.env.console.not_quiet() {
-            self.env.console.finished();
-        }
+        self.env.console.print_finished();
 
         if self.check_results.has_failures() {
             self.env.console.failed("Found failures");

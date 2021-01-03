@@ -48,6 +48,7 @@ async fn run() -> Result<ExitStatus> {
         Some("discover") => modules::discover::run(&args, &app_config).await,
         Some("get-server-lists") => modules::get_server_lists::run(&args, &app_config).await,
         Some("lookup") => modules::lookup::run(&args, &app_config).await,
+        Some("service") => modules::service::run(&args, &app_config).await,
         Some("soa-check") => modules::soa_check::run(&args, &app_config).await,
         _ => {
             cli_parser::show_help();

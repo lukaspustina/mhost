@@ -10,7 +10,7 @@ use crate::app::ExitStatus;
 
 pub mod config;
 #[allow(clippy::module_inception)]
-mod lookup;
+pub(crate) mod lookup;
 
 use config::LookupConfig;
 use lookup::Lookup;

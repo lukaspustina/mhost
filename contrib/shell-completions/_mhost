@@ -119,6 +119,15 @@ _arguments "${_arguments_options[@]}" \
 ':domain name -- domain name, IP address, or CIDR block to lookup:_files' \
 && ret=0
 ;;
+(service)
+_arguments "${_arguments_options[@]}" \
+'-h[Prints help information]' \
+'--help[Prints help information]' \
+'-V[Prints version information]' \
+'--version[Prints version information]' \
+'::service spec -- service spec to look up:_files' \
+&& ret=0
+;;
 (soa-check)
 _arguments "${_arguments_options[@]}" \
 '-p[Shows results after each lookup step]' \
@@ -142,6 +151,7 @@ _mhost_commands() {
 "discover:Discovers records of a domain using multiple heuristics" \
 "get-server-lists:Downloads known lists of name servers" \
 "lookup:Looks up a name, IP address or CIDR block" \
+"service:Looks up a service using convenient service specification" \
 "soa-check:Checks SOA records of authoritative name servers for deviations" \
     )
     _describe -t commands 'mhost commands' commands "$@"
@@ -173,6 +183,13 @@ _mhost__lookup_commands() {
         
     )
     _describe -t commands 'mhost lookup commands' commands "$@"
+}
+(( $+functions[_mhost__service_commands] )) ||
+_mhost__service_commands() {
+    local commands; commands=(
+        
+    )
+    _describe -t commands 'mhost service commands' commands "$@"
 }
 (( $+functions[_mhost__soa-check_commands] )) ||
 _mhost__soa-check_commands() {
