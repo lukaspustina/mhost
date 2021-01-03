@@ -82,6 +82,7 @@ impl<'a> Cnames<'a> {
         }
         let mut results = Vec::new();
 
+        self.apex(&mut results)?;
         self.mx(&mut results).await?;
         self.srv(&mut results).await?;
         self.cname(&mut results).await?;
@@ -98,6 +99,33 @@ impl<'a> Cnames<'a> {
         }
 
         Ok(results)
+    }
+
+    // This lint should never fail, because even a specific DNS server implementation may allow configurations of
+    // CNAMEs on APEX zones, it should never deliver these RR as answers, since this would be in violation of the DNS RFC.
+    // cf. https://www.isc.org/blogs/cname-at-the-apex-of-a-zone/ for a easy to understand explanation.
+    fn apex(&self, results: &mut Vec<CheckResult>) -> Result<()> {
+        if self.env.console.show_partial_headers() {
+            self.env.console.itemize("Apex");
+        }
+
+        let lookups = &self.check_results.lookups;
+        let is_apex = !lookups.soa().is_empty();
+
+        if is_apex {
+            if lookups.cname().is_empty() {
+                results.push(CheckResult::Ok("Apex zone without CNAME".to_string()));
+            } else {
+                results.push(CheckResult::Failed(
+                    "Apex zone with CNAME: apex zones must not have CNAME records; cf. RFC 1034, section 3.6.2"
+                        .to_string(),
+                ));
+            }
+        } else {
+            results.push(CheckResult::Ok("Not apex zone".to_string()));
+        }
+
+        Ok(())
     }
 
     record_lint!(
