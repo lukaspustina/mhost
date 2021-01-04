@@ -85,6 +85,8 @@ _arguments "${_arguments_options[@]}" \
 '--show-partial-results[Shows results after each lookup step]' \
 '-S[Switches into single server lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.]' \
 '--single-server-lookup[Switches into single server lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.]' \
+'-s[Shows subdomains only omitting all other discovered names]' \
+'--subdomains-only[Shows subdomains only omitting all other discovered names]' \
 '-h[Prints help information]' \
 '--help[Prints help information]' \
 '-V[Prints version information]' \

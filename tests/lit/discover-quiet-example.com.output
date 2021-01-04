@@ -1,4 +1,8 @@
 RUN: @mhost_bin --ascii --no-color -q discover example.com
 
-CHECK:  * .example.com.
-CHECK-NEXT:  * www.example.com.
+CHECK: * .
+CHECK-NEXT: * .example.com.
+CHECK-NEXT: * www.example.com.
+CHECK-NEXT: * a.iana-servers.net.
+CHECK-NEXT: * b.iana-servers.net.
+CHECK-NEXT: * ns.icann.org.

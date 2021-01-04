@@ -44,6 +44,7 @@ complete -c mhost -n "__fish_seen_subcommand_from discover" -l rnd-names-number 
 complete -c mhost -n "__fish_seen_subcommand_from discover" -l rnd-names-len -d 'Sets length of random domain names to generate for wildcard resolution check'
 complete -c mhost -n "__fish_seen_subcommand_from discover" -s p -l show-partial-results -d 'Shows results after each lookup step'
 complete -c mhost -n "__fish_seen_subcommand_from discover" -s S -l single-server-lookup -d 'Switches into single server lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.'
+complete -c mhost -n "__fish_seen_subcommand_from discover" -s s -l subdomains-only -d 'Shows subdomains only omitting all other discovered names'
 complete -c mhost -n "__fish_seen_subcommand_from discover" -s h -l help -d 'Prints help information'
 complete -c mhost -n "__fish_seen_subcommand_from discover" -s V -l version -d 'Prints version information'
 complete -c mhost -n "__fish_seen_subcommand_from get-server-lists" -s o -l output-file -d 'Sets path to output file'

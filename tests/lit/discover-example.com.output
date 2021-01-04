@@ -4,5 +4,9 @@ CHECK: > Options: concurrent nameservers=10, max. nameservers=100, concurrent re
 CHECK-NEXT: + Finished.
 CHECK-NEXT: - Received [[\d+]] responses
 CHECK-NEXT: - No wildcard resolution discovered
-CHECK-NEXT:  * .example.com.
-CHECK-NEXT:  * www.example.com.
+CHECK-NEXT: * .
+CHECK-NEXT: * .example.com.
+CHECK-NEXT: * www.example.com.
+CHECK-NEXT: * a.iana-servers.net.
+CHECK-NEXT: * b.iana-servers.net.
+CHECK-NEXT: * ns.icann.org.

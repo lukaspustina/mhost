@@ -78,11 +78,7 @@ impl Lookups {
     }
 
     pub fn records(&self) -> Vec<&Record> {
-        self.inner
-            .iter()
-            .flat_map(|x| x.result().response())
-            .flat_map(|x| x.records())
-            .collect()
+        self.inner.iter().flat_map(|x| x.records()).collect()
     }
 
     pub fn ips(&self) -> Vec<IpAddr> {
@@ -306,6 +302,10 @@ impl Lookup {
         &self.result
     }
 
+    pub fn records(&self) -> Vec<&Record> {
+        self.result().records()
+    }
+
     pub fn ips(&self) -> Vec<IpAddr> {
         let ipv4s = self
             .result()
@@ -388,6 +388,13 @@ impl LookupResult {
         match self {
             LookupResult::Response(ref response) => Some(response),
             _ => None,
+        }
+    }
+
+    pub fn records(&self) -> Vec<&Record> {
+        match self.response() {
+            Some(response) => response.records().iter().collect(),
+            None => Vec::new(),
         }
     }
 

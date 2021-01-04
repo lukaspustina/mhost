@@ -11,6 +11,7 @@ pub struct DiscoverConfig {
     pub wordlist_file_path: Option<String>,
     pub rnd_names_number: usize,
     pub rnd_names_len: usize,
+    pub subdomains_only: bool,
 }
 
 impl TryFrom<&ArgMatches<'_>> for DiscoverConfig {
@@ -33,6 +34,7 @@ impl TryFrom<&ArgMatches<'_>> for DiscoverConfig {
                 .value_of("rnd-names-len")
                 .map(|x| usize::from_str(x).context("failed to parse rnd-names-len"))
                 .unwrap()?, // Safe unwrap, because of clap's validation
+            subdomains_only: args.is_present("subdomains-only"),
         };
 
         Ok(config)

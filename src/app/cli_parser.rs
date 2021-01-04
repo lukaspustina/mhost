@@ -368,6 +368,12 @@ fn discover_subcommand() -> App<'static, 'static> {
                 })
                 .help("Sets length of random domain names to generate for wildcard resolution check")
         )
+        .arg(
+            Arg::with_name("subdomains-only")
+                .short("s")
+                .long("subdomains-only")
+                .help("Shows subdomains only omitting all other discovered names")
+        )
 }
 
 fn get_server_lists_subcommand() -> App<'static, 'static> {

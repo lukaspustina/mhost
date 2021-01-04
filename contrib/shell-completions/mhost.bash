@@ -133,7 +133,7 @@ _mhost() {
             return 0
             ;;
         mhost__discover)
-            opts=" -p -S -h -V -w  --show-partial-results --single-server-lookup --help --version --wordlist-from-file --rnd-names-number --rnd-names-len  <NAME> "
+            opts=" -p -S -s -h -V -w  --show-partial-results --single-server-lookup --subdomains-only --help --version --wordlist-from-file --rnd-names-number --rnd-names-len  <NAME> "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

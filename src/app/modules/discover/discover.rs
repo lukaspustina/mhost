@@ -329,7 +329,14 @@ impl<'a> OutputDiscoverResult<'a> {
     }
 
     fn print_fancy_names(&self) {
-        let mut names = self.unique_names();
+        let mut names = if self.env.mod_config.subdomains_only {
+            self.unique_names()
+                .into_iter()
+                .filter(|x| self.domain_name.zone_of(x))
+                .collect()
+        } else {
+            self.unique_names()
+        };
         names.sort();
         for name in names {
             self.print_fancy_name_by_domain(&name, &self.domain_name);
