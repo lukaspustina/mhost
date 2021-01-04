@@ -129,7 +129,7 @@ async fn load_nameservers(config: &AppConfig, system_resolvers: &mut ResolverGro
             .map(|str| NameServerConfig::from_str_with_resolution(&system_resolvers, str))
             .collect();
         let configs: mhost::Result<Vec<_>> = join_all(configs).await.into_iter().collect();
-        let nameservers: Vec<_> = configs.context("Failed to parse IP address for system nameserver")?;
+        let nameservers: Vec<_> = configs.context("Failed to parse IP address for nameserver")?;
         let nameservers = NameServerConfigGroup::new(nameservers);
         info!("Loaded {} nameservers.", nameservers.len());
         nameservers_group.merge(nameservers);

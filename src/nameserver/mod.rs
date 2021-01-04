@@ -167,7 +167,13 @@ impl fmt::Display for NameServerConfig {
                 port,
                 spki,
                 name,
-            } => format!("tls:{}:{},{}{}", format_ip_addr(ip_addr), port, spki, format_name(name)),
+            } => format!(
+                "tls:{}:{},spki={}{}",
+                format_ip_addr(ip_addr),
+                port,
+                spki,
+                format_name(name)
+            ),
             NameServerConfig::Https {
                 protocol: _,
                 ip_addr,
@@ -175,7 +181,7 @@ impl fmt::Display for NameServerConfig {
                 spki,
                 name,
             } => format!(
-                "https:{}:{},{}{}",
+                "https:{}:{},spki={}{}",
                 format_ip_addr(ip_addr),
                 port,
                 spki,
@@ -328,5 +334,45 @@ impl From<NameServerConfig> for trust_dns_resolver::config::NameServerConfig {
                 tls_config: None,
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use spectral::prelude::*;
+    use std::net::{Ipv4Addr, Ipv6Addr};
+
+    #[test]
+    fn display_tls() {
+        let nsc = NameServerConfig::tls_with_name(
+            (Ipv4Addr::new(104, 16, 249, 249), 853),
+            "cloudflare-dns.com".to_string(),
+            "Cloudflare".to_string(),
+        );
+        let expected = "tls:104.16.249.249:853,spki=cloudflare-dns.com,name=Cloudflare";
+
+        let display = nsc.to_string();
+
+        asserting("display equals parsable string")
+            .that(&display.as_str())
+            .is_equal_to(expected);
+    }
+
+    #[test]
+    fn display_https() {
+        let nsc = NameServerConfig::https_with_name(
+            (Ipv6Addr::from_str("2606:4700::6810:f8f9").unwrap(), 443),
+            "cloudflare-dns.com".to_string(),
+            "Cloudflare".to_string(),
+        );
+        let expected = "https:[2606:4700::6810:f8f9]:443,spki=cloudflare-dns.com,name=Cloudflare";
+
+        let display = nsc.to_string();
+
+        asserting("display equals parsable string")
+            .that(&display.as_str())
+            .is_equal_to(expected);
     }
 }

@@ -60,9 +60,7 @@ pub fn create_parser() -> App<'static, 'static> {
                 .value_name("IP ADDR")
                 .takes_value(true)
                 .multiple(true)
-                .use_delimiter(true)
-                .require_delimiter(true)
-                .value_delimiter(",")
+                .number_of_values(1)
                 .help("Adds system nameserver for system lookups; only IP addresses allowed"),
         )
         .arg(
@@ -72,19 +70,17 @@ pub fn create_parser() -> App<'static, 'static> {
                 .value_name("HOSTNAME | IP ADDR")
                 .takes_value(true)
                 .multiple(true)
-                .use_delimiter(true)
-                .require_delimiter(true)
-                .value_delimiter(",")
+                .number_of_values(1)
                 .help("Adds nameserver for lookups")
                 .long_help(
                     r#"Adds nameserver for lookups. A nameserver may be specified by protocol, hostname or IP address, and port number, delimited by coloons, e.g., udp:dns.google:53. Supported protocols are udp,tcp,tls,https.
-Additionally, further parameters like an SKPI or a name may be added separated by commas. If protocol or port number are omitted, the defaults udp and 53 are used, respectively.
+Additionally, further parameters like 'spki' or 'name' may be added separated by commas. If protocol or port number are omitted, the defaults udp and 53 are used, respectively.
 Examples:
 * 127.0.0.1 is udp:127.0.0.1:53
-* ::1 is udp:[::1]:53
+* ::1 is udp:[::1]:53,name=localhost
 * tcp:127.0.0.1 is tcp:127.0.0.1:53
-* tls:8.8.8.8:853,dns.google,name="Google 1"
-* https:[2001:4860:4860::8888]:443,dns.google,name="Google 1"
+* tls:8.8.8.8:853,spki=dns.google,name="Google 1"
+* https:[2001:4860:4860::8888]:443,spki=dns.google,name="Google 1"
 
 "#),
         )
