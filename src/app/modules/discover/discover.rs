@@ -345,7 +345,7 @@ impl<'a> OutputDiscoverResult<'a> {
         self.lookups
             .records()
             .iter()
-            .map(|x| x.name_labels())
+            .map(|x| x.associated_name())
             .chain(query_names)
             .unique()
             .to_owned()

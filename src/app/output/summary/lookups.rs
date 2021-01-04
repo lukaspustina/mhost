@@ -55,9 +55,9 @@ fn output_records<W: Write>(writer: &mut W, records: Vec<&Record>, opts: &Summar
 
         if opts.show_domain_names {
             if opts.human {
-                suffix = format!("{} for domain name {}", suffix, r.name_labels())
+                suffix = format!("{} for domain name {}", suffix, r.name())
             } else {
-                suffix = format!("{} q={}", suffix, r.name_labels())
+                suffix = format!("{} q={}", suffix, r.name())
             }
         }
 
@@ -93,7 +93,7 @@ struct NotTtlHashRecord<'a>(&'a Record);
 impl Hash for NotTtlHashRecord<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         let r = self.0;
-        r.name_labels().hash(state);
+        r.name().hash(state);
         r.record_type().hash(state);
         // Does not take r.ttl() into account
         r.rdata().hash(state);
@@ -105,7 +105,7 @@ impl PartialEq for NotTtlHashRecord<'_> {
     fn eq(&self, other: &Self) -> bool {
         let r = self.0;
         let other = other.0;
-        r.name_labels() == other.name_labels() &&
+        r.name() == other.name() &&
             r.record_type() == other.record_type() &&
             // Does not take r.ttl() into account
             r.rdata() == other.rdata()
@@ -178,7 +178,7 @@ impl Rendering for Record {
             ),
             RecordType::PTR => format!(
                 "PTR:\t{}:\t{}{}",
-                self.name_labels().to_ip_addr_string(),
+                self.name().to_ip_addr_string(),
                 self.rdata().ptr().unwrap().render(opts),
                 suffix
             ),
