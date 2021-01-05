@@ -31,7 +31,7 @@ async fn main() {
     };
     let group_opts = ResolverGroupOpts {
         max_concurrent: 1000,
-        limit: None,
+        ..Default::default()
     };
 
     let resolvers = ResolverGroup::from_configs(resolver_configs, resolver_opts, group_opts)

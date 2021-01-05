@@ -33,9 +33,7 @@ impl Lookup {
 
         let name_builder = NameBuilder::new(app_config);
         let query = Lookup::build_query(&name_builder, &config.domain_name, &config.record_types)?;
-        let app_resolver = AppResolver::create_resolvers(app_config)
-            .await?
-            .with_single_server_lookup(config.single_server_lookup);
+        let app_resolver = AppResolver::create_resolvers(app_config).await?;
 
         env.console
             .print_resolver_opts(app_resolver.resolver_group_opts(), &app_resolver.resolver_opts());

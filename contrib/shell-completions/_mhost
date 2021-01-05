@@ -28,6 +28,8 @@ _mhost() {
 '--max-concurrent-requests=[Sets max. concurrent requests per nameserver]' \
 '--retries=[Sets number of retries if first lookup to nameserver fails]' \
 '--timeout=[Sets timeout in seconds for responses]' \
+'-m+[Sets resolvers lookup mode]: :(multi uni)' \
+'--resolvers-mode=[Sets resolvers lookup mode]: :(multi uni)' \
 '-o+[Sets the output format for result presentation]: :(json summary)' \
 '--output=[Sets the output format for result presentation]: :(json summary)' \
 '*--output-options=[Sets output options]' \
@@ -83,8 +85,6 @@ _arguments "${_arguments_options[@]}" \
 '--rnd-names-len=[Sets length of random domain names to generate for wildcard resolution check]' \
 '-p[Shows results after each lookup step]' \
 '--show-partial-results[Shows results after each lookup step]' \
-'-S[Switches into single server lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.]' \
-'--single-server-lookup[Switches into single server lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.]' \
 '-s[Shows subdomains only omitting all other discovered names]' \
 '--subdomains-only[Shows subdomains only omitting all other discovered names]' \
 '-h[Prints help information]' \
@@ -110,8 +110,6 @@ _arguments "${_arguments_options[@]}" \
 '*-t+[Sets record type to lookup, will be ignored in case of IP address lookup]: :(A AAAA ANAME ANY CNAME MX NULL NS PTR SOA SRV TXT)' \
 '*--record-type=[Sets record type to lookup, will be ignored in case of IP address lookup]: :(A AAAA ANAME ANY CNAME MX NULL NS PTR SOA SRV TXT)' \
 '--all[Enables lookups for all record types]' \
-'-S[Switches into single server lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.]' \
-'--single-server-lookup[Switches into single server lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.]' \
 '-w[Retrieves Whois information about A, AAAA, and PTR records.]' \
 '--whois[Retrieves Whois information about A, AAAA, and PTR records.]' \
 '-h[Prints help information]' \

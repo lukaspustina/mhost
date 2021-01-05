@@ -1,4 +1,4 @@
-use crate::resolver::{MultiQuery, Resolver, ResolverGroup};
+use crate::resolver::{Mode, MultiQuery, Resolver, ResolverGroup};
 use std::fmt;
 use std::ops::Add;
 
@@ -44,10 +44,16 @@ impl Estimate for Resolver {
 
 impl Estimate for ResolverGroup {
     fn estimate(&self, query: &MultiQuery) -> Estimation {
-        self.resolvers
-            .iter()
-            .take(self.opts.limit.unwrap_or_else(|| self.resolvers.len()))
-            .map(|x| x.estimate(query))
-            .fold(Default::default(), |acc, e| acc + e)
+        match self.opts.mode {
+            Mode::Multi => self
+                .resolvers
+                .iter()
+                .take(self.opts.limit.unwrap_or_else(|| self.resolvers.len()))
+                .map(|x| x.estimate(query))
+                .fold(Default::default(), |acc, e| acc + e),
+            // This is technically not correct, since each resolver could have different options, but due to the way,
+            // ResolverGroup is constructed, this is fine.
+            Mode::Uni => self.resolvers.get(0).map(|x| x.estimate(query)).unwrap_or_default(),
+        }
     }
 }

@@ -67,8 +67,9 @@ impl Console {
     pub fn print_resolver_opts(&self, group_opts: &ResolverGroupOpts, opts: &ResolverOpts) {
         if self.not_quiet() {
             self.caption(format!(
-            "{}: concurrent nameservers={}, max. nameservers={}, concurrent requests={}, retries={}, timeout={}s, ndots={}{}{}{}",
+            "{}: mode={}, concurrent nameservers={}, max. nameservers={}, concurrent requests={}, retries={}, timeout={}s, ndots={}{}{}{}",
             Fmt::emph("Options"),
+            group_opts.mode,
             group_opts.max_concurrent,
             group_opts.limit.unwrap(), // Safe unwrap, because of Clap's default value
             opts.max_concurrent_requests,

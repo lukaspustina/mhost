@@ -1,8 +1,8 @@
-RUN: @mhost_bin --ascii --no-color lookup example.com
+RUN: @mhost_bin --ascii --no-color -m uni lookup example.com
 
-CHECK: > Options: mode=multi, concurrent nameservers=10, max. nameservers=100, concurrent requests=5, retries=0, timeout=5s, ndots=1, abort on error, abort on timeout
+CHECK: > Options: mode=uni, concurrent nameservers=10, max. nameservers=100, concurrent requests=5, retries=0, timeout=5s, ndots=1, abort on error, abort on timeout
 CHECK-NEXT: > Running lookups.
-CHECK-NEXT: - Sending [[\d+]] request[[s*]] to [[\d+]] nameserver[[s*]] for 4 record types of 1 name.
+CHECK-NEXT: - Sending 4 request[[s*]] to [[\d+]] nameserver[[s*]] for 4 record types of 1 name.
 CHECK-NEXT: - Received [[\d+]] responses with [[\d+]] RR [[.]][[\d+]] A, [[\d+]] AAAA, [[\d+]] MX[[.]], [[\d+]] Nx, [[\d+]] Err in (min [[\d+]], max [[\d+]]) ms from [[\d+]] server[[.*]] within [[\d+]] ms of total run time.
 CHECK-NEXT: * MX:
 CHECK-NEXT: * A:

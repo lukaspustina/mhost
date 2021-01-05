@@ -39,7 +39,6 @@ impl NameBuilder {
 
 pub struct AppResolver {
     resolvers: Arc<ResolverGroup>,
-    single_server_lookup: bool,
 }
 
 impl AppResolver {
@@ -56,7 +55,6 @@ impl AppResolver {
         }
         Ok(AppResolver {
             resolvers: Arc::new(resolvers),
-            single_server_lookup: false,
         })
     }
 
@@ -86,26 +84,15 @@ impl AppResolver {
 
         Ok(AppResolver {
             resolvers: Arc::new(resolvers),
-            single_server_lookup: false,
         })
     }
 
-    pub fn with_single_server_lookup(self, single_server_lookup: bool) -> AppResolver {
-        AppResolver {
-            resolvers: self.resolvers,
-            single_server_lookup,
-        }
-    }
-
     pub async fn lookup(&self, query: MultiQuery) -> Result<Lookups> {
-        if self.single_server_lookup {
-            info!("Running in single server lookup mode");
-            self.resolvers.clone().single_server_lookup(query).await
-        } else {
-            info!("Running in normal mode");
-            self.resolvers.clone().lookup(query).await
-        }
-        .context("Failed to execute lookups")
+        self.resolvers
+            .clone()
+            .lookup(query)
+            .await
+            .context("Failed to execute lookups")
     }
 
     pub fn resolvers(&self) -> &ResolverGroup {
@@ -166,6 +153,7 @@ pub fn load_resolver_group_opts(config: &AppConfig) -> Result<ResolverGroupOpts>
     let resolver_group_opts = ResolverGroupOpts {
         max_concurrent: config.max_concurrent_servers,
         limit: Some(config.limit),
+        mode: config.resolvers_mode,
     };
     info!("Loaded resolver group opts.");
 

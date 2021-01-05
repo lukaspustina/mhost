@@ -29,7 +29,6 @@ impl ServiceConfig {
         LookupConfig {
             domain_name,
             record_types: vec![RecordType::SRV],
-            single_server_lookup: false,
             whois: false,
         }
     }

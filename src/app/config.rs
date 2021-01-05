@@ -8,7 +8,7 @@ use clap::ArgMatches;
 use crate::app::output::json::JsonOptions;
 use crate::app::output::summary::SummaryOptions;
 use crate::app::output::{OutputConfig, OutputType};
-use crate::resolver::ResolverOpts;
+use crate::resolver::{Mode, ResolverOpts};
 
 #[derive(Debug)]
 pub struct AppConfig {
@@ -33,6 +33,7 @@ pub struct AppConfig {
     pub nameserver_file_path: Option<String>,
     pub limit: usize,
     pub system_nameservers: Option<Vec<String>>,
+    pub resolvers_mode: Mode,
     pub output: OutputType,
     pub output_config: OutputConfig,
 }
@@ -95,6 +96,7 @@ impl TryFrom<&ArgMatches<'_>> for AppConfig {
             system_nameservers: args
                 .values_of("system nameservers")
                 .map(|xs| xs.map(ToString::to_string).collect()),
+            resolvers_mode: args.value_of("resolvers-mode").map(|x| Mode::from_str(x)).unwrap()?, // Safe unwrap, because clap's validation
             output_config: output_config(output, &args)?,
             output,
         };

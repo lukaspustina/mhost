@@ -7,7 +7,6 @@ use std::str::FromStr;
 pub struct DiscoverConfig {
     pub domain_name: String,
     pub partial_results: bool,
-    pub single_server_lookup: bool,
     pub wordlist_file_path: Option<String>,
     pub rnd_names_number: usize,
     pub rnd_names_len: usize,
@@ -24,7 +23,6 @@ impl TryFrom<&ArgMatches<'_>> for DiscoverConfig {
                 .context("No domain name to lookup specified")?
                 .to_string(),
             partial_results: args.is_present("partial-results"),
-            single_server_lookup: args.is_present("single-server-lookup"),
             wordlist_file_path: args.value_of("wordlist-from-file").map(ToString::to_string),
             rnd_names_number: args
                 .value_of("rnd-names-number")

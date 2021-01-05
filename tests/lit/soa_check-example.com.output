@@ -1,6 +1,6 @@
 RUN: @mhost_bin --ascii --no-color soa-check example.com
 
-CHECK: > Options: concurrent nameservers=10, max. nameservers=100, concurrent requests=5, retries=0, timeout=5s, ndots=1, abort on error, abort on timeout
+CHECK: > Options: mode=multi, concurrent nameservers=10, max. nameservers=100, concurrent requests=5, retries=0, timeout=5s, ndots=1, abort on error, abort on timeout
 CHECK-NEXT: + Finished.
 CHECK-NEXT: = All SOA records in sync.
 

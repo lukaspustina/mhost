@@ -9,6 +9,7 @@ complete -c mhost -n "__fish_use_subcommand" -l max-concurrent-servers -d 'Sets 
 complete -c mhost -n "__fish_use_subcommand" -l max-concurrent-requests -d 'Sets max. concurrent requests per nameserver'
 complete -c mhost -n "__fish_use_subcommand" -l retries -d 'Sets number of retries if first lookup to nameserver fails'
 complete -c mhost -n "__fish_use_subcommand" -l timeout -d 'Sets timeout in seconds for responses'
+complete -c mhost -n "__fish_use_subcommand" -s m -l resolvers-mode -d 'Sets resolvers lookup mode' -r -f -a "multi uni"
 complete -c mhost -n "__fish_use_subcommand" -s o -l output -d 'Sets the output format for result presentation' -r -f -a "json summary"
 complete -c mhost -n "__fish_use_subcommand" -l output-options -d 'Sets output options'
 complete -c mhost -n "__fish_use_subcommand" -l no-system-resolv-opt -d 'Ignores options set in /etc/resolv.conf'
@@ -43,7 +44,6 @@ complete -c mhost -n "__fish_seen_subcommand_from discover" -s w -l wordlist-fro
 complete -c mhost -n "__fish_seen_subcommand_from discover" -l rnd-names-number -d 'Sets number of random domain names to generate for wildcard resolution check'
 complete -c mhost -n "__fish_seen_subcommand_from discover" -l rnd-names-len -d 'Sets length of random domain names to generate for wildcard resolution check'
 complete -c mhost -n "__fish_seen_subcommand_from discover" -s p -l show-partial-results -d 'Shows results after each lookup step'
-complete -c mhost -n "__fish_seen_subcommand_from discover" -s S -l single-server-lookup -d 'Switches into single server lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.'
 complete -c mhost -n "__fish_seen_subcommand_from discover" -s s -l subdomains-only -d 'Shows subdomains only omitting all other discovered names'
 complete -c mhost -n "__fish_seen_subcommand_from discover" -s h -l help -d 'Prints help information'
 complete -c mhost -n "__fish_seen_subcommand_from discover" -s V -l version -d 'Prints version information'
@@ -52,7 +52,6 @@ complete -c mhost -n "__fish_seen_subcommand_from get-server-lists" -s h -l help
 complete -c mhost -n "__fish_seen_subcommand_from get-server-lists" -s V -l version -d 'Prints version information'
 complete -c mhost -n "__fish_seen_subcommand_from lookup" -s t -l record-type -d 'Sets record type to lookup, will be ignored in case of IP address lookup' -r -f -a "A AAAA ANAME ANY CNAME MX NULL NS PTR SOA SRV TXT"
 complete -c mhost -n "__fish_seen_subcommand_from lookup" -l all -d 'Enables lookups for all record types'
-complete -c mhost -n "__fish_seen_subcommand_from lookup" -s S -l single-server-lookup -d 'Switches into single server lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.'
 complete -c mhost -n "__fish_seen_subcommand_from lookup" -s w -l whois -d 'Retrieves Whois information about A, AAAA, and PTR records.'
 complete -c mhost -n "__fish_seen_subcommand_from lookup" -s h -l help -d 'Prints help information'
 complete -c mhost -n "__fish_seen_subcommand_from lookup" -s V -l version -d 'Prints version information'

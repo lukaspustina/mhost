@@ -36,9 +36,7 @@ impl Discover {
 
         let name_builder = NameBuilder::new(app_config);
         let domain_name = name_builder.from_str(&config.domain_name)?;
-        let app_resolver = AppResolver::create_resolvers(app_config)
-            .await?
-            .with_single_server_lookup(config.single_server_lookup);
+        let app_resolver = AppResolver::create_resolvers(app_config).await?;
 
         // Showing partial results only makes sense, if the queried domain name is shown for every response,
         // because this modules generates domain names, e.g., wildcard resolution, word lists

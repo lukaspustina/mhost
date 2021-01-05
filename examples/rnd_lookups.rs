@@ -1,7 +1,7 @@
 use std::env;
 use std::time::Instant;
 
-use mhost::resolver::{predefined, MultiQuery, ResolverGroup};
+use mhost::resolver::{predefined, Mode, MultiQuery, ResolverGroup, ResolverGroupOpts};
 use mhost::statistics::Statistics;
 use mhost::RecordType;
 
@@ -10,7 +10,11 @@ async fn main() {
     let name = env::args().nth(1).unwrap_or_else(|| "www.example.com".to_string());
 
     let resolver_configs = predefined::resolver_configs();
-    let resolvers = ResolverGroup::from_configs(resolver_configs, Default::default(), Default::default())
+    let resolvers_opts = ResolverGroupOpts {
+        mode: Mode::Uni,
+        ..Default::default()
+    };
+    let resolvers = ResolverGroup::from_configs(resolver_configs, Default::default(), resolvers_opts)
         .await
         .expect("failed to create resolvers");
 
@@ -32,10 +36,7 @@ async fn main() {
     )
     .expect("Failed to create multi-query");
     let start_time = Instant::now();
-    let lookups = resolvers
-        .single_server_lookup(mq)
-        .await
-        .expect("failed to execute lookups");
+    let lookups = resolvers.lookup(mq).await.expect("failed to execute lookups");
     let total_run_time = Instant::now() - start_time;
 
     let statistics = lookups.statistics();

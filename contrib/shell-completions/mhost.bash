@@ -38,7 +38,7 @@ _mhost() {
 
     case "${cmd}" in
         mhost)
-            opts=" -S -p -q -v -h -V -s -f -o  --no-system-resolv-opt --no-system-nameservers --no-system-lookups --predefined --list-predefined --wait-multiple-responses --no-abort-on-error --no-abort-on-timeout --no-aborts --show-errors --quiet --no-color --ascii --debug --help --version --resolv-conf --ndots --system-nameserver --nameserver --predefined-filter --nameservers-from-file --limit --max-concurrent-servers --max-concurrent-requests --retries --timeout --output --output-options   check discover get-server-lists lookup service soa-check"
+            opts=" -S -p -q -v -h -V -s -f -m -o  --no-system-resolv-opt --no-system-nameservers --no-system-lookups --predefined --list-predefined --wait-multiple-responses --no-abort-on-error --no-abort-on-timeout --no-aborts --show-errors --quiet --no-color --ascii --debug --help --version --resolv-conf --ndots --system-nameserver --nameserver --predefined-filter --nameservers-from-file --limit --max-concurrent-servers --max-concurrent-requests --retries --timeout --resolvers-mode --output --output-options   check discover get-server-lists lookup service soa-check"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -97,6 +97,14 @@ _mhost() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --resolvers-mode)
+                    COMPREPLY=($(compgen -W "multi uni" -- "${cur}"))
+                    return 0
+                    ;;
+                    -m)
+                    COMPREPLY=($(compgen -W "multi uni" -- "${cur}"))
+                    return 0
+                    ;;
                 --output)
                     COMPREPLY=($(compgen -W "json summary" -- "${cur}"))
                     return 0
@@ -133,7 +141,7 @@ _mhost() {
             return 0
             ;;
         mhost__discover)
-            opts=" -p -S -s -h -V -w  --show-partial-results --single-server-lookup --subdomains-only --help --version --wordlist-from-file --rnd-names-number --rnd-names-len  <NAME> "
+            opts=" -p -s -h -V -w  --show-partial-results --subdomains-only --help --version --wordlist-from-file --rnd-names-number --rnd-names-len  <NAME> "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -187,7 +195,7 @@ _mhost() {
             return 0
             ;;
         mhost__lookup)
-            opts=" -S -w -h -V -t  --all --single-server-lookup --whois --help --version --record-type  <DOMAIN NAME | IP ADDR | CIDR BLOCK> "
+            opts=" -w -h -V -t  --all --whois --help --version --record-type  <DOMAIN NAME | IP ADDR | CIDR BLOCK> "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

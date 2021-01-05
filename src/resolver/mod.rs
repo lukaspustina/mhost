@@ -16,6 +16,9 @@ pub use query::{MultiQuery, UniQuery};
 use crate::nameserver::{NameServerConfig, NameServerConfigGroup};
 use crate::system_config;
 use crate::Result;
+use nom::lib::std::fmt::Formatter;
+use std::fmt::Display;
+use std::str::FromStr;
 
 pub mod error;
 pub mod lookup;
@@ -159,6 +162,42 @@ pub struct ResolverGroupOpts {
     /// Maximum number of concurrent active resolvers
     pub max_concurrent: usize,
     pub limit: Option<usize>,
+    /// Set lookup mode
+    pub mode: Mode,
+}
+
+/// Lookup mode
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+pub enum Mode {
+    /// Send each query to all available resolvers,
+    Multi,
+    /// Send each to query to only one resolver
+    Uni,
+}
+
+impl Display for Mode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Mode::Multi => write!(f, "multi"),
+            Mode::Uni => write!(f, "uni"),
+        }
+    }
+}
+
+impl FromStr for Mode {
+    type Err = crate::error::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s {
+            "multi" => Ok(Mode::Multi),
+            "uni" => Ok(Mode::Uni),
+            _ => Err(crate::error::Error::ParserError {
+                what: s.to_string(),
+                to: "Mode",
+                why: "no such mode".to_string(),
+            }),
+        }
+    }
 }
 
 impl Default for ResolverGroupOpts {
@@ -166,6 +205,7 @@ impl Default for ResolverGroupOpts {
         ResolverGroupOpts {
             max_concurrent: 10,
             limit: None,
+            mode: Mode::Multi,
         }
     }
 }
@@ -211,6 +251,13 @@ impl ResolverGroup {
     }
 
     pub async fn lookup<T: Into<MultiQuery>>(&self, query: T) -> ResolverResult<Lookups> {
+        match self.opts.mode {
+            Mode::Multi => self.multi_lookup(query).await,
+            Mode::Uni => self.uni_lookup(query).await,
+        }
+    }
+
+    async fn multi_lookup<T: Into<MultiQuery>>(&self, query: T) -> ResolverResult<Lookups> {
         let multi_query = query.into();
         let mut resolvers = self.resolvers.clone();
 
@@ -225,7 +272,7 @@ impl ResolverGroup {
         Ok(lookups)
     }
 
-    pub async fn single_server_lookup<T: Into<MultiQuery>>(&self, query: T) -> ResolverResult<Lookups> {
+    async fn uni_lookup<T: Into<MultiQuery>>(&self, query: T) -> ResolverResult<Lookups> {
         let mut rng = rand::thread_rng();
         let multi_query = query.into();
         let resolvers = self.resolvers.as_slice();

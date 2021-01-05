@@ -176,6 +176,20 @@ Examples:
                 .help("Sets timeout in seconds for responses"),
         )
         .arg(
+            Arg::with_name("resolvers-mode")
+                .short("m")
+                .long("resolvers-mode")
+                .value_name("MODE")
+                .default_value("multi")
+                .possible_values(&["multi", "uni"])
+                .help("Sets resolvers lookup mode")
+                .long_help(r#"Sets resolvers mode
+* multi: Each query is sent to all available name servers
+* uni: Each query is send to exactly on name server
+"#
+    )
+        )
+        .arg(
             Arg::with_name("wait-multiple-responses")
                 .long("wait-multiple-responses")
                 .help("Waits until timeout for additional responses from nameservers"),
@@ -327,12 +341,6 @@ fn discover_subcommand() -> App<'static, 'static> {
                 .help("Shows results after each lookup step"),
         )
         .arg(
-            Arg::with_name("single-server-lookup")
-                .short("S")
-                .long("single-server-lookup")
-                .help("Switches into single server lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.")
-        )
-        .arg(
             Arg::with_name("wordlist-from-file")
                 .short("w")
                 .long("wordlist-from-file")
@@ -350,7 +358,7 @@ fn discover_subcommand() -> App<'static, 'static> {
                         .map(|_| ())
                         .map_err(|_| "invalid number".to_string())
                 })
-                .help("Sets number of random domain names to generate for wildcard resolution check")
+                .help("Sets number of random domain names to generate for wildcard resolution check"),
         )
         .arg(
             Arg::with_name("rnd-names-len")
@@ -362,13 +370,13 @@ fn discover_subcommand() -> App<'static, 'static> {
                         .map(|_| ())
                         .map_err(|_| "invalid number".to_string())
                 })
-                .help("Sets length of random domain names to generate for wildcard resolution check")
+                .help("Sets length of random domain names to generate for wildcard resolution check"),
         )
         .arg(
             Arg::with_name("subdomains-only")
                 .short("s")
                 .long("subdomains-only")
-                .help("Shows subdomains only omitting all other discovered names")
+                .help("Shows subdomains only omitting all other discovered names"),
         )
 }
 
@@ -412,47 +420,47 @@ fn get_server_lists_subcommand() -> App<'static, 'static> {
 fn lookup_subcommand() -> App<'static, 'static> {
     SubCommand::with_name("lookup")
         .about("Looks up a name, IP address or CIDR block")
-        .arg(Arg::with_name("domain name")
-            .required_unless("list-predefined")
-            .index(1)
-            .value_name("DOMAIN NAME | IP ADDR | CIDR BLOCK")
-            .next_line_help(false)
-            .help("domain name, IP address, or CIDR block to lookup")
-            .long_help(
-                r#"domain name, IP address, or CIDR block to lookup"
+        .arg(
+            Arg::with_name("domain name")
+                .required_unless("list-predefined")
+                .index(1)
+                .value_name("DOMAIN NAME | IP ADDR | CIDR BLOCK")
+                .next_line_help(false)
+                .help("domain name, IP address, or CIDR block to lookup")
+                .long_help(
+                    r#"domain name, IP address, or CIDR block to lookup"
 * DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de
 * IP ADDR may be any valid IPv4 or IPv4 address, e.g., 192.168.0.1
 * CIDR BLOCK may be any valid IPv4 or IPv6 subnet in CIDR notation, e.g., 192.168.0.1/24
   all valid IP addresses of a CIDR block will be queried for a reverse lookup
   
-"#)
+"#,
+                ),
         )
-        .arg(Arg::with_name("record types")
-            .short("t")
-            .long("record-type")
-            .value_name("RECORD TYPE")
-            .takes_value(true)
-            .multiple(true)
-            .use_delimiter(true)
-            .require_delimiter(true)
-            .default_value("A,AAAA,CNAME,MX")
-            .possible_values(SUPPORTED_RECORD_TYPES)
-            .help("Sets record type to lookup, will be ignored in case of IP address lookup")
+        .arg(
+            Arg::with_name("record types")
+                .short("t")
+                .long("record-type")
+                .value_name("RECORD TYPE")
+                .takes_value(true)
+                .multiple(true)
+                .use_delimiter(true)
+                .require_delimiter(true)
+                .default_value("A,AAAA,CNAME,MX")
+                .possible_values(SUPPORTED_RECORD_TYPES)
+                .help("Sets record type to lookup, will be ignored in case of IP address lookup"),
         )
-        .arg(Arg::with_name("all-record-types")
-            .long("all")
-            .alias("xmas")
-            .help("Enables lookups for all record types")
+        .arg(
+            Arg::with_name("all-record-types")
+                .long("all")
+                .alias("xmas")
+                .help("Enables lookups for all record types"),
         )
-        .arg(Arg::with_name("single-server-lookup")
-            .short("S")
-            .long("single-server-lookup")
-            .help("Switches into single server lookup mode: every query will be send just one randomly chosen nameserver. This can be used to distribute queries among the available nameservers.")
-        )
-        .arg(Arg::with_name("whois")
-            .short("w")
-            .long("whois")
-            .help("Retrieves Whois information about A, AAAA, and PTR records.")
+        .arg(
+            Arg::with_name("whois")
+                .short("w")
+                .long("whois")
+                .help("Retrieves Whois information about A, AAAA, and PTR records."),
         )
 }
 
