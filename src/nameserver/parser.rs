@@ -127,8 +127,19 @@ fn try_tcp_from(ip: IpAddr, config: parser::NameServerConfig) -> Result<NameServ
 }
 
 fn try_tls_from(ip: IpAddr, config: parser::NameServerConfig) -> Result<NameServerConfig> {
-    use parser::NameServerConfig;
+    use parser::{NameServerConfig, Target};
     match config {
+        NameServerConfig {
+            protocol: _,
+            target: Target::Name(target_name),
+            port,
+            tls_auth_name: Option::None,
+            name,
+        } => Ok(crate::nameserver::NameServerConfig::tls_with_name(
+            (ip, port),
+            target_name,
+            name.map(ToString::to_string),
+        )),
         NameServerConfig {
             protocol: _,
             target: _,
@@ -155,8 +166,19 @@ fn try_tls_from(ip: IpAddr, config: parser::NameServerConfig) -> Result<NameServ
 }
 
 fn try_https_from(ip: IpAddr, config: parser::NameServerConfig) -> Result<NameServerConfig> {
-    use parser::NameServerConfig;
+    use parser::{NameServerConfig, Target};
     match config {
+        NameServerConfig {
+            protocol: _,
+            target: Target::Name(target_name),
+            port,
+            tls_auth_name: Option::None,
+            name,
+        } => Ok(crate::nameserver::NameServerConfig::https_with_name(
+            (ip, port),
+            target_name,
+            name.map(ToString::to_string),
+        )),
         NameServerConfig {
             protocol: _,
             target: _,

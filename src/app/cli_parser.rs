@@ -74,7 +74,7 @@ pub fn create_parser() -> App<'static, 'static> {
                 .help("Adds nameserver for lookups")
                 .long_help(
                     r#"Adds nameserver for lookups. A nameserver may be specified by protocol, hostname or IP address, and port number, delimited by coloons, e.g., udp:dns.google:53. Supported protocols are udp,tcp,tls,https.
-Additionally, further parameters like 'tls_auth_name' or 'name' (human friendly name for a nameserver) may be added separated by commas. If protocol or port number are omitted, the defaults udp and 53 are used, respectively.
+Additionally, further parameters like 'tls_auth_name' or 'name' may be added separated by commas. 'tls_auth_name' must be set for protocols 'tls' and 'https' if an IP address is given. If protocol or port number are omitted, the defaults udp and 53 are used, respectively.
 Examples:
 * 127.0.0.1 is udp:127.0.0.1:53
 * ::1 is udp:[::1]:53,name=localhost
