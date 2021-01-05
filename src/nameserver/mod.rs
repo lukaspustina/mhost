@@ -57,14 +57,16 @@ pub enum NameServerConfig {
         protocol: Protocol,
         ip_addr: IpAddr,
         port: u16,
-        spki: String,
+        /// The TLS hostname, CN
+        tls_auth_name: String,
         name: Option<String>,
     },
     Https {
         protocol: Protocol,
         ip_addr: IpAddr,
         port: u16,
-        spki: String,
+        /// The TLS hostname, CN
+        tls_auth_name: String,
         name: Option<String>,
     },
 }
@@ -98,13 +100,13 @@ impl NameServerConfig {
         }
     }
 
-    pub fn tls<T: Into<SocketAddr>, S: Into<String>>(socket_addr: T, spki: S) -> Self {
-        NameServerConfig::tls_with_name(socket_addr, spki, None)
+    pub fn tls<T: Into<SocketAddr>, S: Into<String>>(socket_addr: T, tls_auth_name: S) -> Self {
+        NameServerConfig::tls_with_name(socket_addr, tls_auth_name, None)
     }
 
     pub fn tls_with_name<T: Into<SocketAddr>, S: Into<String>, U: Into<Option<String>>>(
         socket_addr: T,
-        spki: S,
+        tls_auth_name: S,
         name: U,
     ) -> Self {
         let socket_addr = socket_addr.into();
@@ -112,18 +114,18 @@ impl NameServerConfig {
             protocol: Protocol::Tls,
             ip_addr: socket_addr.ip(),
             port: socket_addr.port(),
-            spki: spki.into(),
+            tls_auth_name: tls_auth_name.into(),
             name: name.into(),
         }
     }
 
-    pub fn https<T: Into<SocketAddr>, S: Into<String>>(socket_addr: T, spki: S) -> Self {
-        NameServerConfig::https_with_name(socket_addr, spki, None)
+    pub fn https<T: Into<SocketAddr>, S: Into<String>>(socket_addr: T, tls_auth_name: S) -> Self {
+        NameServerConfig::https_with_name(socket_addr, tls_auth_name, None)
     }
 
     pub fn https_with_name<T: Into<SocketAddr>, S: Into<String>, U: Into<Option<String>>>(
         socket_addr: T,
-        spki: S,
+        tls_auth_name: S,
         name: U,
     ) -> Self {
         let socket_addr = socket_addr.into();
@@ -131,7 +133,7 @@ impl NameServerConfig {
             protocol: Protocol::Https,
             ip_addr: socket_addr.ip(),
             port: socket_addr.port(),
-            spki: spki.into(),
+            tls_auth_name: tls_auth_name.into(),
             name: name.into(),
         }
     }
@@ -165,26 +167,26 @@ impl fmt::Display for NameServerConfig {
                 protocol: _,
                 ip_addr,
                 port,
-                spki,
+                tls_auth_name,
                 name,
             } => format!(
-                "tls:{}:{},spki={}{}",
+                "tls:{}:{},tls_auth_name={}{}",
                 format_ip_addr(ip_addr),
                 port,
-                spki,
+                tls_auth_name,
                 format_name(name)
             ),
             NameServerConfig::Https {
                 protocol: _,
                 ip_addr,
                 port,
-                spki,
+                tls_auth_name,
                 name,
             } => format!(
-                "https:{}:{},spki={}{}",
+                "https:{}:{},tls_auth_name={}{}",
                 format_ip_addr(ip_addr),
                 port,
-                spki,
+                tls_auth_name,
                 format_name(name)
             ),
         };
@@ -311,26 +313,26 @@ impl From<NameServerConfig> for trust_dns_resolver::config::NameServerConfig {
                 protocol,
                 ip_addr,
                 port,
-                spki,
+                tls_auth_name,
                 name: _,
             } => trust_dns_resolver::config::NameServerConfig {
                 socket_addr: SocketAddr::new(ip_addr, port),
                 protocol: protocol.into(),
                 trust_nx_responses: true,
-                tls_dns_name: Some(spki),
+                tls_dns_name: Some(tls_auth_name),
                 tls_config: None,
             },
             NameServerConfig::Https {
                 protocol,
                 ip_addr,
                 port,
-                spki,
+                tls_auth_name,
                 name: _,
             } => trust_dns_resolver::config::NameServerConfig {
                 socket_addr: SocketAddr::new(ip_addr, port),
                 protocol: protocol.into(),
                 trust_nx_responses: true,
-                tls_dns_name: Some(spki),
+                tls_dns_name: Some(tls_auth_name),
                 tls_config: None,
             },
         }
@@ -351,7 +353,7 @@ mod test {
             "cloudflare-dns.com".to_string(),
             "Cloudflare".to_string(),
         );
-        let expected = "tls:104.16.249.249:853,spki=cloudflare-dns.com,name=Cloudflare";
+        let expected = "tls:104.16.249.249:853,tls_auth_name=cloudflare-dns.com,name=Cloudflare";
 
         let display = nsc.to_string();
 
@@ -367,7 +369,7 @@ mod test {
             "cloudflare-dns.com".to_string(),
             "Cloudflare".to_string(),
         );
-        let expected = "https:[2606:4700::6810:f8f9]:443,spki=cloudflare-dns.com,name=Cloudflare";
+        let expected = "https:[2606:4700::6810:f8f9]:443,tls_auth_name=cloudflare-dns.com,name=Cloudflare";
 
         let display = nsc.to_string();
 

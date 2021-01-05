@@ -21,8 +21,8 @@ _mhost() {
 '*-s+[Adds nameserver for lookups]' \
 '*--nameserver=[Adds nameserver for lookups]' \
 '*--predefined-filter=[Filters predefined nameservers by protocol]: :(udp tcp https tls)' \
-'-f+[Adds nameserver for lookups from file]' \
-'--nameservers-from-file=[Adds nameserver for lookups from file]' \
+'-f+[Adds nameservers from file]' \
+'--nameservers-from-file=[Adds nameservers from file]' \
 '--limit=[Sets max. number of nameservers to query]' \
 '--max-concurrent-servers=[Sets max. concurrent nameservers]' \
 '--max-concurrent-requests=[Sets max. concurrent requests per nameserver]' \

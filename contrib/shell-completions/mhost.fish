@@ -3,7 +3,7 @@ complete -c mhost -n "__fish_use_subcommand" -l ndots -d 'Sets number of dots to
 complete -c mhost -n "__fish_use_subcommand" -l system-nameserver -d 'Adds system nameserver for system lookups; only IP addresses allowed'
 complete -c mhost -n "__fish_use_subcommand" -s s -l nameserver -d 'Adds nameserver for lookups'
 complete -c mhost -n "__fish_use_subcommand" -l predefined-filter -d 'Filters predefined nameservers by protocol' -r -f -a "udp tcp https tls"
-complete -c mhost -n "__fish_use_subcommand" -s f -l nameservers-from-file -d 'Adds nameserver for lookups from file'
+complete -c mhost -n "__fish_use_subcommand" -s f -l nameservers-from-file -d 'Adds nameservers from file'
 complete -c mhost -n "__fish_use_subcommand" -l limit -d 'Sets max. number of nameservers to query'
 complete -c mhost -n "__fish_use_subcommand" -l max-concurrent-servers -d 'Sets max. concurrent nameservers'
 complete -c mhost -n "__fish_use_subcommand" -l max-concurrent-requests -d 'Sets max. concurrent requests per nameserver'

@@ -2,4 +2,4 @@ RUN: @mhost_bin --list-predefined
 
 CHECK: Predefined servers:
 CHECK: udp:1.1.1.1:53,name=Cloudflare 1
-CHECK: tls:[2620:fe::9]:853,spki=dns.quad9.net,name=Quad9 2
+CHECK: tls:[2620:fe::9]:853,tls_auth_name=dns.quad9.net,name=Quad9 2

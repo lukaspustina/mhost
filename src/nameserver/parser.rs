@@ -79,7 +79,7 @@ fn try_udp_from(ip: IpAddr, config: parser::NameServerConfig) -> Result<NameServ
             protocol: _,
             target: _,
             port,
-            spki: Option::None,
+            tls_auth_name: Option::None,
             name,
         } => Ok(crate::nameserver::NameServerConfig::udp_with_name(
             (ip, port),
@@ -89,12 +89,12 @@ fn try_udp_from(ip: IpAddr, config: parser::NameServerConfig) -> Result<NameServ
             protocol: _,
             target: _,
             port: _,
-            spki: Some(spki),
+            tls_auth_name: Some(tls_auth_name),
             name: _,
         } => Err(Error::ParserError {
-            what: spki.to_string(),
+            what: tls_auth_name.to_string(),
             to: "NameServerConfig",
-            why: "illegal parameter 'spki' for udp".to_string(),
+            why: "illegal parameter 'tls_auth_name' for udp".to_string(),
         }),
     }
 }
@@ -106,7 +106,7 @@ fn try_tcp_from(ip: IpAddr, config: parser::NameServerConfig) -> Result<NameServ
             protocol: _,
             target: _,
             port,
-            spki: Option::None,
+            tls_auth_name: Option::None,
             name,
         } => Ok(crate::nameserver::NameServerConfig::tcp_with_name(
             (ip, port),
@@ -116,12 +116,12 @@ fn try_tcp_from(ip: IpAddr, config: parser::NameServerConfig) -> Result<NameServ
             protocol: _,
             target: _,
             port: _,
-            spki: Some(spki),
+            tls_auth_name: Some(tls_auth_name),
             name: _,
         } => Err(Error::ParserError {
-            what: spki.to_string(),
+            what: tls_auth_name.to_string(),
             to: "NameServerConfig",
-            why: "illegal parameter 'spki' for tcp".to_string(),
+            why: "illegal parameter 'tls_auth_name' for tcp".to_string(),
         }),
     }
 }
@@ -133,23 +133,23 @@ fn try_tls_from(ip: IpAddr, config: parser::NameServerConfig) -> Result<NameServ
             protocol: _,
             target: _,
             port,
-            spki: Some(spki),
+            tls_auth_name: Some(tls_auth_name),
             name,
         } => Ok(crate::nameserver::NameServerConfig::tls_with_name(
             (ip, port),
-            spki,
+            tls_auth_name,
             name.map(ToString::to_string),
         )),
         NameServerConfig {
             protocol: _,
             target: _,
             port: _,
-            spki: Option::None,
+            tls_auth_name: Option::None,
             name: _,
         } => Err(Error::ParserError {
-            what: "spki".to_string(),
+            what: "tls_auth_name".to_string(),
             to: "NameServerConfig",
-            why: "missing parameter 'spki' for tls".to_string(),
+            why: "missing parameter 'tls_auth_name' for tls".to_string(),
         }),
     }
 }
@@ -161,23 +161,23 @@ fn try_https_from(ip: IpAddr, config: parser::NameServerConfig) -> Result<NameSe
             protocol: _,
             target: _,
             port,
-            spki: Some(spki),
+            tls_auth_name: Some(tls_auth_name),
             name,
         } => Ok(crate::nameserver::NameServerConfig::https_with_name(
             (ip, port),
-            spki,
+            tls_auth_name,
             name.map(ToString::to_string),
         )),
         NameServerConfig {
             protocol: _,
             target: _,
             port: _,
-            spki: Option::None,
+            tls_auth_name: Option::None,
             name: _,
         } => Err(Error::ParserError {
-            what: "spki".to_string(),
+            what: "tls_auth_name".to_string(),
             to: "NameServerConfig",
-            why: "missing parameter 'spki' for https".to_string(),
+            why: "missing parameter 'tls_auth_name' for https".to_string(),
         }),
     }
 }
@@ -291,12 +291,12 @@ mod test {
     }
 
     #[tokio::test]
-    async fn tcp_8_8_8_8_port_spki() {
+    async fn tcp_8_8_8_8_port_tls_auth_name() {
         crate::utils::tests::logging::init();
         let resolvers = ResolverGroup::from_system_config(Default::default())
             .await
             .expect("failed to create system resolver");
-        let str = "tcp:8.8.8.8:35,spki=dns.google";
+        let str = "tcp:8.8.8.8:35,tls_auth_name=dns.google";
 
         let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
 
@@ -335,12 +335,12 @@ mod test {
     }
 
     #[tokio::test]
-    async fn tls_cloudflare_dns_com_spki() {
+    async fn tls_cloudflare_dns_com_tls_auth_name() {
         crate::utils::tests::logging::init();
         let resolvers = ResolverGroup::from_system_config(Default::default())
             .await
             .expect("failed to create system resolver");
-        let str = "tls:cloudflare-dns.com,spki=cloudflare-dns.com";
+        let str = "tls:cloudflare-dns.com,tls_auth_name=cloudflare-dns.com";
         let expected1 = NameServerConfig::tls(
             (Ipv4Addr::new(104, 16, 248, 249), 853),
             "cloudflare-dns.com".to_string(),
@@ -357,12 +357,12 @@ mod test {
     }
 
     #[tokio::test]
-    async fn tls_104_16_249_249_spki_name() {
+    async fn tls_104_16_249_249_tls_auth_name_name() {
         crate::utils::tests::logging::init();
         let resolvers = ResolverGroup::from_system_config(Default::default())
             .await
             .expect("failed to create system resolver");
-        let str = "tls:104.16.249.249,spki=cloudflare-dns.com,name=Cloudflare";
+        let str = "tls:104.16.249.249,tls_auth_name=cloudflare-dns.com,name=Cloudflare";
         let expected = NameServerConfig::tls_with_name(
             (Ipv4Addr::new(104, 16, 249, 249), 853),
             "cloudflare-dns.com".to_string(),
@@ -376,12 +376,12 @@ mod test {
 
     #[tokio::test]
     #[allow(non_snake_case)]
-    async fn https_slash_slash_2606_4700__6810_f8f9_spki_name() {
+    async fn https_slash_slash_2606_4700__6810_f8f9_tls_auth_name_name() {
         crate::utils::tests::logging::init();
         let resolvers = ResolverGroup::from_system_config(Default::default())
             .await
             .expect("failed to create system resolver");
-        let str = "https://2606:4700::6810:f8f9,spki=cloudflare-dns.com,name=Cloudflare";
+        let str = "https://2606:4700::6810:f8f9,tls_auth_name=cloudflare-dns.com,name=Cloudflare";
         let expected = NameServerConfig::https_with_name(
             (Ipv6Addr::from_str("2606:4700::6810:f8f9").unwrap(), 443),
             "cloudflare-dns.com".to_string(),
@@ -410,7 +410,7 @@ pub(crate) mod parser {
         pub protocol: Protocol,
         pub target: Target<'a>,
         pub port: u16,
-        pub spki: Option<&'a str>,
+        pub tls_auth_name: Option<&'a str>,
         pub name: Option<&'a str>,
     }
 
@@ -421,23 +421,23 @@ pub(crate) mod parser {
                 protocol,
                 target,
                 port,
-                spki: None,
+                tls_auth_name: None,
                 name: None,
             }
         }
 
-        pub(crate) fn new_with_spki_and_name<S: Into<Option<&'a str>>, T: Into<Option<&'a str>>>(
+        pub(crate) fn new_with_tls_auth_name_and_name<S: Into<Option<&'a str>>, T: Into<Option<&'a str>>>(
             protocol: Protocol,
             target: Target<'a>,
             port: u16,
-            spki: S,
+            tls_auth_name: S,
             name: T,
         ) -> NameServerConfig<'a> {
             NameServerConfig {
                 protocol,
                 target,
                 port,
-                spki: spki.into(),
+                tls_auth_name: tls_auth_name.into(),
                 name: name.into(),
             }
         }
@@ -480,12 +480,12 @@ pub(crate) mod parser {
         let (input, protocol) = opt(protocol)(input)?;
         let (input, target) = alt((ipv4, ipv6, name))(input)?;
         let (input, port) = opt(port)(input)?;
-        let (input, spki) = opt(spki)(input)?;
+        let (input, tls_auth_name) = opt(tls_auth_name)(input)?;
         let (input, name) = opt(ns_name)(input)?;
 
         let protocol = protocol.unwrap_or(Protocol::Udp);
         let port = port.unwrap_or_else(|| default_port_for(&protocol));
-        let config = NameServerConfig::new_with_spki_and_name(protocol, target, port, spki, name);
+        let config = NameServerConfig::new_with_tls_auth_name_and_name(protocol, target, port, tls_auth_name, name);
 
         Ok((input, config))
     }
@@ -549,8 +549,8 @@ pub(crate) mod parser {
         }
     }
 
-    fn spki(input: &str) -> IResult<&str, &str> {
-        let (input, _) = tag(",spki=")(input)?;
+    fn tls_auth_name(input: &str) -> IResult<&str, &str> {
+        let (input, _) = alt((tag(",tls_auth_name="), tag(",tan=")))(input)?;
         take_while(|c: char| c.is_alphanumeric() || c == '.' || c == '-')(input)
     }
 
@@ -605,7 +605,7 @@ pub(crate) mod parser {
         fn ipv4_127_0_0_1_name() {
             crate::utils::tests::logging::init();
             let str = "127.0.0.1,name=localhost";
-            let expected = NameServerConfig::new_with_spki_and_name(
+            let expected = NameServerConfig::new_with_tls_auth_name_and_name(
                 Protocol::Udp,
                 Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)),
                 53,
@@ -727,8 +727,13 @@ pub(crate) mod parser {
         fn dns_google_name() {
             crate::utils::tests::logging::init();
             let str = "dns.google,name=Google";
-            let expected =
-                NameServerConfig::new_with_spki_and_name(Protocol::Udp, Target::Name("dns.google"), 53, None, "Google");
+            let expected = NameServerConfig::new_with_tls_auth_name_and_name(
+                Protocol::Udp,
+                Target::Name("dns.google"),
+                53,
+                None,
+                "Google",
+            );
 
             let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
 
@@ -736,10 +741,10 @@ pub(crate) mod parser {
         }
 
         #[test]
-        fn tls_cloudflare_dns_com_spki() {
+        fn tls_cloudflare_dns_com_tan() {
             crate::utils::tests::logging::init();
-            let str = "tls:cloudflare-dns.com,spki=cloudflare-dns.com";
-            let expected = NameServerConfig::new_with_spki_and_name(
+            let str = "tls:cloudflare-dns.com,tan=cloudflare-dns.com";
+            let expected = NameServerConfig::new_with_tls_auth_name_and_name(
                 Protocol::Tls,
                 Target::Name("cloudflare-dns.com"),
                 853,
@@ -753,10 +758,27 @@ pub(crate) mod parser {
         }
 
         #[test]
-        fn tls_dns_google_spki() {
+        fn tls_cloudflare_dns_com_tls_auth_name() {
             crate::utils::tests::logging::init();
-            let str = "tls:dns.google,spki=dns.google";
-            let expected = NameServerConfig::new_with_spki_and_name(
+            let str = "tls:cloudflare-dns.com,tls_auth_name=cloudflare-dns.com";
+            let expected = NameServerConfig::new_with_tls_auth_name_and_name(
+                Protocol::Tls,
+                Target::Name("cloudflare-dns.com"),
+                853,
+                "cloudflare-dns.com",
+                None,
+            );
+
+            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
+
+            assert_that(&config).is_equal_to(expected);
+        }
+
+        #[test]
+        fn tls_dns_google_tls_auth_name() {
+            crate::utils::tests::logging::init();
+            let str = "tls:dns.google,tls_auth_name=dns.google";
+            let expected = NameServerConfig::new_with_tls_auth_name_and_name(
                 Protocol::Tls,
                 Target::Name("dns.google"),
                 853,
@@ -770,10 +792,10 @@ pub(crate) mod parser {
         }
 
         #[test]
-        fn tls_dns_google_port_spki() {
+        fn tls_dns_google_port_tls_auth_name() {
             crate::utils::tests::logging::init();
-            let str = "tls:dns.google:8853,spki=dns.google";
-            let expected = NameServerConfig::new_with_spki_and_name(
+            let str = "tls:dns.google:8853,tls_auth_name=dns.google";
+            let expected = NameServerConfig::new_with_tls_auth_name_and_name(
                 Protocol::Tls,
                 Target::Name("dns.google"),
                 8853,
@@ -787,10 +809,10 @@ pub(crate) mod parser {
         }
 
         #[test]
-        fn tls_dns_google_port_spki_name() {
+        fn tls_dns_google_port_tls_auth_name_name() {
             crate::utils::tests::logging::init();
-            let str = "tls:dns.google:8853,spki=dns.google,name=Google";
-            let expected = NameServerConfig::new_with_spki_and_name(
+            let str = "tls:dns.google:8853,tls_auth_name=dns.google,name=Google";
+            let expected = NameServerConfig::new_with_tls_auth_name_and_name(
                 Protocol::Tls,
                 Target::Name("dns.google"),
                 8853,
