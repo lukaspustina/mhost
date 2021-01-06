@@ -3,13 +3,12 @@ use std::net::IpAddr;
 
 use anyhow::anyhow;
 use indexmap::set::IndexSet;
-use tracing::info;
+use tracing::{debug, info};
 
-use crate::app::console::{Console, ConsoleOpts};
 use crate::app::modules::soa_check::config::SoaCheckConfig;
-use crate::app::modules::{Environment, PartialError, PartialResult};
+use crate::app::modules::{AppModule, Environment, PartialError, PartialResult};
 use crate::app::output::OutputType;
-use crate::app::resolver::{AppResolver, NameBuilder};
+use crate::app::resolver::AppResolver;
 use crate::app::utils::time;
 use crate::app::{AppConfig, ExitStatus};
 use crate::diff::SetDiffer;
@@ -20,6 +19,8 @@ use crate::{Name, RecordType};
 
 pub struct SoaCheck {}
 
+impl AppModule<SoaCheckConfig> for SoaCheck {}
+
 impl SoaCheck {
     pub async fn init<'a>(
         app_config: &'a AppConfig,
@@ -29,13 +30,10 @@ impl SoaCheck {
             return Err(anyhow!("JSON output is incompatible with partial result output").into());
         }
 
-        let console_opts = ConsoleOpts::from(app_config).with_partial_results(config.partial_results);
-        let console = Console::new(console_opts);
-        let env = Environment::new(app_config, config, console);
-
-        let name_builder = NameBuilder::new(app_config);
-        let domain_name = name_builder.from_str(&config.domain_name)?;
+        let env = Self::init_env(app_config, config)?;
+        let domain_name = env.name_builder.from_str(&config.domain_name)?;
         let query = MultiQuery::single(domain_name, RecordType::NS)?;
+        debug!("Querying: {:?}", query);
         let app_resolver = AppResolver::create_resolvers(app_config).await?;
 
         env.console

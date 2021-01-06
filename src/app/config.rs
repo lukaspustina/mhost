@@ -23,6 +23,7 @@ pub struct AppConfig {
     pub abort_on_timeout: bool,
     pub resolv_conf_path: String,
     pub ndots: u8,
+    pub search_domain: Option<String>,
     pub show_errors: bool,
     pub quiet: bool,
     pub ignore_system_nameservers: bool,
@@ -77,6 +78,7 @@ impl TryFrom<&ArgMatches<'_>> for AppConfig {
                 .value_of("ndots")
                 .map(|x| u8::from_str(x).context("failed to ndots"))
                 .unwrap()?, // Safe unwrap, because clap's validation
+            search_domain: args.value_of("search-domain").map(ToString::to_string),
             show_errors: args.is_present("show-errors"),
             quiet: args.is_present("quiet"),
             ignore_system_nameservers: args.is_present("no-system-nameservers"),

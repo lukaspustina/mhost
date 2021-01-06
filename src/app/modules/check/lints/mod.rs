@@ -1,11 +1,10 @@
 use anyhow::anyhow;
 use tracing::info;
 
-use crate::app::console::{Console, ConsoleOpts};
 use crate::app::modules::check::config::CheckConfig;
-use crate::app::modules::{Environment, PartialError, PartialResult};
+use crate::app::modules::{AppModule, Environment, PartialError, PartialResult};
 use crate::app::output::OutputType;
-use crate::app::resolver::{AppResolver, NameBuilder};
+use crate::app::resolver::AppResolver;
 use crate::app::{AppConfig, ExitStatus};
 use crate::resolver::{Lookups, MultiQuery};
 use crate::{Name, RecordType};
@@ -71,18 +70,16 @@ impl CheckResult {
 
 pub struct Check {}
 
+impl AppModule<CheckConfig> for Check {}
+
 impl Check {
     pub async fn init<'a>(app_config: &'a AppConfig, config: &'a CheckConfig) -> PartialResult<LookupAllThereIs<'a>> {
         if app_config.output == OutputType::Json && config.partial_results {
             return Err(anyhow!("JSON output is incompatible with partial result output").into());
         }
 
-        let console_opts = ConsoleOpts::from(app_config).with_partial_results(config.partial_results);
-        let console = Console::new(console_opts);
-        let env = Environment::new(app_config, config, console);
-
-        let name_builder = NameBuilder::new(app_config);
-        let domain_name = name_builder.from_str(&config.domain_name)?;
+        let env = Self::init_env(app_config, config)?;
+        let domain_name = env.name_builder.from_str(&config.domain_name)?;
         let app_resolver = AppResolver::create_resolvers(app_config).await?;
 
         env.console

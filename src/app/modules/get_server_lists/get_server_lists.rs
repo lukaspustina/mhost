@@ -5,15 +5,16 @@ use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use tracing::info;
 
-use crate::app::console::{Console, ConsoleOpts};
 use crate::app::modules::get_server_lists::config::DownloadServerListConfig;
-use crate::app::modules::{Environment, PartialResult};
+use crate::app::modules::{AppModule, Environment, PartialResult};
 use crate::app::output::OutputType;
 use crate::app::utils::time;
 use crate::app::{AppConfig, ExitStatus};
 use crate::services::server_lists::{DownloadResponses, ServerListDownloader, ServerListDownloaderOpts};
 
 pub struct GetServerLists {}
+
+impl AppModule<DownloadServerListConfig> for GetServerLists {}
 
 impl GetServerLists {
     pub fn init<'a>(
@@ -23,10 +24,7 @@ impl GetServerLists {
         if app_config.output == OutputType::Json {
             return Err(anyhow!("JSON output is not support").into());
         }
-
-        let console_opts = ConsoleOpts::from(app_config).with_partial_results(true);
-        let console = Console::new(console_opts);
-        let env = Environment::new(app_config, config, console);
+        let env = Self::init_env(app_config, config)?;
 
         let opts: ServerListDownloaderOpts =
             ServerListDownloaderOpts::new(app_config.max_concurrent_requests, app_config.abort_on_error);

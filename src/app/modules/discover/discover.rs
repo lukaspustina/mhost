@@ -9,13 +9,13 @@ use rand::{thread_rng, Rng};
 use serde::Serialize;
 use tracing::{debug, info};
 
-use crate::app::console::{Console, ConsoleOpts, Fmt};
+use crate::app::console::Fmt;
 use crate::app::modules::discover::config::DiscoverConfig;
 use crate::app::modules::discover::wordlist::Wordlist;
-use crate::app::modules::{Environment, PartialResult};
+use crate::app::modules::{AppModule, Environment, PartialResult};
 use crate::app::output::summary::{SummaryFormat, SummaryFormatter, SummaryOptions};
 use crate::app::output::{OutputConfig, OutputType};
-use crate::app::resolver::{AppResolver, NameBuilder};
+use crate::app::resolver::AppResolver;
 use crate::app::utils::time;
 use crate::app::{output, AppConfig, ExitStatus};
 use crate::resolver::lookup::Uniquify;
@@ -24,18 +24,16 @@ use crate::{Name, RecordType};
 
 pub struct Discover {}
 
+impl AppModule<DiscoverConfig> for Discover {}
+
 impl Discover {
     pub async fn init<'a>(app_config: &'a AppConfig, config: &'a DiscoverConfig) -> PartialResult<RequestAll<'a>> {
         if app_config.output == OutputType::Json && config.partial_results {
             return Err(anyhow!("JSON output is incompatible with partial result output").into());
         }
 
-        let console_opts = ConsoleOpts::from(app_config).with_partial_results(config.partial_results);
-        let console = Console::new(console_opts);
-        let env = Environment::new(app_config, config, console);
-
-        let name_builder = NameBuilder::new(app_config);
-        let domain_name = name_builder.from_str(&config.domain_name)?;
+        let env = Self::init_env(app_config, config)?;
+        let domain_name = env.name_builder.from_str(&config.domain_name)?;
         let app_resolver = AppResolver::create_resolvers(app_config).await?;
 
         // Showing partial results only makes sense, if the queried domain name is shown for every response,

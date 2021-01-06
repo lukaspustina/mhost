@@ -1,5 +1,6 @@
 use std::convert::TryFrom;
 
+use crate::app::modules::ModConfig;
 use anyhow::Context;
 use clap::ArgMatches;
 use std::str::FromStr;
@@ -11,6 +12,12 @@ pub struct DiscoverConfig {
     pub rnd_names_number: usize,
     pub rnd_names_len: usize,
     pub subdomains_only: bool,
+}
+
+impl ModConfig for DiscoverConfig {
+    fn partial_results(&self) -> bool {
+        self.partial_results
+    }
 }
 
 impl TryFrom<&ArgMatches<'_>> for DiscoverConfig {

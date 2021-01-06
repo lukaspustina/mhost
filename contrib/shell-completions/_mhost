@@ -17,6 +17,7 @@ _mhost() {
     _arguments "${_arguments_options[@]}" \
 '--resolv-conf=[Uses alternative resolv.conf file]' \
 '--ndots=[Sets number of dots to qualify domain name as FQDN]' \
+'--search-domain=[Sets the search domain to append if HOSTNAME has less than ndots dots]' \
 '*--system-nameserver=[Adds system nameserver for system lookups; only IP addresses allowed]' \
 '*-s+[Adds nameserver for lookups]' \
 '*--nameserver=[Adds nameserver for lookups]' \

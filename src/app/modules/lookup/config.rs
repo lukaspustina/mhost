@@ -5,12 +5,20 @@ use anyhow::{Context, Result};
 use clap::ArgMatches;
 
 use crate::app::cli_parser::SUPPORTED_RECORD_TYPES;
+use crate::app::modules::ModConfig;
 use crate::RecordType;
 
 pub struct LookupConfig {
     pub domain_name: String,
     pub record_types: Vec<RecordType>,
     pub whois: bool,
+}
+
+impl ModConfig for LookupConfig {
+    /// The Lookup module should always show partial results
+    fn partial_results(&self) -> bool {
+        true
+    }
 }
 
 impl TryFrom<&ArgMatches<'_>> for LookupConfig {

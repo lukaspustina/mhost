@@ -1,5 +1,6 @@
 use std::convert::TryFrom;
 
+use crate::app::modules::ModConfig;
 use crate::services::server_lists::ServerListSpec;
 use anyhow::Context;
 use clap::ArgMatches;
@@ -9,6 +10,8 @@ pub struct DownloadServerListConfig {
     pub server_list_specs: Vec<ServerListSpec>,
     pub output_file_path: String,
 }
+
+impl ModConfig for DownloadServerListConfig {}
 
 impl TryFrom<&ArgMatches<'_>> for DownloadServerListConfig {
     type Error = anyhow::Error;

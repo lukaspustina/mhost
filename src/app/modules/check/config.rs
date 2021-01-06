@@ -1,5 +1,6 @@
 use std::convert::TryFrom;
 
+use crate::app::modules::ModConfig;
 use anyhow::Context;
 use clap::ArgMatches;
 
@@ -8,6 +9,12 @@ pub struct CheckConfig {
     pub partial_results: bool,
     pub spf: bool,
     pub cnames: bool,
+}
+
+impl ModConfig for CheckConfig {
+    fn partial_results(&self) -> bool {
+        self.partial_results
+    }
 }
 
 impl TryFrom<&ArgMatches<'_>> for CheckConfig {

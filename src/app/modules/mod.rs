@@ -1,6 +1,8 @@
+use anyhow::Result;
 use thiserror::Error;
 
-use crate::app::console::Console;
+use crate::app::console::{Console, ConsoleOpts};
+use crate::app::resolver::{NameBuilder, NameBuilderOpts};
 use crate::app::{self, AppConfig, ExitStatus};
 
 pub mod check;
@@ -62,20 +64,52 @@ impl From<crate::services::error::Error> for PartialError {
     }
 }
 
-/** Pass environment like configs and console access from step to step
- */
+/// Pass environment like configs and console access from step to step
 pub struct Environment<'a, T> {
     pub app_config: &'a AppConfig,
     pub mod_config: &'a T,
     pub console: Console,
+    pub name_builder: NameBuilder,
 }
 
 impl<'a, T> Environment<'a, T> {
-    pub fn new(app_config: &'a AppConfig, mod_config: &'a T, console: Console) -> Environment<'a, T> {
+    pub fn new(
+        app_config: &'a AppConfig,
+        mod_config: &'a T,
+        console: Console,
+        name_builder: NameBuilder,
+    ) -> Environment<'a, T> {
         Environment {
             app_config,
             mod_config,
             console,
+            name_builder,
         }
+    }
+}
+
+/// Base implementation for App modules
+pub trait AppModule<T: ModConfig> {
+    fn init_env<'a>(app_config: &'a AppConfig, config: &'a T) -> Result<Environment<'a, T>> {
+        let console_opts = ConsoleOpts::from(app_config).with_partial_results(config.partial_results());
+        let console = Console::new(console_opts);
+
+        let name_builder_ops = if let Some(ref search_domain) = app_config.search_domain {
+            NameBuilderOpts::new(app_config.ndots, search_domain.as_ref())
+        } else {
+            NameBuilderOpts::from_hostname(app_config.ndots)
+        }?;
+        let name_builder = NameBuilder::new(name_builder_ops);
+
+        let env = Environment::new(app_config, config, console, name_builder);
+
+        Ok(env)
+    }
+}
+
+/// Base implementation for module configuration
+pub trait ModConfig {
+    fn partial_results(&self) -> bool {
+        false
     }
 }

@@ -55,6 +55,12 @@ pub fn create_parser() -> App<'static, 'static> {
                 .help("Sets number of dots to qualify domain name as FQDN"),
         )
         .arg(
+            Arg::with_name("search-domain")
+                .long("search-domain")
+                .value_name("DOMAIN")
+                .help("Sets the search domain to append if HOSTNAME has less than ndots dots"),
+        )
+        .arg(
             Arg::with_name("system nameservers")
                 .long("system-nameserver")
                 .value_name("IP ADDR")

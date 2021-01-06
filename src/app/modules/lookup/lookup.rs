@@ -7,11 +7,10 @@ use anyhow::{Context, Result};
 use ipnetwork::IpNetwork;
 use serde::Serialize;
 use tokio::time::Duration;
-use tracing::info;
+use tracing::{debug, info};
 
-use crate::app::console::{Console, ConsoleOpts};
 use crate::app::modules::lookup::config::LookupConfig;
-use crate::app::modules::{Environment, PartialResult};
+use crate::app::modules::{AppModule, Environment, PartialResult};
 use crate::app::output::summary::{SummaryFormatter, SummaryOptions};
 use crate::app::output::OutputType;
 use crate::app::resolver::{AppResolver, NameBuilder};
@@ -25,14 +24,13 @@ use crate::{Name, RecordType};
 
 pub struct Lookup {}
 
+impl AppModule<LookupConfig> for Lookup {}
+
 impl Lookup {
     pub async fn init<'a>(app_config: &'a AppConfig, config: &'a LookupConfig) -> PartialResult<DnsLookups<'a>> {
-        let console_opts = ConsoleOpts::from(app_config).with_partial_results(true);
-        let console = Console::new(console_opts);
-        let env = Environment::new(app_config, config, console);
-
-        let name_builder = NameBuilder::new(app_config);
-        let query = Lookup::build_query(&name_builder, &config.domain_name, &config.record_types)?;
+        let env = Self::init_env(app_config, config)?;
+        let query = Lookup::build_query(&env.name_builder, &config.domain_name, &config.record_types)?;
+        debug!("Querying: {:?}", query);
         let app_resolver = AppResolver::create_resolvers(app_config).await?;
 
         env.console

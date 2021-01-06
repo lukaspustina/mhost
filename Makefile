@@ -11,7 +11,7 @@ build:
 	cargo build --bins --tests --benches --examples --all-features
 
 test:
-	cargo test --doc
+	cargo test --all-features --doc
 	cargo test --bins --tests --all-features
 	cargo test --bins --tests --all-features -- --ignored
 

@@ -1,4 +1,3 @@
-use crate as mhost;
 use crate::app::AppConfig;
 use crate::nameserver::{predefined, NameServerConfig, NameServerConfigGroup, Protocol};
 use crate::resolver::{
@@ -12,26 +11,70 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tracing::info;
 
-/** NameBuilder offers a safe way to transform a string into a `Name``
+pub struct NameBuilderOpts {
+    ndots: u8,
+    search_domain: Name,
+}
+
+impl NameBuilderOpts {
+    pub fn new<T: IntoName>(ndots: u8, search_domain: T) -> Result<Self> {
+        let search_domain = search_domain
+            .into_name()
+            .context("failed to parse search domain name")?;
+        Ok(NameBuilderOpts { ndots, search_domain })
+    }
+
+    /// Creates a new `NameBuilderOpts` by using the domain name from the local host's hostname as search domain.
+    pub fn from_hostname(ndots: u8) -> Result<Self> {
+        let search_domain = hostname::get()
+            .context("failed to get local hostname")?
+            .to_string_lossy()
+            .to_string();
+        NameBuilderOpts::new(ndots, search_domain)
+    }
+}
+
+impl Default for NameBuilderOpts {
+    fn default() -> Self {
+        NameBuilderOpts::new(1, Name::root()).unwrap()
+    }
+}
+
+/** NameBuilder offers a safe way to transform a string into a `Name`.
  *
- * `NameBuilder` takes `AppConfig` into account. For examples `ndots` is used to qualify a name a FQDN or not.
+ * `NameBuilder` takes the search domain into account by checking `ndots` to qualify a name as FQDN or not.
  */
 pub struct NameBuilder {
-    ndots: u8,
+    config: NameBuilderOpts,
 }
 
 impl NameBuilder {
-    pub fn new(app_config: &AppConfig) -> NameBuilder {
-        NameBuilder {
-            ndots: app_config.ndots,
-        }
+    pub fn new(config: NameBuilderOpts) -> NameBuilder {
+        NameBuilder { config }
     }
 
-    pub fn from_str(&self, str: &str) -> Result<Name> {
-        let mut domain_name: Name = str.into_name().context("failed to parse domain name")?;
-        if domain_name.num_labels() > self.ndots {
-            domain_name.set_fqdn(true)
-        }
+    /// Creates a `Name` from a &str.
+    ///
+    /// In case the given name has less or equal lables (dots) as configures by `NameBuilderConfig::ndots` the search
+    /// domain `NameBuilderConfig::search_domain` is added to resulting `Name`.
+    ///
+    /// Example:
+    /// ```
+    /// # use mhost::app::resolver::{NameBuilderOpts, NameBuilder};
+    /// # use mhost::Name;
+    /// let config = NameBuilderOpts::new(1, "example.com").unwrap();
+    /// let builder = NameBuilder::new(config);
+    /// let name = builder.from_str("www").unwrap();
+    /// assert_eq!(name, Name::from_ascii("www.example.com.").unwrap())
+    /// ```
+    pub fn from_str(&self, name: &str) -> Result<Name> {
+        let mut domain_name: Name = name.into_name().context("failed to parse domain name")?;
+        let domain_name = if domain_name.num_labels() > self.config.ndots {
+            domain_name.set_fqdn(true);
+            domain_name
+        } else {
+            domain_name.append_domain(&self.config.search_domain)
+        };
 
         Ok(domain_name)
     }
@@ -115,7 +158,7 @@ async fn load_nameservers(config: &AppConfig, system_resolvers: &mut ResolverGro
             .iter()
             .map(|str| NameServerConfig::from_str_with_resolution(&system_resolvers, str))
             .collect();
-        let configs: mhost::Result<Vec<_>> = join_all(configs).await.into_iter().collect();
+        let configs: crate::Result<Vec<_>> = join_all(configs).await.into_iter().collect();
         let nameservers: Vec<_> = configs.context("Failed to parse IP address for nameserver")?;
         let nameservers = NameServerConfigGroup::new(nameservers);
         info!("Loaded {} nameservers.", nameservers.len());
@@ -205,4 +248,45 @@ pub fn load_system_nameservers(config: &AppConfig) -> Result<NameServerConfigGro
     };
 
     Ok(system_nameserver_group)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn name_builder_1ndots_0dot() {
+        let config = NameBuilderOpts::new(1, "example.com").unwrap();
+        let builder = NameBuilder::new(config);
+        let name = builder.from_str("www").unwrap();
+
+        assert_eq!(name, Name::from_ascii("www.example.com.").unwrap())
+    }
+
+    #[test]
+    fn name_builder_1ndots_1dot() {
+        let config = NameBuilderOpts::new(1, "example.com").unwrap();
+        let builder = NameBuilder::new(config);
+        let name = builder.from_str("www.").unwrap();
+
+        assert_eq!(name, Name::from_ascii("www.example.com.").unwrap())
+    }
+
+    #[test]
+    fn name_builder_1ndots_1dot_2lables() {
+        let config = NameBuilderOpts::new(1, "example.com").unwrap();
+        let builder = NameBuilder::new(config);
+        let name = builder.from_str("www.test").unwrap();
+
+        assert_eq!(name, Name::from_ascii("www.test.").unwrap())
+    }
+
+    #[test]
+    fn name_builder_1ndots_1dot_3lables() {
+        let config = NameBuilderOpts::new(1, "example.com").unwrap();
+        let builder = NameBuilder::new(config);
+        let name = builder.from_str("www.test.com").unwrap();
+
+        assert_eq!(name, Name::from_ascii("www.test.com.").unwrap())
+    }
 }

@@ -33,6 +33,7 @@ anyhow = { version = "1", optional = true }
 clap = { version = "2", optional = true }
 chrono = { version = "0.4", features = ["serde"] }
 futures = { version = "0.3.*"}
+hostname = { version = "0.3", optional = true }
 humantime = { version = "2", optional = true }
 indexmap = "1.5"
 ipnetwork = "0.17"
@@ -68,7 +69,7 @@ lit = "1"
 spectral = "0.6"
 
 [features]
-bin = ["anyhow", "clap", "humantime", "tabwriter", "tracing-log", "tracing-subscriber"]
+bin = ["anyhow", "clap", "hostname", "humantime", "tabwriter", "tracing-log", "tracing-subscriber"]
 
 [profile.release]
 lto = true
