@@ -23,10 +23,11 @@ pub fn create_parser() -> App<'static, 'static> {
         .global_setting(AppSettings::InferSubcommands)
         .global_setting(AppSettings::UnifiedHelpMessage)
         .arg(
-            Arg::with_name("no-system-resolv-opt")
-                .long("no-system-resolv-opt")
-                .help("Ignores options set in /etc/resolv.conf"),
-        )
+            Arg::with_name("use-system-resolv-opt")
+                .long("use-system-resolv-opt")
+                .help("Uses options set in /etc/resolv.conf")
+                .long_help("Uses options set in /etc/resolv.conf and overrides all corresponding CLI options")
+    )
         .arg(
             Arg::with_name("no-system-nameservers")
                 .long("no-system-nameservers")

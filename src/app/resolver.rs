@@ -9,7 +9,7 @@ use futures::future::join_all;
 use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::Arc;
-use tracing::info;
+use tracing::{debug, info};
 
 pub struct NameBuilderOpts {
     ndots: u8,
@@ -204,23 +204,34 @@ pub fn load_resolver_group_opts(config: &AppConfig) -> Result<ResolverGroupOpts>
 }
 
 pub fn load_resolver_opts(config: &AppConfig) -> Result<ResolverOpts> {
-    let default_opts = if config.ignore_system_resolv_opt {
+    let app_config_opts = ResolverOpts {
+        ndots: config.ndots as usize,
+        // TODO: find useful value
+        preserve_intermediates: false,
+        expects_multiple_responses: config.expects_multiple_responses,
+        timeout: config.timeout,
+        abort_on_error: config.abort_on_error,
+        retries: config.retries,
+        max_concurrent_requests: config.max_concurrent_requests,
+        abort_on_timeout: config.abort_on_timeout,
+    };
+    let opts = if config.use_system_resolv_opt {
+        let sys_opts = ResolverOpts::from_system_config_path(&config.resolv_conf_path)
+            .context("Failed to load system resolver options")?;
         ResolverOpts {
-            ndots: config.ndots as usize,
-            ..Default::default()
+            retries: sys_opts.retries,
+            ndots: sys_opts.ndots,
+            timeout: sys_opts.timeout,
+            ..app_config_opts
         }
     } else {
-        ResolverOpts {
-            // TODO: This is not correct. We should take the value from resolv.conf and only apply app_config.ndots if given
-            ndots: config.ndots as usize,
-            ..ResolverOpts::from_system_config_path(&config.resolv_conf_path)
-                .context("Failed to load system resolver options")?
-        }
+        app_config_opts
     };
-    let resolver_opts = config.resolver_opts(default_opts);
-    info!("Loaded resolver opts.");
 
-    Ok(resolver_opts)
+    info!("Loaded resolver opts.");
+    debug!("Resolver opts: {:?}", &opts);
+
+    Ok(opts)
 }
 
 pub fn load_system_nameservers(config: &AppConfig) -> Result<NameServerConfigGroup> {

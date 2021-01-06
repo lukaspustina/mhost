@@ -8,13 +8,13 @@ use clap::ArgMatches;
 use crate::app::output::json::JsonOptions;
 use crate::app::output::summary::SummaryOptions;
 use crate::app::output::{OutputConfig, OutputType};
-use crate::resolver::{Mode, ResolverOpts};
+use crate::resolver::Mode;
 
 #[derive(Debug)]
 pub struct AppConfig {
     pub list_predefined: bool,
     pub max_concurrent_servers: usize,
-    pub ignore_system_resolv_opt: bool,
+    pub use_system_resolv_opt: bool,
     pub retries: usize,
     pub max_concurrent_requests: usize,
     pub timeout: Duration,
@@ -53,7 +53,7 @@ impl TryFrom<&ArgMatches<'_>> for AppConfig {
                 .value_of("max-concurrent-servers")
                 .map(|x| usize::from_str(x).context("failed to parse max-concurrent-servers"))
                 .unwrap()?, // Safe unwrap, because clap's validation
-            ignore_system_resolv_opt: args.is_present("no-system-resolv-opt"),
+            use_system_resolv_opt: args.is_present("use-system-resolv-opt"),
             retries: args
                 .value_of("retries")
                 .map(|x| usize::from_str(x).context("failed to parse retries"))
@@ -104,20 +104,6 @@ impl TryFrom<&ArgMatches<'_>> for AppConfig {
         };
 
         Ok(config)
-    }
-}
-
-impl AppConfig {
-    pub fn resolver_opts(&self, default_opts: ResolverOpts) -> ResolverOpts {
-        ResolverOpts {
-            retries: self.retries,
-            max_concurrent_requests: self.max_concurrent_requests,
-            timeout: self.timeout,
-            expects_multiple_responses: self.expects_multiple_responses,
-            abort_on_error: self.abort_on_error,
-            abort_on_timeout: self.abort_on_timeout,
-            ..default_opts
-        }
     }
 }
 

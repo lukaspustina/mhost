@@ -34,7 +34,7 @@ _mhost() {
 '-o+[Sets the output format for result presentation]: :(json summary)' \
 '--output=[Sets the output format for result presentation]: :(json summary)' \
 '*--output-options=[Sets output options]' \
-'--no-system-resolv-opt[Ignores options set in /etc/resolv.conf]' \
+'--use-system-resolv-opt[Uses options set in /etc/resolv.conf]' \
 '--no-system-nameservers[Ignores nameservers from /etc/resolv.conf]' \
 '-S[Ignores system nameservers for lookups]' \
 '--no-system-lookups[Ignores system nameservers for lookups]' \

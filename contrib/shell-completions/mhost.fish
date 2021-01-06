@@ -13,7 +13,7 @@ complete -c mhost -n "__fish_use_subcommand" -l timeout -d 'Sets timeout in seco
 complete -c mhost -n "__fish_use_subcommand" -s m -l resolvers-mode -d 'Sets resolvers lookup mode' -r -f -a "multi uni"
 complete -c mhost -n "__fish_use_subcommand" -s o -l output -d 'Sets the output format for result presentation' -r -f -a "json summary"
 complete -c mhost -n "__fish_use_subcommand" -l output-options -d 'Sets output options'
-complete -c mhost -n "__fish_use_subcommand" -l no-system-resolv-opt -d 'Ignores options set in /etc/resolv.conf'
+complete -c mhost -n "__fish_use_subcommand" -l use-system-resolv-opt -d 'Uses options set in /etc/resolv.conf'
 complete -c mhost -n "__fish_use_subcommand" -l no-system-nameservers -d 'Ignores nameservers from /etc/resolv.conf'
 complete -c mhost -n "__fish_use_subcommand" -s S -l no-system-lookups -d 'Ignores system nameservers for lookups'
 complete -c mhost -n "__fish_use_subcommand" -s p -l predefined -d 'Adds predefined nameservers for lookups'
