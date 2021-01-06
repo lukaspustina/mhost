@@ -1,4 +1,4 @@
-#[cfg(feature = "bin")]
+#[cfg(feature = "app")]
 pub mod app;
 pub mod diff;
 pub mod error;
