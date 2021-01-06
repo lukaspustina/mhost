@@ -1,3 +1,4 @@
+.PHONY: fuzz
 FUZZ_TIME=600
 
 all: check build test
@@ -15,13 +16,8 @@ test:
 	cargo test --bins --tests --all-features
 	cargo test --bins --tests --all-features -- --ignored
 
-fuzz: _cargo_fuzz
-	for i in $$(cargo fuzz list); do \
-		cargo +nightly fuzz run $$i -- -dict=./fuzz/dicts/$$i.txt -max_len=256 -max_total_time=${FUZZ_TIME} -print_funcs=10 -print_final_stats=1 -print_coverage=1 || exit -1; \
-	done
-
-_cargo_fuzz:
-	cargo-fuzz --version
+fuzz:
+	$(MAKE) -C fuzz fuzz -e FUZZ_TIME=${FUZZ_TIME}
 
 secure:
 	cargo audit 
