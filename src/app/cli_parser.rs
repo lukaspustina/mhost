@@ -297,7 +297,6 @@ fn subcommands() -> Vec<App<'static, 'static>> {
         discover_subcommand(),
         get_server_lists_subcommand(),
         lookup_subcommand(),
-        service_subcommand(),
         soa_check_subcommand(),
     ]
     .into_iter()
@@ -311,7 +310,7 @@ fn check_subcommand() -> App<'static, 'static> {
         .arg(
             Arg::with_name("domain name")
                 .index(1)
-                .value_name("NAME")
+                .value_name("DOMAIN NAME")
                 .next_line_help(false)
                 .help("domain name to check")
                 .long_help("* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de"),
@@ -336,7 +335,7 @@ fn discover_subcommand() -> App<'static, 'static> {
         .arg(
             Arg::with_name("domain name")
                 .index(1)
-                .value_name("NAME")
+                .value_name("DOMAIN NAME")
                 .next_line_help(false)
                 .help("domain name to discover")
                 .long_help("* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de"),
@@ -401,8 +400,8 @@ fn get_server_lists_subcommand() -> App<'static, 'static> {
                 .long_help(
                     r#"SERVER LIST SPEC as <SOURCE>[:OPTIONS,...]
 * 'public-dns' with options - cf. https://public-dns.info
-   Example: public-dns:de
   '<top level country domain>': options select servers from that country
+   Example: public-dns:de
 * 'opennic' with options; uses GeoIP to select servers - cf. https://www.opennic.org
    'anon' - only return servers with anonymized logs only; default is false
    'number=<1..>' - return up to 'number' servers; default is 10
@@ -431,21 +430,24 @@ fn lookup_subcommand() -> App<'static, 'static> {
             Arg::with_name("domain name")
                 .required_unless("list-predefined")
                 .index(1)
-                .value_name("DOMAIN NAME | IP ADDR | CIDR BLOCK")
+                .value_name("DOMAIN NAME | IP ADDR | CIDR BLOCK [| SERVICE SPEC]")
                 .next_line_help(false)
                 .help("domain name, IP address, or CIDR block to lookup")
                 .long_help(
-                    r#"domain name, IP address, or CIDR block to lookup"
+                    r#"domain name, IP address, CIDR block, or, if -s, SERVICE SPEC, to lookup"
 * DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de
 * IP ADDR may be any valid IPv4 or IPv4 address, e.g., 192.168.0.1
 * CIDR BLOCK may be any valid IPv4 or IPv6 subnet in CIDR notation, e.g., 192.168.0.1/24
   all valid IP addresses of a CIDR block will be queried for a reverse lookup
-  
+* SERVICE SPEC may be specified by name, protocol, and domain name, delimited by colons. If protocol is omitted, tcp is assumed, e.g.,
+  * dns:udp:example.com is _dns._udp.example.com
+  * smtp:tcp:example.com is _smtp._tcp.example.com
+  * smtp::example.com is _smtp._tcp.example.com  
 "#,
                 ),
         )
         .arg(
-            Arg::with_name("record types")
+            Arg::with_name("record-types")
                 .short("t")
                 .long("record-type")
                 .value_name("RECORD TYPE")
@@ -454,6 +456,7 @@ fn lookup_subcommand() -> App<'static, 'static> {
                 .use_delimiter(true)
                 .require_delimiter(true)
                 .default_value("A,AAAA,CNAME,MX")
+                .default_value_if("parse-as-service", None, "SRV")
                 .possible_values(SUPPORTED_RECORD_TYPES)
                 .help("Sets record type to lookup, will be ignored in case of IP address lookup"),
         )
@@ -464,27 +467,18 @@ fn lookup_subcommand() -> App<'static, 'static> {
                 .help("Enables lookups for all record types"),
         )
         .arg(
+            Arg::with_name("parse-as-service")
+                .short("s")
+                .long("service")
+                .conflicts_with("all-record-types")
+                .overrides_with("record-types")
+                .help("Parses ARG as service spec and set record type to SRV"),
+        )
+        .arg(
             Arg::with_name("whois")
                 .short("w")
                 .long("whois")
-                .help("Retrieves Whois information about A, AAAA, and PTR records."),
-        )
-}
-
-fn service_subcommand() -> App<'static, 'static> {
-    SubCommand::with_name("service")
-        .about("Looks up a service using convenient service specification")
-        .arg(
-            Arg::with_name("service spec")
-                .index(1)
-                .value_name("SERVICE SPEC")
-                .help("service spec to look up")
-                .long_help(r#"service name to look up
-Service specification may be specified by name, protocol, and domain name, delimited by colons. If protocol is omitted, tcp is assumed. Examples:
-* dns:udp:example.com is _dns._udp.example.com
-* smtp:tcp:example.com is _smtp._tcp.example.com
-* smtp::example.com is _smtp._tcp.example.com
-"#),
+                .help("Retrieves Whois information about A, AAAA, and PTR records"),
         )
 }
 

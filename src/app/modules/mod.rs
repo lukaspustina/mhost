@@ -9,7 +9,6 @@ pub mod check;
 pub mod discover;
 pub mod get_server_lists;
 pub mod lookup;
-pub mod service;
 pub mod soa_check;
 
 /** Return type for App modules that go through multiple steps

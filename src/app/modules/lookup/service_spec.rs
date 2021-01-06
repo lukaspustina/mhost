@@ -1,7 +1,30 @@
 use anyhow::{anyhow, Result};
 use nom::Err;
 
-use crate::app::modules::service::ServiceSpec;
+#[derive(Debug, PartialEq, Eq)]
+pub struct ServiceSpec {
+    service_name: String,
+    protocol: String,
+    domain_name: String,
+}
+
+impl ServiceSpec {
+    pub(crate) fn new<S: Into<String>, T: Into<String>, U: Into<String>>(
+        service_name: S,
+        protocol: T,
+        domain_name: U,
+    ) -> ServiceSpec {
+        ServiceSpec {
+            service_name: service_name.into(),
+            protocol: protocol.into(),
+            domain_name: domain_name.into(),
+        }
+    }
+
+    pub fn to_domain_name(&self) -> String {
+        format!("_{}._{}.{}", &self.service_name, &self.protocol, &self.domain_name)
+    }
+}
 
 #[allow(clippy::should_implement_trait)]
 impl ServiceSpec {
@@ -23,9 +46,8 @@ impl ServiceSpec {
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use spectral::prelude::*;
-
-    use crate::app::modules::service::ServiceSpec;
 
     #[test]
     fn smtp_tcp_example_com() {

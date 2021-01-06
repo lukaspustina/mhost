@@ -10,6 +10,7 @@ use tokio::time::Duration;
 use tracing::{debug, info};
 
 use crate::app::modules::lookup::config::LookupConfig;
+use crate::app::modules::lookup::service_spec::ServiceSpec;
 use crate::app::modules::{AppModule, Environment, PartialResult};
 use crate::app::output::summary::{SummaryFormatter, SummaryOptions};
 use crate::app::output::OutputType;
@@ -29,7 +30,13 @@ impl AppModule<LookupConfig> for Lookup {}
 impl Lookup {
     pub async fn init<'a>(app_config: &'a AppConfig, config: &'a LookupConfig) -> PartialResult<DnsLookups<'a>> {
         let env = Self::init_env(app_config, config)?;
-        let query = Lookup::build_query(&env.name_builder, &config.domain_name, &config.record_types)?;
+
+        let domain_name = if config.parse_as_service {
+            ServiceSpec::from_str(&config.domain_name)?.to_domain_name()
+        } else {
+            config.domain_name.clone()
+        };
+        let query = Lookup::build_query(&env.name_builder, &domain_name, &config.record_types)?;
         debug!("Querying: {:?}", query);
         let app_resolver = AppResolver::create_resolvers(app_config).await?;
 

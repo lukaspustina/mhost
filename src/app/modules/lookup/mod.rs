@@ -4,6 +4,9 @@ use anyhow::Result;
 use clap::ArgMatches;
 use tracing::info;
 
+use config::LookupConfig;
+use lookup::Lookup;
+
 use crate::app::modules::PartialResultExt;
 use crate::app::AppConfig;
 use crate::app::ExitStatus;
@@ -11,9 +14,7 @@ use crate::app::ExitStatus;
 pub mod config;
 #[allow(clippy::module_inception)]
 pub(crate) mod lookup;
-
-use config::LookupConfig;
-use lookup::Lookup;
+mod service_spec;
 
 pub async fn run(args: &ArgMatches<'_>, app_config: &AppConfig) -> Result<ExitStatus> {
     info!("lookup module selected.");

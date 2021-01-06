@@ -12,6 +12,7 @@ pub struct LookupConfig {
     pub domain_name: String,
     pub record_types: Vec<RecordType>,
     pub whois: bool,
+    pub parse_as_service: bool,
 }
 
 impl ModConfig for LookupConfig {
@@ -32,6 +33,7 @@ impl TryFrom<&ArgMatches<'_>> for LookupConfig {
                 .to_string(),
             record_types: record_types(&args)?,
             whois: args.is_present("whois"),
+            parse_as_service: args.is_present("parse-as-service"),
         };
 
         Ok(config)
@@ -47,7 +49,7 @@ fn record_types(args: &ArgMatches<'_>) -> Result<Vec<RecordType>> {
             .collect())
     } else {
         let args = args
-            .values_of("record types")
+            .values_of("record-types")
             .context("No record types for name lookup specified")?;
         parse_record_types(args)
     }
