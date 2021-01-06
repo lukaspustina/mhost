@@ -49,9 +49,22 @@ path = "fuzz_targets/afl_parsed_txt.rs"
 test = false
 doc = false
 
+[[bin]]
+name = "service_spec"
+path = "fuzz_targets/service_spec.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "afl_service_spec"
+path = "fuzz_targets/afl_service_spec.rs"
+test = false
+doc = false
+
 [dependencies]
 afl = "*"
 libfuzzer-sys = "0.3"
 
 [dependencies.mhost]
 path = ".."
+features = ["app"]

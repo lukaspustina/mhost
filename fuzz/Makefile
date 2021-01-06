@@ -8,6 +8,7 @@ fuzz_fuzz:
 	done
 
 fuzz_afl:
+	cargo afl build
 	for i in $$(cargo fuzz list | grep afl); do \
 		cargo afl fuzz -V ${FUZZ_TIME} -i ./afl-input/$$i -o ./$$i.out ./target/debug/$$i; \
 	done
