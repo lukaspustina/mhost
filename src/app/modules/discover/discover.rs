@@ -1,5 +1,4 @@
 use std::io::Write;
-use std::iter;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -165,7 +164,7 @@ impl<'a> WildcardCheck<'a> {
         );
         let mut rng = thread_rng();
         (0..number)
-            .map(|_| iter::repeat(()).map(|()| rng.sample(Alphanumeric)).take(len).collect())
+            .map(|_| (&mut rng).sample_iter(Alphanumeric).take(len).map(char::from).collect())
             .inspect(|x| debug!("Generated random domain name: '{}'", x))
             .collect()
     }

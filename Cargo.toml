@@ -40,9 +40,9 @@ ipnetwork = "0.17"
 lazy_static = "1.4"
 lru_time_cache = "0.11"
 nom = "5"
-rand = "0.7"
+rand = "0.8"
 # Sync with trust-dns-resolver and tokio if possible, to reduce dependencies to build and link
-reqwest = { version = "0.10", default-features = false, features = ["rustls-tls", "json", "trust-dns"] }
+reqwest = { version = "0.11", default-features = false, features = ["rustls-tls", "json", "trust-dns"] }
 pin-project = "1"
 resolv-conf = "0.7"
 tokio = { version = "1", features = ["full"] }
