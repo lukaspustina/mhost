@@ -26,8 +26,11 @@ impl GetServerLists {
         }
         let env = Self::init_env(app_config, config)?;
 
-        let opts: ServerListDownloaderOpts =
-            ServerListDownloaderOpts::new(app_config.max_concurrent_requests, app_config.abort_on_error);
+        let opts: ServerListDownloaderOpts = ServerListDownloaderOpts::new(
+            app_config.max_concurrent_requests,
+            app_config.abort_on_error,
+            app_config.timeout.clone(),
+        );
         let downloader = ServerListDownloader::new(opts);
 
         Ok(DownloadServerLists { env, downloader })

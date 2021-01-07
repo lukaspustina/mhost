@@ -51,8 +51,7 @@ async fn run() -> Result<ExitStatus> {
         Some("soa-check") => modules::soa_check::run(&args, &app_config).await,
         _ => {
             cli_parser::show_help();
-            // TODO: This should be CliParsingFailed, but then the lit test failed because of exit status != 0.
-            Ok(ExitStatus::Ok)
+            Ok(exit_subcommand_invalid())
         }
     };
     info!("Finished.");
@@ -65,6 +64,18 @@ pub fn list_predefined_nameservers(console: &Console) {
     for ns in predefined::nameserver_configs() {
         console.itemize(format!("{}", ns));
     }
+}
+
+// Release build
+#[cfg(not(debug_assertions))]
+fn exit_subcommand_invalid() -> ExitStatus {
+    ExitStatus::CliParsingFailed
+}
+
+// Debug build: Exit status should be CliParsingFailed, but then the lit test fails because of exit status != 0.
+#[cfg(debug_assertions)]
+fn exit_subcommand_invalid() -> ExitStatus {
+    ExitStatus::Ok
 }
 
 #[tokio::main]

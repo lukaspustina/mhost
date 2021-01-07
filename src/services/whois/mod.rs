@@ -11,6 +11,7 @@ use tracing::{debug, info, instrument, trace};
 pub use service::{Authority, GeoLocation, LocatedResource, Location, NetworkInfo, Whois};
 
 use crate::error::Errors;
+use crate::services::whois::service::RipeStatsClientOpts;
 use crate::services::{Error, Result};
 use crate::utils::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
 use crate::utils::serialize::ser_to_string;
@@ -96,15 +97,17 @@ impl MultiQuery {
 pub struct WhoisClientOpts {
     max_concurrent_requests: usize,
     abort_on_error: bool,
+    timeout: Duration,
     lru_size: Option<usize>,
     lru_ttl: Option<Duration>,
 }
 
 impl WhoisClientOpts {
-    pub fn new(max_concurrent_requests: usize, abort_on_error: bool) -> WhoisClientOpts {
+    pub fn new(max_concurrent_requests: usize, timeout: Duration, abort_on_error: bool) -> WhoisClientOpts {
         WhoisClientOpts {
             max_concurrent_requests,
             abort_on_error,
+            timeout,
             lru_size: None,
             lru_ttl: None,
         }
@@ -113,12 +116,14 @@ impl WhoisClientOpts {
     pub fn with_cache(
         max_concurrent_requests: usize,
         abort_on_error: bool,
+        timeout: Duration,
         cache_size: usize,
         cache_ttl: Duration,
     ) -> WhoisClientOpts {
         WhoisClientOpts {
             max_concurrent_requests,
             abort_on_error,
+            timeout,
             lru_size: Some(cache_size),
             lru_ttl: Some(cache_ttl),
         }
@@ -127,7 +132,7 @@ impl WhoisClientOpts {
 
 impl Default for WhoisClientOpts {
     fn default() -> Self {
-        WhoisClientOpts::new(8, true)
+        WhoisClientOpts::new(8, Duration::from_secs(5), true)
     }
 }
 
@@ -147,8 +152,11 @@ impl WhoisClient {
             }
             _ => None,
         };
+
+        let ripe_client_opts = RipeStatsClientOpts::new(opts.timeout.clone());
+
         WhoisClient {
-            inner: Arc::new(service::RipeStatsClient::new()),
+            inner: Arc::new(service::RipeStatsClient::new(ripe_client_opts)),
             opts: Arc::new(opts),
             lru_cache,
         }

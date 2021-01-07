@@ -120,7 +120,13 @@ impl<'a> Whois<'a> {
         let query_types = vec![QueryType::NetworkInfo, QueryType::GeoLocation, QueryType::Whois];
         let query = whois::MultiQuery::from_iter(ip_addresses, query_types);
 
-        let opts = WhoisClientOpts::with_cache(8, self.env.app_config.abort_on_error, 1024, Duration::from_secs(60));
+        let opts = WhoisClientOpts::with_cache(
+            8,
+            self.env.app_config.abort_on_error,
+            self.env.app_config.timeout.clone(),
+            1024,
+            Duration::from_secs(60),
+        );
         let whois_client = WhoisClient::new(opts);
 
         if self.env.console.show_partial_headers() {

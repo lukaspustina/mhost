@@ -16,7 +16,7 @@ pub enum ExitStatus {
     Ok = 0,
     /// CLI argument parsing failed.
     CliParsingFailed = 1,
-    /// CLI argument parsing failed.
+    /// Processing of CLI arguments failed.
     ConfigParsingFailed = 2,
     /// An unrecoverable error occurred. This is worst case and should not happen.
     UnrecoverableError = 3,

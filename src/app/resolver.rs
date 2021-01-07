@@ -206,8 +206,8 @@ pub fn load_resolver_group_opts(config: &AppConfig) -> Result<ResolverGroupOpts>
 pub fn load_resolver_opts(config: &AppConfig) -> Result<ResolverOpts> {
     let app_config_opts = ResolverOpts {
         ndots: config.ndots as usize,
-        // TODO: find useful value
-        preserve_intermediates: false,
+        // cf. trust_dns_resolver::config::ResolverOpts: Preserve all intermediate records in the lookup response, suchas CNAME records
+        preserve_intermediates: true,
         expects_multiple_responses: config.expects_multiple_responses,
         timeout: config.timeout,
         abort_on_error: config.abort_on_error,

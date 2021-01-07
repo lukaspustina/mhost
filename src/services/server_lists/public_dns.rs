@@ -1,7 +1,6 @@
 use std::convert::TryFrom;
 use std::net::IpAddr;
 use std::str::FromStr;
-use std::time::Duration;
 
 use serde::Deserialize;
 use tracing::trace;
@@ -38,8 +37,7 @@ pub async fn download(downloader: ServerListDownloader, spec: &PublicDns) -> Res
     let res = downloader
         .http_client
         .get(&url)
-        // TODO: This should come from opts
-        .timeout(Duration::from_secs(5))
+        .timeout(downloader.opts.timeout)
         .send()
         .await
         .map_err(|e| Error::HttpClientError {

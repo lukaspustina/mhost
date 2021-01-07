@@ -13,6 +13,7 @@ use crate::services::{Error, Result};
 use crate::utils::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
 use nom::lib::std::fmt::Formatter;
 use std::fmt;
+use std::time::Duration;
 
 mod opennic;
 mod parser;
@@ -115,19 +116,21 @@ impl fmt::Display for IPV {
 pub struct ServerListDownloaderOpts {
     max_concurrent_requests: usize,
     abort_on_error: bool,
+    timeout: Duration,
 }
 
 impl Default for ServerListDownloaderOpts {
     fn default() -> Self {
-        ServerListDownloaderOpts::new(8, true)
+        ServerListDownloaderOpts::new(8, true, Duration::from_secs(5))
     }
 }
 
 impl ServerListDownloaderOpts {
-    pub fn new(max_concurrent_requests: usize, abort_on_error: bool) -> ServerListDownloaderOpts {
+    pub fn new(max_concurrent_requests: usize, abort_on_error: bool, timeout: Duration) -> ServerListDownloaderOpts {
         ServerListDownloaderOpts {
             max_concurrent_requests,
             abort_on_error,
+            timeout,
         }
     }
 }

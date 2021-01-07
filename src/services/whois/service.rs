@@ -334,19 +334,39 @@ mod whois {
     }
 }
 
+#[derive(Debug)]
+pub struct RipeStatsClientOpts {
+    timeout: Duration,
+}
+
+impl Default for RipeStatsClientOpts {
+    fn default() -> Self {
+        RipeStatsClientOpts::new(Duration::from_secs(5))
+    }
+}
+
+impl RipeStatsClientOpts {
+    pub fn new(timeout: Duration) -> Self {
+        RipeStatsClientOpts { timeout }
+    }
+}
+
+#[derive(Debug)]
 pub struct RipeStatsClient {
+    opts: RipeStatsClientOpts,
     http_client: reqwest::Client,
 }
 
 impl Default for RipeStatsClient {
     fn default() -> Self {
-        Self::new()
+        Self::new(Default::default())
     }
 }
 
 impl RipeStatsClient {
-    pub fn new() -> RipeStatsClient {
+    pub fn new(opts: RipeStatsClientOpts) -> RipeStatsClient {
         RipeStatsClient {
+            opts,
             http_client: Client::new(),
         }
     }
@@ -377,8 +397,7 @@ impl RipeStatsClient {
         let res = self
             .http_client
             .get(url)
-            // TODO: This should come from opts
-            .timeout(Duration::from_secs(5))
+            .timeout(self.opts.timeout.clone())
             .query(query_params)
             .send()
             .await
@@ -415,7 +434,7 @@ mod tests {
     #[tokio::test]
     async fn geo_location() {
         crate::utils::tests::logging::init();
-        let client = RipeStatsClient::new();
+        let client = RipeStatsClient::new(Default::default());
         let ip_address = IpAddr::V4(Ipv4Addr::new(89, 0, 248, 55));
 
         let response = client.geo_location(ip_address).await;
@@ -426,7 +445,7 @@ mod tests {
     #[tokio::test]
     async fn network_info() {
         crate::utils::tests::logging::init();
-        let client = RipeStatsClient::new();
+        let client = RipeStatsClient::new(Default::default());
         let ip_address = IpAddr::V4(Ipv4Addr::new(89, 0, 248, 55));
 
         let response = client.network_info(ip_address).await;
@@ -437,7 +456,7 @@ mod tests {
     #[tokio::test]
     async fn whois() {
         crate::utils::tests::logging::init();
-        let client = RipeStatsClient::new();
+        let client = RipeStatsClient::new(Default::default());
         let ip_address = IpAddr::V4(Ipv4Addr::new(89, 0, 248, 55)).to_string();
 
         let response = client.whois(ip_address).await;
