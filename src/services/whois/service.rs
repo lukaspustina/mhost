@@ -397,7 +397,7 @@ impl RipeStatsClient {
         let res = self
             .http_client
             .get(url)
-            .timeout(self.opts.timeout.clone())
+            .timeout(self.opts.timeout)
             .query(query_params)
             .send()
             .await

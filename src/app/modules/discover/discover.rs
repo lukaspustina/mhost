@@ -18,8 +18,9 @@ use crate::app::resolver::AppResolver;
 use crate::app::utils::time;
 use crate::app::{output, AppConfig, ExitStatus};
 use crate::resolver::lookup::Uniquify;
-use crate::resolver::{Lookups, MultiQuery};
+use crate::resolver::{Lookup, Lookups, MultiQuery};
 use crate::{Name, RecordType};
+use nom::lib::std::collections::HashSet;
 
 pub struct Discover {}
 
@@ -152,7 +153,7 @@ impl<'a> WildcardCheck<'a> {
             domain_name: self.domain_name,
             app_resolver: self.app_resolver,
             run_time: self.run_time + run_time,
-            wildcard_resolutions: if lookups.has_records() { Some(lookups) } else { None },
+            wildcard_lookups: if lookups.has_records() { Some(lookups) } else { None },
             lookups: self.lookups,
         })
     }
@@ -176,7 +177,7 @@ pub struct WordlistLookups<'a> {
     domain_name: Name,
     app_resolver: AppResolver,
     run_time: Duration,
-    wildcard_resolutions: Option<Lookups>,
+    wildcard_lookups: Option<Lookups>,
     lookups: Lookups,
 }
 
@@ -220,17 +221,25 @@ impl<'a> WordlistLookups<'a> {
             env: self.env,
             domain_name: self.domain_name,
             run_time: self.run_time + run_time,
-            wildcard_resolutions: self.wildcard_resolutions,
+            wildcard_lookups: self.wildcard_lookups,
             lookups,
         })
     }
 
     fn filter_wildcard_responses(&self, lookups: Lookups) -> Lookups {
-        if let Some(ref wildcards) = self.wildcard_resolutions {
-            let wildcard_ips = wildcards.ips().unique().to_owned();
+        if let Some(ref wildcards) = self.wildcard_lookups {
+            // These are the resolutions we've received during the wildcard check
+            let wildcard_recods = wildcards.records();
+            let wildcard_resolutions = wildcard_recods.iter().unique().iter().map(|x| x.rdata()).collect();
+
+            // If a wordlist resolution points to a wildcard resolution, then it is a wildcard resolution by itself.
             let lookups = lookups
                 .into_iter()
-                .filter(|lookup| lookup.ips().unique().to_owned().is_disjoint(&wildcard_ips))
+                .filter(|lookup: &Lookup| {
+                    let records = lookup.records();
+                    let set: HashSet<_> = records.iter().unique().iter().map(|x| x.rdata()).collect();
+                    set.is_disjoint(&wildcard_resolutions)
+                })
                 .collect();
             Lookups::new(lookups)
         } else {
@@ -257,7 +266,7 @@ pub struct OutputDiscoverResult<'a> {
     env: Environment<'a, DiscoverConfig>,
     domain_name: Name,
     run_time: Duration,
-    wildcard_resolutions: Option<Lookups>,
+    wildcard_lookups: Option<Lookups>,
     lookups: Lookups,
 }
 
@@ -281,7 +290,7 @@ impl<'a> OutputDiscoverResult<'a> {
             }
         }
         let data = Json {
-            wildcard_resolutions: self.wildcard_resolutions,
+            wildcard_resolutions: self.wildcard_lookups,
             lookups: self.lookups,
         };
 
@@ -291,22 +300,20 @@ impl<'a> OutputDiscoverResult<'a> {
 
     fn summary_output(self) -> PartialResult<ExitStatus> {
         let empty = Lookups::empty();
-        let all_lookups = self
-            .lookups
-            .combine(self.wildcard_resolutions.as_ref().unwrap_or(&empty));
+        let all_lookups = self.lookups.combine(self.wildcard_lookups.as_ref().unwrap_or(&empty));
 
         self.env.console.print_finished();
         if self.env.console.not_quiet() {
             self.env.console.print_statistics(&all_lookups, self.run_time);
             self.print_wildcard();
         }
-        self.print_fancy_names();
+        self.print_fancy_names(&all_lookups);
 
         Ok(ExitStatus::Ok)
     }
 
     fn print_wildcard(&self) {
-        if let Some(ref wildcard) = self.wildcard_resolutions {
+        if let Some(ref wildcard) = self.wildcard_lookups {
             let uniq_responses = wildcard.ips().unique().len();
             self.env.console.attention(format!(
                 "Wildcard resolution discovered: {} unique {} for {} random sub {}",
@@ -324,14 +331,14 @@ impl<'a> OutputDiscoverResult<'a> {
         }
     }
 
-    fn print_fancy_names(&self) {
+    fn print_fancy_names(&self, lookups: &Lookups) {
         let mut names = if self.env.mod_config.subdomains_only {
-            self.unique_names()
+            self.unique_names(lookups)
                 .into_iter()
                 .filter(|x| self.domain_name.zone_of(x))
                 .collect()
         } else {
-            self.unique_names()
+            self.unique_names(lookups)
         };
         names.sort();
         for name in names {
@@ -339,13 +346,13 @@ impl<'a> OutputDiscoverResult<'a> {
         }
     }
 
-    fn unique_names(&self) -> Vec<Name> {
+    fn unique_names(&self, lookups: &Lookups) -> Vec<Name> {
         let query_names = self
             .lookups
             .iter()
             .filter(|x| x.result().is_response())
             .map(|x| x.query().name());
-        self.lookups
+        lookups
             .records()
             .iter()
             .map(|x| x.associated_name())

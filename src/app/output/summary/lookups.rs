@@ -1,6 +1,4 @@
-use std::cmp::Eq;
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::time::Duration;
 
@@ -73,43 +71,15 @@ fn output_records<W: Write>(writer: &mut W, records: Vec<&Record>, opts: &Summar
 }
 
 fn summarize_records(records: Vec<&Record>) -> HashMap<&Record, Vec<&Record>> {
-    let mut records_set: HashMap<&NotTtlHashRecord, Vec<&NotTtlHashRecord>> = HashMap::new();
-    let nthrs: Vec<_> = records.into_iter().map(|x| NotTtlHashRecord(x)).collect();
-    for r in nthrs.iter() {
+    let mut records_set: HashMap<&Record, Vec<&Record>> = HashMap::new();
+    for r in records {
         let set = records_set.entry(r).or_insert_with(Vec::new);
         set.push(r)
     }
     records_set
         .into_iter()
-        .map(|(k, v)| (k.0, v.into_iter().map(|r| r.0).collect()))
+        .map(|(k, v)| (k, v.into_iter().collect()))
         .collect()
-}
-
-/// Newtype for Record to implement individual Hash algorithm
-#[derive(Eq)]
-struct NotTtlHashRecord<'a>(&'a Record);
-
-/// Implement individual Hash for Record in order to omit TTL: All record should be treated the same independently of their TTL.
-impl Hash for NotTtlHashRecord<'_> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        let r = self.0;
-        r.name().hash(state);
-        r.record_type().hash(state);
-        // Does not take r.ttl() into account
-        r.rdata().hash(state);
-    }
-}
-
-/// Implement individual PartialRq for Record in order to omit TTL: All record should be treated the same independently of their TTL.
-impl PartialEq for NotTtlHashRecord<'_> {
-    fn eq(&self, other: &Self) -> bool {
-        let r = self.0;
-        let other = other.0;
-        r.name() == other.name() &&
-            r.record_type() == other.record_type() &&
-            // Does not take r.ttl() into account
-            r.rdata() == other.rdata()
-    }
 }
 
 fn format_ttl_summary(summary: &crate::statistics::Summary<u32>, opts: &SummaryOptions) -> String {

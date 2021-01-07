@@ -153,7 +153,7 @@ impl WhoisClient {
             _ => None,
         };
 
-        let ripe_client_opts = RipeStatsClientOpts::new(opts.timeout.clone());
+        let ripe_client_opts = RipeStatsClientOpts::new(opts.timeout);
 
         WhoisClient {
             inner: Arc::new(service::RipeStatsClient::new(ripe_client_opts)),

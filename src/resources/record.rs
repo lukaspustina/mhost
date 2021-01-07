@@ -1,13 +1,29 @@
 use crate::resources::{RData, RecordType};
 use serde::Serialize;
+use std::hash::{Hash, Hasher};
 use trust_dns_resolver::Name;
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
+#[derive(Debug, Eq, Clone, Serialize)]
 pub struct Record {
     name: Name,
     rr_type: RecordType,
     ttl: u32,
     rdata: RData,
+}
+
+impl PartialEq for Record {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.rr_type == other.rr_type && self.rdata == other.rdata
+    }
+}
+
+impl Hash for Record {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name().hash(state);
+        self.record_type().hash(state);
+        // Do not take self.ttl() into account
+        self.rdata().hash(state);
+    }
 }
 
 impl Record {
