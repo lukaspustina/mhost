@@ -102,6 +102,7 @@ impl Wordlist {
         let file = File::open(path).await?;
         let mut buf_reader = BufReader::new(file);
 
+        let mut line_counter = 0;
         let mut words = Vec::new();
         loop {
             let mut buffer = String::new();
@@ -109,14 +110,16 @@ impl Wordlist {
             if len == 0 {
                 break;
             }
+            line_counter += 1;
             if Wordlist::is_comment(&buffer) {
                 continue;
             }
             trace!("Parsing wordlist item '{}'.", buffer);
-            let name: Name = buffer
-                .trim_end() // BufReader::read_line returns trainling line break
-                .into_name()
-                .context("failed to read word list because of invalid domain name")?;
+            let buffer = buffer.trim_end(); // BufReader::read_line returns trailing line break
+            let name: Name = buffer.into_name().context(format!(
+                "failed to read word list because of invalid domain name '{}' at line {}",
+                buffer, line_counter
+            ))?;
             words.push(name);
         }
 
@@ -135,9 +138,10 @@ impl Wordlist {
                 continue;
             }
             trace!("Parsing wordlist item '{}'.", line);
-            let name: Name = line
-                .into_name()
-                .context("failed to read word list because of invalid domain name")?;
+            let name: Name = line.into_name().context(format!(
+                "failed to read word list because of invalid domain name '{}'",
+                line
+            ))?;
             words.push(name);
         }
 
