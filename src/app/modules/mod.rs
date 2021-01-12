@@ -1,4 +1,6 @@
 use anyhow::Result;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::app::console::{Console, ConsoleOpts};
@@ -62,8 +64,30 @@ impl From<crate::services::error::Error> for PartialError {
     }
 }
 
+/// Information about the current execution of `mhost`
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RunInfo {
+    pub start_time: DateTime<Utc>,
+    pub command_line: String,
+    pub version: &'static str,
+}
+
+impl RunInfo {
+    pub fn now() -> Self {
+        // skip args[0] as it contains the bin name
+        let args: Vec<_> = std::env::args().skip(1).collect();
+        let command_line = args.join(" ");
+        RunInfo {
+            start_time: Utc::now(),
+            command_line,
+            version: env!("CARGO_PKG_VERSION"),
+        }
+    }
+}
+
 /// Pass environment like configs and console access from step to step
 pub struct Environment<'a, T> {
+    pub run_info: RunInfo,
     pub app_config: &'a AppConfig,
     pub mod_config: &'a T,
     pub console: Console,
@@ -78,6 +102,7 @@ impl<'a, T> Environment<'a, T> {
         name_builder: NameBuilder,
     ) -> Environment<'a, T> {
         Environment {
+            run_info: RunInfo::now(),
             app_config,
             mod_config,
             console,

@@ -1,16 +1,19 @@
 use anyhow::anyhow;
+use serde::Serialize;
 use tracing::info;
 
 use soa::Soa;
 
 use crate::app::modules::check::config::CheckConfig;
-use crate::app::modules::{AppModule, Environment, PartialError, PartialResult};
+use crate::app::modules::{AppModule, Environment, PartialError, PartialResult, RunInfo};
+use crate::app::output::summary::{SummaryFormatter, SummaryOptions};
 use crate::app::output::OutputType;
 use crate::app::resolver::AppResolver;
 use crate::app::utils::time;
-use crate::app::{AppConfig, ExitStatus};
+use crate::app::{output, AppConfig, ExitStatus};
 use crate::resolver::{Lookups, MultiQuery};
 use crate::{Name, RecordType};
+use std::io::Write;
 
 #[doc(hidden)]
 macro_rules! intermediate_lookups {
@@ -57,7 +60,7 @@ pub mod cnames;
 pub mod soa;
 pub mod spf;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct CheckResults {
     lookups: Lookups,
     soa: Option<Vec<CheckResult>>,
@@ -100,7 +103,7 @@ impl CheckResults {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Serialize)]
 pub enum CheckResult {
     NotFound(),
     Ok(String),
@@ -200,6 +203,33 @@ pub struct OutputCheckResults<'a> {
 
 impl<'a> OutputCheckResults<'a> {
     pub fn output(self) -> PartialResult<ExitStatus> {
+        match self.env.app_config.output {
+            OutputType::Json => self.json_output(),
+            OutputType::Summary => self.summary_output(),
+        }
+    }
+
+    fn json_output(self) -> PartialResult<ExitStatus> {
+        #[derive(Debug, Serialize)]
+        struct Json {
+            info: RunInfo,
+            check_results: CheckResults,
+        }
+        impl SummaryFormatter for Json {
+            fn output<W: Write>(&self, _: &mut W, _: &SummaryOptions) -> crate::Result<()> {
+                unimplemented!()
+            }
+        }
+        let data = Json {
+            info: self.env.run_info,
+            check_results: self.check_results,
+        };
+
+        output::output(&self.env.app_config.output_config, &data)?;
+        Ok(ExitStatus::Ok)
+    }
+
+    fn summary_output(self) -> PartialResult<ExitStatus> {
         self.env.console.print_finished();
 
         if self.check_results.has_failures() {

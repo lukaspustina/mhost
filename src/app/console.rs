@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::time::Duration;
 
+use serde::Serialize;
 use yansi::Paint;
 
 use crate::app::output::styles::{
@@ -16,7 +17,6 @@ use crate::resolver::{self, MultiQuery, ResolverGroup, ResolverGroupOpts, Resolv
 use crate::services::server_lists::ServerListSpec;
 use crate::services::whois;
 use crate::statistics::Statistics;
-use serde::Serialize;
 
 #[derive(Debug)]
 pub struct ConsoleOpts {
@@ -157,6 +157,7 @@ impl Console {
         }
     }
 
+    /// Print partial results in case they are not muted and output-type is not JSON
     pub fn print_partial_results<'a, T>(
         &self,
         output_config: &OutputConfig,
@@ -170,7 +171,7 @@ impl Console {
         if self.show_partial_headers() {
             self.print_statistics(results, run_time);
         }
-        if self.show_partial_results() {
+        if self.show_partial_results() && !matches!(output_config, OutputConfig::Json {..}) {
             output::output(output_config, results)?;
         }
         if self.show_errors() {

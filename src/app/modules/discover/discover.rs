@@ -11,7 +11,7 @@ use tracing::{debug, info};
 use crate::app::console::Fmt;
 use crate::app::modules::discover::config::DiscoverConfig;
 use crate::app::modules::discover::wordlist::Wordlist;
-use crate::app::modules::{AppModule, Environment, PartialResult};
+use crate::app::modules::{AppModule, Environment, PartialResult, RunInfo};
 use crate::app::output::summary::{SummaryFormat, SummaryFormatter, SummaryOptions};
 use crate::app::output::{OutputConfig, OutputType};
 use crate::app::resolver::AppResolver;
@@ -281,6 +281,7 @@ impl<'a> OutputDiscoverResult<'a> {
     fn json_output(self) -> PartialResult<ExitStatus> {
         #[derive(Debug, Serialize)]
         struct Json {
+            info: RunInfo,
             wildcard_resolutions: Option<Lookups>,
             lookups: Lookups,
         }
@@ -290,6 +291,7 @@ impl<'a> OutputDiscoverResult<'a> {
             }
         }
         let data = Json {
+            info: self.env.run_info,
             wildcard_resolutions: self.wildcard_lookups,
             lookups: self.lookups,
         };

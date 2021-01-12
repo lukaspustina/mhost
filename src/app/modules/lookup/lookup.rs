@@ -11,7 +11,7 @@ use tracing::{debug, info};
 
 use crate::app::modules::lookup::config::LookupConfig;
 use crate::app::modules::lookup::service_spec::ServiceSpec;
-use crate::app::modules::{AppModule, Environment, PartialResult};
+use crate::app::modules::{AppModule, Environment, PartialResult, RunInfo};
 use crate::app::output::summary::{SummaryFormatter, SummaryOptions};
 use crate::app::output::OutputType;
 use crate::app::resolver::{AppResolver, NameBuilder};
@@ -195,6 +195,7 @@ impl<'a> LookupResult<'a> {
     fn json_output(self) -> PartialResult<ExitStatus> {
         #[derive(Debug, Serialize)]
         struct Json {
+            info: RunInfo,
             lookups: Lookups,
             whois: Option<WhoisResponses>,
         }
@@ -204,6 +205,7 @@ impl<'a> LookupResult<'a> {
             }
         }
         let data = Json {
+            info: self.env.run_info,
             lookups: self.lookups,
             whois: self.whois,
         };
