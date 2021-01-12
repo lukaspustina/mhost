@@ -29,7 +29,7 @@ impl GetServerLists {
         let opts: ServerListDownloaderOpts = ServerListDownloaderOpts::new(
             app_config.max_concurrent_requests,
             app_config.abort_on_error,
-            app_config.timeout.clone(),
+            app_config.timeout,
         );
         let downloader = ServerListDownloader::new(opts);
 

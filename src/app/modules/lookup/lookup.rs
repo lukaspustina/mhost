@@ -123,7 +123,7 @@ impl<'a> Whois<'a> {
         let opts = WhoisClientOpts::with_cache(
             8,
             self.env.app_config.abort_on_error,
-            self.env.app_config.timeout.clone(),
+            self.env.app_config.timeout,
             1024,
             Duration::from_secs(60),
         );

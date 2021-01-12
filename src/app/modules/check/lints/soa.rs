@@ -165,7 +165,7 @@ impl<'a> Soa<'a> {
         let diffs = records.differences();
 
         let check = match diffs.map(|x| x.len()) {
-            Some(_) => CheckResult::Failed(format!("Looked up SOA records differ from authoritative SOA records")),
+            Some(_) => CheckResult::Failed("Looked up SOA records differ from authoritative SOA records".to_string()),
             None => CheckResult::Ok("Looked up SOA records match authoritative SOA records".to_string()),
         };
         results.push(check);
