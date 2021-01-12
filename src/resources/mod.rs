@@ -1,3 +1,10 @@
+// Copyright 2017-2021 Lukas Pustina <lukas@pustina.de>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
 //! Resources
 //!
 //! This is mostly a copy of the trust-dns' types in order to gain more control. Please see [Trust-DNS RR module](http://trust-dns.org/target/doc/trust_dns/rr/index.html)

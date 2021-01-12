@@ -1,3 +1,13 @@
+// Copyright 2017-2021 Lukas Pustina <lukas@pustina.de>
+//
+// Derived from trust-dns by Benjamin Fry <benjaminfry@me.com>
+// cf. https://github.com/bluejekyll/trust-dns
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
 use std::net::{Ipv4Addr, Ipv6Addr};
 
 use serde::Serialize;

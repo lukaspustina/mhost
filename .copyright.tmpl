@@ -4,15 +4,3 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-
-use serde::{de, Deserialize, Deserializer};
-use std::str::FromStr;
-
-pub fn des_f32_from_string<'de, D>(deserializer: D) -> Result<f32, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s = String::deserialize(deserializer)?;
-    let float = f32::from_str(&s).map_err(de::Error::custom)?;
-    Ok(float)
-}

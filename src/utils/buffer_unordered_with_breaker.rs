@@ -1,4 +1,11 @@
-/// Code stolen from futures crate -- https://docs.rs/futures-util/0.3.5/src/futures_util/stream/stream/buffer_unordered.rs.html#15-23
+// Copyright 2017-2021 Lukas Pustina <lukas@pustina.de>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
+//! Code stolen from futures crate -- https://docs.rs/futures-util/0.3.5/src/futures_util/stream/stream/buffer_unordered.rs.html#15-23
 use core::pin::Pin;
 
 use futures::stream::{Fuse, FuturesUnordered, StreamExt};
