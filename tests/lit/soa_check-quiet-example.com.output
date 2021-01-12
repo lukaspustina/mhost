@@ -1,3 +1,0 @@
-RUN: @mhost_bin --ascii --no-color -q soa-check example.com
-
-CHECK: = All SOA records in sync.

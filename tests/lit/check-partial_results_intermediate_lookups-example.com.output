@@ -1,0 +1,53 @@
+RUN: @mhost_bin --ascii --no-color check example.com -i -p
+
+CHECK: > Options: mode=multi, concurrent nameservers=10, max. nameservers=100, concurrent requests=5, retries=0, timeout=5s, ndots=1, abort on error, abort on timeout
+CHECK-NEXT: > Running DNS lookups for all available records.
+CHECK-NEXT: - Sending [[\d+]] requests to [[\d+]] nameserver[[s*]] for 14 record types of 1 name.
+CHECK-NEXT: - Received
+CHECK-NEXT: * SOA:
+CHECK-NEXT: * NS:
+CHECK-NEXT: * NS:
+CHECK-NEXT: * MX:
+CHECK-NEXT: * TXT:
+CHECK: * TXT:
+CHECK: * A:
+CHECK-NEXT: * AAAA:
+CHECK-NEXT: * DNSSEC:
+CHECK-NEXT: > Checking SOA lints
+CHECK-NEXT: * Authoritative SOA records
+CHECK-NEXT: - Sending [[\d+]] request[[s*]] to [[\d+]] nameserver[[s*]] for 1 record type of 1 name.
+CHECK-NEXT: - Received
+CHECK-NEXT: * NS:
+CHECK-NEXT: * NS:
+CHECK-NEXT: - Sending [[\d+]] request[[s*]] to [[\d+]] nameserver[[s*]] for 2 record types of 2 names.
+CHECK-NEXT: - Received
+CHECK-NEXT: * A:
+CHECK-NEXT: * A:
+CHECK-NEXT: * AAAA:
+CHECK-NEXT: * AAAA:
+CHECK-NEXT: - Sending [[\d+]] request[[s*]] to [[\d+]] nameserver[[s*]] for 1 record type of 1 name.
+CHECK-NEXT: - Received
+CHECK-NEXT: * SOA:
+CHECK-NEXT: * Comparing authoritative with looked up SOA records
+CHECK-NEXT: = All authoritative SOA records are in sync
+CHECK-NEXT: = Looked up SOA records match authoritative SOA records
+CHECK-NEXT: > Checking CNAME lints
+CHECK-NEXT: * Apex
+CHECK-NEXT: * MX
+CHECK-NEXT: - Sending [[\d+]] request[[s*]] to [[\d+]] nameserver[[s*]] for 1 record type of 1 name.
+CHECK-NEXT: - Received
+CHECK-NEXT: * SRV
+CHECK-NEXT: - Sending [[\d+]] request[[s*]] to [[\d+]] nameserver[[s*]] for 1 record type of 1 name.
+CHECK-NEXT: - Received
+CHECK-NEXT: * CNAME
+CHECK-NEXT: - Sending [[\d+]] request[[s*]] to [[\d+]] nameserver[[s*]] for 1 record type of 1 name.
+CHECK-NEXT: - Received
+CHECK-NEXT: = Apex zone without CNAME
+CHECK-NEXT: = MX do not point to CNAME
+CHECK-NEXT: = SRV do not point to CNAME
+CHECK-NEXT: = CNAME do not point to CNAME
+CHECK-NEXT: > Checking SPF TXT records lints
+CHECK-NEXT: = Found exactly one SPF record
+CHECK-NEXT: = Successfully parsed SPF record
+CHECK-NEXT: + Finished.
+CHECK-NEXT: = No issues found.

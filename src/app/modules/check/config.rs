@@ -7,8 +7,10 @@ use clap::ArgMatches;
 pub struct CheckConfig {
     pub domain_name: String,
     pub partial_results: bool,
-    pub spf: bool,
+    pub show_intermediate_lookups: bool,
     pub cnames: bool,
+    pub soa: bool,
+    pub spf: bool,
 }
 
 impl ModConfig for CheckConfig {
@@ -27,8 +29,10 @@ impl TryFrom<&ArgMatches<'_>> for CheckConfig {
                 .context("No domain name to lookup specified")?
                 .to_string(),
             partial_results: args.is_present("partial-results"),
-            spf: !args.is_present("no-spf"),
+            show_intermediate_lookups: args.is_present("show-intermediate-lookups"),
             cnames: !args.is_present("no-cnames"),
+            soa: !args.is_present("no-soa"),
+            spf: !args.is_present("no-spf"),
         };
 
         Ok(config)

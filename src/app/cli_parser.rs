@@ -295,9 +295,8 @@ fn subcommands() -> Vec<App<'static, 'static>> {
     vec![
         check_subcommand(),
         discover_subcommand(),
-        get_server_lists_subcommand(),
         lookup_subcommand(),
-        soa_check_subcommand(),
+        server_lists_subcommand(),
     ]
     .into_iter()
     .map(|x| x.version(env!("CARGO_PKG_VERSION")).author(env!("CARGO_PKG_AUTHORS")))
@@ -310,6 +309,7 @@ fn check_subcommand() -> App<'static, 'static> {
         .arg(
             Arg::with_name("domain name")
                 .index(1)
+                .required(true)
                 .value_name("DOMAIN NAME")
                 .next_line_help(false)
                 .help("domain name to check")
@@ -321,12 +321,20 @@ fn check_subcommand() -> App<'static, 'static> {
                 .long("show-partial-results")
                 .help("Shows results after each check step"),
         )
-        .arg(Arg::with_name("no-spf").long("no-spf").help("Does not run SPF check"))
+        .arg(
+            Arg::with_name("show-intermediate-lookups")
+                .short("i")
+                .long("show-intermediate-lookups")
+                .requires("partial-results")
+                .help("Shows all lookups made during by all checks"),
+        )
         .arg(
             Arg::with_name("no-cnames")
                 .long("no-cnames")
                 .help("Does not run cname lints"),
         )
+        .arg(Arg::with_name("no-soa").long("no-soa").help("Does not run SOA check"))
+        .arg(Arg::with_name("no-spf").long("no-spf").help("Does not run SPF check"))
 }
 
 fn discover_subcommand() -> App<'static, 'static> {
@@ -334,6 +342,7 @@ fn discover_subcommand() -> App<'static, 'static> {
         .about("Discovers records of a domain using multiple heuristics")
         .arg(
             Arg::with_name("domain name")
+                .required(true)
                 .index(1)
                 .value_name("DOMAIN NAME")
                 .next_line_help(false)
@@ -383,43 +392,6 @@ fn discover_subcommand() -> App<'static, 'static> {
                 .short("s")
                 .long("subdomains-only")
                 .help("Shows subdomains only omitting all other discovered names"),
-        )
-}
-
-fn get_server_lists_subcommand() -> App<'static, 'static> {
-    SubCommand::with_name("get-server-lists")
-        .about("Downloads known lists of name servers")
-        .arg(
-            Arg::with_name("server_list_spec")
-                .index(1)
-                .value_name("SERVER LIST SPEC")
-                .multiple(true)
-                .required(true)
-                .next_line_help(false)
-                .help("server list specification")
-                .long_help(
-                    r#"SERVER LIST SPEC as <SOURCE>[:OPTIONS,...]
-* 'public-dns' with options - cf. https://public-dns.info
-  '<top level country domain>': options select servers from that country
-   Example: public-dns:de
-* 'opennic' with options; uses GeoIP to select servers - cf. https://www.opennic.org
-   'anon' - only return servers with anonymized logs only; default is false
-   'number=<1..>' - return up to 'number' servers; default is 10
-   'reliability=<1..100> - only return server with reliability of 'reliability'% or more; default 95
-   'ipv=<4|6|all> - return IPv4, IPv6, or both servers; default all
-    Example: opennic:anon,number=10,ipv=4
-    
-"#,
-                ),
-        )
-        .arg(
-            Arg::with_name("output-file")
-                .short("o")
-                .long("output-file")
-                .required(true)
-                .value_name("FILE")
-                .takes_value(true)
-                .help("Sets path to output file"),
         )
 }
 
@@ -482,22 +454,40 @@ fn lookup_subcommand() -> App<'static, 'static> {
         )
 }
 
-fn soa_check_subcommand() -> App<'static, 'static> {
-    SubCommand::with_name("soa-check")
-        .about("Checks SOA records of authoritative name servers for deviations")
+fn server_lists_subcommand() -> App<'static, 'static> {
+    SubCommand::with_name("server-lists")
+        .about("Downloads known lists of name servers")
         .arg(
-            Arg::with_name("domain name")
+            Arg::with_name("server_list_spec")
                 .index(1)
-                .value_name("DOMAIN NAME")
+                .value_name("SERVER LIST SPEC")
+                .multiple(true)
+                .required(true)
                 .next_line_help(false)
-                .help("domain name to check")
-                .long_help("domain name to check; DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de"),
+                .help("server list specification")
+                .long_help(
+                    r#"SERVER LIST SPEC as <SOURCE>[:OPTIONS,...]
+* 'public-dns' with options - cf. https://public-dns.info
+  '<top level country domain>': options select servers from that country
+   Example: public-dns:de
+* 'opennic' with options; uses GeoIP to select servers - cf. https://www.opennic.org
+   'anon' - only return servers with anonymized logs only; default is false
+   'number=<1..>' - return up to 'number' servers; default is 10
+   'reliability=<1..100> - only return server with reliability of 'reliability'% or more; default 95
+   'ipv=<4|6|all> - return IPv4, IPv6, or both servers; default all
+    Example: opennic:anon,number=10,ipv=4
+    
+"#,
+                ),
         )
         .arg(
-            Arg::with_name("partial-results")
-                .short("p")
-                .long("show-partial-results")
-                .help("Shows results after each lookup step"),
+            Arg::with_name("output-file")
+                .short("o")
+                .long("output-file")
+                .required(true)
+                .value_name("FILE")
+                .takes_value(true)
+                .help("Sets path to output file"),
         )
 }
 

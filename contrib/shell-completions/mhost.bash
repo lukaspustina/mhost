@@ -19,14 +19,11 @@ _mhost() {
             discover)
                 cmd+="__discover"
                 ;;
-            get-server-lists)
-                cmd+="__get__server__lists"
-                ;;
             lookup)
                 cmd+="__lookup"
                 ;;
-            soa-check)
-                cmd+="__soa__check"
+            server-lists)
+                cmd+="__server__lists"
                 ;;
             *)
                 ;;
@@ -35,7 +32,7 @@ _mhost() {
 
     case "${cmd}" in
         mhost)
-            opts=" -S -p -q -v -h -V -s -f -m -o  --use-system-resolv-opt --no-system-nameservers --no-system-lookups --predefined --list-predefined --wait-multiple-responses --no-abort-on-error --no-abort-on-timeout --no-aborts --show-errors --quiet --no-color --ascii --debug --help --version --resolv-conf --ndots --search-domain --system-nameserver --nameserver --predefined-filter --nameservers-from-file --limit --max-concurrent-servers --max-concurrent-requests --retries --timeout --resolvers-mode --output --output-options   check discover get-server-lists lookup soa-check"
+            opts=" -S -p -q -v -h -V -s -f -m -o  --use-system-resolv-opt --no-system-nameservers --no-system-lookups --predefined --list-predefined --wait-multiple-responses --no-abort-on-error --no-abort-on-timeout --no-aborts --show-errors --quiet --no-color --ascii --debug --help --version --resolv-conf --ndots --search-domain --system-nameserver --nameserver --predefined-filter --nameservers-from-file --limit --max-concurrent-servers --max-concurrent-requests --retries --timeout --resolvers-mode --output --output-options   check discover lookup server-lists"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -127,7 +124,7 @@ _mhost() {
             ;;
         
         mhost__check)
-            opts=" -p -h -V  --show-partial-results --no-spf --no-cnames --help --version  <DOMAIN NAME> "
+            opts=" -p -i -h -V  --show-partial-results --show-intermediate-lookups --no-cnames --no-soa --no-spf --help --version  <DOMAIN NAME> "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -172,29 +169,6 @@ _mhost() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        mhost__get__server__lists)
-            opts=" -h -V -o  --help --version --output-file  <SERVER LIST SPEC>... "
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                
-                --output-file)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                    -o)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
         mhost__lookup)
             opts=" -s -w -h -V -t  --all --service --whois --help --version --record-type  <DOMAIN NAME | IP ADDR | CIDR BLOCK [| SERVICE SPEC]> "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
@@ -218,14 +192,22 @@ _mhost() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        mhost__soa__check)
-            opts=" -p -h -V  --show-partial-results --help --version  <DOMAIN NAME> "
+        mhost__server__lists)
+            opts=" -h -V -o  --help --version --output-file  <SERVER LIST SPEC>... "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 
+                --output-file)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                    -o)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;

@@ -69,13 +69,16 @@ _mhost() {
 _arguments "${_arguments_options[@]}" \
 '-p[Shows results after each check step]' \
 '--show-partial-results[Shows results after each check step]' \
-'--no-spf[Does not run SPF check]' \
+'-i[Shows all lookups made during by all checks]' \
+'--show-intermediate-lookups[Shows all lookups made during by all checks]' \
 '--no-cnames[Does not run cname lints]' \
+'--no-soa[Does not run SOA check]' \
+'--no-spf[Does not run SPF check]' \
 '-h[Prints help information]' \
 '--help[Prints help information]' \
 '-V[Prints version information]' \
 '--version[Prints version information]' \
-'::domain name -- domain name to check:_files' \
+':domain name -- domain name to check:_files' \
 && ret=0
 ;;
 (discover)
@@ -92,18 +95,7 @@ _arguments "${_arguments_options[@]}" \
 '--help[Prints help information]' \
 '-V[Prints version information]' \
 '--version[Prints version information]' \
-'::domain name -- domain name to discover:_files' \
-&& ret=0
-;;
-(get-server-lists)
-_arguments "${_arguments_options[@]}" \
-'-o+[Sets path to output file]' \
-'--output-file=[Sets path to output file]' \
-'-h[Prints help information]' \
-'--help[Prints help information]' \
-'-V[Prints version information]' \
-'--version[Prints version information]' \
-':server_list_spec -- server list specification:_files' \
+':domain name -- domain name to discover:_files' \
 && ret=0
 ;;
 (lookup)
@@ -122,15 +114,15 @@ _arguments "${_arguments_options[@]}" \
 ':domain name -- domain name, IP address, or CIDR block to lookup:_files' \
 && ret=0
 ;;
-(soa-check)
+(server-lists)
 _arguments "${_arguments_options[@]}" \
-'-p[Shows results after each lookup step]' \
-'--show-partial-results[Shows results after each lookup step]' \
+'-o+[Sets path to output file]' \
+'--output-file=[Sets path to output file]' \
 '-h[Prints help information]' \
 '--help[Prints help information]' \
 '-V[Prints version information]' \
 '--version[Prints version information]' \
-'::domain name -- domain name to check:_files' \
+':server_list_spec -- server list specification:_files' \
 && ret=0
 ;;
         esac
@@ -143,9 +135,8 @@ _mhost_commands() {
     local commands; commands=(
         "check:Checks all available records for known misconfigurations or mistakes" \
 "discover:Discovers records of a domain using multiple heuristics" \
-"get-server-lists:Downloads known lists of name servers" \
 "lookup:Looks up a name, IP address or CIDR block" \
-"soa-check:Checks SOA records of authoritative name servers for deviations" \
+"server-lists:Downloads known lists of name servers" \
     )
     _describe -t commands 'mhost commands' commands "$@"
 }
@@ -163,13 +154,6 @@ _mhost__discover_commands() {
     )
     _describe -t commands 'mhost discover commands' commands "$@"
 }
-(( $+functions[_mhost__get-server-lists_commands] )) ||
-_mhost__get-server-lists_commands() {
-    local commands; commands=(
-        
-    )
-    _describe -t commands 'mhost get-server-lists commands' commands "$@"
-}
 (( $+functions[_mhost__lookup_commands] )) ||
 _mhost__lookup_commands() {
     local commands; commands=(
@@ -177,12 +161,12 @@ _mhost__lookup_commands() {
     )
     _describe -t commands 'mhost lookup commands' commands "$@"
 }
-(( $+functions[_mhost__soa-check_commands] )) ||
-_mhost__soa-check_commands() {
+(( $+functions[_mhost__server-lists_commands] )) ||
+_mhost__server-lists_commands() {
     local commands; commands=(
         
     )
-    _describe -t commands 'mhost soa-check commands' commands "$@"
+    _describe -t commands 'mhost server-lists commands' commands "$@"
 }
 
 _mhost "$@"

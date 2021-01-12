@@ -23,6 +23,8 @@ pub async fn run(args: &ArgMatches<'_>, app_config: &AppConfig) -> Result<ExitSt
         .await?
         .lookup_all_records()
         .await?
+        .soa()
+        .await?
         .cnames()
         .await?
         .spf()?

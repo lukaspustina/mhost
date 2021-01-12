@@ -1,23 +1,66 @@
 use anyhow::anyhow;
 use tracing::info;
 
+use soa::Soa;
+
 use crate::app::modules::check::config::CheckConfig;
 use crate::app::modules::{AppModule, Environment, PartialError, PartialResult};
 use crate::app::output::OutputType;
 use crate::app::resolver::AppResolver;
+use crate::app::utils::time;
 use crate::app::{AppConfig, ExitStatus};
 use crate::resolver::{Lookups, MultiQuery};
 use crate::{Name, RecordType};
 
-pub mod cnames;
-pub mod spf;
+#[doc(hidden)]
+macro_rules! intermediate_lookups {
+    ($Self:ident, $query:ident, resolver: $resolver:ident, $msg:expr, $($args:ident),*) => {{
+        __intermediate_lookups!(Slf: $Self, query: $query, resolver: $resolver, msg: $msg, $($args),*)
+    }};
+    ($Self:ident, $query:ident, resolver: $resolver:ident, $msg:expr) => {{
+        __intermediate_lookups!(Slf: $Self, query: $query, resolver: $resolver, msg: $msg,)
+    }};
+    ($Self:ident, $query:ident, $msg:expr, $($args:ident),*) => {{
+        let resolver = &$Self.app_resolver;
+        __intermediate_lookups!(Slf: $Self, query: $query, resolver: resolver, msg: $msg, $($args),*)
+    }};
+    ($Self:ident, $query:ident, $msg:expr) => {{
+        let resolver = &$Self.app_resolver;
+        __intermediate_lookups!(Slf: $Self, query: $query, resolver: resolver, msg: $msg,)
+    }};
+}
 
-use crate::app::utils::time;
-use cnames::Cnames;
+macro_rules! __intermediate_lookups {
+    (Slf: $Self:ident, query: $query:ident, resolver: $resolver:ident, msg: $msg:expr, $($args:ident),*) => {
+        {
+            let query: MultiQuery = $query;
+            if $Self.env.console.show_partial_headers() && $Self.env.mod_config.show_intermediate_lookups {
+                $Self.env.console.print_lookup_estimates(&$resolver.resolvers(), &query);
+            }
+
+            info!($msg, $($args),*);
+            let (lookups, run_time) = time($resolver.lookup(query)).await?;
+            info!("Finished Lookups.");
+
+            if $Self.env.mod_config.show_intermediate_lookups {
+                $Self
+                    .env
+                    .console
+                    .print_partial_results(&$Self.env.app_config.output_config, &lookups, run_time)?;
+            }
+            lookups
+        }
+    };
+}
+
+pub mod cnames;
+pub mod soa;
+pub mod spf;
 
 #[derive(Debug)]
 pub struct CheckResults {
     lookups: Lookups,
+    soa: Option<Vec<CheckResult>>,
     cnames: Option<Vec<CheckResult>>,
     spf: Option<Vec<CheckResult>>,
 }
@@ -26,26 +69,33 @@ impl CheckResults {
     pub fn new(lookups: Lookups) -> CheckResults {
         CheckResults {
             lookups,
+            soa: None,
             spf: None,
             cnames: None,
         }
-    }
-
-    pub fn spf(self, spf: Option<Vec<CheckResult>>) -> CheckResults {
-        CheckResults { spf, ..self }
     }
 
     pub fn cnames(self, cnames: Option<Vec<CheckResult>>) -> CheckResults {
         CheckResults { cnames, ..self }
     }
 
+    pub fn soa(self, soa: Option<Vec<CheckResult>>) -> CheckResults {
+        CheckResults { soa, ..self }
+    }
+
+    pub fn spf(self, spf: Option<Vec<CheckResult>>) -> CheckResults {
+        CheckResults { spf, ..self }
+    }
+
     pub fn has_warnings(&self) -> bool {
         (self.cnames.is_some() && self.cnames.as_ref().unwrap().iter().any(|x| x.is_warning()))
+            || (self.soa.is_some() && self.soa.as_ref().unwrap().iter().any(|x| x.is_warning()))
             || (self.spf.is_some() && self.spf.as_ref().unwrap().iter().any(|x| x.is_warning()))
     }
 
     pub fn has_failures(&self) -> bool {
         (self.cnames.is_some() && self.cnames.as_ref().unwrap().iter().any(|x| x.is_failed()))
+            || (self.soa.is_some() && self.soa.as_ref().unwrap().iter().any(|x| x.is_failed()))
             || (self.spf.is_some() && self.spf.as_ref().unwrap().iter().any(|x| x.is_failed()))
     }
 }
@@ -100,7 +150,7 @@ pub struct LookupAllThereIs<'a> {
 }
 
 impl<'a> LookupAllThereIs<'a> {
-    pub async fn lookup_all_records(self) -> PartialResult<Cnames<'a>> {
+    pub async fn lookup_all_records(self) -> PartialResult<Soa<'a>> {
         let record_types = {
             use RecordType::*;
             vec![
@@ -132,7 +182,7 @@ impl<'a> LookupAllThereIs<'a> {
 
         let check_results = CheckResults::new(lookups);
 
-        Ok(Cnames {
+        Ok(Soa {
             env: self.env,
             domain_name: self.domain_name,
             app_resolver: self.app_resolver,

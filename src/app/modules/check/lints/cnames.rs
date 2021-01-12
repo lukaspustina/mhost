@@ -28,18 +28,9 @@ macro_rules! record_lint {
 
             if self.env.console.show_partial_headers() {
                 self.env.console.itemize(&symbol);
-                self.env
-                    .console
-                    .print_lookup_estimates(&self.app_resolver.resolvers(), &query);
             }
 
-            info!("Running lookups for {} records of domain.", &symbol);
-            let (lookups, run_time) = time(self.app_resolver.lookup(query)).await?;
-            info!("Finished Lookups.");
-
-            self.env
-                .console
-                .print_partial_results(&self.env.app_config.output_config, &lookups, run_time)?;
+            let lookups = intermediate_lookups!(self, query, "Running lookups for {} records of domain.", symbol);
 
             if lookups.cname().is_empty() {
                 results.push(CheckResult::Ok(format!("{} do not point to CNAME", &symbol)));
