@@ -12,8 +12,7 @@ CHECK-NEXT: * TXT:
 CHECK: * TXT:
 CHECK: * A:
 CHECK-NEXT: * AAAA:
-CHECK-NEXT: * DNSSEC:
-CHECK-NEXT: > Checking SOA lints
+CHECK: > Checking SOA lints
 CHECK-NEXT: * Authoritative SOA records
 CHECK-NEXT: * Comparing authoritative with looked up SOA records
 CHECK-NEXT: = All authoritative SOA records are in sync
