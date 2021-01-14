@@ -22,8 +22,8 @@ mod get_server_lists;
 use get_server_lists::GetServerLists;
 
 pub async fn run(args: &ArgMatches<'_>, app_config: &AppConfig) -> Result<ExitStatus> {
-    info!("get-server-lists module selected.");
-    let args = args.subcommand_matches("get-server-lists").unwrap();
+    info!("server-lists module selected.");
+    let args = args.subcommand_matches("server-lists").unwrap();
     let config: DownloadServerListConfig = args.try_into()?;
 
     GetServerLists::init(app_config, &config)?
