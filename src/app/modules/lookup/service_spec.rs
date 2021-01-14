@@ -100,7 +100,7 @@ pub(crate) mod parser {
     }
 
     fn service(input: &str) -> IResult<&str, &str> {
-        let (input, str) = take_while(|c: char| c.is_alphanumeric())(input)?;
+        let (input, str) = take_while(|c: char| c.is_alphanumeric() || c == '-')(input)?;
 
         Ok((input, str))
     }

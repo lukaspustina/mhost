@@ -558,9 +558,13 @@ impl IntoLookup for std::result::Result<trust_dns_resolver::lookup::Lookup, Reso
     }
 }
 
-fn instant_to_utc(instant: Instant) -> DateTime<Utc> {
+fn instant_to_utc(valid_until: Instant) -> DateTime<Utc> {
     let now = Instant::now();
-    let duration = instant.duration_since(now);
+    let duration = if now >= valid_until {
+        Duration::from_secs(0)
+    } else {
+        valid_until.duration_since(now)
+    };
 
     Utc::now() + chrono::Duration::from_std(duration).unwrap() // Safe, because I know this is a valid duration
 }
