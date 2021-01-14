@@ -1,6 +1,6 @@
 [package]
 name = "mhost"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Lukas Pustina <lukas@pustina.de>"]
 edition = "2018"
 description = "More than host - uses multiple DNS servers massively parallel and compares results"
