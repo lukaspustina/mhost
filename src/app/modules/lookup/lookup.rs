@@ -203,7 +203,9 @@ impl<'a> LookupResult<'a> {
         #[derive(Debug, Serialize)]
         struct Json {
             info: RunInfo,
+            #[serde(flatten)]
             lookups: Lookups,
+            #[serde(flatten)]
             whois: Option<WhoisResponses>,
         }
         impl SummaryFormatter for Json {

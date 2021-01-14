@@ -94,7 +94,7 @@ impl Lookups {
             .iter()
             .flat_map(|x| x.result().response())
             .flat_map(|x| x.records())
-            .flat_map(|x| x.rdata().a())
+            .flat_map(|x| x.data().a())
             .cloned()
             .map(IpAddr::V4);
         let ipv6s = self
@@ -102,7 +102,7 @@ impl Lookups {
             .iter()
             .flat_map(|x| x.result().response())
             .flat_map(|x| x.records())
-            .flat_map(|x| x.rdata().aaaa())
+            .flat_map(|x| x.data().aaaa())
             .cloned()
             .map(IpAddr::V6);
         ipv4s.chain(ipv6s).collect()
@@ -123,7 +123,7 @@ impl Lookups {
 
     fn map_data<T, F: Fn(&RData) -> Option<&T>>(&self, mapper: F) -> Vec<&T> {
         map_response_records(self.map_responses())
-            .map(|x| mapper(x.rdata()))
+            .map(|x| mapper(x.data()))
             .flatten()
             .collect()
     }
@@ -279,7 +279,7 @@ macro_rules! lookup_data_accessor {
     ($method:ident, $out_type:ty) => {
         pub fn $method(&self) -> Vec<&$out_type> {
             map_response_records(self.result().response().into_iter())
-                .map(|x| x.rdata().$method())
+                .map(|x| x.data().$method())
                 .flatten()
                 .collect()
         }
@@ -319,7 +319,7 @@ impl Lookup {
             .response()
             .into_iter()
             .flat_map(|x| x.records())
-            .flat_map(|x| x.rdata().a())
+            .flat_map(|x| x.data().a())
             .cloned()
             .map(IpAddr::V4);
         let ipv6s = self
@@ -327,7 +327,7 @@ impl Lookup {
             .response()
             .into_iter()
             .flat_map(|x| x.records())
-            .flat_map(|x| x.rdata().aaaa())
+            .flat_map(|x| x.data().aaaa())
             .cloned()
             .map(IpAddr::V6);
         ipv4s.chain(ipv6s).collect()

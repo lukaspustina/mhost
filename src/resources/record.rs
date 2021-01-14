@@ -16,14 +16,15 @@ use trust_dns_resolver::Name;
 #[derive(Debug, Eq, Clone, Serialize)]
 pub struct Record {
     name: Name,
-    rr_type: RecordType,
+    #[serde(rename = "type")]
+    record_type: RecordType,
     ttl: u32,
-    rdata: RData,
+    data: RData,
 }
 
 impl PartialEq for Record {
     fn eq(&self, other: &Self) -> bool {
-        self.name == other.name && self.rr_type == other.rr_type && self.rdata == other.rdata
+        self.name == other.name && self.record_type == other.record_type && self.data == other.data
     }
 }
 
@@ -32,7 +33,7 @@ impl Hash for Record {
         self.name().hash(state);
         self.record_type().hash(state);
         // Do not take self.ttl() into account
-        self.rdata().hash(state);
+        self.data().hash(state);
     }
 }
 
@@ -43,7 +44,7 @@ impl Record {
 
     /// Name associated with this record. This is either the `Name` of the record or the `Name` the record points to.
     pub fn associated_name(&self) -> &Name {
-        match self.rdata {
+        match self.data {
             RData::A(_) => self.name(),
             RData::AAAA(_) => self.name(),
             RData::ANAME(ref x) => x,
@@ -68,15 +69,15 @@ impl Record {
     }
 
     pub fn record_type(&self) -> RecordType {
-        self.rr_type
+        self.record_type
     }
 
     pub fn ttl(&self) -> u32 {
         self.ttl
     }
 
-    pub fn rdata(&self) -> &RData {
-        &self.rdata
+    pub fn data(&self) -> &RData {
+        &self.data
     }
 }
 
@@ -85,9 +86,9 @@ impl From<&trust_dns_resolver::proto::rr::Record> for Record {
     fn from(record: &trust_dns_resolver::proto::rr::Record) -> Self {
         Record {
             name: record.name().clone(),
-            rr_type: record.rr_type().into(),
+            record_type: record.rr_type().into(),
             ttl: record.ttl(),
-            rdata: record.rdata().clone().into(),
+            data: record.rdata().clone().into(),
         }
     }
 }

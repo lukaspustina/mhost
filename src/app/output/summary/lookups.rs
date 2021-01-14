@@ -116,67 +116,62 @@ impl Rendering for Record {
     fn render_with_suffix(&self, suffix: &str, opts: &SummaryOptions) -> String {
         use styles::*;
         match self.record_type() {
-            RecordType::A => format!(
-                "{}:\t{}{}",
-                A.paint("A"),
-                self.rdata().a().unwrap().render(opts),
-                suffix
-            ),
+            RecordType::A => format!("{}:\t{}{}", A.paint("A"), self.data().a().unwrap().render(opts), suffix),
             RecordType::AAAA => format!(
                 "{}:\t{}{}",
                 AAAA.paint("AAAA"),
-                self.rdata().aaaa().unwrap().render(opts),
+                self.data().aaaa().unwrap().render(opts),
                 suffix
             ),
             RecordType::ANAME => format!(
                 "{}:\t{}{}",
                 NAME.paint("ANAME"),
-                self.rdata().cname().unwrap().render(opts),
+                self.data().cname().unwrap().render(opts),
                 suffix
             ),
             RecordType::CNAME => format!(
                 "{}:\t{}{}",
                 NAME.paint("CNAME"),
-                self.rdata().cname().unwrap().render(opts),
+                self.data().cname().unwrap().render(opts),
                 suffix
             ),
             RecordType::MX => format!(
                 "{}:\t{}{}",
                 MX.paint("MX"),
-                self.rdata().mx().unwrap().render(opts),
+                self.data().mx().unwrap().render(opts),
                 suffix
             ),
-            RecordType::NULL => format!("{}:\t{}{}", "NULL", self.rdata().null().unwrap().render(opts), suffix),
+            RecordType::NULL => format!("{}:\t{}{}", "NULL", self.data().null().unwrap().render(opts), suffix),
             RecordType::NS => format!(
                 "{}:\t{}{}",
                 NAME.paint("NS"),
-                self.rdata().ns().unwrap().render(opts),
+                self.data().ns().unwrap().render(opts),
                 suffix
             ),
             RecordType::PTR => format!(
                 "PTR:\t{}:\t{}{}",
                 self.name().to_ip_addr_string(),
-                self.rdata().ptr().unwrap().render(opts),
+                self.data().ptr().unwrap().render(opts),
                 suffix
             ),
             RecordType::SOA => format!(
                 "{}:\t{}{}",
                 SOA.paint("SOA"),
-                self.rdata().soa().unwrap().render(opts),
+                self.data().soa().unwrap().render(opts),
                 suffix
             ),
             RecordType::SRV => format!(
                 "{}:\t{}{}",
                 SRV.paint("SRV"),
-                self.rdata().srv().unwrap().render(opts),
+                self.data().srv().unwrap().render(opts),
                 suffix
             ),
             RecordType::TXT => format!(
                 "{}:\t{}",
                 TXT.paint("TXT"),
-                self.rdata().txt().unwrap().render_with_suffix(suffix, opts)
+                self.data().txt().unwrap().render_with_suffix(suffix, opts)
             ),
-            RecordType::Unknown(_) => format!("Unknown:\t{}{}", self.rdata().unknown().unwrap().render(opts), suffix),
+            RecordType::Unknown(_) => format!("Unknown:\t{}{}", self.data().unknown().unwrap().render(opts), suffix),
             rr_type => format!("{}:\t<not yet implemented>{}", rr_type, suffix),
         }
     }

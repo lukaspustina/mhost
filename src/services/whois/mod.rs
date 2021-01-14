@@ -401,6 +401,7 @@ impl WhoisResponse {
 
 #[derive(Debug, Serialize)]
 pub struct WhoisResponses {
+    #[serde(rename = "whois")]
     inner: Vec<WhoisResponse>,
 }
 

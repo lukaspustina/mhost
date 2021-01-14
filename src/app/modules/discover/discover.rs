@@ -237,14 +237,14 @@ impl<'a> WordlistLookups<'a> {
         if let Some(ref wildcards) = self.wildcard_lookups {
             // These are the resolutions we've received during the wildcard check
             let wildcard_recods = wildcards.records();
-            let wildcard_resolutions = wildcard_recods.iter().unique().iter().map(|x| x.rdata()).collect();
+            let wildcard_resolutions = wildcard_recods.iter().unique().iter().map(|x| x.data()).collect();
 
             // If a wordlist resolution points to a wildcard resolution, then it is a wildcard resolution by itself.
             let lookups = lookups
                 .into_iter()
                 .filter(|lookup: &Lookup| {
                     let records = lookup.records();
-                    let set: HashSet<_> = records.iter().unique().iter().map(|x| x.rdata()).collect();
+                    let set: HashSet<_> = records.iter().unique().iter().map(|x| x.data()).collect();
                     set.is_disjoint(&wildcard_resolutions)
                 })
                 .collect();
