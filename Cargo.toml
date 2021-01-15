@@ -49,7 +49,7 @@ clap = { version = "^2.27", optional = true }
 chrono = { version = "^0.4", optional = true }
 chrono-humanize = { version = "^0.0.10", optional = true }
 ansi_term = { version = "^0.9", optional = true }
-flexi_logger = { version = "^0.6", optional = true }
+flexi_logger = { version = "^0.17", optional = true }
 resolv-conf = { version = "^0.4", optional = true }
 tabwriter = { version = "^1.0", optional = true }
 
