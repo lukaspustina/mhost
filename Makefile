@@ -11,6 +11,9 @@ check:
 build:
 	cargo build --bins --tests --benches --examples --all-features
 
+build-release:
+	cargo build --bins --tests --benches --examples --all-features --release
+
 test:
 	cargo test --all-features --doc
 	cargo test --bins --tests --all-features
@@ -34,6 +37,7 @@ fmt-check:
 fmt:
 	cargo fmt
 
+
 install:
 	cargo install --all-features --path .
 
@@ -41,4 +45,8 @@ install:
 init:
 	brew install pre-commit
 	pre-commit install
+
+
+_rustup:
+	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
