@@ -44,6 +44,15 @@ pub struct AppConfig {
     pub resolvers_mode: Mode,
     pub output: OutputType,
     pub output_config: OutputConfig,
+    #[doc(hidden)]
+    pub max_worker_threads: Option<usize>,
+}
+
+impl AppConfig {
+    #[doc(hidden)]
+    pub fn max_worker_threads(&self) -> Option<usize> {
+        self.max_worker_threads
+    }
 }
 
 impl TryFrom<&ArgMatches<'_>> for AppConfig {
@@ -108,6 +117,9 @@ impl TryFrom<&ArgMatches<'_>> for AppConfig {
             resolvers_mode: args.value_of("resolvers-mode").map(|x| Mode::from_str(x)).unwrap()?, // Safe unwrap, because clap's validation
             output_config: output_config(output, &args)?,
             output,
+            max_worker_threads: args
+                .value_of("max-worker-threads")
+                .map(|x| usize::from_str(x).context("failed to parse limit").unwrap()),
         };
 
         Ok(config)

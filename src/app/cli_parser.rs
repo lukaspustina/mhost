@@ -295,6 +295,19 @@ Examples:
                 .long("debug")
                 .help("Uses debug formatting for logging -- much more verbose"),
         )
+        // This is a hidden parameter for debugging and experimentation only
+        .arg(
+            Arg::with_name("max-worker-threads")
+                .long("max-worker-threads")
+                .value_name("NUMBER")
+                .validator(|str| {
+                    usize::from_str(&str)
+                        .map(|_| ())
+                        .map_err(|_| "invalid number".to_string())
+                })
+                .hidden(true)
+                .help("Set the max. number of worker threads overriding derived value")
+        )
         .subcommands(subcommands())
 }
 

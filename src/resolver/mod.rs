@@ -276,6 +276,18 @@ impl ResolverGroup {
         let lookups = sliding_window_lookups(lookup_futures, self.opts.max_concurrent);
         let lookups = task::spawn(lookups).await?;
 
+        /*
+        let mut lookups = Vec::new();
+        for l in lookup_futures {
+            let r = task::spawn(l);
+            lookups.push(r);
+        }
+        let all = futures::future::join_all(lookups);
+        all.await;
+
+        let lookups = Lookups::new(Vec::new());
+        */
+
         Ok(lookups)
     }
 
@@ -340,9 +352,9 @@ async fn sliding_window_lookups(
         .await
         .drain(..)
         // This map and the consecutive flatten mask JoinErrors which occurred during the lookups. This is a conscious decision!
-        // It doesn't make send to panic (library wouldn't be resilient anymore), return _one_ error and abort by collecting the Vec
+        // It doesn't make sense to panic (library wouldn't be resilient anymore), return _one_ error and abort by collecting the Vec
         // what would be the semantic of that -- why to bother with catching errors in the first place in lookup.
-        // So the only reasonable ways are to ignore the errors or return Vec<Result<>>
+        // So the only reasonable way is to ignore the errors or return Vec<Result<>>
         .map(|l| l.ok())
         .flatten()
         .flatten()

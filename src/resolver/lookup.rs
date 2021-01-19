@@ -391,6 +391,14 @@ impl LookupResult {
         matches!(self, LookupResult::Error { .. })
     }
 
+    pub fn response_time(&self) -> Option<Duration> {
+        match self {
+            LookupResult::Response(x) => Some(x.response_time),
+            LookupResult::NxDomain(x) => Some(x.response_time),
+            LookupResult::Error(_) => None,
+        }
+    }
+
     pub fn response(&self) -> Option<&Response> {
         match self {
             LookupResult::Response(ref response) => Some(response),
@@ -495,12 +503,13 @@ async fn single_lookup(resolver: Resolver, query: UniQuery) -> Lookup {
         .into_lookup(start_time);
 
     info!(
-        "Received {}",
+        "Received {}, response time = {:?}",
         match &result {
             LookupResult::Response(response) => format!("response with {:?} records", response.records.len()),
             LookupResult::NxDomain(_) => "nonexistent domain".to_string(),
             LookupResult::Error(err) => format!("{:?} error", err),
-        }
+        },
+        result.response_time(),
     );
     trace!("Received {:?}", result);
 

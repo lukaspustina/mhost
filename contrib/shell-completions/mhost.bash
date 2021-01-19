@@ -32,7 +32,7 @@ _mhost() {
 
     case "${cmd}" in
         mhost)
-            opts=" -S -p -q -v -h -V -s -f -m -o  --use-system-resolv-opt --no-system-nameservers --no-system-lookups --predefined --list-predefined --wait-multiple-responses --no-abort-on-error --no-abort-on-timeout --no-aborts --show-errors --quiet --no-color --ascii --debug --help --version --resolv-conf --ndots --search-domain --system-nameserver --nameserver --predefined-filter --nameservers-from-file --limit --max-concurrent-servers --max-concurrent-requests --retries --timeout --resolvers-mode --output --output-options   check discover lookup server-lists"
+            opts=" -S -p -q -v -h -V -s -f -m -o  --use-system-resolv-opt --no-system-nameservers --no-system-lookups --predefined --list-predefined --wait-multiple-responses --no-abort-on-error --no-abort-on-timeout --no-aborts --show-errors --quiet --no-color --ascii --debug --help --version --resolv-conf --ndots --search-domain --system-nameserver --nameserver --predefined-filter --nameservers-from-file --limit --max-concurrent-servers --max-concurrent-requests --retries --timeout --resolvers-mode --output --output-options --max-worker-threads   check discover lookup server-lists"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -112,6 +112,10 @@ _mhost() {
                     return 0
                     ;;
                 --output-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --max-worker-threads)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
