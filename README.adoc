@@ -4,6 +4,9 @@
 
 A modern take on the classic `host` DNS lookup utility including an easy to use, and very fast Rust lookup library.
 
+https://github.com/lukaspustina/mhost/actions/[image:https://github.com/lukaspustina/mhost/workflows/CI%20build/badge.svg[CI build]] https://crates.io/crates/mhost[image:http://meritbadge.herokuapp.com/mhost[mhost on crates.io]] https://docs.rs/mhost[image:https://docs.rs/mhost/badge.svg[Documentation on docs.rs]] image:https://img.shields.io/badge/license-MIT-blue.svg[License: MIT] image:https://img.shields.io/badge/license-Apache_2.0-blue.svg[License: Apache 2.0]
+
+
 == Features
 
 * `mhost` is very fast and uses multiple DNS servers concurrently and aggregates all results for more reliable lookups.
