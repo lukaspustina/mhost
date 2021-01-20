@@ -105,7 +105,7 @@ mhost -p l --all 140.82.121.0/24
 
 image:doc/images/discover-as-github.png[Discover AS of github.com.]
 
-=== Check your DNS configuration is valid
+=== Check your name server configuration
 
 [source,bash]
 ----
@@ -240,7 +240,7 @@ make install
 
 === Architecture Design Records
 
-The subdirectory `doc/adr` contains Architecture Design Records (ADRs) for this project. Record keeping has started during the project so not all decisions have been recorded. I still hope they will help everybody interested including me to understand the rational of design decisions.
+The subdirectory file://doc/adr[doc/adr] contains Architecture Design Records (ADRs) for this project. Record keeping has started during the project so not all decisions have been recorded. I still hope they will help everybody interested including me to understand the rational of design decisions.
 
 == Changelog
 
@@ -260,10 +260,11 @@ Thanks to https://github.com/bluejekyll[Benjamin Fry] for his literally wonderfu
 
 You're free to use `mhost`. If you find it useful, I would highly appreciate you sending me a postcard from your hometown mentioning how you use `mhost`. My work address is
 
-`
+----
  Lukas Pustina
  CenterDevice GmbH
  Rheinwerkallee 3
  53227 Bonn
  Germany
-`
+----
+
