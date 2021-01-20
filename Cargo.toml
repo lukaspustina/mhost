@@ -5,12 +5,12 @@ authors = ["Lukas Pustina <lukas@pustina.de>"]
 edition = "2018"
 description = "More than host - A modern take on the classic host DNS lookup utility including an easy to use, and very fast Rust lookup library"
 repository = "https://github.com/lukaspustina/mhost.git"
-readme = "README.md"
+readme = "README.adoc"
 license = "MIT/Apache-2.0"
 categories = ["command-line-utilities"]
 keywords = ["network", "dns", "host", "dig", "cli"]
 include = [
-  "README.md",
+  "README.adoc",
   "LICENSE-APACHE",
   "LICENSE-MIT",
   "CHANGELOG.md",
