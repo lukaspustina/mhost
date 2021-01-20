@@ -21,8 +21,8 @@ For details see sections <<Use-Cases,Use Cases>> and <<Documentation,Documentati
 == Quick Start
 
 . Install `mhost` – see below for <<Installation,installation instructions>>.
-. Run `mhost -p l --all -w github.com` and you've just asked 16 name servers for all available DNS records of _github.com_ in 216 ms. And in addition you get the WHOIS information for GitHub's subnet.
-image:doc/images/multi-lookup-all-records-github.png[Multi lookup for all available records of github.com.]
+. Run `mhost -p l --all -w github.com` and you've just asked 16 name servers for all available DNS records of _github.com_ in 34 ms. And in addition you get the WHOIS information for GitHub's subnet.
+    image:doc/images/multi-lookup-all-records-github.png[Multi lookup for all available records of github.com.]
 . Run `mhost -q -p --output json l --all -w github.com  | jq &#39;.lookups[] | .result.Response.records[]? | select(.type == &quot;A&quot;) | .data.A&#39;` and get all IPv4 addresses.
 . Set shell alias `alias host=mhost l` to replace your system's `host` command.
 
