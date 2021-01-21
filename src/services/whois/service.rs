@@ -382,21 +382,25 @@ impl RipeStatsClient {
         let url = "https://stat.ripe.net/data/maxmind-geo-lite/data.json";
         let resource = ip_network.into().to_string();
 
-        self.do_call(url, &[("resource", &resource)]).await
+        self.do_call(url, &[("resource", &resource), ("sourceapp", "mhost")])
+            .await
     }
 
     pub async fn network_info<T: Into<IpNetwork>>(&self, ip_network: T) -> Result<Response<NetworkInfo>> {
         let url = "https://stat.ripe.net/data/network-info/data.json";
         let resource = ip_network.into().to_string();
 
-        self.do_call(url, &[("resource", &resource)]).await
+        self.do_call(url, &[("resource", &resource), ("sourceapp", "mhost")])
+            .await
     }
 
     pub async fn whois<T: Into<String>>(&self, resource: T) -> Result<Response<Whois>> {
         let url = "https://stat.ripe.net/data/whois/data.json";
         let resource = resource.into();
 
-        let response: Result<Response<whois::Whois>> = self.do_call(url, &[("resource", &resource)]).await;
+        let response: Result<Response<whois::Whois>> = self
+            .do_call(url, &[("resource", &resource), ("sourceapp", "mhost")])
+            .await;
         response.map(From::from)
     }
 
