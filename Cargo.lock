@@ -707,9 +707,9 @@ dependencies = [
 
 [[package]]
 name = "lru_time_cache"
-version = "0.11.4"
+version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0ab1dcfaaa052bdff4cf2faa2a7182f0171d4c5c3a7a5d103d1e0cc1546c80b"
+checksum = "78f957950068c53af3b32a1b3a6e69f6dd3c19fa6f0dcc1168b846662d5e10b1"
 
 [[package]]
 name = "match_cfg"
