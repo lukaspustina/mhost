@@ -663,9 +663,9 @@ checksum = "7fb9b38af92608140b86b693604b9ffcc5824240a484d1ecd4795bacb2fe88f3"
 
 [[package]]
 name = "lit"
-version = "1.0.2"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "300e3b2f77cc9432cb32d62702105ea360ce9234e473d04969888b85f105bf1f"
+checksum = "66b76696cc163f577c9c063e6b3cf4e6ed7e3b2cae9358eb0ecf92163ce82143"
 dependencies = [
  "clap",
  "error-chain",
