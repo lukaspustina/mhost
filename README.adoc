@@ -12,7 +12,7 @@ https://github.com/lukaspustina/mhost/actions/[image:https://github.com/lukaspus
 * `mhost` is very fast and uses multiple DNS servers concurrently and aggregates all results for more reliable lookups.
 * `mhost` supports classic DNS over UDP and TCP as well as modern DNS over TLS (DoT) and HTTP (DoH).
 * `mhost` presents results in an easy, human readable format or as JSON for post-processing.
-* `mhost` discovers host names and subdomains of any domain.
+* `mhost` discovers host names, subdomains of any domain, as well as IP subnets in CIDR notation.
 * `mhost` uses lints to validate the DNS configurations of any domain.
 * `mhost` offers an easy to use Rust library so you can use the same lookup capabilities in your own project.
 
