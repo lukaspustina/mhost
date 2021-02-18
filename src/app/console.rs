@@ -178,7 +178,7 @@ impl Console {
         if self.show_partial_headers() {
             self.print_statistics(results, run_time);
         }
-        if self.show_partial_results() && !matches!(output_config, OutputConfig::Json {..}) {
+        if self.show_partial_results() && !matches!(output_config, OutputConfig::Json { .. }) {
             output::output(output_config, results)?;
         }
         if self.show_errors() {
