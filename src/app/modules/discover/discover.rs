@@ -307,6 +307,7 @@ impl<'a> OutputDiscoverResult<'a> {
         Ok(ExitStatus::Ok)
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn summary_output(self) -> PartialResult<ExitStatus> {
         let empty = Lookups::empty();
         let all_lookups = self.lookups.combine(self.wildcard_lookups.as_ref().unwrap_or(&empty));

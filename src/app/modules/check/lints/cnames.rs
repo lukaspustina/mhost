@@ -102,6 +102,7 @@ impl<'a> Cnames<'a> {
     // This lint should never fail, because even a specific DNS server implementation may allow configurations of
     // CNAMEs on APEX zones, it should never deliver these RR as answers, since this would be in violation of the DNS RFC.
     // cf. https://www.isc.org/blogs/cname-at-the-apex-of-a-zone/ for a easy to understand explanation.
+    #[allow(clippy::unnecessary_wraps)]
     fn apex(&self, results: &mut Vec<CheckResult>) -> Result<()> {
         if self.env.console.show_partial_headers() {
             self.env.console.itemize("Apex");

@@ -236,6 +236,7 @@ impl<'a> OutputCheckResults<'a> {
         Ok(ExitStatus::Ok)
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn summary_output(self) -> PartialResult<ExitStatus> {
         self.env.console.print_finished();
 

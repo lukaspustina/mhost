@@ -223,6 +223,7 @@ impl<'a> LookupResult<'a> {
         Ok(ExitStatus::Ok)
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn summary_output(self) -> PartialResult<ExitStatus> {
         if self.env.console.not_quiet() {
             self.env.console.finished();
