@@ -1,4 +1,4 @@
-= mhost
+= image:doc/images/logo.png[mhost] mhost
 :toc: macro
 :toc-title:
 
