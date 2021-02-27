@@ -6,8 +6,8 @@ on:
     - cron: '0 0 * * *'
 
 jobs:
-  test:
-    name: Test Suite
+  test-linux:
+    name: Test Suite on Linux
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -24,11 +24,39 @@ jobs:
         with:
           command: test
 
-  audit:
-    name: Audit
+  test-macos:
+    name: Test Suite on macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --bins --tests --benches --examples --all-features
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+  audit-linux:
+    name: Audit on Linux
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/audit-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  audit-macos:
+    name: Audit on macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/audit-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
