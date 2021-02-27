@@ -38,6 +38,12 @@ fmt:
 	cargo fmt
 
 
+prepare-release: docs
+
+docs:
+	doctoc README.md && git add README.md
+
+
 install:
 	cargo install --all-features --path .
 
