@@ -43,6 +43,8 @@ For details see sections [Use Cases](#Use-Cases) and [Documentation](#_documenta
   - [Discover a domain](#discover-a-domain)
   - [Check your name server configuration](#check-your-name-server-configuration)
 - [Installation](#installation)
+  - [Debian and Ubuntu](#debian-and-ubuntu)
+  - [Rust](#rust)
   - [From Source](#from-source)
 - [Documentation](#documentation)
   - [General Options](#general-options)
@@ -142,6 +144,21 @@ mhost -p c github.com -p
 ![Check github.com.](doc/images/check-github.png)
 
 ## Installation
+
+### Debian and Ubuntu
+
+You can find Debian packages on the [GitHub Release](https://github.com/lukaspustina/mhost/releases). Download the package as `mhost.deb` and the run
+
+```sh
+dpkg -i mhost.deb
+```
+
+### Rust
+
+```sh
+cargo install --all-features mhost
+```
+
 
 ### From Source
 
