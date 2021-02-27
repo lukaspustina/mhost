@@ -78,3 +78,18 @@ lto = true
 overflow-checks = true
 panic = "abort"
 
+[package.metadata.deb]
+extended-description = """mhost
+- is very fast and uses multiple DNS servers concurrently and aggregates all results for more reliable lookups.
+- supports classic DNS over UDP and TCP as well as modern DNS over TLS (DoT) and HTTP (DoH).
+- presents results in an easy, human readable format or as JSON for post-processing.
+- discovers host names, subdomains of any domain, as well as IP subnets in CIDR notation.
+- uses lints to validate the DNS configurations of any domain.
+"""
+section = "Network"
+features = ["app"]
+priority = "optional"
+assets = [
+    ["target/release/mhost", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/mhost/README", "644"],
+]
