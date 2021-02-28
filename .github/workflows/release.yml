@@ -33,10 +33,6 @@ jobs:
           command: install
           args: cargo-rpm
 
-      - name: Build Static Linux Binary
-        uses: gmiam/rust-musl-action@master
-        with:
-          args: cargo build --target x86_64-unknown-linux-musl --release --features app
       - name: Build Debian Package
         uses: actions-rs/cargo@v1
         with:
@@ -46,6 +42,10 @@ jobs:
         with:
           command: rpm
           args: build
+      - name: Build Static Linux Binary
+        uses: gmiam/rust-musl-action@master
+        with:
+          args: cargo build --target x86_64-unknown-linux-musl --release --features app
 
       - name: Create Release
         id: create_release
@@ -57,16 +57,6 @@ jobs:
           release_name: Release ${{ github.ref }}
           draft: false
           prerelease: false
-
-      - name: Upload Static Linux Binary
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./target/x86_64-unknown-linux-musl/release/mhost
-          asset_name: mhost-linux-musl-x86_64
-          asset_content_type: application/octet-stream
 
       - name: Gather Debian Package Filename
         id: deb_pkg_filename
@@ -98,4 +88,14 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./target/release/rpmbuild/RPMS/x86_64/${{ steps.rpm_pkg_filename.outputs.filename }}
           asset_name: ${{ steps.rpm_pkg_filename.outputs.filename }}
+          asset_content_type: application/octet-stream
+
+      - name: Upload Static Linux Binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./target/x86_64-unknown-linux-musl/release/mhost
+          asset_name: mhost-linux-musl-x86_64
           asset_content_type: application/octet-stream
