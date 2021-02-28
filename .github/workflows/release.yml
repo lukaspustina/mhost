@@ -41,7 +41,6 @@ jobs:
           draft: false
           prerelease: false
       - name: Upload Linux Binary
-        id: upload-release-asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -57,7 +56,6 @@ jobs:
           export DEB_PKG_VERSION=$(cargo read-manifest | jq -r .version | sed 's/-/~/')
           echo ::set-output name=filename::mhost_${DEB_PKG_VERSION}_amd64.deb
       - name: Upload Debian Package
-        id: upload-release-asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
