@@ -54,7 +54,7 @@ install:
 	cargo install --all-features --path .
 
 
-init:
+init: 
 	brew install pre-commit
 	pre-commit install
 
