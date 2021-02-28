@@ -1,12 +1,12 @@
 ---
 repos:
   - repo: https://github.com/editorconfig-checker/editorconfig-checker.python
-    rev: master
+    rev: '151d143e4a1a06f9f829eadc7c3d35188fee1ad0'
     hooks:
       - id: editorconfig-checker
         name: Check editorconfig compliance
   - repo: https://github.com/doublify/pre-commit-rust
-    rev: master
+    rev: v1.0
     hooks:
       - id: fmt
         name: Rust fmt check
