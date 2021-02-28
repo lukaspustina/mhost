@@ -45,7 +45,8 @@ For details see sections [Use Cases](#Use-Cases) and [Documentation](#_documenta
 - [Installation](#installation)
   - [Homebrew](#homebrew)
   - [Debian and Ubuntu](#debian-and-ubuntu)
-  - [Rust](#rust)
+  - [Redhat and Fedora](#redhat-and-fedora)
+  - [For Rust Developers](#for-rust-developers)
   - [From Source](#from-source)
 - [Documentation](#documentation)
   - [General Options](#general-options)
@@ -148,6 +149,8 @@ $ mhost -p c github.com -p
 
 ### Homebrew
 
+You can add this repository as a custom tap and then install `mhost` like this:
+
 ```sh
 $ brew tap lukaspustina/mhost https://github.com/lukaspustina/mhost.git
 $ brew install lukaspustina/mhost/mhost
@@ -155,13 +158,21 @@ $ brew install lukaspustina/mhost/mhost
 
 ### Debian and Ubuntu
 
-You can find Debian packages on the [GitHub Release](https://github.com/lukaspustina/mhost/releases). Download the package as `mhost.deb` and the run
+You can find Debian packages on the [GitHub Release](https://github.com/lukaspustina/mhost/releases) page. Download the package as `mhost.deb` and the run
 
 ```sh
 $ dpkg -i mhost.deb
 ```
 
-### Rust
+### Redhat and Fedora
+
+You can find RPM packages on the [GitHub Release](https://github.com/lukaspustina/mhost/releases) page. Download the package as `mhost.rpm` and the run
+
+```sh
+$ rpm -i mhost.rpm
+```
+
+### For Rust Developers
 
 ```sh
 $ cargo install --all-features mhost

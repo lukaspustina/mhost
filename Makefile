@@ -64,4 +64,5 @@ _rustup:
 
 _cargo:
 	cargo install cargo-deb
+	cargo install cargo-rpm
 

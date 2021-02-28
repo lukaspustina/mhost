@@ -93,3 +93,12 @@ assets = [
     ["target/release/mhost", "usr/bin/", "755"],
     ["README.md", "usr/share/doc/mhost/README", "644"],
 ]
+
+[package.metadata.rpm]
+package = "mhost"
+
+[package.metadata.rpm.cargo]
+buildflags = ["--release", "--features", "app"]
+
+[package.metadata.rpm.targets]
+mhost = { path = "/usr/bin/mhost" }
