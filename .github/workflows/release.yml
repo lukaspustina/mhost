@@ -14,14 +14,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Install jq
-        run: sudo apt-get install -y jq rpm
-      - name: Install Rust Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+        #      - name: Install jq
+        #        run: sudo apt-get install -y jq rpm
+        #      - name: Install Rust Toolchain
+        #        uses: actions-rs/toolchain@v1
+        #        with:
+        #          profile: minimal
+        #          toolchain: stable
+        #          override: true
           #      - name: Install Cargo Deb
           #        uses: actions-rs/cargo@v1
           #        with:
@@ -42,21 +42,21 @@ jobs:
           #        with:
           #          command: rpm
           #          args: build
-      - name: Build Static Linux Binary
-        uses: gmiam/rust-musl-action@master
-        with:
-          args: cargo build --target x86_64-unknown-linux-musl --release --features app
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
+          #      - name: Build Static Linux Binary
+          #        uses: gmiam/rust-musl-action@master
+          #        with:
+          #          args: cargo build --target x86_64-unknown-linux-musl --release --features app
+          #
+          #      - name: Create Release
+          #        id: create_release
+          #        uses: actions/create-release@v1
+          #        env:
+          #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          #        with:
+          #          tag_name: ${{ github.ref }}
+          #          release_name: Release ${{ github.ref }}
+          #          draft: false
+          #          prerelease: false
           #
           #      - name: Gather Debian Package Filename
           #        id: deb_pkg_filename
@@ -90,21 +90,21 @@ jobs:
           #          asset_name: ${{ steps.rpm_pkg_filename.outputs.filename }}
           #          asset_content_type: application/octet-stream
           #
-      - name: Upload Static Linux Binary
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./target/x86_64-unknown-linux-musl/release/mhost
-          asset_name: mhost-linux-musl-x86_64
-          asset_content_type: application/octet-stream
+          #       - name: Upload Static Linux Binary
+          #         uses: actions/upload-release-asset@v1
+          #         env:
+          #           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          #         with:
+          #           upload_url: ${{ steps.create_release.outputs.upload_url }}
+          #           asset_path: ./target/x86_64-unknown-linux-musl/release/mhost
+          #           asset_name: mhost-linux-musl-x86_64
+          #           asset_content_type: application/octet-stream
 
       - name: Gather Docker Tag
         id: docker_info
         run: |
           export DOCKER_TAG=$(echo ${{ github.ref }} | sed 's|^refs/tags/v||')
-          echo ::set-output name=tag::${DOCKET_TAG}
+          echo ::set-output name=tag::${DOCKER_TAG}
       - name: Login to DockerHub
         uses: docker/login-action@v1
         with:
