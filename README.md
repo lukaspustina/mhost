@@ -43,6 +43,7 @@ For details see sections [Use Cases](#Use-Cases) and [Documentation](#_documenta
   - [Discover a domain](#discover-a-domain)
   - [Check your name server configuration](#check-your-name-server-configuration)
 - [Installation](#installation)
+  - [Homebrew](#homebrew)
   - [Debian and Ubuntu](#debian-and-ubuntu)
   - [Rust](#rust)
   - [From Source](#from-source)
@@ -68,7 +69,7 @@ For details see sections [Use Cases](#Use-Cases) and [Documentation](#_documenta
 ### Just lookup an IP address
 
 ```sh
-mhost l github.com
+$ mhost l github.com
 ```
 
 ![Default lookup for github.com.](doc/images/default-lookup-github.png)
@@ -78,7 +79,7 @@ In this run, all default settings are applied. Especially, `most` uses only the 
 #### Just lookup an IP address, using more than just your local name servers
 
 ```sh
-mhost -p l github.com
+$ mhost -p l github.com
 ```
 
 ![Default lookup with predefined servers for github.com.](doc/images/default-lookup-predefined-servers-github.png)
@@ -90,8 +91,8 @@ See, there’re more answers than before!
 ### Just lookup an IP address, using even more than just your local name servers
 
 ```sh
-mhost server-lists public-dns -o servers.txt
-mhost --limit 6000 --max-concurrent-servers 1000 --timeout 1 -f servers.txt l www.github.com
+$ mhost server-lists public-dns -o servers.txt
+$ mhost --limit 6000 --max-concurrent-servers 1000 --timeout 1 -f servers.txt l www.github.com
 ```
 
 ![Default lookup with servers list for github.com.](doc/images/default-lookup-servers-list-github.png)
@@ -105,7 +106,7 @@ The second command uses the name servers list from before and queries all of the
 ### Just lookup an IP address, using UDP, TCP, DoT, and DoH
 
 ```sh
-mhost -s 1.1.1.1 -s tcp:1.1.1.1 -s tls:1.1.1.1:853,tls_auth_name=cloudflare-dns.com -s https:1.1.1.1:443,tls_auth_name=cloudflare-dns.com,name=Cloudflare -p l github.com
+$ mhost -s 1.1.1.1 -s tcp:1.1.1.1 -s tls:1.1.1.1:853,tls_auth_name=cloudflare-dns.com -s https:1.1.1.1:443,tls_auth_name=cloudflare-dns.com,name=Cloudflare -p l github.com
 ```
 
 As already mentioned before, `mhost` supports DNS queries over UDP, TCP, DNS over TLS (DoT), as well as DNS over HTTPS (DoH). In the above example, `mhost` uses all four protocols to query Cloudflare’s name servers.
@@ -119,7 +120,7 @@ This command also shows the syntax for name server specification, which in gener
 Sometimes you want to know which host names and subdomains a domain has. `mhost` offers a simple command to help you find these. Please mind, that `mhost` only uses DNS specific discovery methods. If you want even deeper discoveries using Google, Shodan etc. there are other tools available.
 
 ```sh
-mhost -p d github.com -p
+$ mhost -p d github.com -p
 ```
 
 This command uses the predefined name servers to discover the GitHub domain. The `-s` reduces all discovered names to real subdomains of `github.com.`.
@@ -129,8 +130,8 @@ This command uses the predefined name servers to discover the GitHub domain. The
 You can go one more step and explore the autonomous systems GitHub uses. In order to discover those, you can use the following commands:
 
 ```sh
-mhost -p l --all -w github.com
-mhost -p l --all 140.82.121.0/24
+$ mhost -p l --all -w github.com
+$ mhost -p l --all 140.82.121.0/24
 ```
 
 ![Discover AS of github.com.](doc/images/discover-as-github.png)
@@ -138,36 +139,42 @@ mhost -p l --all 140.82.121.0/24
 ### Check your name server configuration
 
 ```sh
-mhost -p c github.com -p
+$ mhost -p c github.com -p
 ```
 
 ![Check github.com.](doc/images/check-github.png)
 
 ## Installation
 
+### Homebrew
+
+```sh
+$ brew tap lukaspustina/mhost https://github.com/lukaspustina/mhost.git
+$ brew install lukaspustina/mhost/mhost
+```
+
 ### Debian and Ubuntu
 
 You can find Debian packages on the [GitHub Release](https://github.com/lukaspustina/mhost/releases). Download the package as `mhost.deb` and the run
 
 ```sh
-dpkg -i mhost.deb
+$ dpkg -i mhost.deb
 ```
 
 ### Rust
 
 ```sh
-cargo install --all-features mhost
+$ cargo install --all-features mhost
 ```
-
 
 ### From Source
 
 Please install Rust via [rustup](https://www.rustup.rs) and then run
 
 ```sh
-git clone https://github.com/lukaspustina/mhost
-cd mhost
-make install
+$ git clone https://github.com/lukaspustina/mhost
+$ cd mhost
+$ make install
 ```
 
 ## Documentation
