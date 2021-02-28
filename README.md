@@ -43,6 +43,7 @@ For details see sections [Use Cases](#Use-Cases) and [Documentation](#documentat
   - [Discover a domain](#discover-a-domain)
   - [Check your name server configuration](#check-your-name-server-configuration)
 - [Installation](#installation)
+  - [Docker](#docker)
   - [Homebrew](#homebrew)
   - [Debian and Ubuntu](#debian-and-ubuntu)
   - [Redhat and Fedora](#redhat-and-fedora)
@@ -146,6 +147,14 @@ $ mhost -p c github.com -p
 ![Check github.com.](doc/images/check-github.png)
 
 ## Installation
+
+### Docker
+
+If you want to give `mhost` a quick spin and just try it out without too much hassle, you might want to try the Docker image:
+
+```sh
+$ docker run lukaspustina/mhost:latest mhost l mhost.pustina.de
+```
 
 ### Homebrew
 
