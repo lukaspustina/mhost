@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! Read operating system configuration for DNS resolving, i.e. read /etc/resolv.conf.
+
 use std::fs::File;
 use std::io::Read;
 

@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! Name servers are the basic abstraction for DNS servers configuration.
+
 use std::fmt;
 use std::net::{IpAddr, SocketAddr};
 

@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Resources
+//! Resources like records and record types that are used to communicate queries and results.
 //!
 //! This is mostly a copy of the trust-dns' types in order to gain more control. Please see [Trust-DNS RR module](http://trust-dns.org/target/doc/trust_dns/rr/index.html)
 //!

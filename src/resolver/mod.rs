@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! A resolver uses name servers configuration to resolve queries.
+
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;

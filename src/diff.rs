@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! Compute diffs between sets of various record types to look for changes, deviations etc.
+
 use std::hash::Hash;
 
 use indexmap::set::IndexSet;

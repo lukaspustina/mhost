@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! Compute run time estimates for various queries.
+
 use crate::resolver::{Mode, MultiQuery, Resolver, ResolverGroup};
 use std::fmt;
 use std::ops::Add;

@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! Statistics module to compute statistical information on query results.
+
 pub mod lookups;
 pub mod server_lists;
 pub mod whois;

@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! Supporting services to download name server lists and query WHOIS information for IP subnets.
+
 pub mod error;
 pub mod server_lists;
 pub mod whois;

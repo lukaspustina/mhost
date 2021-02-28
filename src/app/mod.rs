@@ -5,6 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! `mhost` command line app to query, discover and lint DNS.
 pub mod app_config;
 pub mod cli_parser;
 pub mod console;

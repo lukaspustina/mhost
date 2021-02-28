@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! Various helpers for serialization and concurrent execution control.
+
 pub mod buffer_unordered_with_breaker;
 pub(crate) mod deserialize;
 pub(crate) mod serialize;
