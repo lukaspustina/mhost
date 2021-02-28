@@ -18,11 +18,11 @@ A modern take on the classic `host` DNS lookup utility including an easy to use,
 
 -   `mhost` offers an easy to use Rust library so you can use the same lookup capabilities in your own project.
 
-For details see sections [Use Cases](#Use-Cases) and [Documentation](#_documentation) of this Readme.
+For details see sections [Use Cases](#Use-Cases) and [Documentation](#documentation) of this Readme.
 
 ## Quick Start
 
-1.  Install `mhost` – see below for [installation instructions](#_installation).
+1.  Install `mhost` – see below for [installation instructions](#installation).
 
 2.  Run `mhost -p l --all -w github.com` and you’ve just asked 16 name servers for all available DNS records of *github.com* in 34 ms. And in addition you get the WHOIS information for GitHub’s subnet. ![Multi lookup for all available records of github.com.](doc/images/multi-lookup-all-records-github.png)
 
@@ -175,7 +175,7 @@ $ rpm -i mhost.rpm
 ### For Rust Developers
 
 ```sh
-$ cargo install --all-features mhost
+$ cargo install --features app mhost
 ```
 
 ### From Source
