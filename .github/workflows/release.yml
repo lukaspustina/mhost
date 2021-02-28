@@ -103,7 +103,7 @@ jobs:
       - name: Gather Docker Tag
         id: docker_info
         run: |
-          export DOCKER_TAG=$(echo ${{ github.ref }} | sed 's|^refs/tags/v||')
+          export DOCKER_TAG=$(echo ${{ github.ref }} | sed 's|^refs/tags/||')
           echo ::set-output name=tag::${DOCKER_TAG}
       - name: Login to DockerHub
         uses: docker/login-action@v1
@@ -117,5 +117,6 @@ jobs:
           push: true
           tags: |
             lukaspustina/mhost:${{ steps.docker_info.outputs.tag }}
+            lukaspustina/mhost:latest
           build-args: |
             RELEASE_TAG=${{ steps.docker_info.outputs.tag }}
