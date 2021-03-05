@@ -762,7 +762,7 @@ checksum = "0ee1c47aaa256ecabcaea351eae4a9b01ef39ed810004e298d2511ed284b1525"
 
 [[package]]
 name = "mhost"
-version = "0.3.0-alpha.2"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "chrono",
