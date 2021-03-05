@@ -1,6 +1,6 @@
 # ![mhost](doc/images/logo.png) mhost
 
-A modern take on the classic `host` DNS lookup utility including an easy to use, and very fast Rust lookup library.
+A modern take on the classic `host` DNS lookup utility including an easy to use and very fast Rust lookup library.
 
 [![CI build](https://github.com/lukaspustina/mhost/workflows/CI%20build/badge.svg)](https://github.com/lukaspustina/mhost/actions/) [![mhost on crates.io](http://meritbadge.herokuapp.com/mhost)](https://crates.io/crates/mhost) [![Documentation on docs.rs](https://docs.rs/mhost/badge.svg)](https://docs.rs/mhost) ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg) ![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)
 
