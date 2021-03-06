@@ -77,9 +77,8 @@ jobs:
       - name: Gather Rpm Package Filename
         id: rpm_pkg_filename
         run: |
-          export RPM_PKG_VERSION=$(echo ${{ github.ref }} | sed 's|^refs/tags/v\(.*\)-\(.*\)|\1-0.\2|')
-          export RPM_PKG_VERSION=$(cargo read-manifest | jq -r .version | sed 's|\(.*\)-\(.*\)|\1-0.\2|')
-          echo ::set-output name=filename::mhost-${RPM_PKG_VERSION}.x86_64.rpm
+          export RPM_PKG_FILENAME=$(ls -1 ./target/release/rpmbuild/RPMS/x86_64/ | head -1)
+          echo ::set-output name=filename::${RPM_PKG_FILENAME}
       - name: Upload Rpm Package
         uses: actions/upload-release-asset@v1
         env:
