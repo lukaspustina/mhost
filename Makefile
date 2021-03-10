@@ -62,7 +62,12 @@ init:
 _rustup:
 	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
-_cargo:
+_cargo_packages:
 	cargo install cargo-deb
 	cargo install cargo-rpm
+
+_cargo_security:
+	cargo install cargo-crev
+	cargo crev trust --level high https://github.com/dpc/crev-proofs
+	cargo crev repo fetch all
 
