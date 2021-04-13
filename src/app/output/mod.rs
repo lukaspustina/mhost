@@ -123,8 +123,11 @@ impl Ordinal for RecordType {
             RecordType::SSHFP => 19,
             RecordType::TLSA => 20,
             RecordType::DNSSEC => 21,
-            RecordType::ZERO => 22,
-            RecordType::Unknown(_) => 23,
+            RecordType::HINFO => 22,
+            RecordType::HTTPS => 23,
+            RecordType::SVCB => 24,
+            RecordType::ZERO => 25,
+            RecordType::Unknown(_) => 26,
         }
     }
 }
