@@ -12,6 +12,7 @@ use serde::Serialize;
 use trust_dns_resolver::Name;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize)]
+#[allow(clippy::upper_case_acronyms)]
 pub struct MX {
     preference: u16,
     exchange: Name,

@@ -17,6 +17,7 @@ use trust_dns_resolver::proto::rr::dnssec::rdata::DNSSECRecordType;
 
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Copy, Clone)]
 #[allow(dead_code)]
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Serialize)]
 pub enum RecordType {
     A,

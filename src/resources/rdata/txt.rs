@@ -13,6 +13,7 @@ use std::slice::Iter;
 use serde::Serialize;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
+#[allow(clippy::upper_case_acronyms)]
 pub struct TXT {
     txt_data: Box<[Box<[u8]>]>,
 }

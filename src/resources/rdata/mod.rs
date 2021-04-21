@@ -29,6 +29,7 @@ mod txt;
 mod unknown;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum RData {
     A(Ipv4Addr),
     AAAA(Ipv6Addr),

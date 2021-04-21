@@ -11,6 +11,7 @@
 use serde::Serialize;
 
 #[derive(Default, Debug, PartialEq, Eq, Hash, Clone, Serialize)]
+#[allow(clippy::upper_case_acronyms)]
 pub struct NULL {
     anything: Option<Vec<u8>>,
 }

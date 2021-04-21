@@ -12,6 +12,7 @@ use crate::resources::rdata::NULL;
 use serde::Serialize;
 
 #[derive(Default, Debug, PartialEq, Eq, Hash, Clone, Serialize)]
+#[allow(clippy::upper_case_acronyms)]
 pub struct UNKNOWN {
     code: u16,
     rdata: NULL,

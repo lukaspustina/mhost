@@ -61,6 +61,7 @@ pub enum Qualifier {
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum Mechanism<'a> {
     All,
     A {

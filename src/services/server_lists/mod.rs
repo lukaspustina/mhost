@@ -85,6 +85,7 @@ impl Default for OpenNic {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum IPV {
     V4,
     V6,
