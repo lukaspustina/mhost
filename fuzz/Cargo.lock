@@ -2,9 +2,9 @@
 # It is not intended for manual editing.
 [[package]]
 name = "afl"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5023646d631c14f4b24425600280676437b2c39d58f9cce91a6187e7af929f4"
+checksum = "d16d691836db1a0927dab30b21add058acec42e177534128e7f00a7cf60bafc2"
 dependencies = [
  "cc",
  "clap",
@@ -605,7 +605,7 @@ checksum = "0ee1c47aaa256ecabcaea351eae4a9b01ef39ed810004e298d2511ed284b1525"
 
 [[package]]
 name = "mhost"
-version = "0.3.0-alpha.1"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "chrono",
