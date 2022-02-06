@@ -38,7 +38,7 @@ futures = { version = "0.3.*"}
 hostname = { version = "0.3", optional = true }
 humantime = { version = "2", optional = true }
 indexmap = "1"
-ipnetwork = "0.17"
+ipnetwork = "0.18"
 lazy_static = "1.4"
 lru_time_cache = "0.11"
 nom = "5"
