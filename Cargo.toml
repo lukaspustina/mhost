@@ -56,7 +56,7 @@ thiserror = "1"
 tracing = "0.1"
 tracing-futures = "0.2"
 tracing-log = { version = "0.1", optional = true }
-tracing-subscriber = { version = "0.2", features = ["registry", "env-filter"], optional = true }
+tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"], optional = true }
 trust-dns-resolver = { version = "0.20", features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls", "dnssec-ring", "system-config", "serde-config"] }
 yansi = "0.5"
 
@@ -65,7 +65,7 @@ clap = { version = "2", default-features = false, features = ["suggestions"] }
 
 [dev-dependencies]
 tracing-log = "0.1"
-tracing-subscriber = { version = "0.2", features = ["registry", "env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"] }
 lit = "1"
 spectral = "0.6"
 
