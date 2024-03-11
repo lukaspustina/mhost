@@ -16,7 +16,7 @@ use crate::nameserver::NameServerConfig;
 use crate::services::server_lists::{PublicDns, ServerListDownloader};
 use crate::services::{Error, Result};
 
-static BASE_URI: &str = &"https://public-dns.info/nameserver";
+static BASE_URI: &str = "https://public-dns.info/nameserver";
 
 #[derive(Deserialize)]
 pub struct NameServer {
@@ -65,6 +65,7 @@ pub async fn download(downloader: ServerListDownloader, spec: &PublicDns) -> Res
     })?;
 
     let servers = serde_json::from_str::<Vec<NameServer>>(&body).map_err(Error::from)?;
+    #[allow(clippy::map_flatten)]
     let nameserver_configs: Vec<NameServerConfig> = servers
         .into_iter()
         .map(TryFrom::try_from)

@@ -48,15 +48,9 @@ impl ServerListSpec {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct PublicDns {
     country: Option<String>,
-}
-
-impl Default for PublicDns {
-    fn default() -> Self {
-        PublicDns { country: None }
-    }
 }
 
 impl PublicDns {
@@ -266,16 +260,11 @@ impl DownloadResponses {
     }
 
     pub fn nameserver_configs(&self) -> impl Iterator<Item = &NameServerConfig> {
-        self.responses
-            .iter()
-            .map(|x| x.download())
-            .flatten()
-            .map(|x| x.iter())
-            .flatten()
+        self.responses.iter().flat_map(|x| x.download()).flat_map(|x| x.iter())
     }
 
     pub fn err(&self) -> impl Iterator<Item = &Error> {
-        self.responses.iter().map(|x| x.err()).flatten()
+        self.responses.iter().flat_map(|x| x.err())
     }
 }
 

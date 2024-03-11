@@ -86,7 +86,7 @@ impl<'a> Spf<'a> {
         // Check, if Txt records can be parsed into SPF records
         let mut parsed_spfs = Vec::new();
         for str in spfs {
-            if let Ok(spf) = parsed_txt::Spf::from_str(&str) {
+            if let Ok(spf) = parsed_txt::Spf::from_str(str) {
                 results.push(CheckResult::Ok("Successfully parsed SPF record".to_string()));
                 parsed_spfs.push(spf)
             } else {

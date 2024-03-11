@@ -296,7 +296,7 @@ impl<T> IntoWhoisResponse<T> for Result<service::Response<T>> {
                     details: "Whois result data is empty".to_string(),
                 })
             })
-            .map(|x| map(x))
+            .map(map)
     }
 }
 
@@ -434,7 +434,7 @@ impl WhoisResponses {
 
 impl Errors for WhoisResponses {
     fn errors(&self) -> Box<dyn Iterator<Item = Box<&dyn std::error::Error>> + '_> {
-        Box::new(self.inner.iter().map(|l| l.err()).flatten().map(|x| {
+        Box::new(self.inner.iter().flat_map(|l| l.err()).map(|x| {
             let ptr: Box<&dyn std::error::Error> = Box::new(x);
             ptr
         }))

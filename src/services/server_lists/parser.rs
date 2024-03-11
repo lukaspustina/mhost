@@ -86,7 +86,7 @@ fn opennic_spec_params_anon<'a>(cell: &Cell<OpenNic>, input: &'a str) -> IResult
 
 fn opennic_spec_params_number<'a>(cell: &Cell<OpenNic>, input: &'a str) -> IResult<&'a str, ()> {
     let (input, _) = tag("number=")(input)?;
-    let (input, number) = map_res(take_while1(|c: char| c.is_digit(10) || c == '.'), usize::from_str)(input)?;
+    let (input, number) = map_res(take_while1(|c: char| c.is_ascii_digit() || c == '.'), usize::from_str)(input)?;
     let mut spec = cell.take();
     spec.number = number;
     cell.set(spec);
@@ -96,7 +96,7 @@ fn opennic_spec_params_number<'a>(cell: &Cell<OpenNic>, input: &'a str) -> IResu
 
 fn opennic_spec_params_reliability<'a>(cell: &Cell<OpenNic>, input: &'a str) -> IResult<&'a str, ()> {
     let (input, _) = tag("reliability=")(input)?;
-    let (input, reliability) = map_res(take_while1(|c: char| c.is_digit(10) || c == '.'), usize::from_str)(input)?;
+    let (input, reliability) = map_res(take_while1(|c: char| c.is_ascii_digit() || c == '.'), usize::from_str)(input)?;
     let mut spec = cell.take();
     spec.reliability = reliability;
     cell.set(spec);
@@ -106,7 +106,7 @@ fn opennic_spec_params_reliability<'a>(cell: &Cell<OpenNic>, input: &'a str) -> 
 
 fn opennic_spec_params_ipv<'a>(cell: &Cell<OpenNic>, input: &'a str) -> IResult<&'a str, ()> {
     let (input, _) = tag("ipv=")(input)?;
-    let (input, ipv) = map_res(take_while1(|c: char| c.is_digit(10) || c == '.'), IPV::from_str)(input)?;
+    let (input, ipv) = map_res(take_while1(|c: char| c.is_ascii_digit() || c == '.'), IPV::from_str)(input)?;
     let mut spec = cell.take();
     spec.ipv = ipv;
     cell.set(spec);
@@ -130,7 +130,7 @@ mod tests {
             spec: Default::default(),
         };
 
-        let (_, config) = parse_server_list_spec(&str).expect("failed to parse server list spec");
+        let (_, config) = parse_server_list_spec(str).expect("failed to parse server list spec");
 
         assert_that(&config).is_equal_to(expected);
     }
@@ -145,7 +145,7 @@ mod tests {
             },
         };
 
-        let (_, config) = parse_server_list_spec(&str).expect("failed to parse server list spec");
+        let (_, config) = parse_server_list_spec(str).expect("failed to parse server list spec");
 
         assert_that(&config).is_equal_to(expected);
     }
@@ -155,7 +155,7 @@ mod tests {
         crate::utils::tests::logging::init();
         let str = "public-dns:";
 
-        let res = parse_server_list_spec(&str);
+        let res = parse_server_list_spec(str);
 
         assert_that(&res).is_err();
     }
@@ -168,7 +168,7 @@ mod tests {
             spec: Default::default(),
         };
 
-        let (_, config) = parse_server_list_spec(&str).expect("failed to parse server list spec");
+        let (_, config) = parse_server_list_spec(str).expect("failed to parse server list spec");
 
         assert_that(&config).is_equal_to(expected);
         assert_that(&config.opennic())
@@ -188,7 +188,7 @@ mod tests {
             },
         };
 
-        let (_, config) = parse_server_list_spec(&str).expect("failed to parse server list spec");
+        let (_, config) = parse_server_list_spec(str).expect("failed to parse server list spec");
 
         assert_that(&config).is_equal_to(expected);
         assert_that(&config.opennic())
@@ -208,7 +208,7 @@ mod tests {
             },
         };
 
-        let (_, config) = parse_server_list_spec(&str).expect("failed to parse server list spec");
+        let (_, config) = parse_server_list_spec(str).expect("failed to parse server list spec");
 
         assert_that(&config).is_equal_to(expected);
     }
@@ -224,7 +224,7 @@ mod tests {
             },
         };
 
-        let (_, config) = parse_server_list_spec(&str).expect("failed to parse server list spec");
+        let (_, config) = parse_server_list_spec(str).expect("failed to parse server list spec");
 
         assert_that(&config).is_equal_to(expected);
     }
@@ -240,7 +240,7 @@ mod tests {
             },
         };
 
-        let (_, config) = parse_server_list_spec(&str).expect("failed to parse server list spec");
+        let (_, config) = parse_server_list_spec(str).expect("failed to parse server list spec");
 
         assert_that(&config).is_equal_to(expected);
     }
@@ -258,7 +258,7 @@ mod tests {
             },
         };
 
-        let (_, config) = parse_server_list_spec(&str).expect("failed to parse server list spec");
+        let (_, config) = parse_server_list_spec(str).expect("failed to parse server list spec");
 
         assert_that(&config).is_equal_to(expected);
     }

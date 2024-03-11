@@ -15,6 +15,7 @@ use pin_project::pin_project;
 
 impl<T: ?Sized> StreamExtBufferUnorderedWithBreaker for T where T: StreamExt {}
 
+#[allow(clippy::type_complexity)]
 pub trait StreamExtBufferUnorderedWithBreaker: StreamExt {
     fn buffered_unordered_with_breaker(
         self,
@@ -31,6 +32,7 @@ pub trait StreamExtBufferUnorderedWithBreaker: StreamExt {
 
 #[pin_project(project = BufferUnorderedWithBreakerProj)]
 #[must_use = "streams do nothing unless polled"]
+#[allow(clippy::type_complexity)]
 pub struct BufferUnorderedWithBreaker<St>
 where
     St: Stream,
@@ -49,6 +51,7 @@ where
     St: Stream,
     St::Item: Future,
 {
+    #[allow(clippy::type_complexity)]
     pub(crate) fn new(
         stream: St,
         n: usize,

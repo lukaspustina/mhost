@@ -37,8 +37,7 @@ impl NameBuilderOpts {
             .context("failed to get local hostname")?
             .to_string_lossy()
             .to_string();
-        let name = Name::from_str(&hostname)
-            .context("failed to parse local hostname")?;
+        let name = Name::from_str(&hostname).context("failed to parse local hostname")?;
         let search_domain = name.base_name();
         NameBuilderOpts::new(ndots, search_domain)
     }
@@ -99,8 +98,8 @@ impl AppResolver {
         configs: T,
         app_config: &AppConfig,
     ) -> Result<AppResolver> {
-        let resolver_group_opts = load_resolver_group_opts(&app_config)?;
-        let resolver_opts = load_resolver_opts(&app_config)?;
+        let resolver_group_opts = load_resolver_group_opts(app_config)?;
+        let resolver_opts = load_resolver_opts(app_config)?;
 
         let resolvers = ResolverGroup::from_configs(configs, resolver_opts, resolver_group_opts).await?;
         if resolvers.is_empty() {
@@ -112,8 +111,8 @@ impl AppResolver {
     }
 
     pub async fn create_resolvers(app_config: &AppConfig) -> Result<AppResolver> {
-        let resolver_group_opts = load_resolver_group_opts(&app_config)?;
-        let resolver_opts = load_resolver_opts(&app_config)?;
+        let resolver_group_opts = load_resolver_group_opts(app_config)?;
+        let resolver_opts = load_resolver_opts(app_config)?;
 
         let system_resolver_group: ResolverConfigGroup = load_system_nameservers(app_config)?.into();
         let mut system_resolvers = ResolverGroup::from_configs(
@@ -153,11 +152,11 @@ impl AppResolver {
     }
 
     pub fn resolver_group_opts(&self) -> &ResolverGroupOpts {
-        &self.resolvers.opts()
+        self.resolvers.opts()
     }
 
     pub fn resolver_opts(&self) -> &ResolverOpts {
-        &self.resolvers.resolvers()[0].opts.as_ref() // Safe, because we created resolver
+        self.resolvers.resolvers()[0].opts.as_ref() // Safe, because we created resolver
     }
 }
 
@@ -166,7 +165,7 @@ async fn load_nameservers(config: &AppConfig, system_resolvers: &mut ResolverGro
     if let Some(configs) = &config.nameservers {
         let configs: Vec<_> = configs
             .iter()
-            .map(|str| NameServerConfig::from_str_with_resolution(&system_resolvers, str))
+            .map(|str| NameServerConfig::from_str_with_resolution(system_resolvers, str))
             .collect();
         let configs: crate::Result<Vec<_>> = join_all(configs).await.into_iter().collect();
         let nameservers: Vec<_> = configs.context("Failed to parse IP address for nameserver")?;
@@ -180,8 +179,7 @@ async fn load_nameservers(config: &AppConfig, system_resolvers: &mut ResolverGro
             .as_ref()
             .unwrap() // safe unwrap, because set by default by clap
             .iter()
-            .map(|x| Protocol::from_str(x.as_str()))
-            .flatten()
+            .flat_map(|x| Protocol::from_str(x.as_str()))
             .collect();
         let nameservers: Vec<_> = predefined::nameserver_configs()
             .into_iter()
@@ -192,7 +190,7 @@ async fn load_nameservers(config: &AppConfig, system_resolvers: &mut ResolverGro
         nameservers_group.merge(nameservers);
     }
     if let Some(path) = config.nameserver_file_path.as_ref() {
-        let nameservers = NameServerConfigGroup::from_file(&system_resolvers, path)
+        let nameservers = NameServerConfigGroup::from_file(system_resolvers, path)
             .await
             .context("Failed to load nameservers from file")?;
         info!("Loaded {} nameservers from file.", nameservers.len());

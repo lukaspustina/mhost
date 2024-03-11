@@ -16,7 +16,7 @@ use ipnetwork::IpNetwork;
 
 impl SummaryFormatter for WhoisResponses {
     fn output<W: Write>(&self, writer: &mut W, opts: &SummaryOptions) -> Result<()> {
-        let mut responses_by_ip_network = responses_by_ip_network(&self);
+        let mut responses_by_ip_network = responses_by_ip_network(self);
         let mut tw = TabWriter::new(vec![]);
 
         for (ip_network, mut responses) in responses_by_ip_network.drain() {
@@ -38,7 +38,7 @@ impl SummaryFormatter for WhoisResponses {
 fn output_responses<W: Write>(
     writer: &mut W,
     ip_network: &IpNetwork,
-    responses: &mut Vec<&WhoisResponse>,
+    responses: &mut [&WhoisResponse],
     opts: &SummaryOptions,
 ) -> Result<()> {
     responses.sort_by(order_by_ordinal);

@@ -114,8 +114,8 @@ impl TryFrom<&ArgMatches<'_>> for AppConfig {
             system_nameservers: args
                 .values_of("system nameservers")
                 .map(|xs| xs.map(ToString::to_string).collect()),
-            resolvers_mode: args.value_of("resolvers-mode").map(|x| Mode::from_str(x)).unwrap()?, // Safe unwrap, because clap's validation
-            output_config: output_config(output, &args)?,
+            resolvers_mode: args.value_of("resolvers-mode").map(Mode::from_str).unwrap()?, // Safe unwrap, because clap's validation
+            output_config: output_config(output, args)?,
             output,
             max_worker_threads: args
                 .value_of("max-worker-threads")

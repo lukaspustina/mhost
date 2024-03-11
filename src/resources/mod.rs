@@ -73,7 +73,7 @@ impl NameToIpAddr for Name {
             let ip = &str.as_str()[..str.len() - 10];
             let elements: SmallVec<[&str; 32]> = ip.split('.').collect();
             let nibble: SmallVec<[std::result::Result<u8, ParseIntError>; 32]> =
-                elements.into_iter().map(|x| u8::from_str_radix(&x, 16)).collect();
+                elements.into_iter().map(|x| u8::from_str_radix(x, 16)).collect();
             let nibble: std::result::Result<SmallVec<[u8; 32]>, _> = nibble.into_iter().collect();
             let mut nibble = nibble.map_err(|_| err())?;
             nibble.reverse();

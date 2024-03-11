@@ -57,12 +57,12 @@ impl Estimate for ResolverGroup {
             Mode::Multi => self
                 .resolvers
                 .iter()
-                .take(self.opts.limit.unwrap_or_else(|| self.resolvers.len()))
+                .take(self.opts.limit.unwrap_or(self.resolvers.len()))
                 .map(|x| x.estimate(query))
                 .fold(Default::default(), |acc, e| acc + e),
             // This is technically not correct, since each resolver could have different options, but due to the way,
             // ResolverGroup is constructed, this is fine.
-            Mode::Uni => self.resolvers.get(0).map(|x| x.estimate(query)).unwrap_or_default(),
+            Mode::Uni => self.resolvers.first().map(|x| x.estimate(query)).unwrap_or_default(),
         }
     }
 }

@@ -191,7 +191,7 @@ pub(crate) mod parser {
     }
 
     fn is_ipv4_addr_range_char(c: char) -> bool {
-        c.is_digit(10) || c == '.' || c == '/'
+        c.is_ascii_digit() || c == '.' || c == '/'
     }
 
     fn spf_mechanism_ip6(input: &str) -> IResult<&str, Mechanism> {

@@ -38,7 +38,7 @@ impl TryFrom<&ArgMatches<'_>> for LookupConfig {
                 .value_of("domain name")
                 .context("No domain name to lookup specified")?
                 .to_string(),
-            record_types: record_types(&args)?,
+            record_types: record_types(args)?,
             whois: args.is_present("whois"),
             parse_as_service: args.is_present("parse-as-service"),
         };

@@ -141,7 +141,7 @@ impl Wordlist {
         let mut words = Vec::new();
 
         for line in data.lines() {
-            if Wordlist::is_comment(&line) {
+            if Wordlist::is_comment(line) {
                 continue;
             }
             trace!("Parsing wordlist item '{}'.", line);
@@ -217,7 +217,7 @@ mod tests {
     #[test]
     fn read_from_string() {
         crate::utils::tests::logging::init();
-        let wordlist = Wordlist::from_str(&DEFAULT_WORD_LIST);
+        let wordlist = Wordlist::from_str(DEFAULT_WORD_LIST);
 
         asserting("Wordlist with 5000 elements loaded from string")
             .that(&wordlist)

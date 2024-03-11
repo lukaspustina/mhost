@@ -271,24 +271,13 @@ mod whois {
         Ok(result)
     }
 
+    #[derive(Debug, Default)]
     pub struct ParsedWhoisRecord {
         pub organization: Option<String>,
         pub country: Option<String>,
         pub cidr: Option<IpNetwork>,
         pub net_name: Option<String>,
         pub source: Option<Authority>,
-    }
-
-    impl Default for ParsedWhoisRecord {
-        fn default() -> Self {
-            ParsedWhoisRecord {
-                organization: None,
-                country: None,
-                cidr: None,
-                net_name: None,
-                source: None,
-            }
-        }
     }
 
     // This is really ugly.
@@ -326,8 +315,7 @@ mod whois {
         let cidr = record
             .remove("inetnum")
             .or_else(|| record.remove("cidr"))
-            .map(|x| IpNetwork::from_str(&x).ok())
-            .flatten();
+            .and_then(|x| IpNetwork::from_str(&x).ok());
         let net_name = record.remove("netname");
         let source = record.remove("source").map(|x| Authority::from(&x));
 
@@ -695,7 +683,7 @@ mod tests {
     "time": "2020-08-04T13:59:25.555809"
 }"#;
 
-        let data: std::result::Result<Response<whois::Whois>, _> = serde_json::from_str(&response_json);
+        let data: std::result::Result<Response<whois::Whois>, _> = serde_json::from_str(response_json);
         assert_that(&data).is_ok();
 
         let data = data.unwrap().data;
@@ -1798,7 +1786,7 @@ mod tests {
     "status_code": 200,
     "time": "2020-08-04T14:31:08.371010"
 }"#;
-        let data: std::result::Result<Response<whois::Whois>, _> = serde_json::from_str(&response_json);
+        let data: std::result::Result<Response<whois::Whois>, _> = serde_json::from_str(response_json);
         assert_that(&data).is_ok();
 
         let data = data.unwrap().data;

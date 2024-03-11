@@ -45,10 +45,10 @@ impl Discover {
 
         // Showing partial results only makes sense, if the queried domain name is shown for every response,
         // because this modules generates domain names, e.g., wildcard resolution, word lists
-        let partial_output_config = Discover::create_partial_output_config(&env.app_config);
+        let partial_output_config = Discover::create_partial_output_config(env.app_config);
 
         env.console
-            .print_resolver_opts(app_resolver.resolver_group_opts(), &app_resolver.resolver_opts());
+            .print_resolver_opts(app_resolver.resolver_group_opts(), app_resolver.resolver_opts());
 
         Ok(RequestAll {
             env,
@@ -104,7 +104,7 @@ impl<'a> RequestAll<'a> {
 
         self.env
             .console
-            .print_partial_headers("Requesting all record types.", &self.app_resolver.resolvers(), &query);
+            .print_partial_headers("Requesting all record types.", self.app_resolver.resolvers(), &query);
 
         info!("Requesting all record types.");
         let (lookups, run_time) = time(self.app_resolver.lookup(query)).await?;
@@ -144,7 +144,7 @@ impl<'a> WildcardCheck<'a> {
 
         self.env
             .console
-            .print_partial_headers("Checking wildcard resolution.", &self.app_resolver.resolvers(), &query);
+            .print_partial_headers("Checking wildcard resolution.", self.app_resolver.resolvers(), &query);
 
         info!("Checking wildcard resolution.");
         let (lookups, run_time) = time(self.app_resolver.lookup(query)).await?;
@@ -208,7 +208,7 @@ impl<'a> WordlistLookups<'a> {
 
         self.env
             .console
-            .print_partial_headers("Wordlist lookups.", &self.app_resolver.resolvers(), &query);
+            .print_partial_headers("Wordlist lookups.", self.app_resolver.resolvers(), &query);
 
         info!("Wordlist lookups.");
         let (lookups, run_time) = time(self.app_resolver.lookup(query)).await?;
@@ -261,7 +261,7 @@ impl<'a> WordlistLookups<'a> {
             Wordlist::default()?
         }
         .into_iter()
-        .map(|x| x.append_domain(&append_domain_name))
+        .map(|x| x.append_domain(append_domain_name))
         .collect();
         debug!("Loaded wordlist with {} words", wordlist.len());
 
@@ -374,7 +374,7 @@ impl<'a> OutputDiscoverResult<'a> {
     }
 
     fn print_fancy_name_by_domain(&self, name: &Name, domain_name: &Name) {
-        if domain_name.zone_of(&name) {
+        if domain_name.zone_of(name) {
             let domain_len = domain_name.num_labels();
             let sub_domain = Name::from_labels(name.iter().take((name.num_labels() - domain_len) as usize)).unwrap();
             self.env

@@ -10,19 +10,13 @@ use nom::lib::std::collections::HashSet;
 use super::*;
 use serde::Serialize;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct JsonOptions {
     /// Pretty formatting
     pretty: bool,
 }
 
-impl Default for JsonOptions {
-    fn default() -> Self {
-        JsonOptions { pretty: false }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct JsonFormat {
     opts: JsonOptions,
 }
@@ -30,14 +24,6 @@ pub struct JsonFormat {
 impl JsonFormat {
     pub fn new(opts: JsonOptions) -> JsonFormat {
         JsonFormat { opts }
-    }
-}
-
-impl Default for JsonFormat {
-    fn default() -> Self {
-        JsonFormat {
-            opts: Default::default(),
-        }
     }
 }
 

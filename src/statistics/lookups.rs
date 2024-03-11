@@ -98,13 +98,12 @@ impl<'a> Statistics<'a> for Lookups {
     type StatsOut = LookupsStats<'a>;
 
     fn statistics(&'a self) -> Self::StatsOut {
-        let counts = count_result_types(&self);
-        let rr_type_counts = count_rr_types(&self);
-        let responding_servers = count_responding_servers(&self);
+        let counts = count_result_types(self);
+        let rr_type_counts = count_rr_types(self);
+        let responding_servers = count_responding_servers(self);
         let response_times: Vec<_> = self
             .iter()
-            .map(|x| x.result().response())
-            .flatten()
+            .filter_map(|x| x.result().response())
             .map(|x| x.response_time().as_millis())
             .collect();
         let response_time_summary = Summary::summary(response_times.as_slice());

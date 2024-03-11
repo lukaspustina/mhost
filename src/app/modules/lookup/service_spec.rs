@@ -62,7 +62,7 @@ mod test {
         let str = "smtp:tcp:example.com";
         let expected = ServiceSpec::new("smtp", "tcp", "example.com");
 
-        let spec = ServiceSpec::from_str(&str);
+        let spec = ServiceSpec::from_str(str);
 
         assert_that(&spec).is_ok().is_equal_to(&expected);
     }
@@ -74,7 +74,7 @@ mod test {
         let str = "smtp::example.com";
         let expected = ServiceSpec::new("smtp", "tcp", "example.com");
 
-        let spec = ServiceSpec::from_str(&str);
+        let spec = ServiceSpec::from_str(str);
 
         assert_that(&spec).is_ok().is_equal_to(&expected);
     }

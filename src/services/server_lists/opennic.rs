@@ -17,7 +17,7 @@ use crate::services::server_lists::{OpenNic, ServerListDownloader};
 use crate::services::{Error, Result};
 use crate::utils::deserialize::des_f32_from_string;
 
-static BASE_URI: &str = &"https://api.opennic.org/geoip/?json";
+static BASE_URI: &str = "https://api.opennic.org/geoip/?json";
 
 #[derive(Deserialize)]
 pub struct NameServer {
@@ -63,6 +63,7 @@ pub async fn download(downloader: ServerListDownloader, spec: &OpenNic) -> Resul
     })?;
 
     let servers = serde_json::from_str::<Vec<NameServer>>(&body).map_err(Error::from)?;
+    #[allow(clippy::map_flatten)]
     let nameserver_configs: Vec<NameServerConfig> = servers
         .into_iter()
         .map(TryFrom::try_from)

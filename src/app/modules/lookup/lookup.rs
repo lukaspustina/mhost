@@ -48,7 +48,7 @@ impl Lookup {
         let app_resolver = AppResolver::create_resolvers(app_config).await?;
 
         env.console
-            .print_resolver_opts(app_resolver.resolver_group_opts(), &app_resolver.resolver_opts());
+            .print_resolver_opts(app_resolver.resolver_group_opts(), app_resolver.resolver_opts());
 
         Ok(DnsLookups {
             env,
@@ -90,7 +90,7 @@ impl<'a> DnsLookups<'a> {
     pub async fn lookups(self) -> PartialResult<Whois<'a>> {
         self.env
             .console
-            .print_partial_headers("Running lookups.", &self.app_resolver.resolvers(), &self.query);
+            .print_partial_headers("Running lookups.", self.app_resolver.resolvers(), &self.query);
 
         info!("Running lookups");
         let (lookups, run_time) = time(self.app_resolver.lookup(self.query)).await?;

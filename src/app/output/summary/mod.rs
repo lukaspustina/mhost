@@ -69,7 +69,7 @@ impl<'a> TryFrom<Vec<&'a str>> for SummaryOptions {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SummaryFormat {
     opts: SummaryOptions,
 }
@@ -81,14 +81,6 @@ impl SummaryFormat {
 
     pub fn opts(&self) -> &SummaryOptions {
         &self.opts
-    }
-}
-
-impl Default for SummaryFormat {
-    fn default() -> Self {
-        SummaryFormat {
-            opts: SummaryOptions::default(),
-        }
     }
 }
 

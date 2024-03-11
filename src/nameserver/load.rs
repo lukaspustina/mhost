@@ -45,7 +45,7 @@ impl NameServerConfigGroup {
             if buffer.starts_with("//") {
                 continue;
             }
-            let config = NameServerConfig::from_str_with_resolution(&resolvers, &buffer)
+            let config = NameServerConfig::from_str_with_resolution(resolvers, &buffer)
                 .await
                 .map_err(|e| Error::ParserError {
                     what: buffer.clone(),

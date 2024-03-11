@@ -61,7 +61,7 @@ pub(crate) mod parser {
 
     fn three_tuple_with_id(input: &str) -> IResult<&str, DomainVerification> {
         let left = input.find('=').unwrap_or(0);
-        let parts: Vec<&str> = (&input[..left]).rsplitn(3, '-').collect();
+        let parts: Vec<&str> = (input[..left]).rsplitn(3, '-').collect();
         match *parts.as_slice() {
             [_, scope, verifier] => {
                 let id = &input[left + 1..];

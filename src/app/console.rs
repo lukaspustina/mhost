@@ -25,7 +25,7 @@ use crate::services::server_lists::ServerListSpec;
 use crate::services::whois;
 use crate::statistics::Statistics;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ConsoleOpts {
     quiet: bool,
     show_errors: bool,
@@ -37,16 +37,6 @@ impl ConsoleOpts {
         ConsoleOpts {
             partial_results,
             ..self
-        }
-    }
-}
-
-impl Default for ConsoleOpts {
-    fn default() -> ConsoleOpts {
-        ConsoleOpts {
-            quiet: false,
-            show_errors: false,
-            partial_results: false,
         }
     }
 }
@@ -160,7 +150,7 @@ impl Console {
     pub fn print_partial_headers(&self, caption: &str, resolvers: &ResolverGroup, query: &MultiQuery) {
         if self.show_partial_headers() {
             self.caption(caption);
-            self.print_lookup_estimates(resolvers, &query);
+            self.print_lookup_estimates(resolvers, query);
         }
     }
 

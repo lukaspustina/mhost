@@ -94,8 +94,8 @@ impl<'a> FileWriter<'a> {
         let mut file = File::create(path).await?;
 
         for config in response.nameserver_configs() {
-            let str = format!("{}\n", config.to_string());
-            file.write(str.as_bytes()).await?;
+            let str = format!("{}\n", config);
+            file.write_all(str.as_bytes()).await?;
         }
 
         Ok(())

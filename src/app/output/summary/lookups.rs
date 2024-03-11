@@ -77,10 +77,11 @@ fn output_records<W: Write>(writer: &mut W, records: Vec<&Record>, opts: &Summar
     Ok(())
 }
 
+//noinspection RsExternalLinter
 fn summarize_records(records: Vec<&Record>) -> HashMap<&Record, Vec<&Record>> {
     let mut records_set: HashMap<&Record, Vec<&Record>> = HashMap::new();
     for r in records {
-        let set = records_set.entry(r).or_insert_with(Vec::new);
+        let set = records_set.entry(r).or_default();
         set.push(r)
     }
     records_set

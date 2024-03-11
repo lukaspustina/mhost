@@ -120,15 +120,15 @@ fn setup_console(app_config: &AppConfig) -> Console {
 
 async fn run_command(args: &ArgMatches<'_>, app_config: &AppConfig, console: &Console) -> Result<ExitStatus> {
     if app_config.list_predefined {
-        list_predefined_nameservers(&console);
+        list_predefined_nameservers(console);
         return Ok(ExitStatus::Ok);
     }
 
     match args.subcommand_name() {
-        Some("check") => modules::check::run(&args, &app_config).await,
-        Some("discover") => modules::discover::run(&args, &app_config).await,
-        Some("server-lists") => modules::get_server_lists::run(&args, &app_config).await,
-        Some("lookup") => modules::lookup::run(&args, &app_config).await,
+        Some("check") => modules::check::run(args, app_config).await,
+        Some("discover") => modules::discover::run(args, app_config).await,
+        Some("server-lists") => modules::get_server_lists::run(args, app_config).await,
+        Some("lookup") => modules::lookup::run(args, app_config).await,
         _ => {
             cli_parser::show_help();
             Ok(exit_subcommand_invalid())

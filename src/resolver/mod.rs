@@ -272,7 +272,7 @@ impl ResolverGroup {
 
         let lookup_futures: Vec<_> = resolvers
             .drain(..)
-            .take(self.opts.limit.unwrap_or_else(|| self.resolvers.len()))
+            .take(self.opts.limit.unwrap_or(self.resolvers.len()))
             .map(|resolver| lookup::lookup(resolver, multi_query.clone()))
             .collect();
         let lookups = sliding_window_lookups(lookup_futures, self.opts.max_concurrent);
@@ -348,6 +348,7 @@ async fn sliding_window_lookups(
     futures: Vec<impl Future<Output = ResolverResult<Lookups>>>,
     max_concurrent: usize,
 ) -> Lookups {
+    #[allow(clippy::map_flatten)]
     stream::iter(futures)
         .buffer_unordered(max_concurrent)
         .collect::<Vec<_>>()

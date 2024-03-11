@@ -123,8 +123,7 @@ impl Lookups {
 
     fn map_data<T, F: Fn(&RData) -> Option<&T>>(&self, mapper: F) -> Vec<&T> {
         map_response_records(self.map_responses())
-            .map(|x| mapper(x.data()))
-            .flatten()
+            .flat_map(|x| mapper(x.data()))
             .collect()
     }
 
@@ -161,7 +160,7 @@ impl Lookups {
     }
 
     fn map_responses(&self) -> impl Iterator<Item = &Response> {
-        self.inner.iter().map(|x| x.result().response()).flatten()
+        self.inner.iter().flat_map(|x| x.result().response())
     }
 
     /** Merge two Lookups into one
@@ -200,7 +199,7 @@ impl AsRef<Lookups> for Lookups {
 
 impl Errors for Lookups {
     fn errors(&self) -> Box<dyn Iterator<Item = Box<&dyn std::error::Error>> + '_> {
-        Box::new(self.inner.iter().map(|l| l.result().err()).flatten().map(|x| {
+        Box::new(self.inner.iter().flat_map(|l| l.result().err()).map(|x| {
             let ptr: Box<&dyn std::error::Error> = Box::new(x);
             ptr
         }))
@@ -422,7 +421,7 @@ impl LookupResult {
 
     pub fn err(&self) -> Option<&Error> {
         match self {
-            LookupResult::Error(ref err) => Some(&err),
+            LookupResult::Error(ref err) => Some(err),
             _ => None,
         }
     }
@@ -460,8 +459,8 @@ pub async fn lookup<T: Into<MultiQuery>>(resolver: Resolver, query: T) -> Resolv
     let query = query.into();
 
     let span = Span::current();
-    span.record("ns", &format!("{:?}", query.names).as_str());
-    span.record("rs", &format!("{:?}", query.record_types).as_str());
+    span.record("ns", format!("{:?}", query.names).as_str());
+    span.record("rs", format!("{:?}", query.record_types).as_str());
 
     debug!("Creating lookups");
     let lookup_futures: Vec<_> = query
@@ -534,7 +533,7 @@ async fn sliding_window_lookups(
 
 #[doc(hidden)]
 fn map_response_records<'a, I: Iterator<Item = &'a Response>>(responses: I) -> impl Iterator<Item = &'a Record> {
-    responses.map(|x| x.records()).flatten()
+    responses.flat_map(|x| x.records())
 }
 
 #[doc(hidden)]

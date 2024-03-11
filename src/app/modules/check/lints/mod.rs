@@ -143,7 +143,7 @@ impl Check {
         let app_resolver = AppResolver::create_resolvers(app_config).await?;
 
         env.console
-            .print_resolver_opts(app_resolver.resolver_group_opts(), &app_resolver.resolver_opts());
+            .print_resolver_opts(app_resolver.resolver_group_opts(), app_resolver.resolver_opts());
 
         Ok(LookupAllThereIs {
             env,
@@ -173,7 +173,7 @@ impl<'a> LookupAllThereIs<'a> {
 
         self.env.console.print_partial_headers(
             "Running DNS lookups for all available records.",
-            &self.app_resolver.resolvers(),
+            self.app_resolver.resolvers(),
             &query,
         );
 

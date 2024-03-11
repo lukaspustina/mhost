@@ -213,7 +213,7 @@ fn format_ip_addr(ip_addr: &IpAddr) -> String {
 fn format_name(name: &Option<String>) -> String {
     name.as_ref()
         .map(|name| format!(",name={}", name))
-        .unwrap_or_else(|| "".to_string())
+        .unwrap_or("".to_string())
 }
 
 #[derive(Debug)]

@@ -142,7 +142,7 @@ impl<'a> Soa<'a> {
             .into_iter()
             .map(|ip| NameServerConfig::udp((ip, 53)))
             .map(ResolverConfig::new);
-        let resolvers = AppResolver::from_configs(authoritative_name_servers, &self.env.app_config).await?;
+        let resolvers = AppResolver::from_configs(authoritative_name_servers, self.env.app_config).await?;
         let query = MultiQuery::single(self.env.mod_config.domain_name.as_str(), RecordType::SOA)?;
 
         let lookups = intermediate_lookups!(

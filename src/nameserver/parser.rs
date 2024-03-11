@@ -258,7 +258,7 @@ mod test {
         let str = "8.8.8.8";
         let expected = NameServerConfig::udp((Ipv4Addr::new(8, 8, 8, 8), 53));
 
-        let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
+        let config = NameServerConfig::from_str_with_resolution(&resolvers, str).await;
 
         assert_that(&config).is_ok().is_equal_to(&expected);
     }
@@ -272,7 +272,7 @@ mod test {
         let str = "tcp:8.8.8.8";
         let expected = NameServerConfig::tcp((Ipv4Addr::new(8, 8, 8, 8), 53));
 
-        let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
+        let config = NameServerConfig::from_str_with_resolution(&resolvers, str).await;
 
         assert_that(&config).is_ok().is_equal_to(&expected);
     }
@@ -286,7 +286,7 @@ mod test {
         let str = "8.8.8.8:35";
         let expected = NameServerConfig::udp((Ipv4Addr::new(8, 8, 8, 8), 35));
 
-        let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
+        let config = NameServerConfig::from_str_with_resolution(&resolvers, str).await;
 
         assert_that(&config).is_ok().is_equal_to(&expected);
     }
@@ -300,7 +300,7 @@ mod test {
         let str = "tcp:8.8.8.8:35";
         let expected = NameServerConfig::tcp((Ipv4Addr::new(8, 8, 8, 8), 35));
 
-        let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
+        let config = NameServerConfig::from_str_with_resolution(&resolvers, str).await;
 
         assert_that(&config).is_ok().is_equal_to(&expected);
     }
@@ -314,7 +314,7 @@ mod test {
         let str = "tcp:8.8.8.8:35,name=Google DNS";
         let expected = NameServerConfig::tcp_with_name((Ipv4Addr::new(8, 8, 8, 8), 35), "Google DNS".to_string());
 
-        let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
+        let config = NameServerConfig::from_str_with_resolution(&resolvers, str).await;
 
         assert_that(&config).is_ok().is_equal_to(&expected);
     }
@@ -327,7 +327,7 @@ mod test {
             .expect("failed to create system resolver");
         let str = "tcp:8.8.8.8:35,tls_auth_name=dns.google";
 
-        let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
+        let config = NameServerConfig::from_str_with_resolution(&resolvers, str).await;
 
         assert_that(&config).is_err();
     }
@@ -342,7 +342,7 @@ mod test {
         let str = "2606:4700::6810:f9f9";
         let expected = NameServerConfig::udp((Ipv6Addr::from_str("2606:4700::6810:f9f9").unwrap(), 53));
 
-        let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
+        let config = NameServerConfig::from_str_with_resolution(&resolvers, str).await;
 
         assert_that(&config).is_ok().is_equal_to(&expected);
     }
@@ -357,7 +357,7 @@ mod test {
         let expected1 = NameServerConfig::udp((Ipv4Addr::new(8, 8, 8, 8), 53));
         let expected2 = NameServerConfig::udp((Ipv4Addr::new(8, 8, 4, 4), 53));
 
-        let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
+        let config = NameServerConfig::from_str_with_resolution(&resolvers, str).await;
 
         assert_that(&config).is_ok();
         assert_that(&[expected1, expected2]).contains(config.unwrap());
@@ -379,7 +379,7 @@ mod test {
             "cloudflare-dns.com".to_string(),
         );
 
-        let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
+        let config = NameServerConfig::from_str_with_resolution(&resolvers, str).await;
 
         assert_that(&config).is_ok();
         assert_that(&[expected1, expected2]).contains(config.unwrap());
@@ -398,7 +398,7 @@ mod test {
             "Cloudflare".to_string(),
         );
 
-        let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
+        let config = NameServerConfig::from_str_with_resolution(&resolvers, str).await;
 
         assert_that(&config).is_ok().is_equal_to(expected);
     }
@@ -417,7 +417,7 @@ mod test {
             "Cloudflare".to_string(),
         );
 
-        let config = NameServerConfig::from_str_with_resolution(&resolvers, &str).await;
+        let config = NameServerConfig::from_str_with_resolution(&resolvers, str).await;
 
         assert_that(&config).is_ok().is_equal_to(expected);
     }
@@ -505,7 +505,7 @@ pub(crate) mod parser {
         Name(&'a str),
     }
 
-    pub(crate) fn parsed_name_server_config<'a>(input: &'a str) -> IResult<&'a str, NameServerConfig> {
+    pub(crate) fn parsed_name_server_config(input: &str) -> IResult<&str, NameServerConfig> {
         let (input, protocol) = opt(protocol)(input)?;
         let (input, target) = alt((ipv4, ipv6, name))(input)?;
         let (input, port) = opt(port)(input)?;
@@ -532,7 +532,7 @@ pub(crate) mod parser {
     }
 
     fn ipv4(input: &str) -> IResult<&str, Target> {
-        let (input, ipv4) = map_res(take_while(|c: char| c.is_digit(10) || c == '.'), Ipv4Addr::from_str)(input)?;
+        let (input, ipv4) = map_res(take_while(|c: char| c.is_ascii_digit() || c == '.'), Ipv4Addr::from_str)(input)?;
 
         let target = Target::Ipv4(ipv4);
 
@@ -603,7 +603,7 @@ pub(crate) mod parser {
             let str = "127.0.0.1";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 53);
 
-            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -614,7 +614,7 @@ pub(crate) mod parser {
             let str = "udp:127.0.0.1";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 53);
 
-            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -625,7 +625,7 @@ pub(crate) mod parser {
             let str = "127.0.0.1:35";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 35);
 
-            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -642,7 +642,7 @@ pub(crate) mod parser {
                 "localhost",
             );
 
-            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -653,7 +653,7 @@ pub(crate) mod parser {
             let str = "udp:127.0.0.1:35";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 35);
 
-            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -664,7 +664,7 @@ pub(crate) mod parser {
             let str = "udp://127.0.0.1";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 53);
 
-            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -675,7 +675,7 @@ pub(crate) mod parser {
             let str = "udp://127.0.0.1:35";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 35);
 
-            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -686,7 +686,7 @@ pub(crate) mod parser {
             let str = "tcp:127.0.0.1";
             let expected = NameServerConfig::new(Protocol::Tcp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 53);
 
-            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -697,7 +697,7 @@ pub(crate) mod parser {
             let str = "tcp://127.0.0.1";
             let expected = NameServerConfig::new(Protocol::Tcp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 53);
 
-            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -707,9 +707,9 @@ pub(crate) mod parser {
         fn ipv6___1_128() {
             crate::utils::tests::logging::init();
             let str = "::1";
-            let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv6(Ipv6Addr::from_str(&str).unwrap()), 53);
+            let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv6(Ipv6Addr::from_str(str).unwrap()), 53);
 
-            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -721,11 +721,11 @@ pub(crate) mod parser {
             let str = "[2001:0db8:85a3:08d3::0370:7344]:5353";
             let expected = NameServerConfig::new(
                 Protocol::Udp,
-                Target::Ipv6(Ipv6Addr::from_str(&"2001:0db8:85a3:08d3::0370:7344").unwrap()),
+                Target::Ipv6(Ipv6Addr::from_str("2001:0db8:85a3:08d3::0370:7344").unwrap()),
                 5353,
             );
 
-            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -736,7 +736,7 @@ pub(crate) mod parser {
             let str = "localhost";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1)), 53);
 
-            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -747,7 +747,7 @@ pub(crate) mod parser {
             let str = "dns.google";
             let expected = NameServerConfig::new(Protocol::Udp, Target::Name("dns.google"), 53);
 
-            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -764,7 +764,7 @@ pub(crate) mod parser {
                 "Google",
             );
 
-            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -781,7 +781,7 @@ pub(crate) mod parser {
                 None,
             );
 
-            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -798,7 +798,7 @@ pub(crate) mod parser {
                 None,
             );
 
-            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -815,7 +815,7 @@ pub(crate) mod parser {
                 None,
             );
 
-            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -832,7 +832,7 @@ pub(crate) mod parser {
                 None,
             );
 
-            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }
@@ -849,7 +849,7 @@ pub(crate) mod parser {
                 "Google",
             );
 
-            let (_, config) = parsed_name_server_config(&str).expect("failed to parse name server config");
+            let (_, config) = parsed_name_server_config(str).expect("failed to parse name server config");
 
             assert_that(&config).is_equal_to(expected);
         }

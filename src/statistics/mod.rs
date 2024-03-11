@@ -36,6 +36,7 @@ pub struct Summary<T: Ord + Clone> {
     pub max: Option<T>,
 }
 
+#[allow(clippy::self_named_constructors)]
 impl<T: Ord + Clone> Summary<T> {
     pub fn summary(values: &[T]) -> Summary<T> {
         let min = values.iter().min().cloned();
