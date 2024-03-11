@@ -1,6 +1,6 @@
 [package]
 name = "mhost"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Lukas Pustina <lukas@pustina.de>"]
 edition = "2018"
 description = "More than host - A modern take on the classic host DNS lookup utility including an easy to use and very fast Rust lookup library"
