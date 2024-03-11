@@ -7,5 +7,5 @@ CHECK:  * PTR:  8.8.8.8:  dns.google.
 CHECK-NEXT: > Running WHOIS queries.
 CHECK-NEXT: - Sending up to 3 requests for 3 query types of 1 resources.
 CHECK-NEXT: - Received 3 responses [GL 1, NI 1, WI 1], 0 Err within [[\d+]] ms of total run time.
-CHECK-NEXT:  * 8.8.8.8/32  AS 15169, Prefix 8.8.8.0/24, Net name -, Org -, Authority ARIN, Location -, US
+CHECK-NEXT:  * 8.8.8.8/32  AS 15169, Prefix 8.8.8.0/24, Net name GOGL, Org Google LLC (GOGL), Authority ARIN, Location -, US
 + Finished.

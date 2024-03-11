@@ -479,7 +479,11 @@ mod tests {
     #[tokio::test]
     async fn test_5x_1_1_1_1() {
         crate::utils::tests::logging::init();
-        let whois = WhoisClient::default();
+        let opts = WhoisClientOpts {
+            timeout: Duration::from_secs(10),
+            ..WhoisClientOpts::default()
+        };
+        let whois = WhoisClient::new(opts);
 
         let ip_network = IpNetwork::from_str("1.1.1.1").unwrap();
         let ip_networks = vec![ip_network, ip_network, ip_network, ip_network, ip_network];

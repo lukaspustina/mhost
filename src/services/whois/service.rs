@@ -455,7 +455,8 @@ mod tests {
     #[tokio::test]
     async fn whois() {
         crate::utils::tests::logging::init();
-        let client = RipeStatsClient::new(Default::default());
+        let opts = RipeStatsClientOpts::new(Duration::from_secs(10));
+        let client = RipeStatsClient::new(opts);
         let ip_address = IpAddr::V4(Ipv4Addr::new(89, 0, 248, 55)).to_string();
 
         let response = client.whois(ip_address).await;

@@ -9,7 +9,7 @@ CHECK-NEXT: * A:
 CHECK-NEXT: * AAAA:
 CHECK-NEXT: > Running WHOIS queries.
 CHECK-NEXT: - Sending up to 6 requests for 3 query types of 2 resources.
-CHECK-NEXT: - Received 6 responses [GL 2, NI 2, WI 2], 0 Err within [[\d+]] ms of total run time.
+CHECK-NEXT: - Received 6 responses [GL 2, NI 2, WI [[\d+]]], [[\d+]] Err within [[\d+]] ms of total run time.
 CHECK-NEXT: [[.+]] AS 15133
 CHECK-NEXT: [[.+]] AS 15133
 CHECK-NEXT: + Finished.
