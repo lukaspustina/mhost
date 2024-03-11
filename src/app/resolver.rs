@@ -33,10 +33,13 @@ impl NameBuilderOpts {
 
     /// Creates a new `NameBuilderOpts` by using the domain name from the local host's hostname as search domain.
     pub fn from_hostname(ndots: u8) -> Result<Self> {
-        let search_domain = hostname::get()
+        let hostname = hostname::get()
             .context("failed to get local hostname")?
             .to_string_lossy()
             .to_string();
+        let name = Name::from_str(&hostname)
+            .context("failed to parse local hostname")?;
+        let search_domain = name.base_name();
         NameBuilderOpts::new(ndots, search_domain)
     }
 }
