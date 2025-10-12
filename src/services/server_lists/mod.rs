@@ -255,7 +255,7 @@ impl DownloadResponses {
         self.responses.is_empty()
     }
 
-    pub fn iter(&self) -> Iter<DownloadResponse> {
+    pub fn iter(&self) -> Iter<'_, DownloadResponse> {
         self.responses.iter()
     }
 

@@ -23,7 +23,7 @@ pub struct WhoisStats<'a> {
     phantom: PhantomData<&'a usize>,
 }
 
-impl<'a> fmt::Display for WhoisStats<'a> {
+impl fmt::Display for WhoisStats<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fn fmt_errors(errors: usize) -> String {
             if errors == 0 {

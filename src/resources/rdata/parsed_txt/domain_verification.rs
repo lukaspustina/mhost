@@ -55,11 +55,11 @@ pub(crate) mod parser {
     use nom::error::ErrorKind;
     use nom::{Err, IResult};
 
-    pub fn domain_verification(input: &str) -> IResult<&str, DomainVerification> {
+    pub fn domain_verification(input: &str) -> IResult<&str, DomainVerification<'_>> {
         alt((three_tuple_with_id, ms_office_365, zoom))(input)
     }
 
-    fn three_tuple_with_id(input: &str) -> IResult<&str, DomainVerification> {
+    fn three_tuple_with_id(input: &str) -> IResult<&str, DomainVerification<'_>> {
         let left = input.find('=').unwrap_or(0);
         let parts: Vec<&str> = (input[..left]).rsplitn(3, '-').collect();
         match *parts.as_slice() {
@@ -72,7 +72,7 @@ pub(crate) mod parser {
     }
 
     // https://docs.microsoft.com/en-us/microsoft-365/admin/get-help-with-domains/create-dns-records-at-any-dns-hosting-provider?view=o365-worldwide#bkmk_verify
-    fn ms_office_365(input: &str) -> IResult<&str, DomainVerification> {
+    fn ms_office_365(input: &str) -> IResult<&str, DomainVerification<'_>> {
         let (input, _) = tag("MS=")(input)?;
         let (input, id) = alphanumeric1(input)?;
 
@@ -87,7 +87,7 @@ pub(crate) mod parser {
     }
 
     // https://support.zoom.us/hc/en-us/articles/203395207-Associated-domains
-    fn zoom(input: &str) -> IResult<&str, DomainVerification> {
+    fn zoom(input: &str) -> IResult<&str, DomainVerification<'_>> {
         let (input, _) = tag("ZOOM_verify_")(input)?;
         let (input, id) = not_line_ending(input)?;
 

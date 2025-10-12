@@ -422,7 +422,7 @@ impl WhoisResponses {
         self.inner.is_empty()
     }
 
-    pub fn iter(&self) -> Iter<WhoisResponse> {
+    pub fn iter(&self) -> Iter<'_, WhoisResponse> {
         self.inner.iter()
     }
 

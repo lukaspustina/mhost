@@ -277,7 +277,7 @@ pub struct OutputDiscoverResult<'a> {
     lookups: Lookups,
 }
 
-impl<'a> OutputDiscoverResult<'a> {
+impl OutputDiscoverResult<'_> {
     pub fn output(self) -> PartialResult<ExitStatus> {
         match self.env.app_config.output {
             OutputType::Json => self.json_output(),

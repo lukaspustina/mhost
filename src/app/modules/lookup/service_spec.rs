@@ -45,7 +45,7 @@ impl ServiceSpec {
             Err(Err::Error((_, why))) | Err(Err::Failure((_, why))) => Err(anyhow!(
                 "failed to parse service spec '{}' because {}",
                 str,
-                why.description().to_string()
+                why.description()
             )),
         }
     }

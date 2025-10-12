@@ -109,7 +109,7 @@ pub(crate) mod parser {
 
     use super::{Mechanism, Modifier, Qualifier, Spf, Word};
 
-    pub fn spf(input: &str) -> IResult<&str, Spf> {
+    pub fn spf(input: &str) -> IResult<&str, Spf<'_>> {
         let (input, version) = spf_version(input)?;
         let (input, words) = many1(spf_word)(input)?;
 
@@ -123,19 +123,19 @@ pub(crate) mod parser {
         Ok((input, version))
     }
 
-    fn spf_word(input: &str) -> IResult<&str, Word> {
+    fn spf_word(input: &str) -> IResult<&str, Word<'_>> {
         let (input, _) = space1(input)?;
         alt((spf_word_word, spf_word_modifier))(input)
     }
 
-    fn spf_word_word(input: &str) -> IResult<&str, Word> {
+    fn spf_word_word(input: &str) -> IResult<&str, Word<'_>> {
         let (input, qualifier) = map(opt(alt((char('+'), char('?'), char('~'), char('-')))), Qualifier::from)(input)?;
         let (input, mechanism) = spf_mechanism(input)?;
 
         Ok((input, Word::Word(qualifier, mechanism)))
     }
 
-    fn spf_mechanism(input: &str) -> IResult<&str, Mechanism> {
+    fn spf_mechanism(input: &str) -> IResult<&str, Mechanism<'_>> {
         let (input, mechanism) = alt((
             spf_mechanism_all,
             spf_mechanism_a,
@@ -150,12 +150,12 @@ pub(crate) mod parser {
         Ok((input, mechanism))
     }
 
-    fn spf_mechanism_all(input: &str) -> IResult<&str, Mechanism> {
+    fn spf_mechanism_all(input: &str) -> IResult<&str, Mechanism<'_>> {
         let (input, _) = tag("all")(input)?;
         Ok((input, Mechanism::All))
     }
 
-    fn spf_mechanism_a(input: &str) -> IResult<&str, Mechanism> {
+    fn spf_mechanism_a(input: &str) -> IResult<&str, Mechanism<'_>> {
         let (input, _) = tag("a")(input)?;
         let (input, domain_spec) = opt(domain_spec)(input)?;
         let (input, cidr_len) = opt(cidr_len)(input)?;
@@ -181,7 +181,7 @@ pub(crate) mod parser {
         c.is_alphanumeric() || ".-_".contains(c)
     }
 
-    fn spf_mechanism_ip4(input: &str) -> IResult<&str, Mechanism> {
+    fn spf_mechanism_ip4(input: &str) -> IResult<&str, Mechanism<'_>> {
         let (input, _) = tag("ip4:")(input)?;
         let (input, ipv4) = map_res(take_while(is_ipv4_addr_range_char), |s: &str| {
             str::from_utf8(s.as_bytes())
@@ -194,7 +194,7 @@ pub(crate) mod parser {
         c.is_ascii_digit() || c == '.' || c == '/'
     }
 
-    fn spf_mechanism_ip6(input: &str) -> IResult<&str, Mechanism> {
+    fn spf_mechanism_ip6(input: &str) -> IResult<&str, Mechanism<'_>> {
         let (input, _) = tag("ip6:")(input)?;
         let (input, ipv6) = map_res(take_while(is_ipv6_addr_range_char), |s: &str| {
             str::from_utf8(s.as_bytes())
@@ -207,20 +207,20 @@ pub(crate) mod parser {
         c.is_hex_digit() || c == ':' || c == '/'
     }
 
-    fn spf_mechanism_mx(input: &str) -> IResult<&str, Mechanism> {
+    fn spf_mechanism_mx(input: &str) -> IResult<&str, Mechanism<'_>> {
         let (input, _) = tag("mx")(input)?;
         let (input, domain_spec) = opt(domain_spec)(input)?;
         let (input, cidr_len) = opt(cidr_len)(input)?;
         Ok((input, Mechanism::MX { domain_spec, cidr_len }))
     }
 
-    fn spf_mechanism_ptr(input: &str) -> IResult<&str, Mechanism> {
+    fn spf_mechanism_ptr(input: &str) -> IResult<&str, Mechanism<'_>> {
         let (input, _) = tag("ptr")(input)?;
         let (input, domain_spec) = opt(domain_spec)(input)?;
         Ok((input, Mechanism::PTR(domain_spec)))
     }
 
-    fn spf_mechanism_exists(input: &str) -> IResult<&str, Mechanism> {
+    fn spf_mechanism_exists(input: &str) -> IResult<&str, Mechanism<'_>>{
         let (input, _) = tag("exists:")(input)?;
         let (input, domain_spec) = map_res(take_while(is_domain_spec_macro_char), |s: &str| {
             str::from_utf8(s.as_bytes())
@@ -233,7 +233,7 @@ pub(crate) mod parser {
         c.is_alphanumeric() || ".-+,/_=%{}".contains(c)
     }
 
-    fn spf_mechanism_include(input: &str) -> IResult<&str, Mechanism> {
+    fn spf_mechanism_include(input: &str) -> IResult<&str, Mechanism<'_>> {
         let (input, _) = tag("include:")(input)?;
         let (input, domain_spec) =
             map_res(take_while(is_domain_spec_char), |s: &str| str::from_utf8(s.as_bytes()))(input)?;
@@ -241,13 +241,13 @@ pub(crate) mod parser {
         Ok((input, Mechanism::Include(domain_spec)))
     }
 
-    fn spf_word_modifier(input: &str) -> IResult<&str, Word> {
+    fn spf_word_modifier(input: &str) -> IResult<&str, Word<'_>> {
         let (input, modifier) = alt((spf_modifier_redirect, spf_modifier_exp))(input)?;
 
         Ok((input, Word::Modifier(modifier)))
     }
 
-    fn spf_modifier_redirect(input: &str) -> IResult<&str, Modifier> {
+    fn spf_modifier_redirect(input: &str) -> IResult<&str, Modifier<'_>> {
         let (input, _) = tag("redirect=")(input)?;
         let (input, domain_spec) =
             map_res(take_while(is_domain_spec_char), |s: &str| str::from_utf8(s.as_bytes()))(input)?;
@@ -255,7 +255,7 @@ pub(crate) mod parser {
         Ok((input, Modifier::Redirect(domain_spec)))
     }
 
-    fn spf_modifier_exp(input: &str) -> IResult<&str, Modifier> {
+    fn spf_modifier_exp(input: &str) -> IResult<&str, Modifier<'_>> {
         let (input, _) = tag("exp=")(input)?;
         let (input, domain_spec) = map_res(take_while(is_domain_spec_macro_char), |s: &str| {
             str::from_utf8(s.as_bytes())

@@ -19,7 +19,7 @@ pub struct DownloadResponsesStats<'a> {
     phantom: PhantomData<&'a usize>,
 }
 
-impl<'a> fmt::Display for DownloadResponsesStats<'a> {
+impl fmt::Display for DownloadResponsesStats<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fn fmt_errors(errors: usize) -> String {
             if errors == 0 {

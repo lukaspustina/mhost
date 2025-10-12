@@ -191,7 +191,7 @@ pub struct LookupResult<'a> {
     whois: Option<WhoisResponses>,
 }
 
-impl<'a> LookupResult<'a> {
+impl LookupResult<'_> {
     pub fn output(self) -> PartialResult<ExitStatus> {
         match self.env.app_config.output {
             OutputType::Json => self.json_output(),

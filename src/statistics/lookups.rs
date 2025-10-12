@@ -30,7 +30,7 @@ pub struct LookupsStats<'a> {
     phantom: PhantomData<&'a usize>,
 }
 
-impl<'a> fmt::Display for LookupsStats<'a> {
+impl fmt::Display for LookupsStats<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fn fmt_errors(errors: usize, timeouts: usize, refuses: usize, servfails: usize) -> String {
             if errors == 0 {

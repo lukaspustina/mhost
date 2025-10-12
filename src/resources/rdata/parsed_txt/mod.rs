@@ -45,19 +45,19 @@ mod parser {
     use nom::branch::alt;
     use nom::IResult;
 
-    pub fn parsed_txt(input: &str) -> IResult<&str, ParsedTxt> {
+    pub fn parsed_txt(input: &str) -> IResult<&str, ParsedTxt<'_>> {
         let (input, parsed_txt) = alt((domain_verification, spf))(input)?;
 
         Ok((input, parsed_txt))
     }
 
-    pub fn spf(input: &str) -> IResult<&str, ParsedTxt> {
+    pub fn spf(input: &str) -> IResult<&str, ParsedTxt<'_>> {
         let (input, spf) = spf::parser::spf(input)?;
 
         Ok((input, ParsedTxt::Spf(spf)))
     }
 
-    pub fn domain_verification(input: &str) -> IResult<&str, ParsedTxt> {
+    pub fn domain_verification(input: &str) -> IResult<&str, ParsedTxt<'_>> {
         let (input, domain_verification) = domain_verification::parser::domain_verification(input)?;
 
         Ok((input, ParsedTxt::DomainVerification(domain_verification)))

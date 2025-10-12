@@ -75,7 +75,7 @@ pub struct FileWriter<'a> {
     servers: DownloadResponses,
 }
 
-impl<'a> FileWriter<'a> {
+impl FileWriter<'_> {
     pub async fn write_servers_to_file(self) -> PartialResult<ExitStatus> {
         info!("Writing nameserver configs to file.");
         FileWriter::write_servers(&self.env.mod_config.output_file_path, &self.servers).await?;

@@ -33,7 +33,7 @@ impl TXT {
         &self.txt_data
     }
 
-    pub fn iter(&self) -> Iter<Box<[u8]>> {
+    pub fn iter(&self) -> Iter<'_, Box<[u8]>> {
         self.txt_data.iter()
     }
 

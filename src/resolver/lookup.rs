@@ -72,7 +72,7 @@ impl Lookups {
         self.inner.is_empty()
     }
 
-    pub fn iter(&self) -> Iter<Lookup> {
+    pub fn iter(&self) -> Iter<'_, Lookup> {
         self.inner.iter()
     }
 

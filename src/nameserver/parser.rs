@@ -67,7 +67,7 @@ impl NameServerConfig {
     }
 }
 
-impl<'a> parser::NameServerConfig<'a> {
+impl parser::NameServerConfig<'_> {
     fn try_into(self, target_ip: IpAddr) -> Result<NameServerConfig> {
         use parser::Protocol;
         match &self.protocol {
@@ -505,7 +505,7 @@ pub(crate) mod parser {
         Name(&'a str),
     }
 
-    pub(crate) fn parsed_name_server_config(input: &str) -> IResult<&str, NameServerConfig> {
+    pub(crate) fn parsed_name_server_config(input: &str) -> IResult<&str, NameServerConfig<'_>> {
         let (input, protocol) = opt(protocol)(input)?;
         let (input, target) = alt((ipv4, ipv6, name))(input)?;
         let (input, port) = opt(port)(input)?;
@@ -531,7 +531,7 @@ pub(crate) mod parser {
         Ok((input, protocol))
     }
 
-    fn ipv4(input: &str) -> IResult<&str, Target> {
+    fn ipv4(input: &str) -> IResult<&str, Target<'_>> {
         let (input, ipv4) = map_res(take_while(|c: char| c.is_ascii_digit() || c == '.'), Ipv4Addr::from_str)(input)?;
 
         let target = Target::Ipv4(ipv4);
@@ -539,7 +539,7 @@ pub(crate) mod parser {
         Ok((input, target))
     }
 
-    fn ipv6(input: &str) -> IResult<&str, Target> {
+    fn ipv6(input: &str) -> IResult<&str, Target<'_>> {
         let (input, _) = opt(tag("["))(input)?;
         let (input, ipv6) = map_res(
             take_while(|c: char| c.is_hex_digit() || c == ':' || c == '/'),
@@ -552,7 +552,7 @@ pub(crate) mod parser {
         Ok((input, target))
     }
 
-    fn name(input: &str) -> IResult<&str, Target> {
+    fn name(input: &str) -> IResult<&str, Target<'_>> {
         let (input, name) = take_while(|c: char| c.is_alphanumeric() || c == '.' || c == '-')(input)?;
         let target = if name == "localhost" {
             Target::Ipv4(Ipv4Addr::new(127, 0, 0, 1))

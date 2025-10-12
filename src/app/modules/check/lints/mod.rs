@@ -208,7 +208,7 @@ pub struct OutputCheckResults<'a> {
     check_results: CheckResults,
 }
 
-impl<'a> OutputCheckResults<'a> {
+impl OutputCheckResults<'_> {
     pub fn output(self) -> PartialResult<ExitStatus> {
         match self.env.app_config.output {
             OutputType::Json => self.json_output(),

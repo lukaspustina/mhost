@@ -211,7 +211,7 @@ mod tests {
             assert_that(&diff)
                 .is_some()
                 .map(|x| &x.fields)
-                .is_equal_to(&vec![mx::Field::Preference, mx::Field::Exchange]);
+                .is_equal_to(vec![mx::Field::Preference, mx::Field::Exchange]);
         }
     }
 
@@ -263,7 +263,7 @@ mod tests {
 
             let diff = left.difference(&right);
 
-            assert_that(&diff).is_some().map(|x| &x.fields).is_equal_to(&vec![
+            assert_that(&diff).is_some().map(|x| &x.fields).is_equal_to(vec![
                 soa::Field::MName,
                 soa::Field::RName,
                 soa::Field::Serial,
@@ -299,7 +299,7 @@ mod tests {
 
             let diff = left.difference(&right);
 
-            assert_that(&diff).is_some().map(|x| &x.fields).is_equal_to(&vec![
+            assert_that(&diff).is_some().map(|x| &x.fields).is_equal_to(vec![
                 srv::Field::Priority,
                 srv::Field::Weight,
                 srv::Field::Port,
@@ -344,7 +344,7 @@ mod tests {
             assert_that(&diff)
                 .is_some()
                 .map(|x| &x.fields)
-                .is_equal_to(&vec![txt::Field::TxtData]);
+                .is_equal_to(vec![txt::Field::TxtData]);
         }
     }
 
@@ -375,7 +375,7 @@ mod tests {
             assert_that(&diff)
                 .is_some()
                 .map(|x| &x.fields)
-                .is_equal_to(&vec![unknown::Field::Code]);
+                .is_equal_to(vec![unknown::Field::Code]);
         }
     }
 }

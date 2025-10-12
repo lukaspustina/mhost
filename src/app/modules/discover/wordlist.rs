@@ -160,7 +160,7 @@ impl Wordlist {
     }
 
     #[allow(dead_code)]
-    pub fn iter(&self) -> Iter<Name> {
+    pub fn iter(&self) -> Iter<'_, Name> {
         self.words.iter()
     }
 

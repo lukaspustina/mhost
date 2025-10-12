@@ -77,7 +77,7 @@ pub struct Output<'a> {
 }
 
 impl Output<'_> {
-    pub fn new(config: &OutputConfig) -> Output {
+    pub fn new(config: &OutputConfig) -> Output<'_> {
         Output { config }
     }
 }
