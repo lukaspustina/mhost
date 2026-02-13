@@ -10,8 +10,8 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{anyhow, Result};
-use rand::distributions::Alphanumeric;
-use rand::{thread_rng, Rng};
+use rand::distr::Alphanumeric;
+use rand::Rng;
 use serde::Serialize;
 use tracing::{debug, info};
 
@@ -170,7 +170,7 @@ impl<'a> WildcardCheck<'a> {
             "Generating {} number of random domain names with length {}",
             number, len
         );
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         (0..number)
             .map(|_| (&mut rng).sample_iter(Alphanumeric).take(len).map(char::from).collect())
             .inspect(|x| debug!("Generated random domain name: '{}'", x))

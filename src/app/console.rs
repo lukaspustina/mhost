@@ -283,19 +283,19 @@ impl Console {
 pub struct Fmt {}
 
 impl Fmt {
-    pub fn emph<T: fmt::Display>(item: T) -> Paint<T> {
-        styles::EMPH.paint(item)
+    pub fn emph<T: fmt::Display>(item: T) -> String {
+        format!("{}", item.paint(*styles::EMPH))
     }
 
-    pub fn attention<T: fmt::Display>(item: T) -> Paint<T> {
-        styles::ATTENTION.paint(item)
+    pub fn attention<T: fmt::Display>(item: T) -> String {
+        format!("{}", item.paint(*styles::ATTENTION))
     }
 
-    pub fn error<T: fmt::Display>(item: T) -> Paint<T> {
-        styles::ERROR.paint(item)
+    pub fn error<T: fmt::Display>(item: T) -> String {
+        format!("{}", item.paint(*styles::ERROR))
     }
 
-    pub fn ok<T: fmt::Display>(item: T) -> Paint<T> {
-        styles::OK.paint(item)
+    pub fn ok<T: fmt::Display>(item: T) -> String {
+        format!("{}", item.paint(*styles::OK))
     }
 }
