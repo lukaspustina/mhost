@@ -10,7 +10,7 @@
 use std::fmt;
 use std::net::{IpAddr, SocketAddr};
 
-use nom::lib::std::str::FromStr;
+use std::str::FromStr;
 use resolv_conf::ScopedIp;
 use serde::Serialize;
 

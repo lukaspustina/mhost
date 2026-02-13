@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use nom::Err;
+use nom::error::Error as NomError;
 
 use crate::{Error, Result};
 
@@ -26,10 +27,10 @@ impl<'a> DomainVerification<'a> {
                 to: "DomainVerification TXT Record",
                 why: "input is incomplete".to_string(),
             }),
-            Err(Err::Error((what, why))) | Err(Err::Failure((what, why))) => Err(Error::ParserError {
+            Err(Err::Error(NomError { input: what, code: why })) | Err(Err::Failure(NomError { input: what, code: why })) => Err(Error::ParserError {
                 what: what.to_string(),
                 to: "DomainVerification TXT Record",
-                why: why.description().to_string(),
+                why: format!("{:?}", why),
             }),
         }
     }
@@ -52,7 +53,7 @@ pub(crate) mod parser {
     use nom::branch::alt;
     use nom::bytes::complete::tag;
     use nom::character::complete::{alphanumeric1, not_line_ending};
-    use nom::error::ErrorKind;
+    use nom::error::{Error as NomError, ErrorKind};
     use nom::{Err, IResult};
 
     pub fn domain_verification(input: &str) -> IResult<&str, DomainVerification<'_>> {
@@ -67,7 +68,7 @@ pub(crate) mod parser {
                 let id = &input[left + 1..];
                 Ok(("", DomainVerification { verifier, scope, id }))
             }
-            _ => Err(Err::Error((input, ErrorKind::ParseTo))),
+            _ => Err(Err::Error(NomError::new(input, ErrorKind::Fail))),
         }
     }
 

@@ -8,6 +8,7 @@
 use std::net::IpAddr;
 
 use nom::Err;
+use nom::error::Error as NomError;
 
 use crate::nameserver::NameServerConfig;
 use crate::resolver::lookup::Uniquify;
@@ -28,10 +29,10 @@ impl NameServerConfig {
                 to: "NameServerConfig",
                 why: "input is incomplete".to_string(),
             }),
-            Err(Err::Error((what, why))) | Err(Err::Failure((what, why))) => Err(Error::ParserError {
+            Err(Err::Error(NomError { input: what, code: why })) | Err(Err::Failure(NomError { input: what, code: why })) => Err(Error::ParserError {
                 what: what.to_string(),
                 to: "NameServerConfig",
-                why: why.description().to_string(),
+                why: format!("{:?}", why),
             }),
         }
     }
@@ -58,10 +59,10 @@ impl NameServerConfig {
                 to: "NameServerConfig",
                 why: "input is incomplete".to_string(),
             }),
-            Err(Err::Error((what, why))) | Err(Err::Failure((what, why))) => Err(Error::ParserError {
+            Err(Err::Error(NomError { input: what, code: why })) | Err(Err::Failure(NomError { input: what, code: why })) => Err(Error::ParserError {
                 what: what.to_string(),
                 to: "NameServerConfig",
-                why: why.description().to_string(),
+                why: format!("{:?}", why),
             }),
         }
     }
@@ -432,7 +433,7 @@ pub(crate) mod parser {
     use nom::bytes::complete::{tag, take_while};
     use nom::character::complete::digit1;
     use nom::combinator::{map_res, opt};
-    use nom::{AsChar, IResult};
+    use nom::IResult;
 
     #[derive(Debug, PartialEq, Eq)]
     pub(crate) struct NameServerConfig<'a> {
@@ -542,7 +543,7 @@ pub(crate) mod parser {
     fn ipv6(input: &str) -> IResult<&str, Target<'_>> {
         let (input, _) = opt(tag("["))(input)?;
         let (input, ipv6) = map_res(
-            take_while(|c: char| c.is_hex_digit() || c == ':' || c == '/'),
+            take_while(|c: char| c.is_ascii_hexdigit() || c == ':' || c == '/'),
             Ipv6Addr::from_str,
         )(input)?;
         let (input, _) = opt(tag("]"))(input)?;

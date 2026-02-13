@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use nom::lib::std::collections::HashSet;
+use std::collections::HashSet;
 
 use super::*;
 use serde::Serialize;

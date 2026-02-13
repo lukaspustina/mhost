@@ -8,8 +8,8 @@
 use std::time::Duration;
 
 use ipnetwork::IpNetwork;
-use nom::lib::std::collections::HashMap;
-use nom::lib::std::fmt::Formatter;
+use std::collections::HashMap;
+use std::fmt::Formatter;
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};

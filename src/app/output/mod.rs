@@ -8,7 +8,7 @@
 use std::cmp::Ordering;
 use std::io::{self, Write};
 
-use nom::lib::std::convert::TryFrom;
+use std::convert::TryFrom;
 
 use crate::services::whois::WhoisResponse;
 use crate::{Error, RecordType, Result};
