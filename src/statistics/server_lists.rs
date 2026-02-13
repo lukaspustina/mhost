@@ -8,6 +8,8 @@
 use std::fmt;
 use std::marker::PhantomData;
 
+use yansi::Paint;
+
 use super::*;
 use crate::services::server_lists::DownloadResponses;
 
@@ -25,13 +27,13 @@ impl fmt::Display for DownloadResponsesStats<'_> {
             if errors == 0 {
                 "0 Err".to_string()
             } else {
-                format!("{} Err", styles::ERR.paint(errors))
+                format!("{} Err", errors.paint(*styles::ERR))
             }
         }
 
         let str = format!(
             "{num_servers} name servers, {errs}",
-            num_servers = styles::BOLD.paint(self.nameserver_configs),
+            num_servers = self.nameserver_configs.paint(*styles::BOLD),
             errs = fmt_errors(self.errors),
         );
         f.write_str(&str)

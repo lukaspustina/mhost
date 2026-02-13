@@ -9,6 +9,8 @@ use std::collections::HashMap;
 
 use tabwriter::TabWriter;
 
+use yansi::Paint;
+
 use super::*;
 use crate::app::output::styles::ITEMAZATION_PREFIX;
 use crate::services::whois::{GeoLocation, NetworkInfo, Whois, WhoisResponse, WhoisResponses};
@@ -85,22 +87,22 @@ fn render_geo_location(geo_location: &GeoLocation, _opts: &SummaryOptions) -> St
         .next()
         .unwrap_or_else(|| "-".to_string());
 
-    format!("Location {}", styles::EMPH.paint(geo_location))
+    format!("Location {}", geo_location.paint(*styles::EMPH))
 }
 
 fn render_network_info(network_info: &NetworkInfo, _opts: &SummaryOptions) -> String {
     format!(
         "AS {}, Prefix {}",
-        styles::EMPH.paint(network_info.asns().join(", ")),
-        styles::EMPH.paint(network_info.prefix())
+        network_info.asns().join(", ").paint(*styles::EMPH),
+        network_info.prefix().paint(*styles::EMPH)
     )
 }
 
 fn render_whois(whois: &Whois, _opts: &SummaryOptions) -> String {
     format!(
         "Net name {}, Org {}, Authority {}",
-        styles::EMPH.paint(whois.net_name().map(|x| x.as_str()).unwrap_or("-")),
-        styles::EMPH.paint(whois.organization().map(|x| x.as_str()).unwrap_or("-")),
-        styles::EMPH.paint(whois.source().map(|x| x.to_string()).unwrap_or_else(|| "-".to_string())),
+        whois.net_name().map(|x| x.as_str()).unwrap_or("-").paint(*styles::EMPH),
+        whois.organization().map(|x| x.as_str()).unwrap_or("-").paint(*styles::EMPH),
+        whois.source().map(|x| x.to_string()).unwrap_or_else(|| "-".to_string()).paint(*styles::EMPH),
     )
 }

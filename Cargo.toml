@@ -35,14 +35,14 @@ anyhow = { version = "1", optional = true }
 clap = { version = "4", optional = true }
 chrono = { version = "0.4", features = ["serde"] }
 futures = { version = "0.3.*"}
-hostname = { version = "0.3", optional = true }
+hostname = { version = "0.4", optional = true }
 humantime = { version = "2", optional = true }
-indexmap = "1"
-ipnetwork = "0.17"
-lazy_static = "1.4"
+indexmap = "2"
+ipnetwork = { version = "0.21", features = ["serde"] }
+lazy_static = "1.5"
 lru_time_cache = "0.11"
 nom = "7"
-rand = "0.8"
+rand = "0.9"
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "query", "hickory-dns"] }
 pin-project = "1"
 resolv-conf = "0.7"
@@ -51,20 +51,20 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 smallvec = "1"
 tabwriter = { version = "1", optional = true }
-thiserror = "1"
+thiserror = "2"
 tracing = "0.1"
 tracing-futures = "0.2"
-tracing-log = { version = "0.1", optional = true }
+tracing-log = { version = "0.2", optional = true }
 tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"], optional = true }
 hickory-resolver = { version = "0.25", features = ["tokio", "tls-ring", "https-ring", "dnssec-ring", "system-config", "serde"] }
-yansi = "0.5"
+yansi = "1.0"
 
 [build-dependencies]
 clap = { version = "4", default-features = false, features = ["suggestions"] }
 clap_complete = "4"
 
 [dev-dependencies]
-tracing-log = "0.1"
+tracing-log = "0.2"
 tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"] }
 lit = "1"
 spectral = "0.6"

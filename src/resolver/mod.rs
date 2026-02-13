@@ -14,7 +14,7 @@ use std::time::Duration;
 use futures::future::join_all;
 use futures::stream::{self, StreamExt};
 use futures::Future;
-use rand::seq::SliceRandom;
+use rand::seq::IndexedRandom;
 use tokio::task;
 use tracing::instrument;
 
@@ -300,7 +300,7 @@ impl ResolverGroup {
     }
 
     async fn uni_lookup<T: Into<MultiQuery>>(&self, query: T) -> ResolverResult<Lookups> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let multi_query = query.into();
         let resolvers = self.resolvers.as_slice();
 

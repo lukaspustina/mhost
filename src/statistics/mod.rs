@@ -16,11 +16,11 @@ mod styles {
     use yansi::{Color, Style};
 
     lazy_static! {
-        pub static ref NORMAL: Style = Style::default();
-        pub static ref BOLD: Style = Style::new(Color::White).bold();
-        pub static ref GOOD: Style = Style::new(Color::Green);
-        pub static ref WARN: Style = Style::new(Color::Yellow);
-        pub static ref ERR: Style = Style::new(Color::Red);
+        pub static ref NORMAL: Style = Style::new();
+        pub static ref BOLD: Style = Style::new().fg(Color::White).bold();
+        pub static ref GOOD: Style = Style::new().fg(Color::Green);
+        pub static ref WARN: Style = Style::new().fg(Color::Yellow);
+        pub static ref ERR: Style = Style::new().fg(Color::Red);
     }
 }
 

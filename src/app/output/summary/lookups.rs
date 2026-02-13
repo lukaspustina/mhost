@@ -17,6 +17,8 @@ use crate::resources::rdata::{parsed_txt::Spf, Name, MX, NULL, SOA, SRV, TXT, UN
 use crate::resources::{NameToIpAddr, Record};
 use crate::{Error, RecordType};
 
+use yansi::Paint;
+
 use super::*;
 use crate::app::output::styles::ITEMAZATION_PREFIX;
 
@@ -115,37 +117,36 @@ impl Rendering for Record {
     }
 
     fn render_with_suffix(&self, suffix: &str, opts: &SummaryOptions) -> String {
-        use styles::*;
         match self.record_type() {
-            RecordType::A => format!("{}:\t{}{}", A.paint("A"), self.data().a().unwrap().render(opts), suffix),
+            RecordType::A => format!("{}:\t{}{}", "A".paint(*styles::A), self.data().a().unwrap().render(opts), suffix),
             RecordType::AAAA => format!(
                 "{}:\t{}{}",
-                AAAA.paint("AAAA"),
+                "AAAA".paint(*styles::AAAA),
                 self.data().aaaa().unwrap().render(opts),
                 suffix
             ),
             RecordType::ANAME => format!(
                 "{}:\t{}{}",
-                NAME.paint("ANAME"),
+                "ANAME".paint(*styles::NAME),
                 self.data().cname().unwrap().render(opts),
                 suffix
             ),
             RecordType::CNAME => format!(
                 "{}:\t{}{}",
-                NAME.paint("CNAME"),
+                "CNAME".paint(*styles::NAME),
                 self.data().cname().unwrap().render(opts),
                 suffix
             ),
             RecordType::MX => format!(
                 "{}:\t{}{}",
-                MX.paint("MX"),
+                "MX".paint(*styles::MX),
                 self.data().mx().unwrap().render(opts),
                 suffix
             ),
             RecordType::NULL => format!("{}:\t{}{}", "NULL", self.data().null().unwrap().render(opts), suffix),
             RecordType::NS => format!(
                 "{}:\t{}{}",
-                NAME.paint("NS"),
+                "NS".paint(*styles::NAME),
                 self.data().ns().unwrap().render(opts),
                 suffix
             ),
@@ -157,19 +158,19 @@ impl Rendering for Record {
             ),
             RecordType::SOA => format!(
                 "{}:\t{}{}",
-                SOA.paint("SOA"),
+                "SOA".paint(*styles::SOA),
                 self.data().soa().unwrap().render(opts),
                 suffix
             ),
             RecordType::SRV => format!(
                 "{}:\t{}{}",
-                SRV.paint("SRV"),
+                "SRV".paint(*styles::SRV),
                 self.data().srv().unwrap().render(opts),
                 suffix
             ),
             RecordType::TXT => format!(
                 "{}:\t{}",
-                TXT.paint("TXT"),
+                "TXT".paint(*styles::TXT),
                 self.data().txt().unwrap().render_with_suffix(suffix, opts)
             ),
             RecordType::Unknown(_) => format!("Unknown:\t{}{}", self.data().unknown().unwrap().render(opts), suffix),
@@ -180,19 +181,19 @@ impl Rendering for Record {
 
 impl Rendering for Ipv4Addr {
     fn render(&self, _: &SummaryOptions) -> String {
-        styles::A.paint(self).to_string()
+        self.paint(*styles::A).to_string()
     }
 }
 
 impl Rendering for Ipv6Addr {
     fn render(&self, _: &SummaryOptions) -> String {
-        styles::AAAA.paint(self).to_string()
+        self.paint(*styles::AAAA).to_string()
     }
 }
 
 impl Rendering for Name {
     fn render(&self, _: &SummaryOptions) -> String {
-        styles::NAME.paint(self).to_string()
+        self.paint(*styles::NAME).to_string()
     }
 }
 
@@ -200,8 +201,8 @@ impl Rendering for MX {
     fn render(&self, _: &SummaryOptions) -> String {
         format!(
             "{}\twith preference {:2}",
-            styles::MX.paint(self.exchange()),
-            styles::MX.paint(self.preference()),
+            self.exchange().paint(*styles::MX),
+            self.preference().paint(*styles::MX),
         )
     }
 }
@@ -234,39 +235,39 @@ impl SOA {
         let minimum = humantime::format_duration(Duration::from_secs(self.minimum() as u64));
         format!(
             "origin NS {}, responsible party {}, serial {}, refresh {}, retry {}, expire {}, negative response TTL {}",
-            styles::SOA.paint(self.mname()),
-            styles::SOA.paint(self.rname()),
-            styles::SOA.paint(self.serial()),
-            styles::SOA.paint(refresh),
-            styles::SOA.paint(retry),
-            styles::SOA.paint(expire),
-            styles::SOA.paint(minimum),
+            self.mname().paint(*styles::SOA),
+            self.rname().paint(*styles::SOA),
+            self.serial().paint(*styles::SOA),
+            refresh.paint(*styles::SOA),
+            retry.paint(*styles::SOA),
+            expire.paint(*styles::SOA),
+            minimum.paint(*styles::SOA),
         )
     }
 
     fn plain(&self, _: &SummaryOptions) -> String {
         format!(
             "mname {}, rname {}, serial {}, refresh in {}, retry in {}, expire in {}, negative response TTL {}",
-            styles::SOA.paint(self.mname()),
-            styles::SOA.paint(self.rname()),
-            styles::SOA.paint(self.serial()),
-            styles::SOA.paint(self.refresh()),
-            styles::SOA.paint(self.retry()),
-            styles::SOA.paint(self.expire()),
-            styles::SOA.paint(self.minimum()),
+            self.mname().paint(*styles::SOA),
+            self.rname().paint(*styles::SOA),
+            self.serial().paint(*styles::SOA),
+            self.refresh().paint(*styles::SOA),
+            self.retry().paint(*styles::SOA),
+            self.expire().paint(*styles::SOA),
+            self.minimum().paint(*styles::SOA),
         )
     }
 }
 
 impl Rendering for SRV {
     fn render(&self, _: &SummaryOptions) -> String {
-        use styles::SRV as style;
+        let style = *styles::SRV;
         format!(
             "{} on port {} with priority {} and weight {}",
-            style.paint(self.target()),
-            style.paint(self.port()),
-            style.paint(self.priority()),
-            style.paint(self.weight())
+            self.target().paint(style),
+            self.port().paint(style),
+            self.priority().paint(style),
+            self.weight().paint(style)
         )
     }
 }
@@ -297,13 +298,13 @@ impl TXT {
         match ParsedTxt::from_str(&txt) {
             Ok(ParsedTxt::Spf(ref spf)) => TXT::format_spf(spf, suffix),
             Ok(ParsedTxt::DomainVerification(ref dv)) => TXT::format_dv(dv, suffix),
-            _ => format!("'{}'{}", styles::TXT.paint(&txt), suffix),
+            _ => format!("'{}'{}", txt.paint(*styles::TXT), suffix),
         }
     }
 
     fn format_spf(spf: &Spf, suffix: &str) -> String {
         let mut buf = String::new();
-        buf.push_str(&format!("SPF version={}{}", styles::TXT.paint(spf.version()), suffix));
+        buf.push_str(&format!("SPF version={}{}", spf.version().paint(*styles::TXT), suffix));
         for word in spf.words() {
             buf.push_str(&format!("\n\t{} {}", &*ITEMAZATION_PREFIX, TXT::format_spf_word(word)));
         }
@@ -311,9 +312,9 @@ impl TXT {
     }
 
     fn format_spf_word(word: &Word) -> String {
-        use styles::TXT as style;
+        let style = *styles::TXT;
         match word {
-            Word::Word(q, Mechanism::All) => format!("{:?} for {}", style.paint(q), style.paint("all")),
+            Word::Word(q, Mechanism::All) => format!("{:?} for {}", q.paint(style), "all".paint(style)),
 
             Word::Word(
                 q,
@@ -323,9 +324,9 @@ impl TXT {
                 },
             ) => format!(
                 "{:?} for A/AAAA record of domain {} and all IPs of corresponding cidr /{} subnet",
-                style.paint(q),
-                style.paint(domain_spec),
-                style.paint(cidr_len)
+                q.paint(style),
+                domain_spec.paint(style),
+                cidr_len.paint(style)
             ),
             Word::Word(
                 q,
@@ -335,8 +336,8 @@ impl TXT {
                 },
             ) => format!(
                 "{:?} for A/AAAA record of domain {}",
-                style.paint(q),
-                style.paint(domain_spec)
+                q.paint(style),
+                domain_spec.paint(style)
             ),
             Word::Word(
                 q,
@@ -346,8 +347,8 @@ impl TXT {
                 },
             ) => format!(
                 "{:?} for A/AAAA record of this domain and all IPs of corresponding cidr /{} subnet",
-                style.paint(q),
-                style.paint(cidr_len)
+                q.paint(style),
+                cidr_len.paint(style)
             ),
             Word::Word(
                 q,
@@ -355,17 +356,17 @@ impl TXT {
                     domain_spec: None,
                     cidr_len: None,
                 },
-            ) => format!("{:?} for A/AAAA record of this domain", style.paint(q)),
+            ) => format!("{:?} for A/AAAA record of this domain", q.paint(style)),
 
             Word::Word(q, Mechanism::IPv4(range)) if range.contains('/') => {
-                format!("{:?} for IPv4 range {}", style.paint(q), style.paint(range))
+                format!("{:?} for IPv4 range {}", q.paint(style), range.paint(style))
             }
-            Word::Word(q, Mechanism::IPv4(range)) => format!("{:?} for IPv4 {}", style.paint(q), style.paint(range)),
+            Word::Word(q, Mechanism::IPv4(range)) => format!("{:?} for IPv4 {}", q.paint(style), range.paint(style)),
 
             Word::Word(q, Mechanism::IPv6(range)) if range.contains('/') => {
-                format!("{:?} for IPv6 range {}", style.paint(q), style.paint(range))
+                format!("{:?} for IPv6 range {}", q.paint(style), range.paint(style))
             }
-            Word::Word(q, Mechanism::IPv6(range)) => format!("{:?} for IPv6 {}", style.paint(q), style.paint(range)),
+            Word::Word(q, Mechanism::IPv6(range)) => format!("{:?} for IPv6 {}", q.paint(style), range.paint(style)),
 
             Word::Word(
                 q,
@@ -375,9 +376,9 @@ impl TXT {
                 },
             ) => format!(
                 "{:?} for MX records of domain {} and all IPs of corresponding cidr /{} subnet",
-                style.paint(q),
-                style.paint(domain_spec),
-                style.paint(cidr_len)
+                q.paint(style),
+                domain_spec.paint(style),
+                cidr_len.paint(style)
             ),
             Word::Word(
                 q,
@@ -387,8 +388,8 @@ impl TXT {
                 },
             ) => format!(
                 "{:?} for MX records of domain {}",
-                style.paint(q),
-                style.paint(domain_spec)
+                q.paint(style),
+                domain_spec.paint(style)
             ),
             Word::Word(
                 q,
@@ -398,8 +399,8 @@ impl TXT {
                 },
             ) => format!(
                 "{:?} for MX records of this domain and all IPs of corresponding cidr /{} subnet",
-                style.paint(q),
-                style.paint(cidr_len)
+                q.paint(style),
+                cidr_len.paint(style)
             ),
             Word::Word(
                 q,
@@ -407,37 +408,37 @@ impl TXT {
                     domain_spec: None,
                     cidr_len: None,
                 },
-            ) => format!("{:?} for MX records of this domain", style.paint(q)),
+            ) => format!("{:?} for MX records of this domain", q.paint(style)),
 
             Word::Word(q, Mechanism::PTR(Some(domain_spec))) => format!(
                 "{:?} IP addresses reverse mapping to domain {}",
-                style.paint(q),
-                style.paint(domain_spec)
+                q.paint(style),
+                domain_spec.paint(style)
             ),
             Word::Word(q, Mechanism::PTR(None)) => format!("{:?} IP addresses reverse mapping this domain", q),
 
             Word::Word(q, Mechanism::Exists(domain)) => format!(
                 "{:?} for A/AAAA record according to {}",
-                style.paint(q),
-                style.paint(domain)
+                q.paint(style),
+                domain.paint(style)
             ),
             Word::Word(q, Mechanism::Include(domain)) => {
-                format!("{:?} for include from {}", style.paint(q), style.paint(domain))
+                format!("{:?} for include from {}", q.paint(style), domain.paint(style))
             }
-            Word::Modifier(Modifier::Redirect(query)) => format!("redirect to query {}", style.paint(query)),
+            Word::Modifier(Modifier::Redirect(query)) => format!("redirect to query {}", query.paint(style)),
             Word::Modifier(Modifier::Exp(explanation)) => {
-                format!("explanation according to {}", style.paint(explanation))
+                format!("explanation according to {}", explanation.paint(style))
             }
         }
     }
 
     fn format_dv(dv: &DomainVerification, suffix: &str) -> String {
-        use styles::TXT as style;
+        let style = *styles::TXT;
         format!(
             "{} verification for {} with {}{}",
-            style.paint(dv.scope()),
-            style.paint(dv.verifier()),
-            style.paint(dv.id()),
+            dv.scope().paint(style),
+            dv.verifier().paint(style),
+            dv.id().paint(style),
             suffix
         )
     }
@@ -450,7 +451,7 @@ impl TXT {
             buf.push_str(&str);
         }
 
-        format!("'{}'{}", styles::TXT.paint(&buf), suffix)
+        format!("'{}'{}", buf.paint(*styles::TXT), suffix)
     }
 }
 
@@ -465,13 +466,13 @@ mod styles {
     use yansi::{Color, Style};
 
     lazy_static! {
-        pub static ref A: Style = Style::new(Color::White).bold();
-        pub static ref AAAA: Style = Style::new(Color::White).bold();
-        pub static ref MX: Style = Style::new(Color::Yellow);
-        pub static ref NAME: Style = Style::new(Color::Blue);
-        pub static ref SOA: Style = Style::new(Color::Green);
-        pub static ref SRV: Style = Style::new(Color::Red);
-        pub static ref TXT: Style = Style::new(Color::Magenta);
+        pub static ref A: Style = Style::new().fg(Color::White).bold();
+        pub static ref AAAA: Style = Style::new().fg(Color::White).bold();
+        pub static ref MX: Style = Style::new().fg(Color::Yellow);
+        pub static ref NAME: Style = Style::new().fg(Color::Blue);
+        pub static ref SOA: Style = Style::new().fg(Color::Green);
+        pub static ref SRV: Style = Style::new().fg(Color::Red);
+        pub static ref TXT: Style = Style::new().fg(Color::Magenta);
     }
 }
 

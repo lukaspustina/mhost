@@ -10,6 +10,8 @@ use std::marker::PhantomData;
 
 use crate::services::whois::WhoisResponses;
 
+use yansi::Paint;
+
 use super::*;
 
 #[derive(Debug)]
@@ -29,13 +31,13 @@ impl fmt::Display for WhoisStats<'_> {
             if errors == 0 {
                 "0 Err".to_string()
             } else {
-                format!("{} Err", styles::ERR.paint(errors))
+                format!("{} Err", errors.paint(*styles::ERR))
             }
         }
 
         let str = format!(
             "{num_resp} responses [GL {num_gl}, NI {num_ni}, WI {num_wi}], {errs}",
-            num_resp = styles::BOLD.paint(self.responses),
+            num_resp = self.responses.paint(*styles::BOLD),
             num_gl = self.geo_locations,
             num_ni = self.network_infos,
             num_wi = self.whois,
