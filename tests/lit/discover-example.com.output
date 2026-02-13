@@ -1,12 +1,11 @@
-RUN: @mhost_bin --ascii --no-color discover example.com
+RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color discover example.com
 
 CHECK: > Options: mode=multi, concurrent nameservers=10, max. nameservers=100, concurrent requests=5, retries=0, timeout=5s, ndots=1, abort on error, abort on timeout
 CHECK-NEXT: + Finished.
 CHECK-NEXT: - Received [[\d+]] responses
 CHECK-NEXT: - No wildcard resolution discovered
 CHECK-NEXT: * .
+CHECK-NEXT: * elliott.ns.cloudflare.com.
+CHECK-NEXT: * hera.ns.cloudflare.com.
 CHECK-NEXT: * .example.com.
 CHECK-NEXT: * www.example.com.
-CHECK-NEXT: * a.iana-servers.net.
-CHECK-NEXT: * b.iana-servers.net.
-CHECK-NEXT: * ns.icann.org.

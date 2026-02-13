@@ -13,35 +13,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Install jq
         run: sudo apt-get install -y jq rpm
       - name: Install Rust Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+        uses: dtolnay/rust-toolchain@stable
       - name: Install Cargo Deb
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: cargo-deb
+        run: cargo install cargo-deb
       - name: Install Cargo Rpm
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: cargo-rpm
+        run: cargo install cargo-rpm
 
       - name: Build Debian Package
-        uses: actions-rs/cargo@v1
-        with:
-          command: deb
+        run: cargo deb
       - name: Build Rpm Package
-        uses: actions-rs/cargo@v1
-        with:
-          command: rpm
-          args: build
+        run: cargo rpm build
       - name: Build Static Linux Binary
         uses: gmiam/rust-musl-action@master
         with:

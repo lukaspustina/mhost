@@ -10,7 +10,7 @@ use std::cell::Cell;
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while1};
 use nom::combinator::map_res;
-use nom::multi::separated_list;
+use nom::multi::separated_list0;
 use nom::IResult;
 
 use crate::services::server_lists::{OpenNic, PublicDns, IPV};
@@ -62,7 +62,7 @@ fn opennic_spec(input: &str) -> IResult<&str, OpenNic> {
 fn opennic_spec_params(input: &str) -> IResult<&str, OpenNic> {
     let (input, _) = tag(":")(input)?;
     let spec = Cell::new(OpenNic::default());
-    let (input, _) = separated_list(
+    let (input, _) = separated_list0(
         tag(","),
         alt((
             |x| opennic_spec_params_anon(&spec, x),

@@ -25,7 +25,7 @@ pub use query::{MultiQuery, UniQuery};
 use crate::nameserver::{NameServerConfig, NameServerConfigGroup};
 use crate::system_config;
 use crate::Result;
-use nom::lib::std::fmt::Formatter;
+use std::fmt::Formatter;
 use std::fmt::Display;
 use std::str::FromStr;
 

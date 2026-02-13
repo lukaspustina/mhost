@@ -27,7 +27,7 @@ use crate::app::{output, AppConfig, ExitStatus};
 use crate::resolver::lookup::Uniquify;
 use crate::resolver::{Lookup, Lookups, MultiQuery};
 use crate::{Name, RecordType};
-use nom::lib::std::collections::HashSet;
+use std::collections::HashSet;
 
 pub struct Discover {}
 

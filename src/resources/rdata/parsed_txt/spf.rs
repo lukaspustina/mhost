@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use nom::Err;
+use nom::error::Error as NomError;
 
 use crate::{Error, Result};
 
@@ -25,10 +26,10 @@ impl<'a> Spf<'a> {
                 to: "SPF TXT record",
                 why: "input is incomplete".to_string(),
             }),
-            Err(Err::Error((what, why))) | Err(Err::Failure((what, why))) => Err(Error::ParserError {
+            Err(Err::Error(NomError { input: what, code: why })) | Err(Err::Failure(NomError { input: what, code: why })) => Err(Error::ParserError {
                 what: what.to_string(),
                 to: "SPF TXT record",
-                why: why.description().to_string(),
+                why: format!("{:?}", why),
             }),
         }
     }
@@ -105,7 +106,7 @@ pub(crate) mod parser {
     use nom::character::complete::{char, digit1, space1};
     use nom::combinator::{map, map_res, opt};
     use nom::multi::many1;
-    use nom::*;
+    use nom::IResult;
 
     use super::{Mechanism, Modifier, Qualifier, Spf, Word};
 
@@ -204,7 +205,7 @@ pub(crate) mod parser {
     }
 
     fn is_ipv6_addr_range_char(c: char) -> bool {
-        c.is_hex_digit() || c == ':' || c == '/'
+        c.is_ascii_hexdigit() || c == ':' || c == '/'
     }
 
     fn spf_mechanism_mx(input: &str) -> IResult<&str, Mechanism<'_>> {
