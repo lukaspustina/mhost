@@ -13,7 +13,6 @@ use crate::{Error, Result};
 use serde::Serialize;
 use std::fmt;
 use std::str::FromStr;
-use trust_dns_resolver::proto::rr::dnssec::rdata::DNSSECRecordType;
 
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Copy, Clone)]
 #[allow(dead_code)]
@@ -86,9 +85,9 @@ impl RecordType {
 }
 
 #[doc(hidden)]
-impl From<RecordType> for trust_dns_resolver::proto::rr::RecordType {
+impl From<RecordType> for hickory_resolver::proto::rr::RecordType {
     fn from(rt: RecordType) -> Self {
-        use trust_dns_resolver::proto::rr::RecordType as Trt;
+        use hickory_resolver::proto::rr::RecordType as Trt;
 
         match rt {
             RecordType::A => Trt::A,
@@ -114,8 +113,8 @@ impl From<RecordType> for trust_dns_resolver::proto::rr::RecordType {
             RecordType::SVCB => Trt::SVCB,
             RecordType::TLSA => Trt::TLSA,
             RecordType::TXT => Trt::TXT,
-            // TODO: RecordType::DNSSEC(dnssec_rt) => Trt::DNSSEC(dnssec_rt),
-            RecordType::DNSSEC => Trt::DNSSEC(DNSSECRecordType::Unknown(0)),
+            // Map DNSSEC to DNSKEY as a representative DNSSEC record type
+            RecordType::DNSSEC => Trt::DNSKEY,
             RecordType::Unknown(value) => Trt::Unknown(value),
             RecordType::ZERO => Trt::ZERO,
         }
@@ -123,9 +122,9 @@ impl From<RecordType> for trust_dns_resolver::proto::rr::RecordType {
 }
 
 #[doc(hidden)]
-impl From<trust_dns_resolver::proto::rr::RecordType> for RecordType {
-    fn from(rt: trust_dns_resolver::proto::rr::RecordType) -> Self {
-        use trust_dns_resolver::proto::rr::RecordType as Trt;
+impl From<hickory_resolver::proto::rr::RecordType> for RecordType {
+    fn from(rt: hickory_resolver::proto::rr::RecordType) -> Self {
+        use hickory_resolver::proto::rr::RecordType as Trt;
 
         match rt {
             Trt::A => RecordType::A,
@@ -151,10 +150,14 @@ impl From<trust_dns_resolver::proto::rr::RecordType> for RecordType {
             Trt::SVCB => RecordType::SVCB,
             Trt::TLSA => RecordType::TLSA,
             Trt::TXT => RecordType::TXT,
-            // TODO: Trt::DNSSEC(dnssec_rt) => RecordType::DNSSEC(dnssec_rt),
-            Trt::DNSSEC(_) => RecordType::DNSSEC,
+            // Map all DNSSEC-related types to our single DNSSEC variant
+            Trt::DNSKEY | Trt::DS | Trt::KEY | Trt::NSEC | Trt::NSEC3 | Trt::NSEC3PARAM | Trt::RRSIG | Trt::SIG => {
+                RecordType::DNSSEC
+            }
             Trt::Unknown(value) => RecordType::Unknown(value),
             Trt::ZERO => RecordType::ZERO,
+            // Catch any other new variants
+            _ => RecordType::Unknown(rt.into()),
         }
     }
 }

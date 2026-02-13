@@ -1,5 +1,7 @@
-RUN: @mhost_bin --ascii --no-color lookup example.com
+RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color lookup example.com
 
 CHECK: * MX:
 CHECK-NEXT: * A:
+CHECK-NEXT: * A:
+CHECK-NEXT: * AAAA:
 CHECK-NEXT: * AAAA:

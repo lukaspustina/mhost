@@ -1,8 +1,7 @@
-RUN: @mhost_bin --ascii --no-color -q discover example.com
+RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color -q discover example.com
 
 CHECK: * .
-CHECK-NEXT: * .example.com.
+CHECK: * elliott.ns.cloudflare.com.
+CHECK: * hera.ns.cloudflare.com.
+CHECK: * .example.com.
 CHECK-NEXT: * www.example.com.
-CHECK-NEXT: * a.iana-servers.net.
-CHECK-NEXT: * b.iana-servers.net.
-CHECK-NEXT: * ns.icann.org.

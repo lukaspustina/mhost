@@ -36,10 +36,17 @@ impl NULL {
 }
 
 #[doc(hidden)]
-impl From<trust_dns_resolver::proto::rr::rdata::NULL> for NULL {
-    fn from(null: trust_dns_resolver::proto::rr::rdata::NULL) -> Self {
+impl From<hickory_resolver::proto::rr::rdata::NULL> for NULL {
+    fn from(null: hickory_resolver::proto::rr::rdata::NULL) -> Self {
         NULL {
-            anything: null.anything().map(|x| x.to_vec()),
+            anything: {
+                let bytes = null.anything();
+                if bytes.is_empty() {
+                    None
+                } else {
+                    Some(bytes.to_vec())
+                }
+            },
         }
     }
 }

@@ -34,8 +34,8 @@ impl UNKNOWN {
 }
 
 #[doc(hidden)]
-impl From<(u16, trust_dns_resolver::proto::rr::rdata::NULL)> for UNKNOWN {
-    fn from(unknown: (u16, trust_dns_resolver::proto::rr::rdata::NULL)) -> Self {
+impl From<(u16, hickory_resolver::proto::rr::rdata::NULL)> for UNKNOWN {
+    fn from(unknown: (u16, hickory_resolver::proto::rr::rdata::NULL)) -> Self {
         UNKNOWN {
             code: unknown.0,
             rdata: unknown.1.into(),

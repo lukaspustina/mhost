@@ -139,7 +139,7 @@ impl<'a> WildcardCheck<'a> {
         let rnd_names =
             WildcardCheck::rnd_names(self.env.mod_config.rnd_names_number, self.env.mod_config.rnd_names_len)
                 .into_iter()
-                .map(|x| Name::from_str(&x).unwrap().append_domain(&self.domain_name)); // Safe unwrap, we constructed the names
+                .map(|x| Name::from_str(&x).unwrap().append_domain(&self.domain_name).unwrap()); // Safe unwraps, we constructed the names
         let query = MultiQuery::new(rnd_names, vec![RecordType::A, RecordType::AAAA])?;
 
         self.env
@@ -262,7 +262,7 @@ impl<'a> WordlistLookups<'a> {
         }
         .into_iter()
         .map(|x| x.append_domain(append_domain_name))
-        .collect();
+        .collect::<std::result::Result<Vec<_>, _>>()?;
         debug!("Loaded wordlist with {} words", wordlist.len());
 
         Ok(wordlist)

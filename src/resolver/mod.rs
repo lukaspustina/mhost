@@ -62,7 +62,7 @@ pub struct ResolverOpts {
     pub max_concurrent_requests: usize,
     pub ndots: usize,
     pub preserve_intermediates: bool,
-    /// cf. `trust_dns_resolver::proto::xfer::DnsRequestOptions`
+    /// cf. `hickory_resolver::proto::xfer::DnsRequestOptions`
     pub expects_multiple_responses: bool,
     pub timeout: Duration,
     pub abort_on_error: bool,
@@ -135,7 +135,7 @@ impl IntoIterator for ResolverConfigGroup {
 
 #[derive(Debug, Clone)]
 pub struct Resolver {
-    pub(crate) inner: Arc<trust_dns_resolver::TokioAsyncResolver>,
+    pub(crate) inner: Arc<hickory_resolver::TokioResolver>,
     pub(crate) opts: Arc<ResolverOpts>,
     pub(crate) name_server: Arc<NameServerConfig>,
 }
@@ -148,7 +148,13 @@ impl Resolver {
     pub async fn new(config: ResolverConfig, opts: ResolverOpts) -> ResolverResult<Self> {
         let name_server = config.name_server_config.clone();
         let tr_opts = opts.clone().into();
-        let tr_resolver = trust_dns_resolver::TokioAsyncResolver::tokio(config.into(), tr_opts).map_err(Error::from)?;
+        let tr_config: hickory_resolver::config::ResolverConfig = config.into();
+        let tr_resolver = hickory_resolver::Resolver::builder_with_config(
+            tr_config,
+            hickory_resolver::name_server::TokioConnectionProvider::default(),
+        )
+        .with_options(tr_opts)
+        .build();
 
         Ok(Resolver {
             inner: Arc::new(tr_resolver),
@@ -378,21 +384,20 @@ impl From<resolv_conf::Config> for ResolverOpts {
 }
 
 #[doc(hidden)]
-impl From<ResolverOpts> for trust_dns_resolver::config::ResolverOpts {
+impl From<ResolverOpts> for hickory_resolver::config::ResolverOpts {
     fn from(opts: ResolverOpts) -> Self {
-        trust_dns_resolver::config::ResolverOpts {
-            attempts: opts.retries,
-            ndots: opts.ndots,
-            num_concurrent_reqs: opts.max_concurrent_requests,
-            preserve_intermediates: opts.preserve_intermediates,
-            timeout: opts.timeout,
-            ..Default::default()
-        }
+        let mut resolver_opts = hickory_resolver::config::ResolverOpts::default();
+        resolver_opts.attempts = opts.retries;
+        resolver_opts.ndots = opts.ndots;
+        resolver_opts.num_concurrent_reqs = opts.max_concurrent_requests;
+        resolver_opts.preserve_intermediates = opts.preserve_intermediates;
+        resolver_opts.timeout = opts.timeout;
+        resolver_opts
     }
 }
 
 #[doc(hidden)]
-impl From<ResolverConfig> for trust_dns_resolver::config::ResolverConfig {
+impl From<ResolverConfig> for hickory_resolver::config::ResolverConfig {
     fn from(rc: ResolverConfig) -> Self {
         let mut config = Self::new();
         config.add_name_server(rc.name_server_config.into());

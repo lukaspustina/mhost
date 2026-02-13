@@ -82,7 +82,7 @@ impl NameBuilder {
             domain_name.set_fqdn(true);
             domain_name
         } else {
-            domain_name.append_domain(&self.config.search_domain)
+            domain_name.append_domain(&self.config.search_domain)?
         };
 
         Ok(domain_name)

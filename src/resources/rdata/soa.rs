@@ -9,7 +9,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use serde::Serialize;
-use trust_dns_resolver::Name;
+use hickory_resolver::Name;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize)]
 #[allow(clippy::upper_case_acronyms)]
@@ -68,8 +68,8 @@ impl SOA {
 }
 
 #[doc(hidden)]
-impl From<trust_dns_resolver::proto::rr::rdata::SOA> for SOA {
-    fn from(soa: trust_dns_resolver::proto::rr::rdata::SOA) -> Self {
+impl From<hickory_resolver::proto::rr::rdata::SOA> for SOA {
+    fn from(soa: hickory_resolver::proto::rr::rdata::SOA) -> Self {
         SOA {
             mname: soa.mname().clone(),
             rname: soa.rname().clone(),

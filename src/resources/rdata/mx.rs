@@ -9,7 +9,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use serde::Serialize;
-use trust_dns_resolver::Name;
+use hickory_resolver::Name;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize)]
 #[allow(clippy::upper_case_acronyms)]
@@ -33,8 +33,8 @@ impl MX {
 }
 
 #[doc(hidden)]
-impl From<trust_dns_resolver::proto::rr::rdata::MX> for MX {
-    fn from(mx: trust_dns_resolver::proto::rr::rdata::MX) -> Self {
+impl From<hickory_resolver::proto::rr::rdata::MX> for MX {
+    fn from(mx: hickory_resolver::proto::rr::rdata::MX) -> Self {
         MX::new(mx.preference(), mx.exchange().clone())
     }
 }

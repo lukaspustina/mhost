@@ -16,7 +16,7 @@ pub use mx::MX;
 pub use null::NULL;
 pub use soa::SOA;
 pub use srv::SRV;
-pub use trust_dns_resolver::{IntoName, Name};
+pub use hickory_resolver::{IntoName, Name};
 pub use txt::TXT;
 pub use unknown::UNKNOWN;
 
@@ -93,26 +93,26 @@ impl RData {
 }
 
 #[doc(hidden)]
-#[allow(unused_variables)]
-impl From<trust_dns_resolver::proto::rr::RData> for RData {
-    fn from(rdata: trust_dns_resolver::proto::rr::RData) -> Self {
-        use trust_dns_resolver::proto::rr::RData as TRData;
+#[allow(unused_variables, deprecated)]
+impl From<hickory_resolver::proto::rr::RData> for RData {
+    fn from(rdata: hickory_resolver::proto::rr::RData) -> Self {
+        use hickory_resolver::proto::rr::RData as TRData;
 
         match rdata {
-            TRData::A(value) => RData::A(value),
-            TRData::AAAA(value) => RData::AAAA(value),
-            TRData::ANAME(value) => RData::ANAME(value),
+            TRData::A(value) => RData::A(value.0),
+            TRData::AAAA(value) => RData::AAAA(value.0),
+            TRData::ANAME(value) => RData::ANAME(value.0),
             TRData::CAA(value) => RData::CAA,
-            TRData::CNAME(value) => RData::CNAME(value),
+            TRData::CNAME(value) => RData::CNAME(value.0),
             TRData::HINFO(value) => RData::HINFO,
             TRData::HTTPS(value) => RData::HTTPS,
             TRData::MX(value) => RData::MX(value.into()),
             TRData::NAPTR(value) => RData::NAPTR,
             TRData::NULL(value) => RData::NULL(value.into()),
-            TRData::NS(value) => RData::NS(value),
+            TRData::NS(value) => RData::NS(value.0),
             TRData::OPENPGPKEY(value) => RData::OPENPGPKEY,
             TRData::OPT(value) => RData::OPT,
-            TRData::PTR(value) => RData::PTR(value),
+            TRData::PTR(value) => RData::PTR(value.0),
             TRData::SOA(value) => RData::SOA(value.into()),
             TRData::SRV(value) => RData::SRV(value.into()),
             TRData::SSHFP(value) => RData::SSHFP,
@@ -120,8 +120,13 @@ impl From<trust_dns_resolver::proto::rr::RData> for RData {
             TRData::TLSA(value) => RData::TLSA,
             TRData::TXT(value) => RData::TXT(value.into()),
             TRData::DNSSEC(value) => RData::DNSSEC,
-            TRData::Unknown { code, rdata } => RData::Unknown((code, rdata).into()),
+            TRData::Unknown { code, rdata } => {
+                let code_u16: u16 = code.into();
+                RData::Unknown(UNKNOWN::new(code_u16, rdata.into()))
+            }
             TRData::ZERO => RData::ZERO,
+            // Catch any other new variants we don't handle
+            _ => RData::Unknown(UNKNOWN::new(0, NULL::new())),
         }
     }
 }

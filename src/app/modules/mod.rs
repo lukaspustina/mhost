@@ -125,7 +125,7 @@ pub trait AppModule<T: ModConfig> {
         let console = Console::new(console_opts);
 
         let name_builder_ops = if let Some(ref search_domain) = app_config.search_domain {
-            NameBuilderOpts::new(app_config.ndots, search_domain.as_ref())
+            NameBuilderOpts::new(app_config.ndots, search_domain.as_str())
         } else {
             NameBuilderOpts::from_hostname(app_config.ndots)
         }?;

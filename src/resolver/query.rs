@@ -6,8 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 use serde::Serialize;
-use trust_dns_resolver::IntoName;
-use trust_dns_resolver::Name;
+use hickory_resolver::IntoName;
+use hickory_resolver::Name;
 
 use crate::resolver::{Error, ResolverResult};
 use crate::RecordType;

@@ -18,8 +18,7 @@ use futures::Future;
 use serde::Serialize;
 use tokio::task;
 use tracing::{debug, field, info, instrument, trace, Span};
-use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
-use trust_dns_resolver::proto::xfer::DnsRequestOptions;
+use hickory_resolver::ResolveError;
 
 use crate::error::Errors;
 use crate::nameserver::NameServerConfig;
@@ -487,17 +486,13 @@ fn create_breaker(on_error: bool, on_timeout: bool) -> Box<dyn Fn(&Lookup) -> bo
 
 #[instrument(name = "single lookup", level = "info", skip(resolver, query), fields(r = %resolver.name_server, n = %query.name, t = ?query.record_type))]
 async fn single_lookup(resolver: Resolver, query: UniQuery) -> Lookup {
-    let dns_request_options = DnsRequestOptions {
-        expects_multiple_responses: resolver.opts.expects_multiple_responses,
-        use_edns: true,
-    };
     let q = query.clone();
     let start_time = Instant::now();
 
     debug!("Sending lookup request");
     let result = resolver
         .inner
-        .lookup(q.name, q.record_type.into(), dns_request_options)
+        .lookup(q.name, q.record_type.into())
         .await
         .into_lookup(start_time);
 
@@ -542,7 +537,7 @@ trait IntoLookup {
 }
 
 #[doc(hidden)]
-impl IntoLookup for std::result::Result<trust_dns_resolver::lookup::Lookup, ResolveError> {
+impl IntoLookup for std::result::Result<hickory_resolver::lookup::Lookup, ResolveError> {
     fn into_lookup(self, start_time: Instant) -> LookupResult {
         match self {
             Ok(lookup) => {
@@ -553,15 +548,17 @@ impl IntoLookup for std::result::Result<trust_dns_resolver::lookup::Lookup, Reso
                     valid_until: instant_to_utc(lookup.valid_until()),
                 })
             }
-            Err(err) => match err.kind() {
-                ResolveErrorKind::NoRecordsFound { .. } => LookupResult::NxDomain(NxDomain {
-                    response_time: Instant::now() - start_time,
-                }),
-                _ => {
+            Err(err) => {
+                // In hickory 0.25, NoRecordsFound is detected via helper method
+                if err.is_no_records_found() {
+                    LookupResult::NxDomain(NxDomain {
+                        response_time: Instant::now() - start_time,
+                    })
+                } else {
                     let err = Error::from(err);
                     LookupResult::Error(err)
                 }
-            },
+            }
         }
     }
 }
