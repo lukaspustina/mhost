@@ -9,7 +9,7 @@
 // copied, modified, or distributed except according to those terms..
 
 use serde::Serialize;
-use trust_dns_resolver::Name;
+use hickory_resolver::Name;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
 #[allow(clippy::upper_case_acronyms)]
@@ -48,8 +48,8 @@ impl SRV {
 }
 
 #[doc(hidden)]
-impl From<trust_dns_resolver::proto::rr::rdata::SRV> for SRV {
-    fn from(srv: trust_dns_resolver::proto::rr::rdata::SRV) -> Self {
+impl From<hickory_resolver::proto::rr::rdata::SRV> for SRV {
+    fn from(srv: hickory_resolver::proto::rr::rdata::SRV) -> Self {
         SRV {
             priority: srv.priority(),
             weight: srv.weight(),

@@ -279,19 +279,19 @@ impl From<resolv_conf::Config> for NameServerConfigGroup {
 }
 
 #[doc(hidden)]
-impl From<Protocol> for trust_dns_resolver::config::Protocol {
+impl From<Protocol> for hickory_resolver::proto::xfer::Protocol {
     fn from(protocol: Protocol) -> Self {
         match protocol {
-            Protocol::Udp => trust_dns_resolver::config::Protocol::Udp,
-            Protocol::Tcp => trust_dns_resolver::config::Protocol::Tcp,
-            Protocol::Https => trust_dns_resolver::config::Protocol::Https,
-            Protocol::Tls => trust_dns_resolver::config::Protocol::Tls,
+            Protocol::Udp => hickory_resolver::proto::xfer::Protocol::Udp,
+            Protocol::Tcp => hickory_resolver::proto::xfer::Protocol::Tcp,
+            Protocol::Https => hickory_resolver::proto::xfer::Protocol::Https,
+            Protocol::Tls => hickory_resolver::proto::xfer::Protocol::Tls,
         }
     }
 }
 
 #[doc(hidden)]
-impl From<NameServerConfig> for trust_dns_resolver::config::NameServerConfig {
+impl From<NameServerConfig> for hickory_resolver::config::NameServerConfig {
     fn from(config: NameServerConfig) -> Self {
         match config {
             NameServerConfig::Udp {
@@ -299,24 +299,26 @@ impl From<NameServerConfig> for trust_dns_resolver::config::NameServerConfig {
                 ip_addr,
                 port,
                 name: _,
-            } => trust_dns_resolver::config::NameServerConfig {
+            } => hickory_resolver::config::NameServerConfig {
                 socket_addr: SocketAddr::new(ip_addr, port),
                 protocol: protocol.into(),
-                trust_nx_responses: true,
+                trust_negative_responses: true,
                 tls_dns_name: None,
-                tls_config: None,
+                http_endpoint: None,
+                bind_addr: None,
             },
             NameServerConfig::Tcp {
                 protocol,
                 ip_addr,
                 port,
                 name: _,
-            } => trust_dns_resolver::config::NameServerConfig {
+            } => hickory_resolver::config::NameServerConfig {
                 socket_addr: SocketAddr::new(ip_addr, port),
                 protocol: protocol.into(),
-                trust_nx_responses: true,
+                trust_negative_responses: true,
                 tls_dns_name: None,
-                tls_config: None,
+                http_endpoint: None,
+                bind_addr: None,
             },
             NameServerConfig::Tls {
                 protocol,
@@ -324,12 +326,13 @@ impl From<NameServerConfig> for trust_dns_resolver::config::NameServerConfig {
                 port,
                 tls_auth_name,
                 name: _,
-            } => trust_dns_resolver::config::NameServerConfig {
+            } => hickory_resolver::config::NameServerConfig {
                 socket_addr: SocketAddr::new(ip_addr, port),
                 protocol: protocol.into(),
-                trust_nx_responses: true,
+                trust_negative_responses: true,
                 tls_dns_name: Some(tls_auth_name),
-                tls_config: None,
+                http_endpoint: None,
+                bind_addr: None,
             },
             NameServerConfig::Https {
                 protocol,
@@ -337,12 +340,13 @@ impl From<NameServerConfig> for trust_dns_resolver::config::NameServerConfig {
                 port,
                 tls_auth_name,
                 name: _,
-            } => trust_dns_resolver::config::NameServerConfig {
+            } => hickory_resolver::config::NameServerConfig {
                 socket_addr: SocketAddr::new(ip_addr, port),
                 protocol: protocol.into(),
-                trust_nx_responses: true,
+                trust_negative_responses: true,
                 tls_dns_name: Some(tls_auth_name),
-                tls_config: None,
+                http_endpoint: None,
+                bind_addr: None,
             },
         }
     }

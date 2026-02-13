@@ -1,5 +1,7 @@
-RUN: @mhost_bin --list-predefined
+RUN: @mhost_bin --list-predefined --ascii
 
-CHECK: Predefined servers:
-CHECK: udp:1.1.1.1:53,name=Cloudflare 1
-CHECK: tls:[2620:fe::9]:853,tls_auth_name=dns.quad9.net,name=Quad9 2
+CHECK: > Predefined servers:
+CHECK:  * udp:1.1.1.1:53,name=Cloudflare 1
+CHECK:  * tcp:1.1.1.1:53,name=Cloudflare 1
+CHECK:  * https:1.1.1.1:443,tls_auth_name=cloudflare-dns.com,name=Cloudflare 1
+CHECK:  * tls:1.1.1.1:853,tls_auth_name=cloudflare-dns.com,name=Cloudflare 1

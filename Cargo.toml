@@ -43,8 +43,7 @@ lazy_static = "1.4"
 lru_time_cache = "0.11"
 nom = "7"
 rand = "0.8"
-# Sync with trust-dns-resolver and tokio if possible, to reduce dependencies to build and link
-reqwest = { version = "0.11", default-features = false, features = ["rustls-tls", "json", "trust-dns"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "query", "hickory-dns"] }
 pin-project = "1"
 resolv-conf = "0.7"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "fs", "io-util", "net"] }
@@ -57,7 +56,7 @@ tracing = "0.1"
 tracing-futures = "0.2"
 tracing-log = { version = "0.1", optional = true }
 tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"], optional = true }
-trust-dns-resolver = { version = "0.20", features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls", "dnssec-ring", "system-config", "serde-config"] }
+hickory-resolver = { version = "0.25", features = ["tokio", "tls-ring", "https-ring", "dnssec-ring", "system-config", "serde"] }
 yansi = "0.5"
 
 [build-dependencies]

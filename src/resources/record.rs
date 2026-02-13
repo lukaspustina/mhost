@@ -11,7 +11,7 @@
 use crate::resources::{RData, RecordType};
 use serde::Serialize;
 use std::hash::{Hash, Hasher};
-use trust_dns_resolver::Name;
+use hickory_resolver::Name;
 
 #[derive(Debug, Eq, Clone, Serialize)]
 pub struct Record {
@@ -85,13 +85,13 @@ impl Record {
 }
 
 #[doc(hidden)]
-impl From<&trust_dns_resolver::proto::rr::Record> for Record {
-    fn from(record: &trust_dns_resolver::proto::rr::Record) -> Self {
+impl From<&hickory_resolver::proto::rr::Record> for Record {
+    fn from(record: &hickory_resolver::proto::rr::Record) -> Self {
         Record {
             name: record.name().clone(),
-            record_type: record.rr_type().into(),
+            record_type: record.record_type().into(),
             ttl: record.ttl(),
-            data: record.rdata().clone().into(),
+            data: record.data().clone().into(),
         }
     }
 }

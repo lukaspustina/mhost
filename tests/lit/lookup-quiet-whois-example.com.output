@@ -1,7 +1,11 @@
-RUN: @mhost_bin --ascii --no-color -q lookup example.com --whois
+RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color -q lookup example.com --whois
 
 CHECK: * MX:
 CHECK-NEXT: * A:
+CHECK-NEXT: * A:
 CHECK-NEXT: * AAAA:
-CHECK-NEXT: [[.+]] AS 15133
-CHECK-NEXT: [[.+]] AS 15133
+CHECK-NEXT: * AAAA:
+CHECK-NEXT: [[.+]] AS 13335
+CHECK-NEXT: [[.+]] AS 13335
+CHECK-NEXT: [[.+]] AS 13335
+CHECK-NEXT: [[.+]] AS 13335
