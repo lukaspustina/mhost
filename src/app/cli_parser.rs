@@ -9,9 +9,7 @@
 //! here. It would be nicer to move at least the subcommands to the corresponding modules, but then all logic, all crates
 //! etc. used there have to be available for the build script which makes it much more complex.
 
-use std::str::FromStr;
-
-use clap::{crate_name, App, AppSettings, Arg, SubCommand};
+use clap::{Arg, ArgAction, Command};
 
 pub static SUPPORTED_RECORD_TYPES: &[&str] = &[
     "A", "AAAA", "ANAME", "ANY", "CNAME", "MX", "NULL", "NS", "PTR", "SOA", "SRV", "TXT",
@@ -19,72 +17,67 @@ pub static SUPPORTED_RECORD_TYPES: &[&str] = &[
 
 pub static SUPPORTED_OUTPUT_FORMATS: &[&str] = &["json", "summary"];
 
-pub fn create_parser() -> App<'static, 'static> {
-    App::new(crate_name!())
+pub fn create_parser() -> Command {
+    Command::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
-        .global_setting(AppSettings::DeriveDisplayOrder)
-        .global_setting(AppSettings::DisableHelpSubcommand)
-        .global_setting(AppSettings::GlobalVersion)
-        .global_setting(AppSettings::InferSubcommands)
-        .global_setting(AppSettings::UnifiedHelpMessage)
+        .disable_help_subcommand(true)
+        .infer_subcommands(true)
         .arg(
-            Arg::with_name("use-system-resolv-opt")
+            Arg::new("use-system-resolv-opt")
                 .long("use-system-resolv-opt")
+                .action(ArgAction::SetTrue)
                 .help("Uses options set in /etc/resolv.conf")
-                .long_help("Uses options set in /etc/resolv.conf and overrides all corresponding CLI options")
-    )
+                .long_help("Uses options set in /etc/resolv.conf and overrides all corresponding CLI options"),
+        )
         .arg(
-            Arg::with_name("no-system-nameservers")
+            Arg::new("no-system-nameservers")
                 .long("no-system-nameservers")
+                .action(ArgAction::SetTrue)
                 .requires("system nameservers")
                 .help("Ignores nameservers from /etc/resolv.conf"),
         )
         .arg(
-            Arg::with_name("no-system-lookups")
-                .short("S")
+            Arg::new("no-system-lookups")
+                .short('S')
                 .long("no-system-lookups")
+                .action(ArgAction::SetTrue)
                 .help("Ignores system nameservers for lookups"),
         )
         .arg(
-            Arg::with_name("resolv-conf")
+            Arg::new("resolv-conf")
                 .long("resolv-conf")
                 .value_name("FILE")
-                .takes_value(true)
                 .help("Uses alternative resolv.conf file"),
         )
         .arg(
-            Arg::with_name("ndots")
+            Arg::new("ndots")
                 .long("ndots")
                 .value_name("NUMBER")
                 .default_value("1")
-                .validator(|str| u8::from_str(&str).map(|_| ()).map_err(|_| "invalid number".to_string()))
+                .value_parser(str::parse::<u8>)
                 .help("Sets number of dots to qualify domain name as FQDN"),
         )
         .arg(
-            Arg::with_name("search-domain")
+            Arg::new("search-domain")
                 .long("search-domain")
                 .value_name("DOMAIN")
                 .help("Sets the search domain to append if HOSTNAME has less than ndots dots"),
         )
         .arg(
-            Arg::with_name("system nameservers")
+            Arg::new("system nameservers")
                 .long("system-nameserver")
                 .value_name("IP ADDR")
-                .takes_value(true)
-                .multiple(true)
-                .number_of_values(1)
+                .action(ArgAction::Append)
                 .help("Adds system nameserver for system lookups; only IP addresses allowed"),
         )
         .arg(
-            Arg::with_name("nameservers")
-                .short("s")
+            Arg::new("nameservers")
+                .short('s')
                 .long("nameserver")
                 .value_name("HOSTNAME | IP ADDR")
-                .takes_value(true)
-                .multiple(true)
-                .number_of_values(1)
+                .action(ArgAction::Append)
                 .help("Adds nameserver for lookups")
                 .long_help(
                     r#"Adds nameserver for lookups. A nameserver may be specified by protocol, hostname or IP address, and port number, delimited by coloons, e.g., udp:dns.google:53. Supported protocols are udp,tcp,tls,https.
@@ -99,103 +92,83 @@ Examples:
 "#),
         )
         .arg(
-            Arg::with_name("predefined")
-                .short("p")
+            Arg::new("predefined")
+                .short('p')
                 .long("predefined")
+                .action(ArgAction::SetTrue)
                 .help("Adds predefined nameservers for lookups"),
         )
         .arg(
-            Arg::with_name("predefined-filter")
+            Arg::new("predefined-filter")
                 .long("predefined-filter")
                 .value_name("PROTOCOL")
-                .multiple(true)
-                .use_delimiter(true)
-                .require_delimiter(true)
+                .action(ArgAction::Append)
+                .value_delimiter(',')
                 .default_value("udp")
-                .possible_values(&["udp", "tcp", "https", "tls"])
-                .default_value_if("predefined", None, "udp")
+                .value_parser(["udp", "tcp", "https", "tls"])
+                .default_value_if("predefined", "true", "udp")
                 .help("Filters predefined nameservers by protocol"),
         )
         .arg(
-            Arg::with_name("list-predefined")
+            Arg::new("list-predefined")
                 .long("list-predefined")
+                .action(ArgAction::SetTrue)
                 .help("Lists all predefined nameservers"),
         )
         .arg(
-            Arg::with_name("nameservers-from-file")
-                .short("f")
+            Arg::new("nameservers-from-file")
+                .short('f')
                 .long("nameservers-from-file")
                 .value_name("FILE")
-                .takes_value(true)
                 .help("Adds nameservers from file"),
         )
         .arg(
-            Arg::with_name("limit")
+            Arg::new("limit")
                 .long("limit")
                 .value_name("NUMBER")
                 .default_value("100")
-                .validator(|str| {
-                    usize::from_str(&str)
-                        .map(|_| ())
-                        .map_err(|_| "invalid number".to_string())
-                })
+                .value_parser(str::parse::<usize>)
                 .help("Sets max. number of nameservers to query"),
         )
         .arg(
-            Arg::with_name("max-concurrent-servers")
+            Arg::new("max-concurrent-servers")
                 .long("max-concurrent-servers")
                 .value_name("NUMBER")
                 .default_value("10")
-                .validator(|str| {
-                    usize::from_str(&str)
-                        .map(|_| ())
-                        .map_err(|_| "invalid number".to_string())
-                })
+                .value_parser(str::parse::<usize>)
                 .help("Sets max. concurrent nameservers"),
         )
         .arg(
-            Arg::with_name("max-concurrent-requests")
+            Arg::new("max-concurrent-requests")
                 .long("max-concurrent-requests")
                 .value_name("NUMBER")
                 .default_value("5")
-                .validator(|str| {
-                    usize::from_str(&str)
-                        .map(|_| ())
-                        .map_err(|_| "invalid number".to_string())
-                })
+                .value_parser(str::parse::<usize>)
                 .help("Sets max. concurrent requests per nameserver"),
         )
         .arg(
-            Arg::with_name("retries")
+            Arg::new("retries")
                 .long("retries")
                 .value_name("NUMBER")
                 .default_value("0")
-                .validator(|str| {
-                    usize::from_str(&str)
-                        .map(|_| ())
-                        .map_err(|_| "invalid number".to_string())
-                })
+                .value_parser(str::parse::<usize>)
                 .help("Sets number of retries if first lookup to nameserver fails"),
         )
         .arg(
-            Arg::with_name("timeout")
+            Arg::new("timeout")
                 .long("timeout")
                 .value_name("TIMEOUT")
                 .default_value("5")
-                .validator(|str| {
-                    u64::from_str(&str)
-                        .map(|_| ())
-                        .map_err(|_| "invalid number".to_string())
-                })
+                .value_parser(str::parse::<u64>)
                 .help("Sets timeout in seconds for responses"),
         )
         .arg(
-            Arg::with_name("resolvers-mode")
-                .short("m")
+            Arg::new("resolvers-mode")
+                .short('m')
                 .long("resolvers-mode")
                 .value_name("MODE")
                 .default_value("multi")
-                .possible_values(&["multi", "uni"])
+                .value_parser(["multi", "uni"])
                 .help("Sets resolvers lookup mode")
                 .long_help(r#"Sets resolvers mode
 * multi: Each query is sent to all available name servers
@@ -204,44 +177,46 @@ Examples:
     )
         )
         .arg(
-            Arg::with_name("wait-multiple-responses")
+            Arg::new("wait-multiple-responses")
                 .long("wait-multiple-responses")
+                .action(ArgAction::SetTrue)
                 .help("Waits until timeout for additional responses from nameservers"),
         )
         .arg(
-            Arg::with_name("no-abort-on-error")
+            Arg::new("no-abort-on-error")
                 .long("no-abort-on-error")
+                .action(ArgAction::SetTrue)
                 .help("Sets do-not-ignore errors from nameservers"),
         )
         .arg(
-            Arg::with_name("no-abort-on-timeout")
+            Arg::new("no-abort-on-timeout")
                 .long("no-abort-on-timeout")
+                .action(ArgAction::SetTrue)
                 .help("Sets do-not-ignore timeouts from nameservers"),
         )
         .arg(
-            Arg::with_name("no-aborts")
+            Arg::new("no-aborts")
                 .long("no-aborts")
+                .action(ArgAction::SetTrue)
                 .help("Sets do-not-ignore errors and timeouts from nameservers"),
         )
         .arg(
-            Arg::with_name("output")
-                .short("o")
+            Arg::new("output")
+                .short('o')
                 .long("output")
                 .value_name("FORMAT")
-                .takes_value(true)
                 .default_value("summary")
-                .possible_values(SUPPORTED_OUTPUT_FORMATS)
+                .value_parser(SUPPORTED_OUTPUT_FORMATS.to_vec())
                 .help("Sets the output format for result presentation"),
         )
         .arg(
-            Arg::with_name("output-options")
+            Arg::new("output-options")
                 .long("output-options")
                 .value_name("OPTIONS")
-                .multiple(true)
-                .use_delimiter(true)
-                .require_delimiter(true)
-                .default_value_if("output", Some("json"), "pretty")
-                .default_value_if("output", Some("summary"), "human")
+                .action(ArgAction::Append)
+                .value_delimiter(',')
+                .default_value_if("output", "json", "pretty")
+                .default_value_if("output", "summary", "human")
                 .help("Sets output options")
                 .long_help(
                     r#"* Json:
@@ -250,68 +225,69 @@ Examples:
   * 'condensed': Simplifies output,
   * 'human': Uses human readable formatting
   * 'show-domain-names': Shows queried domain names
-  
+
 "#,
                 ),
         )
         .arg(
-            Arg::with_name("show-errors")
+            Arg::new("show-errors")
                 .long("show-errors")
+                .action(ArgAction::SetTrue)
                 .conflicts_with("quiet")
                 .help("Shows error counts"),
         )
         .arg(
-            Arg::with_name("quiet")
-                .short("q")
+            Arg::new("quiet")
+                .short('q')
                 .long("quiet")
+                .action(ArgAction::SetTrue)
                 .help("Does not print anything but results"),
         )
         // This is a special option that is not reflected in GlobalConfig, but is checked during
         // setup in `mhost.rs`.
         .arg(
-            Arg::with_name("no-color")
+            Arg::new("no-color")
                 .long("no-color")
+                .action(ArgAction::SetTrue)
                 .help("Disables colorful output"),
         )
         // This is a special option that is not reflected in GlobalConfig, but is checked during
         // setup in `mhost.rs` and set the global AtomicBool `mhost::output::styles::ASCII_MODE`.
         .arg(
-            Arg::with_name("ascii")
+            Arg::new("ascii")
                 .long("ascii")
+                .action(ArgAction::SetTrue)
                 .help("Uses only ASCII compatible characters for output"),
         )
         // This is a special option that is not reflected in GlobalConfig, but is checked during
         // setup in `mhost.rs`.
         .arg(
-            Arg::with_name("v")
-                .short("v")
-                .multiple(true)
+            Arg::new("v")
+                .short('v')
+                .action(ArgAction::Count)
                 .help("Sets the level of verbosity"),
         )
         // This is a special option that is not reflected in GlobalConfig, but is checked during
         // setup in `mhost.rs`.
         .arg(
-            Arg::with_name("debug")
+            Arg::new("debug")
                 .long("debug")
+                .action(ArgAction::SetTrue)
                 .help("Uses debug formatting for logging -- much more verbose"),
         )
         // This is a hidden parameter for debugging and experimentation only
         .arg(
-            Arg::with_name("max-worker-threads")
+            Arg::new("max-worker-threads")
                 .long("max-worker-threads")
                 .value_name("NUMBER")
-                .validator(|str| {
-                    usize::from_str(&str)
-                        .map(|_| ())
-                        .map_err(|_| "invalid number".to_string())
-                })
-                .hidden(true)
+                .value_parser(str::parse::<usize>)
+                .hide(true)
                 .help("Set the max. number of worker threads overriding derived value")
         )
         .subcommands(subcommands())
 }
 
-fn subcommands() -> Vec<App<'static, 'static>> {
+fn subcommands() -> Vec<Command> {
     vec![
         check_subcommand(),
         discover_subcommand(),
@@ -323,107 +299,110 @@ fn subcommands() -> Vec<App<'static, 'static>> {
     .collect()
 }
 
-fn check_subcommand() -> App<'static, 'static> {
-    SubCommand::with_name("check")
+fn check_subcommand() -> Command {
+    Command::new("check")
         .about("Checks all available records for known misconfigurations or mistakes")
         .arg(
-            Arg::with_name("domain name")
+            Arg::new("domain name")
                 .index(1)
                 .required(true)
                 .value_name("DOMAIN NAME")
-                .next_line_help(false)
                 .help("domain name to check")
                 .long_help("* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de"),
         )
         .arg(
-            Arg::with_name("partial-results")
-                .short("p")
+            Arg::new("partial-results")
+                .short('p')
                 .long("show-partial-results")
+                .action(ArgAction::SetTrue)
                 .help("Shows results after each check step"),
         )
         .arg(
-            Arg::with_name("show-intermediate-lookups")
-                .short("i")
+            Arg::new("show-intermediate-lookups")
+                .short('i')
                 .long("show-intermediate-lookups")
+                .action(ArgAction::SetTrue)
                 .requires("partial-results")
                 .help("Shows all lookups made during by all checks"),
         )
         .arg(
-            Arg::with_name("no-cnames")
+            Arg::new("no-cnames")
                 .long("no-cnames")
+                .action(ArgAction::SetTrue)
                 .help("Does not run cname lints"),
         )
-        .arg(Arg::with_name("no-soa").long("no-soa").help("Does not run SOA check"))
-        .arg(Arg::with_name("no-spf").long("no-spf").help("Does not run SPF check"))
+        .arg(
+            Arg::new("no-soa")
+                .long("no-soa")
+                .action(ArgAction::SetTrue)
+                .help("Does not run SOA check"),
+        )
+        .arg(
+            Arg::new("no-spf")
+                .long("no-spf")
+                .action(ArgAction::SetTrue)
+                .help("Does not run SPF check"),
+        )
 }
 
-fn discover_subcommand() -> App<'static, 'static> {
-    SubCommand::with_name("discover")
+fn discover_subcommand() -> Command {
+    Command::new("discover")
         .about("Discovers records of a domain using multiple heuristics")
         .arg(
-            Arg::with_name("domain name")
+            Arg::new("domain name")
                 .required(true)
                 .index(1)
                 .value_name("DOMAIN NAME")
-                .next_line_help(false)
                 .help("domain name to discover")
                 .long_help("* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de"),
         )
         .arg(
-            Arg::with_name("partial-results")
-                .short("p")
+            Arg::new("partial-results")
+                .short('p')
                 .long("show-partial-results")
+                .action(ArgAction::SetTrue)
                 .help("Shows results after each lookup step"),
         )
         .arg(
-            Arg::with_name("wordlist-from-file")
-                .short("w")
+            Arg::new("wordlist-from-file")
+                .short('w')
                 .long("wordlist-from-file")
                 .value_name("FILE")
-                .takes_value(true)
                 .help("Uses wordlist from file"),
         )
         .arg(
-            Arg::with_name("rnd-names-number")
+            Arg::new("rnd-names-number")
                 .long("rnd-names-number")
                 .value_name("NUMBER")
                 .default_value("3")
-                .validator(|str| {
-                    u64::from_str(&str)
-                        .map(|_| ())
-                        .map_err(|_| "invalid number".to_string())
-                })
+                .value_parser(str::parse::<usize>)
                 .help("Sets number of random domain names to generate for wildcard resolution check"),
         )
         .arg(
-            Arg::with_name("rnd-names-len")
+            Arg::new("rnd-names-len")
                 .long("rnd-names-len")
                 .value_name("LEN")
                 .default_value("32")
-                .validator(|str| {
-                    u64::from_str(&str)
-                        .map(|_| ())
-                        .map_err(|_| "invalid number".to_string())
-                })
+                .value_parser(str::parse::<usize>)
                 .help("Sets length of random domain names to generate for wildcard resolution check"),
         )
         .arg(
-            Arg::with_name("subdomains-only")
-                .short("s")
+            Arg::new("subdomains-only")
+                .short('s')
                 .long("subdomains-only")
+                .action(ArgAction::SetTrue)
                 .help("Shows subdomains only omitting all other discovered names"),
         )
 }
 
-fn lookup_subcommand() -> App<'static, 'static> {
-    SubCommand::with_name("lookup")
+fn lookup_subcommand() -> Command {
+    Command::new("lookup")
         .about("Looks up a name, IP address or CIDR block")
         .arg(
-            Arg::with_name("domain name")
-                .required_unless("list-predefined")
+            Arg::new("domain name")
+                .required(true)
                 .index(1)
                 .value_name("DOMAIN NAME | IP ADDR | CIDR BLOCK [| SERVICE SPEC]")
-                .next_line_help(false)
                 .help("domain name, IP address, or CIDR block to lookup")
                 .long_help(
                     r#"domain name, IP address, CIDR block, or, if -s, SERVICE SPEC, to lookup"
@@ -434,56 +413,56 @@ fn lookup_subcommand() -> App<'static, 'static> {
 * SERVICE SPEC may be specified by name, protocol, and domain name, delimited by colons. If protocol is omitted, tcp is assumed, e.g.,
   * dns:udp:example.com is _dns._udp.example.com
   * smtp:tcp:example.com is _smtp._tcp.example.com
-  * smtp::example.com is _smtp._tcp.example.com  
+  * smtp::example.com is _smtp._tcp.example.com
 "#,
                 ),
         )
         .arg(
-            Arg::with_name("record-types")
-                .short("t")
+            Arg::new("record-types")
+                .short('t')
                 .long("record-type")
                 .value_name("RECORD TYPE")
-                .takes_value(true)
-                .multiple(true)
-                .use_delimiter(true)
-                .require_delimiter(true)
+                .action(ArgAction::Append)
+                .value_delimiter(',')
                 .default_value("A,AAAA,CNAME,MX")
-                .default_value_if("parse-as-service", None, "SRV")
-                .possible_values(SUPPORTED_RECORD_TYPES)
+                .default_value_if("parse-as-service", "true", "SRV")
+                .value_parser(SUPPORTED_RECORD_TYPES.to_vec())
                 .help("Sets record type to lookup, will be ignored in case of IP address lookup"),
         )
         .arg(
-            Arg::with_name("all-record-types")
+            Arg::new("all-record-types")
                 .long("all")
                 .alias("xmas")
+                .action(ArgAction::SetTrue)
                 .help("Enables lookups for all record types"),
         )
         .arg(
-            Arg::with_name("parse-as-service")
-                .short("s")
+            Arg::new("parse-as-service")
+                .short('s')
                 .long("service")
+                .action(ArgAction::SetTrue)
                 .conflicts_with("all-record-types")
                 .overrides_with("record-types")
                 .help("Parses ARG as service spec and set record type to SRV"),
         )
         .arg(
-            Arg::with_name("whois")
-                .short("w")
+            Arg::new("whois")
+                .short('w')
                 .long("whois")
+                .action(ArgAction::SetTrue)
                 .help("Retrieves Whois information about A, AAAA, and PTR records"),
         )
 }
 
-fn server_lists_subcommand() -> App<'static, 'static> {
-    SubCommand::with_name("server-lists")
+fn server_lists_subcommand() -> Command {
+    Command::new("server-lists")
         .about("Downloads known lists of name servers")
         .arg(
-            Arg::with_name("server_list_spec")
+            Arg::new("server_list_spec")
                 .index(1)
                 .value_name("SERVER LIST SPEC")
-                .multiple(true)
+                .action(ArgAction::Append)
                 .required(true)
-                .next_line_help(false)
                 .help("server list specification")
                 .long_help(
                     r#"SERVER LIST SPEC as <SOURCE>[:OPTIONS,...]
@@ -496,17 +475,16 @@ fn server_lists_subcommand() -> App<'static, 'static> {
    'reliability=<1..100> - only return server with reliability of 'reliability'% or more; default 95
    'ipv=<4|6|all> - return IPv4, IPv6, or both servers; default all
     Example: opennic:anon,number=10,ipv=4
-    
+
 "#,
                 ),
         )
         .arg(
-            Arg::with_name("output-file")
-                .short("o")
+            Arg::new("output-file")
+                .short('o')
                 .long("output-file")
                 .required(true)
                 .value_name("FILE")
-                .takes_value(true)
                 .help("Sets path to output file"),
         )
 }

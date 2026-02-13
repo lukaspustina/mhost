@@ -52,8 +52,8 @@ fn exit_subcommand_invalid() -> ExitStatus {
 
 fn do_main() -> Result<ExitStatus> {
     let args = cli_parser::create_parser().get_matches();
-    let color = !args.is_present("no-color");
-    let debug = args.is_present("debug");
+    let color = !args.get_flag("no-color");
+    let debug = args.get_flag("debug");
 
     setup_terminal(&args, color);
     setup_logging(&args, color, debug);
@@ -95,13 +95,13 @@ fn setup_terminal(args: &ArgMatches, color: bool) {
     if !color {
         mhost::app::output::styles::no_color_mode();
     }
-    if args.is_present("ascii") {
+    if args.get_flag("ascii") {
         mhost::app::output::styles::ascii_mode();
     }
 }
 
 fn setup_logging(args: &ArgMatches, color: bool, debug: bool) {
-    Logging::new(args.occurrences_of("v"), env::var_os("RUST_LOG"), color, debug)
+    Logging::new(args.get_count("v"), env::var_os("RUST_LOG"), color, debug)
         .start()
         .expect("failed to initialize logging");
 }
@@ -118,7 +118,7 @@ fn setup_console(app_config: &AppConfig) -> Console {
     Console::new(console_opts)
 }
 
-async fn run_command(args: &ArgMatches<'_>, app_config: &AppConfig, console: &Console) -> Result<ExitStatus> {
+async fn run_command(args: &ArgMatches, app_config: &AppConfig, console: &Console) -> Result<ExitStatus> {
     if app_config.list_predefined {
         list_predefined_nameservers(console);
         return Ok(ExitStatus::Ok);

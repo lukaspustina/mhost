@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use clap::Shell;
+use clap_complete::Shell;
 use std::env;
 use std::fs;
 use std::process;
@@ -26,8 +26,11 @@ fn main() {
     fs::create_dir_all(&output_dir).expect("failed to create output directory");
 
     // Create Shell completions
-    let mut parser = cli_parser::create_parser();
-    parser.gen_completions("mhost", Shell::Bash, &output_dir);
-    parser.gen_completions("mhost", Shell::Fish, &output_dir);
-    parser.gen_completions("mhost", Shell::Zsh, &output_dir);
+    let mut cmd = cli_parser::create_parser();
+    clap_complete::generate_to(Shell::Bash, &mut cmd, "mhost", &output_dir)
+        .expect("failed to generate Bash completions");
+    clap_complete::generate_to(Shell::Fish, &mut cmd, "mhost", &output_dir)
+        .expect("failed to generate Fish completions");
+    clap_complete::generate_to(Shell::Zsh, &mut cmd, "mhost", &output_dir)
+        .expect("failed to generate Zsh completions");
 }

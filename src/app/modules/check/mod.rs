@@ -21,7 +21,7 @@ mod lints;
 use config::CheckConfig;
 use lints::Check;
 
-pub async fn run(args: &ArgMatches<'_>, app_config: &AppConfig) -> Result<ExitStatus> {
+pub async fn run(args: &ArgMatches, app_config: &AppConfig) -> Result<ExitStatus> {
     info!("check module selected.");
     let args = args.subcommand_matches("check").unwrap();
     let config: CheckConfig = args.try_into()?;

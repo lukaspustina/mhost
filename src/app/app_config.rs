@@ -55,82 +55,82 @@ impl AppConfig {
     }
 }
 
-impl TryFrom<&ArgMatches<'_>> for AppConfig {
+impl TryFrom<&ArgMatches> for AppConfig {
     type Error = anyhow::Error;
 
     fn try_from(args: &ArgMatches) -> std::result::Result<Self, Self::Error> {
         let output = args
-            .value_of("output")
-            .map(|x| OutputType::try_from(x).context("failed to parse output type"))
+            .get_one::<String>("output")
+            .map(|x| OutputType::try_from(x.as_str()).context("failed to parse output type"))
             .unwrap()?; // Safe unwrap, because of clap's validation
         let config = AppConfig {
-            list_predefined: args.is_present("list-predefined"),
-            max_concurrent_servers: args
-                .value_of("max-concurrent-servers")
-                .map(|x| usize::from_str(x).context("failed to parse max-concurrent-servers"))
-                .unwrap()?, // Safe unwrap, because clap's validation
-            use_system_resolv_opt: args.is_present("use-system-resolv-opt"),
-            retries: args
-                .value_of("retries")
-                .map(|x| usize::from_str(x).context("failed to parse retries"))
-                .unwrap()?, // Safe unwrap, because clap's validation
-            max_concurrent_requests: args
-                .value_of("max-concurrent-requests")
-                .map(|x| usize::from_str(x).context("max-concurrent-requests"))
-                .unwrap()?, // Safe unwrap, because clap's validation
-            timeout: args
-                .value_of("timeout")
-                .map(|x| {
-                    u64::from_str(x)
-                        .map(Duration::from_secs)
-                        .context("failed to parse timeout")
-                })
-                .unwrap()?, // Safe unwrap, because clap's validation
-            expects_multiple_responses: args.is_present("wait-multiple-responses"),
-            abort_on_error: !(args.is_present("no-abort-on-error") || args.is_present("no-aborts")),
-            abort_on_timeout: !(args.is_present("no-abort-on-timeout") || args.is_present("no-aborts")),
-            resolv_conf_path: args.value_of("resolv-conf").unwrap_or("/etc/resolv.conf").to_string(),
-            ndots: args
-                .value_of("ndots")
-                .map(|x| u8::from_str(x).context("failed to ndots"))
-                .unwrap()?, // Safe unwrap, because clap's validation
-            search_domain: args.value_of("search-domain").map(ToString::to_string),
-            show_errors: args.is_present("show-errors"),
-            quiet: args.is_present("quiet"),
-            ignore_system_nameservers: args.is_present("no-system-nameservers"),
-            no_system_lookups: args.is_present("no-system-lookups"),
+            list_predefined: args.get_flag("list-predefined"),
+            max_concurrent_servers: *args
+                .get_one::<usize>("max-concurrent-servers")
+                .unwrap(), // Safe unwrap, because clap's validation
+            use_system_resolv_opt: args.get_flag("use-system-resolv-opt"),
+            retries: *args
+                .get_one::<usize>("retries")
+                .unwrap(), // Safe unwrap, because clap's validation
+            max_concurrent_requests: *args
+                .get_one::<usize>("max-concurrent-requests")
+                .unwrap(), // Safe unwrap, because clap's validation
+            timeout: {
+                let secs = *args.get_one::<u64>("timeout").unwrap(); // Safe unwrap, because clap's validation
+                Duration::from_secs(secs)
+            },
+            expects_multiple_responses: args.get_flag("wait-multiple-responses"),
+            abort_on_error: !(args.get_flag("no-abort-on-error") || args.get_flag("no-aborts")),
+            abort_on_timeout: !(args.get_flag("no-abort-on-timeout") || args.get_flag("no-aborts")),
+            resolv_conf_path: args
+                .get_one::<String>("resolv-conf")
+                .map(|s| s.as_str())
+                .unwrap_or("/etc/resolv.conf")
+                .to_string(),
+            ndots: *args
+                .get_one::<u8>("ndots")
+                .unwrap(), // Safe unwrap, because clap's validation
+            search_domain: args.get_one::<String>("search-domain").map(ToString::to_string),
+            show_errors: args.get_flag("show-errors"),
+            quiet: args.get_flag("quiet"),
+            ignore_system_nameservers: args.get_flag("no-system-nameservers"),
+            no_system_lookups: args.get_flag("no-system-lookups"),
             nameservers: args
-                .values_of("nameservers")
+                .get_many::<String>("nameservers")
                 .map(|xs| xs.map(ToString::to_string).collect()),
-            predefined: args.is_present("predefined"),
+            predefined: args.get_flag("predefined"),
             predefined_filter: args
-                .values_of("predefined-filter")
+                .get_many::<String>("predefined-filter")
                 .map(|xs| xs.map(ToString::to_string).collect()),
-            nameserver_file_path: args.value_of("nameservers-from-file").map(ToString::to_string),
-            limit: args
-                .value_of("limit")
-                .map(|x| usize::from_str(x).context("failed to parse limit"))
-                .unwrap()?, // Safe unwrap, because clap's validation
+            nameserver_file_path: args.get_one::<String>("nameservers-from-file").map(ToString::to_string),
+            limit: *args
+                .get_one::<usize>("limit")
+                .unwrap(), // Safe unwrap, because clap's validation
             system_nameservers: args
-                .values_of("system nameservers")
+                .get_many::<String>("system nameservers")
                 .map(|xs| xs.map(ToString::to_string).collect()),
-            resolvers_mode: args.value_of("resolvers-mode").map(Mode::from_str).unwrap()?, // Safe unwrap, because clap's validation
+            resolvers_mode: {
+                let mode_str = args.get_one::<String>("resolvers-mode").unwrap(); // Safe unwrap, because clap's validation
+                Mode::from_str(mode_str)?
+            },
             output_config: output_config(output, args)?,
             output,
             max_worker_threads: args
-                .value_of("max-worker-threads")
-                .map(|x| usize::from_str(x).context("failed to parse limit").unwrap()),
+                .get_one::<usize>("max-worker-threads")
+                .copied(),
         };
 
         Ok(config)
     }
 }
 
-fn output_config(output_type: OutputType, args: &ArgMatches<'_>) -> Result<OutputConfig> {
-    let args = args
-        .values_of("output-options")
-        .context("No output options specified")?;
-    parse_output_options(output_type, args)
+fn output_config(output_type: OutputType, args: &ArgMatches) -> Result<OutputConfig> {
+    let args: Vec<&str> = args
+        .get_many::<String>("output-options")
+        .context("No output options specified")?
+        .map(|s| s.as_str())
+        .collect();
+    parse_output_options(output_type, args.into_iter())
 }
 
 fn parse_output_options<'a, I: Iterator<Item = &'a str>>(output_type: OutputType, options: I) -> Result<OutputConfig> {
