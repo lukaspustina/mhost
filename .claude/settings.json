@@ -1,0 +1,23 @@
+  {
+    "permissions": {
+      "allow": [
+        "Bash(cargo build*)",
+        "Bash(cargo check*)",
+        "Bash(cargo test*)",
+        "Bash(cargo clippy*)",
+        "Bash(cargo fmt*)",
+        "Bash(cargo doc*)",
+        "Bash(git status*)",
+        "Bash(git diff*)",
+        "Bash(git log*)",
+        "Bash(git branch*)",
+        "Bash(git show*)",
+        "Read",
+        "Edit",
+        "Write",
+        "Glob",
+        "Grep",
+        "Task"
+      ]
+    }
+  }
