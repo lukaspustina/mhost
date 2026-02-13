@@ -20,21 +20,21 @@ pub struct DownloadServerListConfig {
 
 impl ModConfig for DownloadServerListConfig {}
 
-impl TryFrom<&ArgMatches<'_>> for DownloadServerListConfig {
+impl TryFrom<&ArgMatches> for DownloadServerListConfig {
     type Error = anyhow::Error;
 
     fn try_from(args: &ArgMatches) -> std::result::Result<Self, Self::Error> {
         let server_list_specs: Vec<_> = args
-            .values_of("server_list_spec")
+            .get_many::<String>("server_list_spec")
             .context("No server list specification")?
-            .map(ServerListSpec::from_str)
+            .map(|s| ServerListSpec::from_str(s))
             .collect();
         let server_list_specs: std::result::Result<Vec<_>, _> = server_list_specs.into_iter().collect();
         let server_list_specs = server_list_specs?;
         let config = DownloadServerListConfig {
             server_list_specs,
             output_file_path: args
-                .value_of("output-file")
+                .get_one::<String>("output-file")
                 .context("No output file name specified")?
                 .to_string(),
         };

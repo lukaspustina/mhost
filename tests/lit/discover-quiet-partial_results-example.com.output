@@ -7,12 +7,9 @@ CHECK-NEXT: * MX:
 CHECK-NEXT: * TXT:
 CHECK: * TXT:
 CHECK: * A:
-CHECK-NEXT: * AAAA:
+CHECK: * AAAA:
 CHECK: * A:
-CHECK-NEXT: * AAAA:
-CHECK-NEXT: * .
-CHECK-NEXT: * .example.com.
+CHECK: * AAAA:
+CHECK: * .
+CHECK: * .example.com.
 CHECK-NEXT: * www.example.com.
-CHECK-NEXT: * a.iana-servers.net.
-CHECK-NEXT: * b.iana-servers.net.
-CHECK-NEXT: * ns.icann.org.

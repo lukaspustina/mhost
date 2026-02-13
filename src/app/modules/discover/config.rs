@@ -10,7 +10,6 @@ use std::convert::TryFrom;
 use crate::app::modules::ModConfig;
 use anyhow::Context;
 use clap::ArgMatches;
-use std::str::FromStr;
 
 pub struct DiscoverConfig {
     pub domain_name: String,
@@ -27,26 +26,24 @@ impl ModConfig for DiscoverConfig {
     }
 }
 
-impl TryFrom<&ArgMatches<'_>> for DiscoverConfig {
+impl TryFrom<&ArgMatches> for DiscoverConfig {
     type Error = anyhow::Error;
 
     fn try_from(args: &ArgMatches) -> std::result::Result<Self, Self::Error> {
         let config = DiscoverConfig {
             domain_name: args
-                .value_of("domain name")
+                .get_one::<String>("domain name")
                 .context("No domain name to lookup specified")?
                 .to_string(),
-            partial_results: args.is_present("partial-results"),
-            wordlist_file_path: args.value_of("wordlist-from-file").map(ToString::to_string),
-            rnd_names_number: args
-                .value_of("rnd-names-number")
-                .map(|x| usize::from_str(x).context("failed to parse rnd-names-number"))
-                .unwrap()?, // Safe unwrap, because of clap's validation
-            rnd_names_len: args
-                .value_of("rnd-names-len")
-                .map(|x| usize::from_str(x).context("failed to parse rnd-names-len"))
-                .unwrap()?, // Safe unwrap, because of clap's validation
-            subdomains_only: args.is_present("subdomains-only"),
+            partial_results: args.get_flag("partial-results"),
+            wordlist_file_path: args.get_one::<String>("wordlist-from-file").map(ToString::to_string),
+            rnd_names_number: *args
+                .get_one::<usize>("rnd-names-number")
+                .unwrap(), // Safe unwrap, because of clap's validation
+            rnd_names_len: *args
+                .get_one::<usize>("rnd-names-len")
+                .unwrap(), // Safe unwrap, because of clap's validation
+            subdomains_only: args.get_flag("subdomains-only"),
         };
 
         Ok(config)

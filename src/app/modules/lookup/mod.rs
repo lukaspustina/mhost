@@ -23,7 +23,7 @@ pub mod config;
 pub mod lookup;
 pub mod service_spec;
 
-pub async fn run(args: &ArgMatches<'_>, app_config: &AppConfig) -> Result<ExitStatus> {
+pub async fn run(args: &ArgMatches, app_config: &AppConfig) -> Result<ExitStatus> {
     info!("lookup module selected.");
     let args = args.subcommand_matches("lookup").unwrap();
     let config: LookupConfig = args.try_into()?;

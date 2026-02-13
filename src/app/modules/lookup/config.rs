@@ -29,36 +29,38 @@ impl ModConfig for LookupConfig {
     }
 }
 
-impl TryFrom<&ArgMatches<'_>> for LookupConfig {
+impl TryFrom<&ArgMatches> for LookupConfig {
     type Error = anyhow::Error;
 
     fn try_from(args: &ArgMatches) -> std::result::Result<Self, Self::Error> {
         let config = LookupConfig {
             domain_name: args
-                .value_of("domain name")
+                .get_one::<String>("domain name")
                 .context("No domain name to lookup specified")?
                 .to_string(),
             record_types: record_types(args)?,
-            whois: args.is_present("whois"),
-            parse_as_service: args.is_present("parse-as-service"),
+            whois: args.get_flag("whois"),
+            parse_as_service: args.get_flag("parse-as-service"),
         };
 
         Ok(config)
     }
 }
 
-fn record_types(args: &ArgMatches<'_>) -> Result<Vec<RecordType>> {
-    if args.is_present("all-record-types") {
+fn record_types(args: &ArgMatches) -> Result<Vec<RecordType>> {
+    if args.get_flag("all-record-types") {
         Ok(SUPPORTED_RECORD_TYPES
             .iter()
             .filter(|x| **x != "ANY")
             .map(|x| RecordType::from_str(x).unwrap())
             .collect())
     } else {
-        let args = args
-            .values_of("record-types")
-            .context("No record types for name lookup specified")?;
-        parse_record_types(args)
+        let args: Vec<&str> = args
+            .get_many::<String>("record-types")
+            .context("No record types for name lookup specified")?
+            .map(|s| s.as_str())
+            .collect();
+        parse_record_types(args.into_iter())
     }
 }
 

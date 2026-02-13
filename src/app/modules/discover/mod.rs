@@ -22,7 +22,7 @@ mod wordlist;
 use config::DiscoverConfig;
 use discover::Discover;
 
-pub async fn run(args: &ArgMatches<'_>, app_config: &AppConfig) -> Result<ExitStatus> {
+pub async fn run(args: &ArgMatches, app_config: &AppConfig) -> Result<ExitStatus> {
     info!("discover module selected.");
     let args = args.subcommand_matches("discover").unwrap();
     let config: DiscoverConfig = args.try_into()?;

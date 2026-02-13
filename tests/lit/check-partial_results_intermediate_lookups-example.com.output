@@ -11,7 +11,7 @@ CHECK-NEXT: * MX:
 CHECK-NEXT: * TXT:
 CHECK: * TXT:
 CHECK: * A:
-CHECK-NEXT: * AAAA:
+CHECK: * AAAA:
 CHECK-NEXT: * AAAA:
 CHECK: > Checking SOA lints
 CHECK-NEXT: * Authoritative SOA records

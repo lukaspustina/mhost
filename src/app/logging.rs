@@ -16,14 +16,14 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::EnvFilter;
 
 pub struct Logging {
-    verbosity: u64,
+    verbosity: u8,
     rust_log: Option<OsString>,
     color: bool,
     debug: bool,
 }
 
 impl Logging {
-    pub fn new(verbosity: u64, rust_log: Option<OsString>, color: bool, debug: bool) -> Logging {
+    pub fn new(verbosity: u8, rust_log: Option<OsString>, color: bool, debug: bool) -> Logging {
         Logging {
             verbosity,
             rust_log,
@@ -32,7 +32,7 @@ impl Logging {
         }
     }
 
-    fn log_level(verbosity: u64) -> LevelFilter {
+    fn log_level(verbosity: u8) -> LevelFilter {
         match verbosity {
             0 => LevelFilter::WARN,
             1 => LevelFilter::INFO,

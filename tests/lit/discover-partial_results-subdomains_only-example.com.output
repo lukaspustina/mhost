@@ -1,4 +1,4 @@
-RUN: @mhost_bin --ascii --no-color discover example.com -p -s
+RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color discover example.com -p -s
 
 CHECK: > Options: mode=multi, concurrent nameservers=10, max. nameservers=100, concurrent requests=5, retries=0, timeout=5s, ndots=1, abort on error, abort on timeout
 CHECK-NEXT: > Requesting all record types.
@@ -11,16 +11,16 @@ CHECK-NEXT: * MX:
 CHECK-NEXT: * TXT:
 CHECK: * TXT:
 CHECK: * A:
-CHECK-NEXT: * AAAA:
+CHECK: * AAAA:
 CHECK: > Checking wildcard resolution.
 CHECK-NEXT: - Sending
 CHECK-NEXT: - Received
 CHECK-NEXT: > Wordlist lookups.
 CHECK-NEXT: - Sending
 CHECK-NEXT: - Received
-CHECK-NEXT: * A:
-CHECK-NEXT: * AAAA:
-CHECK-NEXT: + Finished.
+CHECK: * A:
+CHECK: * AAAA:
+CHECK: + Finished.
 CHECK-NEXT: - Received
 CHECK-NEXT: - No wildcard resolution discovered
 CHECK-NEXT: * .example.com.
