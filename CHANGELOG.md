@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.1
+
+- Fix release workflow not uploading .deb package to GitHub release
+- Use glob patterns for artifact upload for robustness
+- Add artifact listing step for release debugging
+
 ## v0.4.0
 
 ### Major upgrades
