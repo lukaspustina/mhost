@@ -13,11 +13,15 @@
 
 - Multi-server concurrent DNS lookups (queries many nameservers in parallel, aggregates results)
 - DNS over UDP, TCP, TLS (DoT), and HTTPS (DoH)
-- Domain/subdomain discovery via wordlists
-- DNS configuration validation (linting) against RFCs
+- 20 DNS record types: A, AAAA, ANAME, ANY, CAA, CNAME, HINFO, HTTPS, MX, NAPTR, NS, NULL, OPENPGPKEY, PTR, SOA, SRV, SSHFP, SVCB, TLSA, TXT, plus DNSSEC records
+- Domain/subdomain discovery via 10+ strategies (wordlists, CT logs, SRV probing, TXT mining, AXFR, NSEC walking, permutation, reverse DNS, recursive)
+- DNS configuration validation with 10 lints (SOA, NS, CNAME, MX, SPF, DMARC, CAA, TTL, DNSSEC, HTTPS/SVCB)
+- Domain lookup command for full DNS profile in one operation (~40-65 well-known subdomain/record combinations)
 - WHOIS integration (via RIPEStats API)
 - Output as human-readable summary tables or JSON
-- Predefined unfiltered DNS servers: Cloudflare, Google, Quad9, Mullvad, Wikimedia, DNS4EU
+- Predefined unfiltered DNS servers: 84 configurations across 6 providers (Cloudflare, Google, Quad9, Mullvad, Wikimedia, DNS4EU)
+- Built-in wordlist of 424 subdomain entries for discovery
+- Info command for DNS record type and well-known subdomain documentation
 
 ## Build & Test Commands
 
@@ -25,7 +29,7 @@
 cargo build                # Build everything (default feature = "app")
 cargo build --lib          # Build library only
 cargo check                # Type-check without full compilation
-cargo test --lib           # Run library unit tests (127 tests, fast, no network needed)
+cargo test --lib           # Run library unit tests (224 tests, fast, no network needed)
 cargo test                 # Run all tests including CLI integration tests (slower, needs network)
 cargo clippy               # Lint
 cargo fmt                  # Format
@@ -33,7 +37,7 @@ cargo fmt                  # Format
 
 ### Test guidelines
 
-- **`cargo test --lib`** is the reliable quick check — 127 unit tests, no network needed.
+- **`cargo test --lib`** is the reliable quick check — 224 unit tests, no network needed.
 - **`cargo test`** also runs lit-based CLI integration tests (`tests/cli_output_tests.rs`) that make real DNS queries via `8.8.8.8`. These may fail due to DNS timeouts or changed records.
 - **Every new rdata type or RecordType variant must have unit tests.** Each rdata module has a `#[cfg(test)] mod tests` block covering constructor/accessor round-trips and any enum conversions (`From<u8>`, `Display`).
 - **`RecordType::from_str` must cover all variants.** If you add a new `RecordType` variant, add it to `FromStr`, `all()`, and the `from_str_all_standard_types` test. The `display_round_trip` test will catch omissions.
@@ -62,9 +66,23 @@ src/
 │   └── load.rs             #   Load nameserver configs from files
 │
 ├── resources/               # DNS record types and data
-│   ├── record_type.rs      #   RecordType enum (A, AAAA, MX, SOA, SRV, TXT, etc.)
+│   ├── record_type.rs      #   RecordType enum (A, AAAA, CAA, CNAME, HINFO, HTTPS, MX, NAPTR, NS, OPENPGPKEY,
+│   │                       #     PTR, SOA, SRV, SSHFP, SVCB, TLSA, TXT, DNSSEC, etc.)
 │   ├── record.rs           #   Record struct
-│   └── rdata/              #   Record-specific data types (mx, soa, srv, txt, parsed_txt/)
+│   └── rdata/              #   Record-specific data types
+│       ├── mod.rs          #     RData enum and accessors
+│       ├── caa.rs          #     CAA record data
+│       ├── hinfo.rs        #     HINFO record data
+│       ├── mx.rs           #     MX record data
+│       ├── naptr.rs        #     NAPTR record data
+│       ├── openpgpkey.rs   #     OPENPGPKEY record data
+│       ├── soa.rs          #     SOA record data
+│       ├── srv.rs          #     SRV record data
+│       ├── sshfp.rs        #     SSHFP record data
+│       ├── svcb.rs         #     SVCB/HTTPS record data
+│       ├── tlsa.rs         #     TLSA record data
+│       ├── txt.rs          #     TXT record data
+│       └── parsed_txt/     #     Parsed TXT subtypes (SPF, DMARC, BIMI, MTA-STS, TLS-RPT)
 │
 ├── services/                # External service integrations
 │   ├── whois/              #   WHOIS via RIPEStats API
@@ -81,8 +99,13 @@ src/
 │   ├── output/             #   Output formatting (json.rs, summary/, styles.rs)
 │   └── modules/            #   Command implementations:
 │       ├── lookup/         #     DNS record lookups (+ service_spec.rs for SRV)
-│       ├── discover/       #     Subdomain discovery (+ wordlist.rs)
-│       ├── check/          #     DNS validation lints (lints/cnames.rs, soa.rs, spf.rs)
+│       ├── domain_lookup/  #     Domain-wide lookup of apex + well-known subdomains
+│       ├── discover/       #     Subdomain discovery (+ wordlist.rs, ct_logs.rs, srv_probing.rs,
+│       │                   #       txt_mining.rs, permutation.rs)
+│       ├── check/          #     DNS validation lints:
+│       │   └── lints/      #       cnames.rs, soa.rs, spf.rs, dmarc.rs, ns.rs, mx.rs,
+│       │                   #       caa.rs, ttl.rs, dnssec_lint.rs, https_svcb.rs
+│       ├── info/           #     DNS record type info display
 │       └── get_server_lists/ #   Download nameserver lists
 │
 ├── system_config.rs         # Parse /etc/resolv.conf
@@ -90,6 +113,17 @@ src/
 ├── diff.rs                  # Diff utilities
 └── utils/                   # Helpers (serialize, deserialize, buffer_unordered_with_breaker)
 ```
+
+## CLI Commands
+
+| Command | Alias | Description |
+|---------|-------|-------------|
+| `lookup` | `l` | Look up arbitrary DNS records of a domain name, IP address, or CIDR block |
+| `domain-lookup` | `domain` | Look up a domain's apex records and ~40-65 well-known subdomains in one operation |
+| `discover` | `d` | Discover host names and subdomains using 10+ strategies |
+| `check` | `c` | Validate DNS configuration using 10 lints |
+| `info` | -- | Show information about DNS record types and well-known subdomains |
+| `server-lists` | -- | Download public nameserver lists |
 
 ## Key Dependencies
 
@@ -137,11 +171,13 @@ Releases are automated via GitHub Actions (`.github/workflows/release.yml`):
 - **Library vs App separation**: The `app` module is feature-gated. Library code in `resolver/`, `nameserver/`, `resources/`, `services/` has no CLI dependencies.
 - **Build script** (`build.rs`): Generates shell completions (Bash, Fish, Zsh) via `clap_complete` at compile time.
 - **Predefined servers use unfiltered endpoints** — no content filtering/blocking by default.
+- **CLI argument validation**: All numeric CLI arguments have range bounds enforced via custom `ValueParser` functions in `cli_parser.rs`.
+- **Styles**: Terminal styling uses `yansi` 1.0 with plain `static` constants (no `lazy_static`). Runtime-dependent prefixes (affected by `--ascii` mode) are functions in `styles.rs`.
 
 ## Common Patterns
 
 - `ResolverGroup::from_system_config(opts)` to create resolvers from OS config
 - `MultiQuery::multi_record(name, record_types)` to build queries
-- `resolvers.lookup(query).await` returns `Lookups` which has `.a()`, `.aaaa()`, `.mx()`, etc.
+- `resolvers.lookup(query).await` returns `Lookups` which has `.a()`, `.aaaa()`, `.mx()`, `.caa()`, `.tlsa()`, `.svcb()`, `.https()`, `.sshfp()`, `.naptr()`, `.hinfo()`, `.openpgpkey()`, etc.
 - `.unique()` on lookup results to deduplicate across nameservers
 - Statistics via `.statistics()` trait method on result types
