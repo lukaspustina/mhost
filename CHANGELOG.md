@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.2
+## v0.4.0
 
 ### Major upgrades
 
@@ -42,6 +42,12 @@
 - Upgrade Docker action versions (login-action@v3, build-push-action@v6)
 - Replace third-party musl action with native musl cross-compilation
 - Fix clippy warnings
+- Add separate Homebrew tap repository with automated formula updates
+- Improve Homebrew formula (offline test, explicit tag URL)
+
+## v0.3.2
+
+- Release process improvements
 
 ## v0.3.1
 
