@@ -37,29 +37,28 @@ jobs:
       - name: Build Static Linux Binary
         run: cargo build --target x86_64-unknown-linux-musl --release --features app
 
-      - name: Gather Debian Package Filename
-        id: deb_pkg_filename
+      - name: Gather Release Tag
+        id: release_info
         run: |
-          DEB_PKG_VERSION=$(cargo read-manifest | jq -r .version | sed 's/-/~/')
-          echo "filename=mhost_${DEB_PKG_VERSION}_amd64.deb" >> "$GITHUB_OUTPUT"
-      - name: Gather Rpm Package Filename
-        id: rpm_pkg_filename
+          RELEASE_TAG=$(echo "${{ github.ref }}" | sed 's|^refs/tags/||')
+          echo "tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: List built artifacts
         run: |
-          RPM_PKG_FILENAME=$(ls -1 ./target/release/rpmbuild/RPMS/x86_64/ | head -1)
-          echo "filename=${RPM_PKG_FILENAME}" >> "$GITHUB_OUTPUT"
-      - name: Gather Docker Tag
-        id: docker_info
-        run: |
-          DOCKER_TAG=$(echo "${{ github.ref }}" | sed 's|^refs/tags/||')
-          echo "tag=${DOCKER_TAG}" >> "$GITHUB_OUTPUT"
+          echo "=== Debian packages ==="
+          ls -la ./target/debian/*.deb
+          echo "=== RPM packages ==="
+          ls -la ./target/release/rpmbuild/RPMS/x86_64/*.rpm
+          echo "=== Static binary ==="
+          ls -la ./target/x86_64-unknown-linux-musl/release/mhost
 
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: |
-            ./target/debian/${{ steps.deb_pkg_filename.outputs.filename }}
-            ./target/release/rpmbuild/RPMS/x86_64/${{ steps.rpm_pkg_filename.outputs.filename }}
+            ./target/debian/*.deb
+            ./target/release/rpmbuild/RPMS/x86_64/*.rpm
             ./target/x86_64-unknown-linux-musl/release/mhost
 
       - name: Login to DockerHub
@@ -73,10 +72,10 @@ jobs:
           context: distribution/docker
           push: true
           tags: |
-            lukaspustina/mhost:${{ steps.docker_info.outputs.tag }}
+            lukaspustina/mhost:${{ steps.release_info.outputs.tag }}
             lukaspustina/mhost:latest
           build-args: |
-            RELEASE_TAG=${{ steps.docker_info.outputs.tag }}
+            RELEASE_TAG=${{ steps.release_info.outputs.tag }}
 
       - name: Update Homebrew Tap
         uses: peter-evans/repository-dispatch@v3
@@ -84,4 +83,4 @@ jobs:
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           repository: lukaspustina/homebrew-mhost
           event-type: formula-update
-          client-payload: '{"version": "${{ steps.docker_info.outputs.tag }}"}'
+          client-payload: '{"version": "${{ steps.release_info.outputs.tag }}"}'
