@@ -1146,15 +1146,16 @@ impl OutputDiscoverResult<'_> {
     }
 
     fn print_fancy_name_by_domain(&self, name: &Name, domain_name: &Name) {
-        if domain_name.zone_of(name) {
+        if domain_name.zone_of(name) && name.num_labels() >= domain_name.num_labels() {
             let domain_len = domain_name.num_labels();
-            let sub_domain = Name::from_labels(name.iter().take((name.num_labels() - domain_len) as usize)).unwrap();
-            self.env
-                .console
-                .itemize(format!("{}{}", Fmt::emph(&sub_domain), domain_name,));
-        } else {
-            self.env.console.itemize(name.to_string());
+            if let Ok(sub_domain) = Name::from_labels(name.iter().take((name.num_labels() - domain_len) as usize)) {
+                self.env
+                    .console
+                    .itemize(format!("{}{}", Fmt::emph(&sub_domain), domain_name));
+                return;
+            }
         }
+        self.env.console.itemize(name.to_string());
     }
 }
 

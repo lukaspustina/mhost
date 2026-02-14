@@ -156,7 +156,12 @@ impl AppResolver {
     }
 
     pub fn resolver_opts(&self) -> &ResolverOpts {
-        self.resolvers.resolvers()[0].opts.as_ref() // Safe, because we created resolver
+        self.resolvers
+            .resolvers()
+            .first()
+            .expect("resolver group is never empty after creation")
+            .opts
+            .as_ref()
     }
 }
 

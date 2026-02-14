@@ -286,24 +286,26 @@ mod whois {
             return Default::default();
         };
         if records.len() == 1 {
-            // We've received just one record table
-            let records = records.pop().unwrap(); // safe unwrap
-            return parse_whois_record(records);
+            return parse_whois_record(records.remove(0));
         }
         // We have multiple tables, let's try to find the latest table.
         let mut i_dates: Vec<_> = records
             .iter()
             .enumerate()
-            .map(|(i, h)| (i, h.get("regdate")))
-            .filter(|(_, d)| d.is_some())
-            .map(|(i, h)| (i, h.map(|x| NaiveDate::parse_from_str(x, "%Y-%m-%d").ok())))
-            .map(|(i, d)| (i, d.flatten()))
-            .filter(|(_, d)| d.is_some())
-            .map(|(i, d)| (i, d.unwrap())) // Safe unwrap due to filter
+            .filter_map(|(i, h)| {
+                h.get("regdate")
+                    .and_then(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d").ok())
+                    .map(|d| (i, d))
+            })
             .collect();
         i_dates.sort_by_key(|(_, d)| *d);
 
-        parse_whois_record(records.remove(i_dates.pop().unwrap().0)) // Safe unwrap
+        if let Some((idx, _)) = i_dates.pop() {
+            parse_whois_record(records.remove(idx))
+        } else {
+            // No parseable dates found, fall back to first record
+            parse_whois_record(records.remove(0))
+        }
     }
 
     fn parse_whois_record(mut record: HashMap<String, String>) -> ParsedWhoisRecord {

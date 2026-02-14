@@ -37,7 +37,18 @@ pub async fn query_ct_logs(domain: &str) -> Result<HashSet<String>> {
         anyhow::bail!("crt.sh returned HTTP {}", response.status());
     }
 
+    // Limit response size to 50 MB to prevent memory exhaustion on popular domains
+    const MAX_CT_RESPONSE_SIZE: u64 = 50 * 1024 * 1024;
+    if let Some(len) = response.content_length() {
+        if len > MAX_CT_RESPONSE_SIZE {
+            anyhow::bail!("crt.sh response too large: {} bytes (limit: {} bytes)", len, MAX_CT_RESPONSE_SIZE);
+        }
+    }
+
     let body = response.text().await.context("Failed to read crt.sh response body")?;
+    if body.len() as u64 > MAX_CT_RESPONSE_SIZE {
+        anyhow::bail!("crt.sh response too large: {} bytes (limit: {} bytes)", body.len(), MAX_CT_RESPONSE_SIZE);
+    }
     parse_ct_response(&body, domain)
 }
 

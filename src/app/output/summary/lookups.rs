@@ -121,122 +121,63 @@ impl Rendering for Record {
     }
 
     fn render_with_suffix(&self, suffix: &str, opts: &SummaryOptions) -> String {
+        /// Render a record type with its data, falling back to a placeholder on data mismatch.
+        macro_rules! render_rr {
+            ($label:expr, $style:expr, $accessor:ident) => {
+                if let Some(data) = self.data().$accessor() {
+                    format!("{}:\t{}{}", $label.paint($style), data.render(opts), suffix)
+                } else {
+                    format!("{}:\t<data unavailable>{}", $label.paint($style), suffix)
+                }
+            };
+        }
+
         match self.record_type() {
-            RecordType::A => format!(
-                "{}:\t{}{}",
-                "A".paint(styles::A),
-                self.data().a().unwrap().render(opts),
-                suffix
-            ),
-            RecordType::AAAA => format!(
-                "{}:\t{}{}",
-                "AAAA".paint(styles::AAAA),
-                self.data().aaaa().unwrap().render(opts),
-                suffix
-            ),
-            RecordType::ANAME => format!(
-                "{}:\t{}{}",
-                "ANAME".paint(styles::NAME),
-                self.data().cname().unwrap().render(opts),
-                suffix
-            ),
-            RecordType::CAA => format!(
-                "{}:\t{}{}",
-                "CAA".paint(styles::CAA),
-                self.data().caa().unwrap().render(opts),
-                suffix
-            ),
-            RecordType::CNAME => format!(
-                "{}:\t{}{}",
-                "CNAME".paint(styles::NAME),
-                self.data().cname().unwrap().render(opts),
-                suffix
-            ),
-            RecordType::MX => format!(
-                "{}:\t{}{}",
-                "MX".paint(styles::MX),
-                self.data().mx().unwrap().render(opts),
-                suffix
-            ),
-            RecordType::NULL => format!("{}:\t{}{}", "NULL", self.data().null().unwrap().render(opts), suffix),
-            RecordType::NS => format!(
-                "{}:\t{}{}",
-                "NS".paint(styles::NAME),
-                self.data().ns().unwrap().render(opts),
-                suffix
-            ),
-            RecordType::PTR => format!(
-                "PTR:\t{}:\t{}{}",
-                self.name().to_ip_addr_string(),
-                self.data().ptr().unwrap().render(opts),
-                suffix
-            ),
-            RecordType::SOA => format!(
-                "{}:\t{}{}",
-                "SOA".paint(styles::SOA),
-                self.data().soa().unwrap().render(opts),
-                suffix
-            ),
-            RecordType::SRV => format!(
-                "{}:\t{}{}",
-                "SRV".paint(styles::SRV),
-                self.data().srv().unwrap().render(opts),
-                suffix
-            ),
-            RecordType::HINFO => format!(
-                "{}:\t{}{}",
-                "HINFO".paint(styles::HINFO),
-                self.data().hinfo().unwrap().render(opts),
-                suffix
-            ),
-            RecordType::HTTPS => format!(
-                "{}:\t{}{}",
-                "HTTPS".paint(styles::SVCB),
-                self.data().https().unwrap().render(opts),
-                suffix
-            ),
-            RecordType::NAPTR => format!(
-                "{}:\t{}{}",
-                "NAPTR".paint(styles::NAPTR),
-                self.data().naptr().unwrap().render(opts),
-                suffix
-            ),
-            RecordType::OPENPGPKEY => format!(
-                "{}:\t{}{}",
-                "OPENPGPKEY".paint(styles::OPENPGPKEY),
-                self.data().openpgpkey().unwrap().render(opts),
-                suffix
-            ),
-            RecordType::SSHFP => format!(
-                "{}:\t{}{}",
-                "SSHFP".paint(styles::SSHFP),
-                self.data().sshfp().unwrap().render(opts),
-                suffix
-            ),
-            RecordType::SVCB => format!(
-                "{}:\t{}{}",
-                "SVCB".paint(styles::SVCB),
-                self.data().svcb().unwrap().render(opts),
-                suffix
-            ),
-            RecordType::TLSA => format!(
-                "{}:\t{}{}",
-                "TLSA".paint(styles::TLSA),
-                self.data().tlsa().unwrap().render(opts),
-                suffix
-            ),
-            RecordType::TXT => format!(
-                "{}:\t{}",
-                "TXT".paint(styles::TXT),
-                self.data().txt().unwrap().render_with_suffix(suffix, opts)
-            ),
-            RecordType::DNSSEC => format!(
-                "{}:\t{}{}",
-                "DNSSEC".paint(styles::DNSSEC),
-                self.data().dnssec().unwrap().render(opts),
-                suffix
-            ),
-            RecordType::Unknown(_) => format!("Unknown:\t{}{}", self.data().unknown().unwrap().render(opts), suffix),
+            RecordType::A => render_rr!("A", styles::A, a),
+            RecordType::AAAA => render_rr!("AAAA", styles::AAAA, aaaa),
+            RecordType::ANAME => render_rr!("ANAME", styles::NAME, cname),
+            RecordType::CAA => render_rr!("CAA", styles::CAA, caa),
+            RecordType::CNAME => render_rr!("CNAME", styles::NAME, cname),
+            RecordType::MX => render_rr!("MX", styles::MX, mx),
+            RecordType::NULL => {
+                if let Some(data) = self.data().null() {
+                    format!("{}:\t{}{}", "NULL", data.render(opts), suffix)
+                } else {
+                    format!("{}:\t<data unavailable>{}", "NULL", suffix)
+                }
+            }
+            RecordType::NS => render_rr!("NS", styles::NAME, ns),
+            RecordType::PTR => {
+                if let Some(data) = self.data().ptr() {
+                    format!("PTR:\t{}:\t{}{}", self.name().to_ip_addr_string(), data.render(opts), suffix)
+                } else {
+                    format!("PTR:\t{}:\t<data unavailable>{}", self.name().to_ip_addr_string(), suffix)
+                }
+            }
+            RecordType::SOA => render_rr!("SOA", styles::SOA, soa),
+            RecordType::SRV => render_rr!("SRV", styles::SRV, srv),
+            RecordType::HINFO => render_rr!("HINFO", styles::HINFO, hinfo),
+            RecordType::HTTPS => render_rr!("HTTPS", styles::SVCB, https),
+            RecordType::NAPTR => render_rr!("NAPTR", styles::NAPTR, naptr),
+            RecordType::OPENPGPKEY => render_rr!("OPENPGPKEY", styles::OPENPGPKEY, openpgpkey),
+            RecordType::SSHFP => render_rr!("SSHFP", styles::SSHFP, sshfp),
+            RecordType::SVCB => render_rr!("SVCB", styles::SVCB, svcb),
+            RecordType::TLSA => render_rr!("TLSA", styles::TLSA, tlsa),
+            RecordType::TXT => {
+                if let Some(data) = self.data().txt() {
+                    format!("{}:\t{}", "TXT".paint(styles::TXT), data.render_with_suffix(suffix, opts))
+                } else {
+                    format!("{}:\t<data unavailable>{}", "TXT".paint(styles::TXT), suffix)
+                }
+            }
+            RecordType::DNSSEC => render_rr!("DNSSEC", styles::DNSSEC, dnssec),
+            RecordType::Unknown(_) => {
+                if let Some(data) = self.data().unknown() {
+                    format!("Unknown:\t{}{}", data.render(opts), suffix)
+                } else {
+                    format!("Unknown:\t<data unavailable>{}", suffix)
+                }
+            }
             rr_type => format!("{}:\t<not yet implemented>{}", rr_type, suffix),
         }
     }
