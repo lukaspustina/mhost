@@ -84,6 +84,18 @@ impl Record {
     }
 }
 
+#[cfg(test)]
+impl Record {
+    pub fn new_for_test(name: Name, record_type: RecordType, ttl: u32, data: RData) -> Record {
+        Record {
+            name,
+            record_type,
+            ttl,
+            data,
+        }
+    }
+}
+
 #[doc(hidden)]
 impl From<&hickory_resolver::proto::rr::Record> for Record {
     fn from(record: &hickory_resolver::proto::rr::Record) -> Self {

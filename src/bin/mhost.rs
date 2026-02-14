@@ -126,6 +126,7 @@ async fn run_command(args: &ArgMatches, app_config: &AppConfig, console: &Consol
 
     match args.subcommand_name() {
         Some("check") => modules::check::run(args, app_config).await,
+        Some("diff") => modules::diff::run(args, app_config).await,
         Some("discover") => modules::discover::run(args, app_config).await,
         Some("domain-lookup") => modules::domain_lookup::run(args, app_config).await,
         Some("completions") => modules::completions::run(args),

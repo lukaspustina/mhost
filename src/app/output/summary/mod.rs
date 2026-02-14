@@ -94,7 +94,7 @@ impl<T: SummaryFormatter> OutputFormat<T> for SummaryFormat {
     }
 }
 
-trait Rendering {
+pub trait Rendering {
     fn render(&self, opts: &SummaryOptions) -> String;
 
     #[allow(unused_variables)]
