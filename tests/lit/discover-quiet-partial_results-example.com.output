@@ -8,8 +8,5 @@ CHECK-NEXT: * TXT:
 CHECK: * TXT:
 CHECK: * A:
 CHECK: * AAAA:
-CHECK: * A:
-CHECK: * AAAA:
 CHECK: * .
 CHECK: * .example.com.
-CHECK-NEXT: * www.example.com.

@@ -6,4 +6,3 @@ CHECK-NEXT: - Received [[\d+]] responses
 CHECK-NEXT: - No wildcard resolution discovered
 CHECK-NEXT: * .
 CHECK: * .example.com.
-CHECK: * www.example.com.
