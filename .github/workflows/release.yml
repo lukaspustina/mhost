@@ -77,3 +77,11 @@ jobs:
             lukaspustina/mhost:latest
           build-args: |
             RELEASE_TAG=${{ steps.docker_info.outputs.tag }}
+
+      - name: Update Homebrew Tap
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          repository: lukaspustina/homebrew-mhost
+          event-type: formula-update
+          client-payload: '{"version": "${{ steps.docker_info.outputs.tag }}"}'
