@@ -13,21 +13,33 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 use serde::Serialize;
 
 pub use caa::CAA;
+pub use dnssec::DNSSEC;
+pub use hinfo::HINFO;
 pub use mx::MX;
+pub use naptr::NAPTR;
 pub use null::NULL;
+pub use openpgpkey::OPENPGPKEY;
 pub use soa::SOA;
 pub use srv::SRV;
+pub use sshfp::SSHFP;
+pub use svcb::SVCB;
 pub use hickory_resolver::{IntoName, Name};
 pub use tlsa::{TLSA, CertUsage, Selector, Matching};
 pub use txt::TXT;
 pub use unknown::UNKNOWN;
 
 mod caa;
+mod dnssec;
+mod hinfo;
 mod mx;
+mod naptr;
 mod null;
+mod openpgpkey;
 pub mod parsed_txt;
 mod soa;
 mod srv;
+mod sshfp;
+mod svcb;
 mod tlsa;
 mod txt;
 mod unknown;
@@ -40,30 +52,23 @@ pub enum RData {
     ANAME(Name),
     CAA(CAA),
     CNAME(Name),
-    // TODO: HINFO(HINFO),
-    HINFO,
-    // TODO: HTTPS(SVCB),
-    HTTPS,
+    HINFO(HINFO),
+    HTTPS(SVCB),
     MX(MX),
-    // TODO: NAPTR(NAPTR),
-    NAPTR,
+    NAPTR(NAPTR),
     NULL(NULL),
     NS(Name),
-    // TODO: OPENPGPKEY(OPENPGPKEY),
-    OPENPGPKEY,
-    // TODO: OPT(OPT),
+    OPENPGPKEY(OPENPGPKEY),
+    // OPT is a pseudo-record for EDNS0 extension mechanism, not a regular DNS record
     OPT,
     PTR(Name),
     SOA(SOA),
     SRV(SRV),
-    // TODO: SSHFP(SSHFP),
-    SSHFP,
-    // SVCB(SVCB),
-    SVCB,
+    SSHFP(SSHFP),
+    SVCB(SVCB),
     TLSA(TLSA),
     TXT(TXT),
-    // TODO: DNSSEC(DNSSECRData),
-    DNSSEC,
+    DNSSEC(DNSSEC),
     Unknown(UNKNOWN),
     ZERO,
 }
@@ -85,15 +90,129 @@ impl RData {
     accessor!(ANAME, aname, Name);
     accessor!(CAA, caa, CAA);
     accessor!(CNAME, cname, Name);
+    accessor!(HINFO, hinfo, HINFO);
+    accessor!(HTTPS, https, SVCB);
     accessor!(MX, mx, MX);
+    accessor!(NAPTR, naptr, NAPTR);
     accessor!(NULL, null, NULL);
     accessor!(NS, ns, Name);
+    accessor!(OPENPGPKEY, openpgpkey, OPENPGPKEY);
     accessor!(PTR, ptr, Name);
     accessor!(SOA, soa, SOA);
     accessor!(SRV, srv, SRV);
+    accessor!(SSHFP, sshfp, SSHFP);
+    accessor!(SVCB, svcb, SVCB);
     accessor!(TLSA, tlsa, TLSA);
     accessor!(TXT, txt, TXT);
+    accessor!(DNSSEC, dnssec, DNSSEC);
     accessor!(Unknown, unknown, UNKNOWN);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{Ipv4Addr, Ipv6Addr};
+    use std::str::FromStr;
+
+    #[test]
+    fn rdata_a_accessor() {
+        let rdata = RData::A(Ipv4Addr::new(1, 2, 3, 4));
+        assert_eq!(rdata.a(), Some(&Ipv4Addr::new(1, 2, 3, 4)));
+        assert!(rdata.aaaa().is_none());
+        assert!(rdata.mx().is_none());
+    }
+
+    #[test]
+    fn rdata_aaaa_accessor() {
+        let rdata = RData::AAAA(Ipv6Addr::LOCALHOST);
+        assert_eq!(rdata.aaaa(), Some(&Ipv6Addr::LOCALHOST));
+        assert!(rdata.a().is_none());
+    }
+
+    #[test]
+    fn rdata_cname_accessor() {
+        let name = Name::from_str("example.com.").unwrap();
+        let rdata = RData::CNAME(name.clone());
+        assert_eq!(rdata.cname(), Some(&name));
+        assert!(rdata.a().is_none());
+    }
+
+    #[test]
+    fn rdata_caa_accessor() {
+        let caa = CAA::new(true, "issue".to_string(), "ca.example.com".to_string());
+        let rdata = RData::CAA(caa.clone());
+        assert_eq!(rdata.caa(), Some(&caa));
+        assert!(rdata.tlsa().is_none());
+    }
+
+    #[test]
+    fn rdata_hinfo_accessor() {
+        let hinfo = HINFO::new("CPU".to_string(), "OS".to_string());
+        let rdata = RData::HINFO(hinfo.clone());
+        assert_eq!(rdata.hinfo(), Some(&hinfo));
+        assert!(rdata.a().is_none());
+    }
+
+    #[test]
+    fn rdata_https_accessor() {
+        let target = Name::from_str("cdn.example.com.").unwrap();
+        let svcb_data = SVCB::new(1, target, vec![]);
+        let rdata = RData::HTTPS(svcb_data.clone());
+        assert_eq!(rdata.https(), Some(&svcb_data));
+        assert!(rdata.svcb().is_none());
+    }
+
+    #[test]
+    fn rdata_svcb_accessor() {
+        let target = Name::from_str("svc.example.com.").unwrap();
+        let svcb_data = SVCB::new(1, target, vec![]);
+        let rdata = RData::SVCB(svcb_data.clone());
+        assert_eq!(rdata.svcb(), Some(&svcb_data));
+        assert!(rdata.https().is_none());
+    }
+
+    #[test]
+    fn rdata_naptr_accessor() {
+        let replacement = Name::from_str("sip.example.com.").unwrap();
+        let naptr = NAPTR::new(100, 10, "u".to_string(), "sip".to_string(), "".to_string(), replacement);
+        let rdata = RData::NAPTR(naptr.clone());
+        assert_eq!(rdata.naptr(), Some(&naptr));
+        assert!(rdata.srv().is_none());
+    }
+
+    #[test]
+    fn rdata_sshfp_accessor() {
+        use sshfp::{Algorithm, FingerprintType};
+        let sshfp_data = SSHFP::new(Algorithm::RSA, FingerprintType::SHA256, vec![0xaa]);
+        let rdata = RData::SSHFP(sshfp_data.clone());
+        assert_eq!(rdata.sshfp(), Some(&sshfp_data));
+        assert!(rdata.tlsa().is_none());
+    }
+
+    #[test]
+    fn rdata_tlsa_accessor() {
+        use tlsa::{CertUsage, Matching, Selector};
+        let tlsa_data = TLSA::new(CertUsage::DaneEe, Selector::Full, Matching::Sha256, vec![0x01]);
+        let rdata = RData::TLSA(tlsa_data.clone());
+        assert_eq!(rdata.tlsa(), Some(&tlsa_data));
+        assert!(rdata.sshfp().is_none());
+    }
+
+    #[test]
+    fn rdata_openpgpkey_accessor() {
+        let key = OPENPGPKEY::new(vec![0x01, 0x02]);
+        let rdata = RData::OPENPGPKEY(key.clone());
+        assert_eq!(rdata.openpgpkey(), Some(&key));
+        assert!(rdata.a().is_none());
+    }
+
+    #[test]
+    fn rdata_dnssec_accessor() {
+        let dnssec = DNSSEC::new("DNSKEY".to_string(), "key data".to_string());
+        let rdata = RData::DNSSEC(dnssec.clone());
+        assert_eq!(rdata.dnssec(), Some(&dnssec));
+        assert!(rdata.a().is_none());
+    }
 }
 
 #[doc(hidden)]
@@ -108,22 +227,42 @@ impl From<hickory_resolver::proto::rr::RData> for RData {
             TRData::ANAME(value) => RData::ANAME(value.0),
             TRData::CAA(value) => RData::CAA(value.into()),
             TRData::CNAME(value) => RData::CNAME(value.0),
-            TRData::HINFO(value) => RData::HINFO,
-            TRData::HTTPS(value) => RData::HTTPS,
+            TRData::HINFO(value) => RData::HINFO(value.into()),
+            TRData::HTTPS(value) => RData::HTTPS(SVCB::from_hickory_svcb(&value)),
             TRData::MX(value) => RData::MX(value.into()),
-            TRData::NAPTR(value) => RData::NAPTR,
+            TRData::NAPTR(value) => RData::NAPTR(value.into()),
             TRData::NULL(value) => RData::NULL(value.into()),
             TRData::NS(value) => RData::NS(value.0),
-            TRData::OPENPGPKEY(value) => RData::OPENPGPKEY,
+            TRData::OPENPGPKEY(value) => RData::OPENPGPKEY(value.into()),
             TRData::OPT(value) => RData::OPT,
             TRData::PTR(value) => RData::PTR(value.0),
             TRData::SOA(value) => RData::SOA(value.into()),
             TRData::SRV(value) => RData::SRV(value.into()),
-            TRData::SSHFP(value) => RData::SSHFP,
-            TRData::SVCB(value) => RData::SVCB,
+            TRData::SSHFP(value) => RData::SSHFP(value.into()),
+            TRData::SVCB(value) => RData::SVCB(value.into()),
             TRData::TLSA(value) => RData::TLSA(value.into()),
             TRData::TXT(value) => RData::TXT(value.into()),
-            TRData::DNSSEC(value) => RData::DNSSEC,
+            TRData::DNSSEC(value) => {
+                use hickory_resolver::proto::dnssec::rdata::DNSSECRData as TDnssec;
+                let sub_type = match &value {
+                    TDnssec::DNSKEY(_) => "DNSKEY",
+                    TDnssec::DS(_) => "DS",
+                    TDnssec::RRSIG(_) => "RRSIG",
+                    TDnssec::SIG(_) => "SIG",
+                    TDnssec::KEY(_) => "KEY",
+                    TDnssec::NSEC(_) => "NSEC",
+                    TDnssec::NSEC3(_) => "NSEC3",
+                    TDnssec::NSEC3PARAM(_) => "NSEC3PARAM",
+                    TDnssec::CDNSKEY(_) => "CDNSKEY",
+                    TDnssec::CDS(_) => "CDS",
+                    TDnssec::TSIG(_) => "TSIG",
+                    TDnssec::Unknown { .. } => "Unknown",
+                    _ => "Unknown",
+                }
+                .to_string();
+                let description = format!("{}", value);
+                RData::DNSSEC(DNSSEC::new(sub_type, description))
+            }
             TRData::Unknown { code, rdata } => {
                 let code_u16: u16 = code.into();
                 RData::Unknown(UNKNOWN::new(code_u16, rdata.into()))

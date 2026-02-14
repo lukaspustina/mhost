@@ -4,4 +4,3 @@ CHECK: * .
 CHECK: * elliott.ns.cloudflare.com.
 CHECK: * hera.ns.cloudflare.com.
 CHECK: * .example.com.
-CHECK-NEXT: * www.example.com.

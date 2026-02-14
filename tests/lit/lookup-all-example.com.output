@@ -1,0 +1,4 @@
+RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color lookup --all example.com
+
+CHECK: > Running lookups.
+CHECK: + Finished.

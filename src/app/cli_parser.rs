@@ -12,7 +12,8 @@
 use clap::{Arg, ArgAction, Command};
 
 pub static SUPPORTED_RECORD_TYPES: &[&str] = &[
-    "A", "AAAA", "ANAME", "ANY", "CAA", "CNAME", "MX", "NULL", "NS", "PTR", "SOA", "SRV", "TLSA", "TXT",
+    "A", "AAAA", "ANAME", "ANY", "CAA", "CNAME", "HINFO", "HTTPS", "MX", "NAPTR", "NULL", "NS", "OPENPGPKEY", "PTR",
+    "SOA", "SRV", "SSHFP", "SVCB", "TLSA", "TXT",
 ];
 
 pub static SUPPORTED_OUTPUT_FORMATS: &[&str] = &["json", "summary"];

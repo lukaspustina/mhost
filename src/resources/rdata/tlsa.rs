@@ -155,6 +155,75 @@ impl From<u8> for Matching {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tlsa_new_and_accessors() {
+        let data = vec![0xde, 0xad, 0xbe, 0xef];
+        let tlsa = TLSA::new(CertUsage::DaneEe, Selector::Spki, Matching::Sha256, data.clone());
+        assert_eq!(tlsa.cert_usage(), CertUsage::DaneEe);
+        assert_eq!(tlsa.selector(), Selector::Spki);
+        assert_eq!(tlsa.matching(), Matching::Sha256);
+        assert_eq!(tlsa.cert_data(), &data[..]);
+    }
+
+    #[test]
+    fn cert_usage_from_u8() {
+        assert_eq!(CertUsage::from(0), CertUsage::PkixTa);
+        assert_eq!(CertUsage::from(1), CertUsage::PkixEe);
+        assert_eq!(CertUsage::from(2), CertUsage::DaneTa);
+        assert_eq!(CertUsage::from(3), CertUsage::DaneEe);
+        assert_eq!(CertUsage::from(255), CertUsage::Private);
+        assert_eq!(CertUsage::from(100), CertUsage::Unassigned(100));
+    }
+
+    #[test]
+    fn cert_usage_display() {
+        assert_eq!(CertUsage::PkixTa.to_string(), "PKIX-TA");
+        assert_eq!(CertUsage::PkixEe.to_string(), "PKIX-EE");
+        assert_eq!(CertUsage::DaneTa.to_string(), "DANE-TA");
+        assert_eq!(CertUsage::DaneEe.to_string(), "DANE-EE");
+        assert_eq!(CertUsage::Private.to_string(), "Private");
+        assert_eq!(CertUsage::Unassigned(50).to_string(), "Unassigned(50)");
+    }
+
+    #[test]
+    fn selector_from_u8() {
+        assert_eq!(Selector::from(0), Selector::Full);
+        assert_eq!(Selector::from(1), Selector::Spki);
+        assert_eq!(Selector::from(255), Selector::Private);
+        assert_eq!(Selector::from(2), Selector::Unassigned(2));
+    }
+
+    #[test]
+    fn selector_display() {
+        assert_eq!(Selector::Full.to_string(), "Full");
+        assert_eq!(Selector::Spki.to_string(), "SPKI");
+        assert_eq!(Selector::Private.to_string(), "Private");
+        assert_eq!(Selector::Unassigned(10).to_string(), "Unassigned(10)");
+    }
+
+    #[test]
+    fn matching_from_u8() {
+        assert_eq!(Matching::from(0), Matching::Raw);
+        assert_eq!(Matching::from(1), Matching::Sha256);
+        assert_eq!(Matching::from(2), Matching::Sha512);
+        assert_eq!(Matching::from(255), Matching::Private);
+        assert_eq!(Matching::from(100), Matching::Unassigned(100));
+    }
+
+    #[test]
+    fn matching_display() {
+        assert_eq!(Matching::Raw.to_string(), "Raw");
+        assert_eq!(Matching::Sha256.to_string(), "SHA-256");
+        assert_eq!(Matching::Sha512.to_string(), "SHA-512");
+        assert_eq!(Matching::Private.to_string(), "Private");
+        assert_eq!(Matching::Unassigned(7).to_string(), "Unassigned(7)");
+    }
+}
+
 #[doc(hidden)]
 impl From<hickory_resolver::proto::rr::rdata::TLSA> for TLSA {
     fn from(tlsa: hickory_resolver::proto::rr::rdata::TLSA) -> Self {

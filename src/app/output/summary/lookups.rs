@@ -13,7 +13,7 @@ use tabwriter::TabWriter;
 
 use crate::resolver::Lookups;
 use crate::resources::rdata::parsed_txt::{DomainVerification, Mechanism, Modifier, ParsedTxt, Word};
-use crate::resources::rdata::{parsed_txt::Spf, Name, CAA, MX, NULL, SOA, SRV, TLSA, TXT, UNKNOWN};
+use crate::resources::rdata::{parsed_txt::Spf, Name, CAA, DNSSEC, HINFO, MX, NAPTR, NULL, OPENPGPKEY, SOA, SRV, SSHFP, SVCB, TLSA, TXT, UNKNOWN};
 use crate::resources::{NameToIpAddr, Record};
 use crate::{Error, RecordType};
 
@@ -174,6 +174,42 @@ impl Rendering for Record {
                 self.data().srv().unwrap().render(opts),
                 suffix
             ),
+            RecordType::HINFO => format!(
+                "{}:\t{}{}",
+                "HINFO".paint(*styles::HINFO),
+                self.data().hinfo().unwrap().render(opts),
+                suffix
+            ),
+            RecordType::HTTPS => format!(
+                "{}:\t{}{}",
+                "HTTPS".paint(*styles::SVCB),
+                self.data().https().unwrap().render(opts),
+                suffix
+            ),
+            RecordType::NAPTR => format!(
+                "{}:\t{}{}",
+                "NAPTR".paint(*styles::NAPTR),
+                self.data().naptr().unwrap().render(opts),
+                suffix
+            ),
+            RecordType::OPENPGPKEY => format!(
+                "{}:\t{}{}",
+                "OPENPGPKEY".paint(*styles::OPENPGPKEY),
+                self.data().openpgpkey().unwrap().render(opts),
+                suffix
+            ),
+            RecordType::SSHFP => format!(
+                "{}:\t{}{}",
+                "SSHFP".paint(*styles::SSHFP),
+                self.data().sshfp().unwrap().render(opts),
+                suffix
+            ),
+            RecordType::SVCB => format!(
+                "{}:\t{}{}",
+                "SVCB".paint(*styles::SVCB),
+                self.data().svcb().unwrap().render(opts),
+                suffix
+            ),
             RecordType::TLSA => format!(
                 "{}:\t{}{}",
                 "TLSA".paint(*styles::TLSA),
@@ -184,6 +220,12 @@ impl Rendering for Record {
                 "{}:\t{}",
                 "TXT".paint(*styles::TXT),
                 self.data().txt().unwrap().render_with_suffix(suffix, opts)
+            ),
+            RecordType::DNSSEC => format!(
+                "{}:\t{}{}",
+                "DNSSEC".paint(*styles::DNSSEC),
+                self.data().dnssec().unwrap().render(opts),
+                suffix
             ),
             RecordType::Unknown(_) => format!("Unknown:\t{}{}", self.data().unknown().unwrap().render(opts), suffix),
             rr_type => format!("{}:\t<not yet implemented>{}", rr_type, suffix),
@@ -508,6 +550,83 @@ impl TXT {
     }
 }
 
+impl Rendering for HINFO {
+    fn render(&self, _: &SummaryOptions) -> String {
+        let style = *styles::HINFO;
+        format!("cpu={}, os={}", self.cpu().paint(style), self.os().paint(style))
+    }
+}
+
+impl Rendering for NAPTR {
+    fn render(&self, _: &SummaryOptions) -> String {
+        let style = *styles::NAPTR;
+        format!(
+            "order={}, preference={}, flags={}, services={}, regexp={}, replacement={}",
+            self.order().paint(style),
+            self.preference().paint(style),
+            self.flags().paint(style),
+            self.services().paint(style),
+            self.regexp().paint(style),
+            self.replacement().paint(style),
+        )
+    }
+}
+
+impl Rendering for OPENPGPKEY {
+    fn render(&self, _: &SummaryOptions) -> String {
+        let style = *styles::OPENPGPKEY;
+        let hex: String = self.public_key().iter().take(16).map(|b| format!("{:02x}", b)).collect();
+        let suffix = if self.public_key().len() > 16 { "..." } else { "" };
+        format!("key={}{} ({} bytes)", hex.paint(style), suffix, self.public_key().len())
+    }
+}
+
+impl Rendering for SSHFP {
+    fn render(&self, _: &SummaryOptions) -> String {
+        let style = *styles::SSHFP;
+        let hex: String = self.fingerprint().iter().map(|b| format!("{:02x}", b)).collect();
+        format!(
+            "algorithm={}, type={}, fingerprint={}",
+            self.algorithm().paint(style),
+            self.fingerprint_type().paint(style),
+            hex.paint(style),
+        )
+    }
+}
+
+impl Rendering for SVCB {
+    fn render(&self, opts: &SummaryOptions) -> String {
+        let style = *styles::SVCB;
+        let params: Vec<String> = self.svc_params().iter().map(|p| format!("{}={}", p.key(), p.value())).collect();
+        if opts.human {
+            if self.is_alias() {
+                format!("alias to {}", self.target_name().paint(style))
+            } else {
+                format!(
+                    "priority={}, target={}, params=[{}]",
+                    self.svc_priority().paint(style),
+                    self.target_name().paint(style),
+                    params.join(", ").paint(style),
+                )
+            }
+        } else {
+            format!(
+                "{} {} {}",
+                self.svc_priority().paint(style),
+                self.target_name().paint(style),
+                params.join(" ").paint(style),
+            )
+        }
+    }
+}
+
+impl Rendering for DNSSEC {
+    fn render(&self, _: &SummaryOptions) -> String {
+        let style = *styles::DNSSEC;
+        format!("{}: {}", self.sub_type().paint(style), self.description().paint(style))
+    }
+}
+
 impl Rendering for UNKNOWN {
     fn render(&self, opts: &SummaryOptions) -> String {
         format!("code: {}, {}", self.code(), self.rdata().render(opts))
@@ -522,10 +641,16 @@ mod styles {
         pub static ref A: Style = Style::new().fg(Color::White).bold();
         pub static ref AAAA: Style = Style::new().fg(Color::White).bold();
         pub static ref CAA: Style = Style::new().fg(Color::Cyan);
+        pub static ref DNSSEC: Style = Style::new().fg(Color::Green).bold();
+        pub static ref HINFO: Style = Style::new().fg(Color::Yellow).bold();
         pub static ref MX: Style = Style::new().fg(Color::Yellow);
         pub static ref NAME: Style = Style::new().fg(Color::Blue);
+        pub static ref NAPTR: Style = Style::new().fg(Color::Red).bold();
+        pub static ref OPENPGPKEY: Style = Style::new().fg(Color::Magenta).bold();
         pub static ref SOA: Style = Style::new().fg(Color::Green);
         pub static ref SRV: Style = Style::new().fg(Color::Red);
+        pub static ref SSHFP: Style = Style::new().fg(Color::Blue).bold();
+        pub static ref SVCB: Style = Style::new().fg(Color::Cyan).bold();
         pub static ref TLSA: Style = Style::new().fg(Color::Cyan).bold();
         pub static ref TXT: Style = Style::new().fg(Color::Magenta);
     }

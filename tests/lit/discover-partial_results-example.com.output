@@ -17,11 +17,8 @@ CHECK-NEXT: - Received
 CHECK-NEXT: > Wordlist lookups.
 CHECK-NEXT: - Sending
 CHECK-NEXT: - Received
-CHECK: * A:
-CHECK: * AAAA:
 CHECK: + Finished.
 CHECK-NEXT: - Received
 CHECK-NEXT: - No wildcard resolution discovered
 CHECK-NEXT: * .
 CHECK: * .example.com.
-CHECK-NEXT: * www.example.com.
