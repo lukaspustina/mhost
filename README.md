@@ -222,9 +222,9 @@ $ make install
 -m, --resolvers-mode <MODE>                 Sets resolvers lookup mode [default: multi]  [possible values: multi,
                                             uni]
     --wait-multiple-responses               Waits until timeout for additional responses from nameservers
-    --no-abort-on-error                     Sets do-not-ignore errors from nameservers
-    --no-abort-on-timeout                   Sets do-not-ignore timeouts from nameservers
-    --no-aborts                             Sets do-not-ignore errors and timeouts from nameservers
+    --continue-on-error                     Continues lookups even when nameservers return errors
+    --continue-on-timeout                   Continues lookups even when nameservers time out
+    --continue-on-all-errors                Continues lookups on all errors and timeouts from nameservers
 -o, --output <FORMAT>                       Sets the output format for result presentation [default: summary]
                                             [possible values: json, summary]
     --output-options <OPTIONS>...           Sets output options
