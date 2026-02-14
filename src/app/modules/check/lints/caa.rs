@@ -103,8 +103,7 @@ impl<'a> CaaCheck<'a> {
 
         if has_issue && !has_issuewild {
             results.push(CheckResult::Warning(
-                "CAA 'issue' is set but 'issuewild' is not: wildcard certificate issuance is unrestricted"
-                    .to_string(),
+                "CAA 'issue' is set but 'issuewild' is not: wildcard certificate issuance is unrestricted".to_string(),
             ));
         } else if has_issue && has_issuewild {
             results.push(CheckResult::Ok(

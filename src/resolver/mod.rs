@@ -25,8 +25,8 @@ pub use query::{MultiQuery, UniQuery};
 use crate::nameserver::{NameServerConfig, NameServerConfigGroup};
 use crate::system_config;
 use crate::Result;
-use std::fmt::Formatter;
 use std::fmt::Display;
+use std::fmt::Formatter;
 use std::str::FromStr;
 
 pub mod error;

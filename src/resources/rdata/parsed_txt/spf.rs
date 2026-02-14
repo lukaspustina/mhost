@@ -5,8 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use nom::Err;
 use nom::error::Error as NomError;
+use nom::Err;
 
 use crate::{Error, Result};
 
@@ -26,7 +26,8 @@ impl<'a> Spf<'a> {
                 to: "SPF TXT record",
                 why: "input is incomplete".to_string(),
             }),
-            Err(Err::Error(NomError { input: what, code: why })) | Err(Err::Failure(NomError { input: what, code: why })) => Err(Error::ParserError {
+            Err(Err::Error(NomError { input: what, code: why }))
+            | Err(Err::Failure(NomError { input: what, code: why })) => Err(Error::ParserError {
                 what: what.to_string(),
                 to: "SPF TXT record",
                 why: format!("{:?}", why),
@@ -221,7 +222,7 @@ pub(crate) mod parser {
         Ok((input, Mechanism::PTR(domain_spec)))
     }
 
-    fn spf_mechanism_exists(input: &str) -> IResult<&str, Mechanism<'_>>{
+    fn spf_mechanism_exists(input: &str) -> IResult<&str, Mechanism<'_>> {
         let (input, _) = tag("exists:")(input)?;
         let (input, domain_spec) = map_res(take_while(is_domain_spec_macro_char), |s: &str| {
             str::from_utf8(s.as_bytes())

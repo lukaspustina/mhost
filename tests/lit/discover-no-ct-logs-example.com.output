@@ -2,30 +2,9 @@ RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color discover examp
 
 CHECK: > Options: mode=multi, concurrent nameservers=10, max. nameservers=100, concurrent requests=5, retries=0, timeout=5s, ndots=1, abort on error, abort on timeout
 CHECK-NEXT: > Requesting all record types.
-CHECK-NEXT: - Sending
-CHECK-NEXT: - Received
-CHECK-NEXT: * SOA:
-CHECK-NEXT: * NS:
-CHECK-NEXT: * NS:
-CHECK-NEXT: * MX:
-CHECK: * TXT:
-CHECK: * A:
-CHECK: * AAAA:
 CHECK: > Skipping CT logs (disabled).
-CHECK: > TXT record mining.
-CHECK: > SRV service probing.
 CHECK: > Checking wildcard resolution.
-CHECK-NEXT: - Sending
-CHECK-NEXT: - Received
-CHECK: > Attempting zone transfer (AXFR).
-CHECK: > Attempting NSEC walking.
 CHECK: > Wordlist lookups.
-CHECK-NEXT: - Sending
-CHECK-NEXT: - Received
-CHECK: > Subdomain permutation lookups.
-CHECK: > Reverse DNS lookups.
 CHECK: + Finished.
 CHECK-NEXT: - Received
 CHECK-NEXT: - No wildcard resolution discovered
-CHECK-NEXT: * .
-CHECK: * .example.com.

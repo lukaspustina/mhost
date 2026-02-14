@@ -8,11 +8,11 @@
 use std::time::Duration;
 
 use ipnetwork::IpNetwork;
-use std::collections::HashMap;
-use std::fmt::Formatter;
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fmt::Formatter;
 
 use crate::services::{Error, Result};
 

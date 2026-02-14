@@ -15,15 +15,17 @@ use std::time::{Duration, Instant};
 use chrono::{DateTime, Utc};
 use futures::stream::{self, StreamExt};
 use futures::Future;
+use hickory_resolver::ResolveError;
 use serde::Serialize;
 use tokio::task;
 use tracing::{debug, field, info, instrument, trace, Span};
-use hickory_resolver::ResolveError;
 
 use crate::error::Errors;
 use crate::nameserver::NameServerConfig;
 use crate::resolver::{Error, MultiQuery, Resolver, ResolverResult, UniQuery};
-use crate::resources::rdata::{Name, CAA, DNSSEC, HINFO, MX, NAPTR, NULL, OPENPGPKEY, SOA, SRV, SSHFP, SVCB, TLSA, TXT, UNKNOWN};
+use crate::resources::rdata::{
+    Name, CAA, DNSSEC, HINFO, MX, NAPTR, NULL, OPENPGPKEY, SOA, SRV, SSHFP, SVCB, TLSA, TXT, UNKNOWN,
+};
 use crate::resources::{RData, Record};
 use crate::utils::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
 use crate::utils::serialize::ser_arc_nameserver_config;

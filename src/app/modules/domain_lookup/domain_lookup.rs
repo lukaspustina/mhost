@@ -32,10 +32,7 @@ pub struct DomainLookup {}
 impl AppModule<DomainLookupConfig> for DomainLookup {}
 
 impl DomainLookup {
-    pub async fn init<'a>(
-        app_config: &'a AppConfig,
-        config: &'a DomainLookupConfig,
-    ) -> PartialResult<RunLookups<'a>> {
+    pub async fn init<'a>(app_config: &'a AppConfig, config: &'a DomainLookupConfig) -> PartialResult<RunLookups<'a>> {
         if app_config.output == OutputType::Json && config.partial_results {
             return Err(anyhow!("JSON output is incompatible with partial result output").into());
         }
@@ -232,7 +229,9 @@ impl DomainLookupResult<'_> {
         }
 
         // Print apex records using normal formatter
-        self.env.console.caption(format!("Apex records for {}", Fmt::emph(&self.domain_name)));
+        self.env
+            .console
+            .caption(format!("Apex records for {}", Fmt::emph(&self.domain_name)));
         output::output(&self.env.app_config.output_config, &self.apex_lookups)?;
 
         // Collect subdomain lookups that have actual responses

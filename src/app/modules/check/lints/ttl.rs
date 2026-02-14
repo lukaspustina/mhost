@@ -75,10 +75,7 @@ impl<'a> Ttl<'a> {
             .collect();
 
         if low_ttl_records.is_empty() {
-            results.push(CheckResult::Ok(format!(
-                "No records with TTL below {}s",
-                MIN_TTL
-            )));
+            results.push(CheckResult::Ok(format!("No records with TTL below {}s", MIN_TTL)));
         } else {
             results.push(CheckResult::Warning(format!(
                 "Records with very low TTL (<{}s): {}. This causes excessive query load",
@@ -92,14 +89,15 @@ impl<'a> Ttl<'a> {
         let high_ttl_records: Vec<String> = records
             .iter()
             .filter(|r| {
-                (r.record_type() == RecordType::NS || r.record_type() == RecordType::MX)
-                    && r.ttl() > MAX_NS_MX_TTL
+                (r.record_type() == RecordType::NS || r.record_type() == RecordType::MX) && r.ttl() > MAX_NS_MX_TTL
             })
             .map(|r| format!("{} ({}s, {:?})", r.name(), r.ttl(), r.record_type()))
             .collect();
 
         if high_ttl_records.is_empty() {
-            results.push(CheckResult::Ok("No NS/MX records with excessively high TTL".to_string()));
+            results.push(CheckResult::Ok(
+                "No NS/MX records with excessively high TTL".to_string(),
+            ));
         } else {
             results.push(CheckResult::Warning(format!(
                 "NS/MX records with TTL over 1 week: {}. This makes DNS migrations dangerously slow",
@@ -122,7 +120,9 @@ impl<'a> Ttl<'a> {
             }
         }
         if !soa_records.is_empty() {
-            results.push(CheckResult::Ok("SOA minimum TTL is within reasonable range".to_string()));
+            results.push(CheckResult::Ok(
+                "SOA minimum TTL is within reasonable range".to_string(),
+            ));
         }
     }
 }

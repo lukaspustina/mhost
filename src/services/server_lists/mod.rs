@@ -11,16 +11,16 @@ use std::sync::Arc;
 
 use futures::stream::{self, StreamExt};
 use futures::Future;
-use nom::Err;
 use nom::error::Error as NomError;
+use nom::Err;
 use tokio::task;
 use tracing::{debug, trace};
 
 use crate::nameserver::NameServerConfig;
 use crate::services::{Error, Result};
 use crate::utils::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
-use std::fmt::Formatter;
 use std::fmt;
+use std::fmt::Formatter;
 use std::time::Duration;
 
 mod opennic;
@@ -289,7 +289,8 @@ impl FromStr for ServerListSpec {
                 to: "ServerListSpec",
                 why: "input is incomplete".to_string(),
             }),
-            Err(Err::Error(NomError { input: what, code: why })) | Err(Err::Failure(NomError { input: what, code: why })) => Err(Error::ParserError {
+            Err(Err::Error(NomError { input: what, code: why }))
+            | Err(Err::Failure(NomError { input: what, code: why })) => Err(Error::ParserError {
                 what: what.to_string(),
                 to: "ServerListSpec",
                 why: format!("{:?}", why),

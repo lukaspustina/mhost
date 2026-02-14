@@ -12,8 +12,26 @@
 use clap::{Arg, ArgAction, Command};
 
 pub static SUPPORTED_RECORD_TYPES: &[&str] = &[
-    "A", "AAAA", "ANAME", "ANY", "CAA", "CNAME", "HINFO", "HTTPS", "MX", "NAPTR", "NULL", "NS", "OPENPGPKEY", "PTR",
-    "SOA", "SRV", "SSHFP", "SVCB", "TLSA", "TXT",
+    "A",
+    "AAAA",
+    "ANAME",
+    "ANY",
+    "CAA",
+    "CNAME",
+    "HINFO",
+    "HTTPS",
+    "MX",
+    "NAPTR",
+    "NULL",
+    "NS",
+    "OPENPGPKEY",
+    "PTR",
+    "SOA",
+    "SRV",
+    "SSHFP",
+    "SVCB",
+    "TLSA",
+    "TXT",
 ];
 
 pub static SUPPORTED_OUTPUT_FORMATS: &[&str] = &["json", "summary"];
@@ -437,6 +455,20 @@ fn discover_subcommand() -> Command {
                 .long("subdomains-only")
                 .action(ArgAction::SetTrue)
                 .help("Shows subdomains only omitting all other discovered names"),
+        )
+        .arg(
+            Arg::new("no-ct-logs")
+                .long("no-ct-logs")
+                .action(ArgAction::SetTrue)
+                .help("Skips Certificate Transparency log queries (external HTTP to crt.sh)"),
+        )
+        .arg(
+            Arg::new("depth")
+                .long("depth")
+                .value_name("N")
+                .default_value("0")
+                .value_parser(str::parse::<usize>)
+                .help("Sets recursive discovery depth for found subdomains (max 3)"),
         )
 }
 

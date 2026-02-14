@@ -5,8 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use serde::Serialize;
 use hickory_resolver::Name;
+use serde::Serialize;
 
 /// Shared data type for both SVCB and HTTPS record types (RFC 9460).
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]

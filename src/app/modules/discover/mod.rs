@@ -15,8 +15,12 @@ use crate::app::AppConfig;
 use crate::app::ExitStatus;
 
 pub mod config;
+mod ct_logs;
 #[allow(clippy::module_inception)]
 mod discover;
+mod permutation;
+mod srv_probing;
+mod txt_mining;
 mod wordlist;
 
 use config::DiscoverConfig;
@@ -31,9 +35,25 @@ pub async fn run(args: &ArgMatches, app_config: &AppConfig) -> Result<ExitStatus
         .await?
         .request_all_records()
         .await?
+        .ct_log_query()
+        .await?
+        .txt_record_mining()
+        .await?
+        .srv_service_probing()
+        .await?
         .check_wildcard_resolution()
         .await?
+        .axfr_attempt()
+        .await?
+        .nsec_walking()
+        .await?
         .wordlist_lookups()
+        .await?
+        .subdomain_permutation()
+        .await?
+        .recursive_depth_discovery()
+        .await?
+        .reverse_dns_lookups()
         .await?
         .output()
         .into_result()

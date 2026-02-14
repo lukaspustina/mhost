@@ -18,6 +18,8 @@ pub struct DiscoverConfig {
     pub rnd_names_number: usize,
     pub rnd_names_len: usize,
     pub subdomains_only: bool,
+    pub no_ct_logs: bool,
+    pub depth: usize,
 }
 
 impl ModConfig for DiscoverConfig {
@@ -37,13 +39,11 @@ impl TryFrom<&ArgMatches> for DiscoverConfig {
                 .to_string(),
             partial_results: args.get_flag("partial-results"),
             wordlist_file_path: args.get_one::<String>("wordlist-from-file").map(ToString::to_string),
-            rnd_names_number: *args
-                .get_one::<usize>("rnd-names-number")
-                .unwrap(), // Safe unwrap, because of clap's validation
-            rnd_names_len: *args
-                .get_one::<usize>("rnd-names-len")
-                .unwrap(), // Safe unwrap, because of clap's validation
+            rnd_names_number: *args.get_one::<usize>("rnd-names-number").unwrap(), // Safe unwrap, because of clap's validation
+            rnd_names_len: *args.get_one::<usize>("rnd-names-len").unwrap(), // Safe unwrap, because of clap's validation
             subdomains_only: args.get_flag("subdomains-only"),
+            no_ct_logs: args.get_flag("no-ct-logs"),
+            depth: (*args.get_one::<usize>("depth").unwrap()).min(3), // Cap at 3
         };
 
         Ok(config)

@@ -31,6 +31,5 @@ fn main() {
         .expect("failed to generate Bash completions");
     clap_complete::generate_to(Shell::Fish, &mut cmd, "mhost", &output_dir)
         .expect("failed to generate Fish completions");
-    clap_complete::generate_to(Shell::Zsh, &mut cmd, "mhost", &output_dir)
-        .expect("failed to generate Zsh completions");
+    clap_complete::generate_to(Shell::Zsh, &mut cmd, "mhost", &output_dir).expect("failed to generate Zsh completions");
 }

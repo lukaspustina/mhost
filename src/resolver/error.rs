@@ -5,11 +5,11 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use hickory_resolver::proto::{ProtoError, ProtoErrorKind};
+use hickory_resolver::{ResolveError, ResolveErrorKind};
 use serde::Serialize;
 use thiserror::Error;
 use tokio::task::JoinError;
-use hickory_resolver::{ResolveError, ResolveErrorKind};
-use hickory_resolver::proto::{ProtoError, ProtoErrorKind};
 
 #[derive(Debug, Clone, Error, Serialize)]
 pub enum Error {
@@ -38,9 +38,7 @@ impl From<ResolveError> for Error {
                 if msg.contains("Refused") {
                     Error::QueryRefused
                 } else {
-                    Error::ResolveError {
-                        reason: msg,
-                    }
+                    Error::ResolveError { reason: msg }
                 }
             }
         }
@@ -58,9 +56,7 @@ impl From<ProtoError> for Error {
                 } else if msg.contains("Refused") {
                     Error::QueryRefused
                 } else {
-                    Error::ProtoError {
-                        reason: msg,
-                    }
+                    Error::ProtoError { reason: msg }
                 }
             }
         }
