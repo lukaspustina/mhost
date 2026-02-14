@@ -53,16 +53,7 @@ impl<'a> CaaCheck<'a> {
             Self::check_issuewild_coverage(&caa_records, &mut results);
         }
 
-        if self.env.console.show_partial_results() {
-            for r in &results {
-                match r {
-                    CheckResult::NotFound() => self.env.console.info("No CAA records found."),
-                    CheckResult::Ok(str) => self.env.console.ok(str),
-                    CheckResult::Warning(str) => self.env.console.attention(str),
-                    CheckResult::Failed(str) => self.env.console.failed(str),
-                }
-            }
-        }
+        print_check_results!(self, results, "No CAA records found.");
 
         results
     }

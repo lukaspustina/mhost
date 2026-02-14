@@ -63,6 +63,22 @@ macro_rules! __intermediate_lookups {
     };
 }
 
+#[doc(hidden)]
+macro_rules! print_check_results {
+    ($self:ident, $results:expr, $not_found_msg:expr) => {
+        if $self.env.console.show_partial_results() {
+            for r in &$results {
+                match r {
+                    CheckResult::NotFound() => $self.env.console.info($not_found_msg),
+                    CheckResult::Ok(str) => $self.env.console.ok(str),
+                    CheckResult::Warning(str) => $self.env.console.attention(str),
+                    CheckResult::Failed(str) => $self.env.console.failed(str),
+                }
+            }
+        }
+    };
+}
+
 pub mod caa;
 pub mod cnames;
 pub mod dmarc;

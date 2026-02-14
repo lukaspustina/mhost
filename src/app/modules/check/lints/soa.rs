@@ -60,16 +60,7 @@ impl<'a> Soa<'a> {
             self.check_authoritative_records(authoritative_soa_records, &mut results);
         }
 
-        if self.env.console.show_partial_results() {
-            for r in &results {
-                match r {
-                    CheckResult::NotFound() => self.env.console.info("No SOA records found."),
-                    CheckResult::Ok(str) => self.env.console.ok(str),
-                    CheckResult::Warning(str) => self.env.console.attention(str),
-                    CheckResult::Failed(str) => self.env.console.failed(str),
-                }
-            }
-        }
+        print_check_results!(self, results, "No SOA records found.");
 
         results
     }

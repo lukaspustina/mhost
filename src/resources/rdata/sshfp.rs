@@ -38,73 +38,23 @@ impl SSHFP {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone, Serialize)]
-#[allow(clippy::upper_case_acronyms)]
-pub enum Algorithm {
-    Reserved,
-    RSA,
-    DSA,
-    ECDSA,
-    Ed25519,
-    Ed448,
-    Unassigned(u8),
-}
-
-impl fmt::Display for Algorithm {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Algorithm::Reserved => write!(f, "Reserved"),
-            Algorithm::RSA => write!(f, "RSA"),
-            Algorithm::DSA => write!(f, "DSA"),
-            Algorithm::ECDSA => write!(f, "ECDSA"),
-            Algorithm::Ed25519 => write!(f, "Ed25519"),
-            Algorithm::Ed448 => write!(f, "Ed448"),
-            Algorithm::Unassigned(v) => write!(f, "Unassigned({})", v),
-        }
+iana_enum! {
+    #[allow(clippy::upper_case_acronyms)]
+    pub enum Algorithm {
+        Reserved = 0 => "Reserved",
+        RSA = 1 => "RSA",
+        DSA = 2 => "DSA",
+        ECDSA = 3 => "ECDSA",
+        Ed25519 = 4 => "Ed25519",
+        Ed448 = 6 => "Ed448",
     }
 }
 
-impl From<u8> for Algorithm {
-    fn from(v: u8) -> Self {
-        match v {
-            0 => Algorithm::Reserved,
-            1 => Algorithm::RSA,
-            2 => Algorithm::DSA,
-            3 => Algorithm::ECDSA,
-            4 => Algorithm::Ed25519,
-            6 => Algorithm::Ed448,
-            v => Algorithm::Unassigned(v),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone, Serialize)]
-pub enum FingerprintType {
-    Reserved,
-    SHA1,
-    SHA256,
-    Unassigned(u8),
-}
-
-impl fmt::Display for FingerprintType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            FingerprintType::Reserved => write!(f, "Reserved"),
-            FingerprintType::SHA1 => write!(f, "SHA-1"),
-            FingerprintType::SHA256 => write!(f, "SHA-256"),
-            FingerprintType::Unassigned(v) => write!(f, "Unassigned({})", v),
-        }
-    }
-}
-
-impl From<u8> for FingerprintType {
-    fn from(v: u8) -> Self {
-        match v {
-            0 => FingerprintType::Reserved,
-            1 => FingerprintType::SHA1,
-            2 => FingerprintType::SHA256,
-            v => FingerprintType::Unassigned(v),
-        }
+iana_enum! {
+    pub enum FingerprintType {
+        Reserved = 0 => "Reserved",
+        SHA1 = 1 => "SHA-1",
+        SHA256 = 2 => "SHA-256",
     }
 }
 

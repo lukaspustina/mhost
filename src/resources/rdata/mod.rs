@@ -28,6 +28,41 @@ pub use tlsa::{CertUsage, Matching, Selector, TLSA};
 pub use txt::TXT;
 pub use unknown::UNKNOWN;
 
+#[doc(hidden)]
+macro_rules! iana_enum {
+    (
+        $(#[$meta:meta])*
+        pub enum $name:ident {
+            $( $(#[$vmeta:meta])* $variant:ident = $val:expr => $display:expr ),+ $(,)?
+        }
+    ) => {
+        $(#[$meta])*
+        #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone, Serialize)]
+        pub enum $name {
+            $( $(#[$vmeta])* $variant, )+
+            Unassigned(u8),
+        }
+
+        impl fmt::Display for $name {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                match self {
+                    $( $name::$variant => write!(f, $display), )+
+                    $name::Unassigned(v) => write!(f, "Unassigned({})", v),
+                }
+            }
+        }
+
+        impl From<u8> for $name {
+            fn from(v: u8) -> Self {
+                match v {
+                    $( $val => $name::$variant, )+
+                    v => $name::Unassigned(v),
+                }
+            }
+        }
+    };
+}
+
 mod caa;
 mod dnssec;
 mod hinfo;

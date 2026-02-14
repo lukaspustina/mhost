@@ -76,16 +76,7 @@ impl<'a> DmarcCheck<'a> {
         Self::check_num_of_dmarc_records(&dmarc_txts, &mut results);
         Self::check_parsed_dmarc_records(&dmarc_txts, &mut results);
 
-        if self.env.console.show_partial_results() {
-            for r in &results {
-                match r {
-                    CheckResult::NotFound() => self.env.console.info("No DMARC record found."),
-                    CheckResult::Ok(str) => self.env.console.ok(str),
-                    CheckResult::Warning(str) => self.env.console.attention(str),
-                    CheckResult::Failed(str) => self.env.console.failed(str),
-                }
-            }
-        }
+        print_check_results!(self, results, "No DMARC record found.");
 
         Ok(results)
     }
