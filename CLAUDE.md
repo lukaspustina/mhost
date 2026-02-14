@@ -2,11 +2,11 @@
 
 ## Project Overview
 
-**mhost** (v0.3.1) is a modern, high-performance DNS lookup utility written in Rust. It is both a CLI tool and a reusable library. Think of it as an advanced replacement for the classic `host` / `dig` commands.
+**mhost** (v0.4.1) is a modern, high-performance DNS lookup utility written in Rust. It is both a CLI tool and a reusable library. Think of it as an advanced replacement for the classic `host` / `dig` commands.
 
 - **Author**: Lukas Pustina
 - **License**: MIT / Apache-2.0
-- **Rust edition**: 2018
+- **Rust edition**: 2021
 - **Repository**: https://github.com/lukaspustina/mhost.git
 
 ## Key Features
@@ -17,6 +17,7 @@
 - DNS configuration validation (linting) against RFCs
 - WHOIS integration (via RIPEStats API)
 - Output as human-readable summary tables or JSON
+- Predefined unfiltered DNS servers: Cloudflare, Google, Quad9, Mullvad, Wikimedia, DNS4EU
 
 ## Build & Test Commands
 
@@ -50,7 +51,7 @@ src/
 ├── nameserver/              # Nameserver configuration
 │   ├── mod.rs              #   NameServerConfig enum (Udp/Tcp/Tls/Https)
 │   ├── parser.rs           #   String parsing for nameserver specs (uses nom)
-│   ├── predefined.rs       #   Predefined public nameservers
+│   ├── predefined.rs       #   Predefined public nameservers (Cloudflare, Google, Quad9, Mullvad, Wikimedia, DNS4EU)
 │   └── load.rs             #   Load nameserver configs from files
 │
 ├── resources/               # DNS record types and data
@@ -65,7 +66,7 @@ src/
 ├── statistics/              # Result aggregation & statistics traits
 │
 ├── app/                     # CLI application layer (behind "app" feature flag)
-│   ├── cli_parser.rs       #   clap v2 argument definitions
+│   ├── cli_parser.rs       #   clap v4 argument definitions (builder API)
 │   ├── app_config.rs       #   Consolidated AppConfig from CLI args
 │   ├── resolver.rs         #   App-level resolver setup
 │   ├── console.rs          #   User console output
@@ -87,28 +88,48 @@ src/
 
 | Crate | Purpose |
 |---|---|
-| `trust-dns-resolver` 0.20 | Core DNS resolution (DoT, DoH, DNSSEC) |
-| `tokio` 1 (full) | Async runtime |
+| `hickory-resolver` 0.25 | Core DNS resolution (DoT, DoH, DNSSEC) |
+| `tokio` 1 | Async runtime (rt-multi-thread, macros, time, fs, io-util, net) |
 | `futures` 0.3 | Async combinators (join_all, streams) |
-| `reqwest` 0.11 | HTTP client (DoH, WHOIS, server list downloads) |
-| `clap` 2 | CLI argument parsing (app feature only) |
-| `nom` 5 | Parser combinators for nameserver string parsing |
+| `reqwest` 0.13 | HTTP client (DoH, WHOIS, server list downloads) |
+| `clap` 4 | CLI argument parsing, builder API (app feature only) |
+| `clap_complete` 4 | Shell completion generation (build-time) |
+| `nom` 7 | Parser combinators for nameserver string parsing |
 | `serde` / `serde_json` | Serialization |
-| `yansi` 0.5 | Colored terminal output |
-| `thiserror` | Error derive macros |
+| `yansi` 1.0 | Colored terminal output |
+| `thiserror` 2 | Error derive macros |
 | `tracing` | Structured logging |
+| `rand` 0.9 | Random name generation for wildcard detection |
+| `ipnetwork` 0.21 | IP network/CIDR handling |
 
 ## Feature Flags
 
 - **`app`** (default): Enables the CLI binary and pulls in clap, anyhow, tabwriter, tracing-subscriber, etc.
 - Without `app`: Library-only build with minimal dependencies.
 
+## Release Process
+
+Releases are automated via GitHub Actions (`.github/workflows/release.yml`):
+
+1. Update `Cargo.toml` version and `CHANGELOG.md`
+2. Commit and tag: `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
+3. Push: `git push origin master --tags`
+4. The workflow automatically:
+   - Builds .deb, .rpm, and static Linux musl binary
+   - Creates a GitHub Release with all artifacts
+   - Pushes Docker image to Docker Hub (`lukaspustina/mhost`)
+   - Dispatches to `lukaspustina/homebrew-mhost` tap to update the Homebrew formula
+
+**Homebrew tap**: Separate repo at `lukaspustina/homebrew-mhost` — auto-updated on release via `repository_dispatch`. Requires `HOMEBREW_TAP_TOKEN` secret (fine-grained PAT with Contents write access to the tap repo).
+
+**Secrets required**: `DOCKER_HUB_USERNAME`, `DOCKER_HUB_TOKEN`, `HOMEBREW_TAP_TOKEN`
+
 ## Design Notes
 
 - **Async-first**: All DNS lookups are async via tokio. `ResolverGroup` fans out queries concurrently.
 - **Library vs App separation**: The `app` module is feature-gated. Library code in `resolver/`, `nameserver/`, `resources/`, `services/` has no CLI dependencies.
-- **Build script** (`build.rs`): Generates shell completions (Bash, Fish, Zsh) via clap at compile time.
-- The library API is self-described as "PoC state" — functional but the author considers the design WIP.
+- **Build script** (`build.rs`): Generates shell completions (Bash, Fish, Zsh) via `clap_complete` at compile time.
+- **Predefined servers use unfiltered endpoints** — no content filtering/blocking by default.
 
 ## Common Patterns
 
