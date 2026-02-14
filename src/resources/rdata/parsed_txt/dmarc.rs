@@ -130,7 +130,6 @@ pub(crate) mod parser {
 #[cfg(test)]
 mod test {
     use super::parser::dmarc;
-    use super::*;
 
     #[test]
     fn minimal_record() {

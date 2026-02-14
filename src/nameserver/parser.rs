@@ -225,10 +225,10 @@ async fn target_to_ip(resolvers: &ResolverGroup, target: &parser::Target<'_>) ->
 
 async fn resolve_name(resolvers: &ResolverGroup, name: &str) -> Result<IpAddr> {
     let query =
-        MultiQuery::multi_record(name, vec![RecordType::A, RecordType::AAAA]).map_err(|_| Error::ParserError {
+        MultiQuery::multi_record(name, vec![RecordType::A, RecordType::AAAA]).map_err(|e| Error::ParserError {
             what: name.to_string(),
             to: "IpAddr",
-            why: "failed to resolve name".to_string(),
+            why: format!("failed to resolve name: {}", e),
         })?;
     let lookups = resolvers.lookup(query).await?;
     let ipv4 = lookups.a().unique().to_owned().into_iter().next().map(IpAddr::V4);

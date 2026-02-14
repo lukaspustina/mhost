@@ -80,7 +80,6 @@ pub(crate) mod parser {
 #[cfg(test)]
 mod test {
     use super::parser::tls_rpt;
-    use super::*;
 
     #[test]
     fn mailto_uri() {

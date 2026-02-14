@@ -86,7 +86,6 @@ pub(crate) mod parser {
 #[cfg(test)]
 mod test {
     use super::parser::bimi;
-    use super::*;
 
     #[test]
     fn both_tags() {

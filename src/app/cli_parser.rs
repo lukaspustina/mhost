@@ -9,7 +9,28 @@
 //! here. It would be nicer to move at least the subcommands to the corresponding modules, but then all logic, all crates
 //! etc. used there have to be available for the build script which makes it much more complex.
 
+use clap::builder::ValueParser;
 use clap::{Arg, ArgAction, Command};
+
+fn usize_range(min: usize, max: usize) -> ValueParser {
+    ValueParser::from(move |s: &str| -> Result<usize, String> {
+        let n: usize = s.parse().map_err(|e: std::num::ParseIntError| e.to_string())?;
+        if n < min || n > max {
+            return Err(format!("value must be between {} and {}", min, max));
+        }
+        Ok(n)
+    })
+}
+
+fn u64_range(min: u64, max: u64) -> ValueParser {
+    ValueParser::from(move |s: &str| -> Result<u64, String> {
+        let n: u64 = s.parse().map_err(|e: std::num::ParseIntError| e.to_string())?;
+        if n < min || n > max {
+            return Err(format!("value must be between {} and {}", min, max));
+        }
+        Ok(n)
+    })
+}
 
 pub static SUPPORTED_RECORD_TYPES: &[&str] = &[
     "A",
@@ -146,7 +167,7 @@ Examples:
                 .long("limit")
                 .value_name("NUMBER")
                 .default_value("100")
-                .value_parser(str::parse::<usize>)
+                .value_parser(usize_range(1, 10000))
                 .help("Sets max. number of nameservers to query"),
         )
         .arg(
@@ -154,7 +175,7 @@ Examples:
                 .long("max-concurrent-servers")
                 .value_name("NUMBER")
                 .default_value("10")
-                .value_parser(str::parse::<usize>)
+                .value_parser(usize_range(1, 100))
                 .help("Sets max. concurrent nameservers"),
         )
         .arg(
@@ -162,7 +183,7 @@ Examples:
                 .long("max-concurrent-requests")
                 .value_name("NUMBER")
                 .default_value("5")
-                .value_parser(str::parse::<usize>)
+                .value_parser(usize_range(1, 50))
                 .help("Sets max. concurrent requests per nameserver"),
         )
         .arg(
@@ -170,7 +191,7 @@ Examples:
                 .long("retries")
                 .value_name("NUMBER")
                 .default_value("0")
-                .value_parser(str::parse::<usize>)
+                .value_parser(usize_range(0, 10))
                 .help("Sets number of retries if first lookup to nameserver fails"),
         )
         .arg(
@@ -178,7 +199,7 @@ Examples:
                 .long("timeout")
                 .value_name("TIMEOUT")
                 .default_value("5")
-                .value_parser(str::parse::<u64>)
+                .value_parser(u64_range(1, 300))
                 .help("Sets timeout in seconds for responses"),
         )
         .arg(
@@ -441,7 +462,7 @@ fn discover_subcommand() -> Command {
                 .long("rnd-names-number")
                 .value_name("NUMBER")
                 .default_value("3")
-                .value_parser(str::parse::<usize>)
+                .value_parser(usize_range(1, 20))
                 .help("Sets number of random domain names to generate for wildcard resolution check"),
         )
         .arg(
@@ -449,7 +470,7 @@ fn discover_subcommand() -> Command {
                 .long("rnd-names-len")
                 .value_name("LEN")
                 .default_value("32")
-                .value_parser(str::parse::<usize>)
+                .value_parser(usize_range(8, 128))
                 .help("Sets length of random domain names to generate for wildcard resolution check"),
         )
         .arg(
@@ -470,7 +491,7 @@ fn discover_subcommand() -> Command {
                 .long("depth")
                 .value_name("N")
                 .default_value("0")
-                .value_parser(str::parse::<usize>)
+                .value_parser(usize_range(0, 3))
                 .help("Sets recursive discovery depth for found subdomains (max 3)"),
         )
 }
