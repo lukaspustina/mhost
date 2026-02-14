@@ -1,0 +1,7 @@
+RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color domain-lookup -p example.com
+
+CHECK: > Options:[[.*]]
+CHECK: > Looking up apex records.
+CHECK: - Sending [[\d+]] request[[s*]] to [[\d+]] nameserver[[s*]]
+CHECK: + Finished.
+CHECK: > Apex records for example.com.

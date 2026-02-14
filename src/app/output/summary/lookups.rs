@@ -12,7 +12,7 @@ use std::time::Duration;
 use tabwriter::TabWriter;
 
 use crate::resolver::Lookups;
-use crate::resources::rdata::parsed_txt::{DomainVerification, Mechanism, Modifier, ParsedTxt, Word};
+use crate::resources::rdata::parsed_txt::{Bimi, Dmarc, DomainVerification, Mechanism, Modifier, MtaSts, ParsedTxt, TlsRpt, Word};
 use crate::resources::rdata::{parsed_txt::Spf, Name, CAA, DNSSEC, HINFO, MX, NAPTR, NULL, OPENPGPKEY, SOA, SRV, SSHFP, SVCB, TLSA, TXT, UNKNOWN};
 use crate::resources::{NameToIpAddr, Record};
 use crate::{Error, RecordType};
@@ -392,6 +392,10 @@ impl TXT {
         let txt = self.as_string();
         match ParsedTxt::from_str(&txt) {
             Ok(ParsedTxt::Spf(ref spf)) => TXT::format_spf(spf, suffix),
+            Ok(ParsedTxt::Dmarc(ref dmarc)) => TXT::format_dmarc(dmarc, suffix),
+            Ok(ParsedTxt::MtaSts(ref mta_sts)) => TXT::format_mta_sts(mta_sts, suffix),
+            Ok(ParsedTxt::TlsRpt(ref tls_rpt)) => TXT::format_tls_rpt(tls_rpt, suffix),
+            Ok(ParsedTxt::Bimi(ref bimi)) => TXT::format_bimi(bimi, suffix),
             Ok(ParsedTxt::DomainVerification(ref dv)) => TXT::format_dv(dv, suffix),
             _ => format!("'{}'{}", txt.paint(*styles::TXT), suffix),
         }
@@ -525,6 +529,70 @@ impl TXT {
                 format!("explanation according to {}", explanation.paint(style))
             }
         }
+    }
+
+    fn format_dmarc(dmarc: &Dmarc, suffix: &str) -> String {
+        let style = *styles::TXT;
+        let mut buf = String::new();
+        buf.push_str(&format!("DMARC version={}, policy={}{}", dmarc.version().paint(style), dmarc.policy().paint(style), suffix));
+        if let Some(sp) = dmarc.subdomain_policy() {
+            buf.push_str(&format!("\n\t{} subdomain policy: {}", &*ITEMAZATION_PREFIX, sp.paint(style)));
+        }
+        if let Some(adkim) = dmarc.adkim() {
+            buf.push_str(&format!("\n\t{} DKIM alignment: {}", &*ITEMAZATION_PREFIX, adkim.paint(style)));
+        }
+        if let Some(aspf) = dmarc.aspf() {
+            buf.push_str(&format!("\n\t{} SPF alignment: {}", &*ITEMAZATION_PREFIX, aspf.paint(style)));
+        }
+        if let Some(pct) = dmarc.pct() {
+            buf.push_str(&format!("\n\t{} percentage: {}%", &*ITEMAZATION_PREFIX, pct.paint(style)));
+        }
+        if let Some(rua) = dmarc.rua() {
+            buf.push_str(&format!("\n\t{} aggregate reports: {}", &*ITEMAZATION_PREFIX, rua.paint(style)));
+        }
+        if let Some(ruf) = dmarc.ruf() {
+            buf.push_str(&format!("\n\t{} forensic reports: {}", &*ITEMAZATION_PREFIX, ruf.paint(style)));
+        }
+        if let Some(fo) = dmarc.fo() {
+            buf.push_str(&format!("\n\t{} failure options: {}", &*ITEMAZATION_PREFIX, fo.paint(style)));
+        }
+        if let Some(ri) = dmarc.ri() {
+            buf.push_str(&format!("\n\t{} report interval: {}s", &*ITEMAZATION_PREFIX, ri.paint(style)));
+        }
+        buf
+    }
+
+    fn format_mta_sts(mta_sts: &MtaSts, suffix: &str) -> String {
+        let style = *styles::TXT;
+        format!(
+            "MTA-STS version={}, id={}{}",
+            mta_sts.version().paint(style),
+            mta_sts.id().paint(style),
+            suffix
+        )
+    }
+
+    fn format_tls_rpt(tls_rpt: &TlsRpt, suffix: &str) -> String {
+        let style = *styles::TXT;
+        format!(
+            "TLS-RPT version={}, rua={}{}",
+            tls_rpt.version().paint(style),
+            tls_rpt.rua().paint(style),
+            suffix
+        )
+    }
+
+    fn format_bimi(bimi: &Bimi, suffix: &str) -> String {
+        let style = *styles::TXT;
+        let mut buf = String::new();
+        buf.push_str(&format!("BIMI version={}{}", bimi.version().paint(style), suffix));
+        if let Some(logo) = bimi.logo() {
+            buf.push_str(&format!("\n\t{} logo: {}", &*ITEMAZATION_PREFIX, logo.paint(style)));
+        }
+        if let Some(authority) = bimi.authority() {
+            buf.push_str(&format!("\n\t{} authority: {}", &*ITEMAZATION_PREFIX, authority.paint(style)));
+        }
+        buf
     }
 
     fn format_dv(dv: &DomainVerification, suffix: &str) -> String {

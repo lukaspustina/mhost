@@ -292,6 +292,7 @@ fn subcommands() -> Vec<Command> {
     vec![
         check_subcommand(),
         discover_subcommand(),
+        domain_lookup_subcommand(),
         lookup_subcommand(),
         server_lists_subcommand(),
     ]
@@ -393,6 +394,37 @@ fn discover_subcommand() -> Command {
                 .long("subdomains-only")
                 .action(ArgAction::SetTrue)
                 .help("Shows subdomains only omitting all other discovered names"),
+        )
+}
+
+fn domain_lookup_subcommand() -> Command {
+    Command::new("domain-lookup")
+        .about("Looks up a domain's apex and well-known subdomains in a single operation")
+        .long_about(
+            r#"Looks up a domain's apex records and well-known subdomains (DMARC, MTA-STS, TLS-RPT, BIMI, SRV records for email/calendar/communication services, TLSA/DANE records, etc.) in a single operation.
+
+By default, queries ~40 well-known subdomain/record-type combinations. Use --all to include extended entries (~65 total)."#,
+        )
+        .arg(
+            Arg::new("domain name")
+                .index(1)
+                .required(true)
+                .value_name("DOMAIN NAME")
+                .help("domain name to look up")
+                .long_help("* DOMAIN NAME may be any valid DNS name, e.g., example.com"),
+        )
+        .arg(
+            Arg::new("partial-results")
+                .short('p')
+                .long("show-partial-results")
+                .action(ArgAction::SetTrue)
+                .help("Shows results after each lookup step"),
+        )
+        .arg(
+            Arg::new("all-entries")
+                .long("all")
+                .action(ArgAction::SetTrue)
+                .help("Includes extended well-known subdomains (Tier 3+4)"),
         )
 }
 
