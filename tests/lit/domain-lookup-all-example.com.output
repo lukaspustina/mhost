@@ -1,0 +1,6 @@
+RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color domain-lookup --all example.com
+
+CHECK: > Options:[[.*]]
+CHECK: + Finished.
+CHECK: - Received [[\d+]] responses
+CHECK: > Apex records for example.com.
