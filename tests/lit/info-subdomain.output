@@ -1,0 +1,5 @@
+RUN: @mhost_bin --ascii --no-color info _dmarc
+
+CHECK: > _dmarc
+CHECK: TXT
+CHECK: Email Authentication

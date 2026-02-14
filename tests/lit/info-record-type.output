@@ -1,0 +1,5 @@
+RUN: @mhost_bin --ascii --no-color info A
+
+CHECK: > A
+CHECK: IPv4
+CHECK: RFC 1035

@@ -293,6 +293,7 @@ fn subcommands() -> Vec<Command> {
         check_subcommand(),
         discover_subcommand(),
         domain_lookup_subcommand(),
+        info_subcommand(),
         lookup_subcommand(),
         server_lists_subcommand(),
     ]
@@ -425,6 +426,22 @@ By default, queries ~40 well-known subdomain/record-type combinations. Use --all
                 .long("all")
                 .action(ArgAction::SetTrue)
                 .help("Includes extended well-known subdomains (Tier 3+4)"),
+        )
+}
+
+fn info_subcommand() -> Command {
+    Command::new("info")
+        .about("Shows information about DNS record types and well-known subdomains")
+        .arg(
+            Arg::new("topic")
+                .index(1)
+                .value_name("TOPIC")
+                .help("Record type, TXT sub-type, or well-known subdomain to explain")
+                .long_help(
+                    "Record type (A, AAAA, MX, ...), TXT sub-type (SPF, DMARC, ...), \
+                     or well-known subdomain (_dmarc, _443._tcp, ...). \
+                     Omit to list all supported types.",
+                ),
         )
 }
 

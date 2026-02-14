@@ -18,6 +18,7 @@ pub mod check;
 pub mod discover;
 pub mod domain_lookup;
 pub mod get_server_lists;
+pub mod info;
 pub mod lookup;
 
 /** Return type for App modules that go through multiple steps

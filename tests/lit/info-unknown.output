@@ -1,0 +1,3 @@
+RUN: @mhost_bin --ascii --no-color info NOTARECORD
+
+CHECK: Unknown topic
