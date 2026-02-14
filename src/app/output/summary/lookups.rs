@@ -252,12 +252,20 @@ impl Rendering for Name {
 }
 
 impl Rendering for MX {
-    fn render(&self, _: &SummaryOptions) -> String {
-        format!(
-            "{}\twith preference {:2}",
-            self.exchange().paint(*styles::MX),
-            self.preference().paint(*styles::MX),
-        )
+    fn render(&self, opts: &SummaryOptions) -> String {
+        if opts.human {
+            format!(
+                "{}\tpreference {:2}",
+                self.exchange().paint(*styles::MX),
+                self.preference().paint(*styles::MX),
+            )
+        } else {
+            format!(
+                "{}\tpreference={:2}",
+                self.exchange().paint(*styles::MX),
+                self.preference().paint(*styles::MX),
+            )
+        }
     }
 }
 
@@ -266,7 +274,17 @@ impl Rendering for CAA {
         let style = *styles::CAA;
         let critical = if self.issuer_critical() { " (critical)" } else { "" };
         if opts.human {
-            format!("{} {}{}", self.tag().paint(style), self.value().paint(style), critical.paint(style))
+            let description = match (self.tag(), self.value().trim()) {
+                ("issue", v) if v.is_empty() || v == ";" => "no CA is allowed to issue certificates".to_string(),
+                ("issue", v) => format!("allow {} to issue certificates", v.paint(style)),
+                ("issuewild", v) if v.is_empty() || v == ";" => {
+                    "no CA is allowed to issue wildcard certificates".to_string()
+                }
+                ("issuewild", v) => format!("allow {} to issue wildcard certificates", v.paint(style)),
+                ("iodef", v) => format!("report policy violations to {}", v.paint(style)),
+                (tag, v) => format!("{} {}", tag.paint(style), v.paint(style)),
+            };
+            format!("{}{}", description, critical.paint(style))
         } else {
             format!(
                 "tag={}, value={}, issuer_critical={}",
@@ -348,11 +366,47 @@ impl Rendering for TLSA {
         let style = *styles::TLSA;
         let hex_data: String = self.cert_data().iter().map(|b| format!("{:02x}", b)).collect();
         if opts.human {
+            let usage = match self.cert_usage() {
+                crate::resources::rdata::CertUsage::PkixTa => "CA constraint",
+                crate::resources::rdata::CertUsage::PkixEe => "service certificate constraint",
+                crate::resources::rdata::CertUsage::DaneTa => "trust anchor",
+                crate::resources::rdata::CertUsage::DaneEe => "domain-issued certificate",
+                other => return format!(
+                    "{}, match {} of {}, data {}",
+                    other.paint(style),
+                    self.matching().paint(style),
+                    self.selector().paint(style),
+                    hex_data.paint(style)
+                ),
+            };
+            let selector = match self.selector() {
+                crate::resources::rdata::Selector::Full => "full certificate",
+                crate::resources::rdata::Selector::Spki => "public key only",
+                other => return format!(
+                    "{}, match {} of {}, data {}",
+                    usage.paint(style),
+                    self.matching().paint(style),
+                    other.paint(style),
+                    hex_data.paint(style)
+                ),
+            };
+            let matching = match self.matching() {
+                crate::resources::rdata::Matching::Raw => "exact match",
+                crate::resources::rdata::Matching::Sha256 => "SHA-256 hash",
+                crate::resources::rdata::Matching::Sha512 => "SHA-512 hash",
+                other => return format!(
+                    "{}, match {} of {}, data {}",
+                    usage.paint(style),
+                    other.paint(style),
+                    selector.paint(style),
+                    hex_data.paint(style)
+                ),
+            };
             format!(
-                "usage {}, selector {}, matching {}, data {}",
-                self.cert_usage().paint(style),
-                self.selector().paint(style),
-                self.matching().paint(style),
+                "{}, match {} of {}, data {}",
+                usage.paint(style),
+                matching.paint(style),
+                selector.paint(style),
                 hex_data.paint(style)
             )
         } else {
@@ -619,24 +673,54 @@ impl TXT {
 }
 
 impl Rendering for HINFO {
-    fn render(&self, _: &SummaryOptions) -> String {
+    fn render(&self, opts: &SummaryOptions) -> String {
         let style = *styles::HINFO;
-        format!("cpu={}, os={}", self.cpu().paint(style), self.os().paint(style))
+        if opts.human {
+            format!("CPU: {}, OS: {}", self.cpu().paint(style), self.os().paint(style))
+        } else {
+            format!("cpu={}, os={}", self.cpu().paint(style), self.os().paint(style))
+        }
     }
 }
 
 impl Rendering for NAPTR {
-    fn render(&self, _: &SummaryOptions) -> String {
+    fn render(&self, opts: &SummaryOptions) -> String {
         let style = *styles::NAPTR;
-        format!(
-            "order={}, preference={}, flags={}, services={}, regexp={}, replacement={}",
-            self.order().paint(style),
-            self.preference().paint(style),
-            self.flags().paint(style),
-            self.services().paint(style),
-            self.regexp().paint(style),
-            self.replacement().paint(style),
-        )
+        if opts.human {
+            let flag_desc = match self.flags().to_lowercase().as_str() {
+                "s" => "\u{2192} SRV lookup",
+                "a" => "\u{2192} address lookup",
+                "u" => "\u{2192} URI result",
+                "p" => "\u{2192} protocol-specific",
+                "" => "\u{2192} non-terminal (continue rewriting)",
+                _ => self.flags(),
+            };
+            let mut result = format!(
+                "order {}, preference {}, service {} {}",
+                self.order().paint(style),
+                self.preference().paint(style),
+                self.services().paint(style),
+                flag_desc.paint(style)
+            );
+            if !self.regexp().is_empty() {
+                result.push_str(&format!(", rewrite: {}", self.regexp().paint(style)));
+            }
+            let replacement_str = self.replacement().to_string();
+            if replacement_str != "." && !replacement_str.is_empty() {
+                result.push_str(&format!(", then lookup {}", self.replacement().paint(style)));
+            }
+            result
+        } else {
+            format!(
+                "order={}, preference={}, flags={}, services={}, regexp={}, replacement={}",
+                self.order().paint(style),
+                self.preference().paint(style),
+                self.flags().paint(style),
+                self.services().paint(style),
+                self.regexp().paint(style),
+                self.replacement().paint(style),
+            )
+        }
     }
 }
 
@@ -650,34 +734,59 @@ impl Rendering for OPENPGPKEY {
 }
 
 impl Rendering for SSHFP {
-    fn render(&self, _: &SummaryOptions) -> String {
+    fn render(&self, opts: &SummaryOptions) -> String {
         let style = *styles::SSHFP;
         let hex: String = self.fingerprint().iter().map(|b| format!("{:02x}", b)).collect();
-        format!(
-            "algorithm={}, type={}, fingerprint={}",
-            self.algorithm().paint(style),
-            self.fingerprint_type().paint(style),
-            hex.paint(style),
-        )
+        if opts.human {
+            format!(
+                "{} key, {} fingerprint: {}",
+                self.algorithm().paint(style),
+                self.fingerprint_type().paint(style),
+                hex.paint(style),
+            )
+        } else {
+            format!(
+                "algorithm={}, type={}, fingerprint={}",
+                self.algorithm().paint(style),
+                self.fingerprint_type().paint(style),
+                hex.paint(style),
+            )
+        }
     }
 }
 
 impl Rendering for SVCB {
     fn render(&self, opts: &SummaryOptions) -> String {
         let style = *styles::SVCB;
-        let params: Vec<String> = self.svc_params().iter().map(|p| format!("{}={}", p.key(), p.value())).collect();
         if opts.human {
             if self.is_alias() {
                 format!("alias to {}", self.target_name().paint(style))
             } else {
-                format!(
-                    "priority={}, target={}, params=[{}]",
+                let mut result = format!(
+                    "priority {}, target {}",
                     self.svc_priority().paint(style),
                     self.target_name().paint(style),
-                    params.join(", ").paint(style),
-                )
+                );
+                for p in self.svc_params() {
+                    let clean_value = p.value().trim_end_matches(',');
+                    let param_str = match p.key() {
+                        "alpn" => format!("protocols: {}", clean_value.paint(style)),
+                        "no-default-alpn" => "no default protocols".to_string(),
+                        "port" => format!("port: {}", clean_value.paint(style)),
+                        "ipv4hint" => format!("IPv4 hints: {}", clean_value.paint(style)),
+                        "ipv6hint" => format!("IPv6 hints: {}", clean_value.paint(style)),
+                        "ech" => {
+                            let byte_count = clean_value.len() * 3 / 4;
+                            format!("encrypted client hello: ({} bytes)", byte_count)
+                        }
+                        key => format!("{}: {}", key, clean_value.paint(style)),
+                    };
+                    result.push_str(&format!("\n\t{} {}", &*ITEMAZATION_PREFIX, param_str));
+                }
+                result
             }
         } else {
+            let params: Vec<String> = self.svc_params().iter().map(|p| format!("{}={}", p.key(), p.value())).collect();
             format!(
                 "{} {} {}",
                 self.svc_priority().paint(style),
