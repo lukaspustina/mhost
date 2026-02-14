@@ -13,7 +13,7 @@ use indexmap::set::IndexSet;
 use tracing::info;
 
 use crate::app::modules::check::config::CheckConfig;
-use crate::app::modules::check::lints::cnames::Cnames;
+use crate::app::modules::check::lints::ns::Ns;
 use crate::app::modules::check::lints::{CheckResult, CheckResults};
 use crate::app::modules::{Environment, PartialResult};
 use crate::app::resolver::AppResolver;
@@ -33,7 +33,7 @@ pub struct Soa<'a> {
 }
 
 impl<'a> Soa<'a> {
-    pub async fn soa(self) -> PartialResult<Cnames<'a>> {
+    pub async fn soa(self) -> PartialResult<Ns<'a>> {
         let result = if self.env.mod_config.soa {
             let results = self.do_soa().await;
             Some(results)
@@ -41,7 +41,7 @@ impl<'a> Soa<'a> {
             None
         };
 
-        Ok(Cnames {
+        Ok(Ns {
             env: self.env,
             domain_name: self.domain_name,
             app_resolver: self.app_resolver,

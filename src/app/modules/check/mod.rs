@@ -32,9 +32,20 @@ pub async fn run(args: &ArgMatches, app_config: &AppConfig) -> Result<ExitStatus
         .await?
         .soa()
         .await?
+        .ns()
+        .await?
         .cnames()
         .await?
+        .mx()
+        .await?
         .spf()?
+        .dmarc()
+        .await?
+        .caa()?
+        .ttl()?
+        .dnssec()?
+        .https_svcb()
+        .await?
         .output()
         .into_result()
 }

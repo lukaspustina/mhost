@@ -9,7 +9,7 @@ use anyhow::Result;
 use tracing::info;
 
 use crate::app::modules::check::config::CheckConfig;
-use crate::app::modules::check::lints::spf::Spf;
+use crate::app::modules::check::lints::mx::Mx;
 use crate::app::modules::check::lints::{CheckResult, CheckResults};
 use crate::app::modules::{Environment, PartialResult};
 use crate::app::resolver::AppResolver;
@@ -58,7 +58,7 @@ pub struct Cnames<'a> {
 }
 
 impl<'a> Cnames<'a> {
-    pub async fn cnames(self) -> PartialResult<Spf<'a>> {
+    pub async fn cnames(self) -> PartialResult<Mx<'a>> {
         let result = if self.env.mod_config.cnames {
             let results = self.do_cnames().await?;
             Some(results)
@@ -66,7 +66,7 @@ impl<'a> Cnames<'a> {
             None
         };
 
-        Ok(Spf {
+        Ok(Mx {
             env: self.env,
             domain_name: self.domain_name,
             app_resolver: self.app_resolver,

@@ -18,6 +18,13 @@ pub struct CheckConfig {
     pub cnames: bool,
     pub soa: bool,
     pub spf: bool,
+    pub dmarc: bool,
+    pub ns: bool,
+    pub mx: bool,
+    pub caa: bool,
+    pub ttl: bool,
+    pub dnssec: bool,
+    pub https_svcb: bool,
 }
 
 impl ModConfig for CheckConfig {
@@ -40,6 +47,13 @@ impl TryFrom<&ArgMatches> for CheckConfig {
             cnames: !args.get_flag("no-cnames"),
             soa: !args.get_flag("no-soa"),
             spf: !args.get_flag("no-spf"),
+            dmarc: !args.get_flag("no-dmarc"),
+            ns: !args.get_flag("no-ns"),
+            mx: !args.get_flag("no-mx"),
+            caa: !args.get_flag("no-caa"),
+            ttl: !args.get_flag("no-ttl"),
+            dnssec: !args.get_flag("no-dnssec"),
+            https_svcb: !args.get_flag("no-https-svcb"),
         };
 
         Ok(config)
