@@ -6,17 +6,20 @@
 // copied, modified, or distributed except according to those terms.
 
 pub mod logging {
+    use std::sync::Once;
+
     use tracing::subscriber::set_global_default;
     use tracing_log::LogTracer;
     use tracing_subscriber::fmt;
     use tracing_subscriber::layer::SubscriberExt;
     use tracing_subscriber::EnvFilter;
 
-    lazy_static::lazy_static! {
-        static ref LOGGING: () = {
+    static INIT: Once = Once::new();
+
+    pub fn init() {
+        INIT.call_once(|| {
             // Subscribe to all log crate log messages and transform them to a tracing events
-            LogTracer::init()
-                .expect("failed to init logging for testing");
+            LogTracer::init().expect("failed to init logging for testing");
 
             let filter = if std::env::var_os("RUST_LOG").is_some() {
                 // This is controlled by the env variable RUST_LOG
@@ -34,12 +37,7 @@ pub mod logging {
                 .with_target(false);
 
             let registry = tracing_subscriber::registry().with(filter).with(fmt);
-            set_global_default(registry)
-                .expect("failed to init tracing for testing");
-        };
-    }
-
-    pub fn init() {
-        lazy_static::initialize(&LOGGING);
+            set_global_default(registry).expect("failed to init tracing for testing");
+        });
     }
 }

@@ -12,16 +12,13 @@ pub mod server_lists;
 pub mod whois;
 
 mod styles {
-    use lazy_static::lazy_static;
     use yansi::{Color, Style};
 
-    lazy_static! {
-        pub static ref NORMAL: Style = Style::new();
-        pub static ref BOLD: Style = Style::new().fg(Color::White).bold();
-        pub static ref GOOD: Style = Style::new().fg(Color::Green);
-        pub static ref WARN: Style = Style::new().fg(Color::Yellow);
-        pub static ref ERR: Style = Style::new().fg(Color::Red);
-    }
+    pub static NORMAL: Style = Style::new();
+    pub static BOLD: Style = Style::new().fg(Color::White).bold();
+    pub static GOOD: Style = Style::new().fg(Color::Green);
+    pub static WARN: Style = Style::new().fg(Color::Yellow);
+    pub static ERR: Style = Style::new().fg(Color::Red);
 }
 
 pub trait Statistics<'a> {

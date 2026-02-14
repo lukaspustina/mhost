@@ -27,13 +27,13 @@ impl fmt::Display for DownloadResponsesStats<'_> {
             if errors == 0 {
                 "0 Err".to_string()
             } else {
-                format!("{} Err", errors.paint(*styles::ERR))
+                format!("{} Err", errors.paint(styles::ERR))
             }
         }
 
         let str = format!(
             "{num_servers} name servers, {errs}",
-            num_servers = self.nameserver_configs.paint(*styles::BOLD),
+            num_servers = self.nameserver_configs.paint(styles::BOLD),
             errs = fmt_errors(self.errors),
         );
         f.write_str(&str)

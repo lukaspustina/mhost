@@ -42,29 +42,29 @@ impl fmt::Display for LookupsStats<'_> {
             format!(
                 "{num_err} Err [{num_to} TO, {num_qr} QR, {num_sf} SF, {num_others} O]",
                 num_err = if errors > 0 {
-                    errors.paint(*styles::ERR)
+                    errors.paint(styles::ERR)
                 } else {
-                    errors.paint(*styles::NORMAL)
+                    errors.paint(styles::NORMAL)
                 },
                 num_to = if timeouts > 0 {
-                    timeouts.paint(*styles::ERR)
+                    timeouts.paint(styles::ERR)
                 } else {
-                    timeouts.paint(*styles::NORMAL)
+                    timeouts.paint(styles::NORMAL)
                 },
                 num_qr = if refuses > 0 {
-                    refuses.paint(*styles::ERR)
+                    refuses.paint(styles::ERR)
                 } else {
-                    refuses.paint(*styles::NORMAL)
+                    refuses.paint(styles::NORMAL)
                 },
                 num_sf = if servfails > 0 {
-                    servfails.paint(*styles::ERR)
+                    servfails.paint(styles::ERR)
                 } else {
-                    servfails.paint(*styles::NORMAL)
+                    servfails.paint(styles::NORMAL)
                 },
                 num_others = if others > 0 {
-                    others.paint(*styles::ERR)
+                    others.paint(styles::ERR)
                 } else {
-                    others.paint(*styles::NORMAL)
+                    others.paint(styles::NORMAL)
                 },
             )
         }
@@ -72,14 +72,14 @@ impl fmt::Display for LookupsStats<'_> {
         let rr_types = rr_types_as_str(&self.rr_type_counts);
         let num_rr = count_rrs(&self.rr_type_counts);
         let str = format!("{num_resp} responses with {num_rr} RR [{rr_types}], {num_nx} Nx, {errs} in (min {min_time}, max {max_time}) ms from {num_srvs} server{servers}",
-                          num_resp = self.responses.paint(*styles::BOLD),
-                          num_rr = num_rr.paint(*styles::GOOD),
+                          num_resp = self.responses.paint(styles::BOLD),
+                          num_rr = num_rr.paint(styles::GOOD),
                           rr_types = rr_types,
-                          num_nx = self.nxdomains.paint(*styles::WARN),
+                          num_nx = self.nxdomains.paint(styles::WARN),
                           errs = fmt_errors(self.total_errors, self.timeout_errors, self.refuse_errors, self.servfail_errors),
                           min_time = self.response_time_summary.min.map(|x| x.to_string()).unwrap_or_else(|| "-".to_string()),
                           max_time = self.response_time_summary.max.map(|x| x.to_string()).unwrap_or_else(|| "-".to_string()),
-                          num_srvs = self.responding_servers.paint(*styles::BOLD),
+                          num_srvs = self.responding_servers.paint(styles::BOLD),
                           servers = if self.responding_servers == 1 { "" } else { "s" },
         );
         f.write_str(&str)

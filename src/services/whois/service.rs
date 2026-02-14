@@ -41,7 +41,7 @@ pub struct GeoLocation {
 }
 
 impl GeoLocation {
-    pub fn located_resources(&self) -> &Vec<LocatedResource> {
+    pub fn located_resources(&self) -> &[LocatedResource] {
         &self.located_resources
     }
 }
@@ -57,7 +57,7 @@ impl LocatedResource {
         self.resource.as_str()
     }
 
-    pub fn locations(&self) -> &Vec<Location> {
+    pub fn locations(&self) -> &[Location] {
         &self.locations
     }
 }
@@ -86,7 +86,7 @@ impl Location {
         }
     }
 
-    pub fn resources(&self) -> &Vec<String> {
+    pub fn resources(&self) -> &[String] {
         &self.resources
     }
 }
@@ -98,7 +98,7 @@ pub struct NetworkInfo {
 }
 
 impl NetworkInfo {
-    pub fn asns(&self) -> &Vec<String> {
+    pub fn asns(&self) -> &[String] {
         &self.asns
     }
 
@@ -127,7 +127,7 @@ impl Whois {
         self.resource.as_str()
     }
 
-    pub fn authorities(&self) -> &Vec<Authority> {
+    pub fn authorities(&self) -> &[Authority] {
         &self.authorities
     }
 

@@ -31,13 +31,13 @@ impl fmt::Display for WhoisStats<'_> {
             if errors == 0 {
                 "0 Err".to_string()
             } else {
-                format!("{} Err", errors.paint(*styles::ERR))
+                format!("{} Err", errors.paint(styles::ERR))
             }
         }
 
         let str = format!(
             "{num_resp} responses [GL {num_gl}, NI {num_ni}, WI {num_wi}], {errs}",
-            num_resp = self.responses.paint(*styles::BOLD),
+            num_resp = self.responses.paint(styles::BOLD),
             num_gl = self.geo_locations,
             num_ni = self.network_infos,
             num_wi = self.whois,

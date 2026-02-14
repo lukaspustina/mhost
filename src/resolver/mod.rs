@@ -284,22 +284,16 @@ impl ResolverGroup {
         let lookups = sliding_window_lookups(lookup_futures, self.opts.max_concurrent);
         let lookups = task::spawn(lookups).await?;
 
-        /*
-        let mut lookups = Vec::new();
-        for l in lookup_futures {
-            let r = task::spawn(l);
-            lookups.push(r);
-        }
-        let all = futures::future::join_all(lookups);
-        all.await;
-
-        let lookups = Lookups::new(Vec::new());
-        */
-
         Ok(lookups)
     }
 
     async fn uni_lookup<T: Into<MultiQuery>>(&self, query: T) -> ResolverResult<Lookups> {
+        if self.resolvers.is_empty() {
+            return Err(Error::ResolveError {
+                reason: "no resolvers available".to_string(),
+            });
+        }
+
         let mut rng = rand::rng();
         let multi_query = query.into();
         let resolvers = self.resolvers.as_slice();
@@ -308,7 +302,7 @@ impl ResolverGroup {
             .into_uni_queries()
             .drain(..)
             .map(|q| {
-                let resolver = resolvers.choose(&mut rng).unwrap(); // Safe unwrap: we know, there are resolvers
+                let resolver = resolvers.choose(&mut rng).expect("resolvers is non-empty");
                 lookup::lookup(resolver.clone(), q)
             })
             .collect();
