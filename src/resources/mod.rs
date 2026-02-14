@@ -62,7 +62,11 @@ impl NameToIpAddr for Name {
             let elements: SmallVec<[std::result::Result<u8, ParseIntError>; 4]> =
                 ip.splitn(4, '.').map(str::parse::<u8>).collect();
             let octets: std::result::Result<SmallVec<[u8; 4]>, _> = elements.into_iter().collect();
-            let mut octets = octets.map_err(|_| err())?;
+            let mut octets = octets.map_err(|e| Error::ParserError {
+                what: str.to_string(),
+                to: "IpAddr",
+                why: format!("is not a ptr name: {}", e),
+            })?;
             octets.reverse();
             match *octets.as_slice() {
                 [a, b, c, d] => Ok(IpAddr::V4(Ipv4Addr::new(a, b, c, d))),
@@ -75,7 +79,11 @@ impl NameToIpAddr for Name {
             let nibble: SmallVec<[std::result::Result<u8, ParseIntError>; 32]> =
                 elements.into_iter().map(|x| u8::from_str_radix(x, 16)).collect();
             let nibble: std::result::Result<SmallVec<[u8; 32]>, _> = nibble.into_iter().collect();
-            let mut nibble = nibble.map_err(|_| err())?;
+            let mut nibble = nibble.map_err(|e| Error::ParserError {
+                what: str.to_string(),
+                to: "IpAddr",
+                why: format!("is not a ptr name: {}", e),
+            })?;
             nibble.reverse();
             let octets: SmallVec<[u8; 16]> = nibble
                 .as_slice()

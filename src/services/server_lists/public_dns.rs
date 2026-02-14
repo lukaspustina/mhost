@@ -80,10 +80,10 @@ impl TryFrom<NameServer> for NameServerConfig {
     type Error = Error;
 
     fn try_from(ns: NameServer) -> std::result::Result<Self, Self::Error> {
-        let ip_addr = IpAddr::from_str(&ns.ip).map_err(|_| Error::ParserError {
+        let ip_addr = IpAddr::from_str(&ns.ip).map_err(|e| Error::ParserError {
             what: ns.ip,
             to: "IpAddr",
-            why: "is not a valid IP address".to_string(),
+            why: format!("is not a valid IP address: {}", e),
         })?;
         Ok(NameServerConfig::udp_with_name((ip_addr, 53), "public-dns".to_string()))
     }

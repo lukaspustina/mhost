@@ -74,7 +74,6 @@ pub(crate) mod parser {
 #[cfg(test)]
 mod test {
     use super::parser::mta_sts;
-    use super::*;
 
     #[test]
     fn valid_record() {

@@ -242,7 +242,7 @@ impl<'a, T: Clone + Eq + Hash> Uniquified<'a, T> {
     }
 
     pub fn to_owned(&self) -> HashSet<T> {
-        self.inner.iter().map(|x| (*x).clone()).collect()
+        self.inner.iter().cloned().cloned().collect()
     }
 
     pub fn len(&self) -> usize {

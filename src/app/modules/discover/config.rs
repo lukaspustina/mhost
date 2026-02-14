@@ -43,7 +43,7 @@ impl TryFrom<&ArgMatches> for DiscoverConfig {
             rnd_names_len: *args.get_one::<usize>("rnd-names-len").unwrap(), // Safe unwrap, because of clap's validation
             subdomains_only: args.get_flag("subdomains-only"),
             no_ct_logs: args.get_flag("no-ct-logs"),
-            depth: (*args.get_one::<usize>("depth").unwrap()).min(3), // Cap at 3
+            depth: *args.get_one::<usize>("depth").unwrap(), // Safe unwrap, because of clap's validation (range 0..=3)
         };
 
         Ok(config)
