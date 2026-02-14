@@ -146,18 +146,40 @@ impl<'a> Ns<'a> {
             "Running SOA lookups against NS servers to detect lame delegation."
         );
 
-        let responding = soa_lookups.iter().filter(|l| l.result().is_response()).count();
-        let total = ns_ips.len();
+        let ipv4_total = ipv4s.len();
+        let ipv6_total = ns_ips.len() - ipv4_total;
 
-        if responding == total {
+        let mut ipv4_responding = 0usize;
+        let mut ipv6_responding = 0usize;
+        for lookup in soa_lookups.iter() {
+            if lookup.result().is_response() {
+                if nameserver_ip(lookup.name_server()).is_ipv6() {
+                    ipv6_responding += 1;
+                } else {
+                    ipv4_responding += 1;
+                }
+            }
+        }
+
+        if ipv4_responding == ipv4_total && ipv6_responding == ipv6_total {
             results.push(CheckResult::Ok(format!(
                 "All {} NS servers respond authoritatively",
-                total
+                ns_ips.len()
+            )));
+        } else if ipv4_responding == ipv4_total && ipv6_responding < ipv6_total {
+            results.push(CheckResult::Ok(format!(
+                "All {} NS servers respond authoritatively via IPv4",
+                ipv4_total
+            )));
+            results.push(CheckResult::Warning(format!(
+                "Only {}/{} IPv6 NS addresses respond: possible client IPv6 connectivity issue",
+                ipv6_responding, ipv6_total
             )));
         } else {
+            let responding = ipv4_responding + ipv6_responding;
             results.push(CheckResult::Failed(format!(
                 "Only {}/{} NS servers respond authoritatively: possible lame delegation",
-                responding, total
+                responding, ns_ips.len()
             )));
         }
 
@@ -193,6 +215,15 @@ impl<'a> Ns<'a> {
                 networks.len()
             )));
         }
+    }
+}
+
+fn nameserver_ip(ns: &NameServerConfig) -> &IpAddr {
+    match ns {
+        NameServerConfig::Udp { ip_addr, .. }
+        | NameServerConfig::Tcp { ip_addr, .. }
+        | NameServerConfig::Tls { ip_addr, .. }
+        | NameServerConfig::Https { ip_addr, .. } => ip_addr,
     }
 }
 
