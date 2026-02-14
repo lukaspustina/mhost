@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use crate::app::modules::check::config::CheckConfig;
-use crate::app::modules::check::lints::https_svcb::HttpsSvcb;
+use crate::app::modules::check::lints::axfr::Axfr;
 use crate::app::modules::check::lints::{CheckResult, CheckResults};
 use crate::app::modules::{Environment, PartialResult};
 use crate::app::resolver::AppResolver;
@@ -22,14 +22,14 @@ pub struct DnssecCheck<'a> {
 }
 
 impl<'a> DnssecCheck<'a> {
-    pub fn dnssec(self) -> PartialResult<HttpsSvcb<'a>> {
+    pub fn dnssec(self) -> PartialResult<Axfr<'a>> {
         let result = if self.env.mod_config.dnssec {
             Some(self.do_dnssec())
         } else {
             None
         };
 
-        Ok(HttpsSvcb {
+        Ok(Axfr {
             env: self.env,
             domain_name: self.domain_name,
             app_resolver: self.app_resolver,

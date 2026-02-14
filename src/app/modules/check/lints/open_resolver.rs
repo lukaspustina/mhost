@@ -10,8 +10,7 @@ use std::time::Duration;
 use tracing::{debug, info};
 
 use crate::app::modules::check::config::CheckConfig;
-use super::delegation::Delegation;
-use crate::app::modules::check::lints::{CheckResult, CheckResults};
+use crate::app::modules::check::lints::{CheckResult, CheckResults, OutputCheckResults};
 use crate::app::modules::{Environment, PartialResult};
 use crate::app::resolver::AppResolver;
 use crate::app::utils::time;
@@ -27,17 +26,16 @@ pub struct OpenResolver<'a> {
 }
 
 impl<'a> OpenResolver<'a> {
-    pub async fn open_resolver(self) -> PartialResult<Delegation<'a>> {
+    pub async fn open_resolver(self) -> PartialResult<OutputCheckResults<'a>> {
         let result = if self.env.mod_config.open_resolver {
             Some(self.do_open_resolver().await?)
         } else {
             None
         };
 
-        Ok(Delegation {
+        Ok(OutputCheckResults {
             env: self.env,
             domain_name: self.domain_name,
-            app_resolver: self.app_resolver,
             check_results: self.check_results.open_resolver(result),
         })
     }

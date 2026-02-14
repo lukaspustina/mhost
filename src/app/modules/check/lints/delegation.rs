@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use tracing::{debug, info};
 
-use super::OutputCheckResults;
+use super::cnames::Cnames;
 use crate::app::modules::check::config::CheckConfig;
 use crate::app::modules::check::lints::{CheckResult, CheckResults};
 use crate::app::modules::{Environment, PartialResult};
@@ -28,16 +28,17 @@ pub struct Delegation<'a> {
 }
 
 impl<'a> Delegation<'a> {
-    pub async fn delegation(self) -> PartialResult<OutputCheckResults<'a>> {
+    pub async fn delegation(self) -> PartialResult<Cnames<'a>> {
         let result = if self.env.mod_config.delegation {
             Some(self.do_delegation().await?)
         } else {
             None
         };
 
-        Ok(OutputCheckResults {
+        Ok(Cnames {
             env: self.env,
             domain_name: self.domain_name,
+            app_resolver: self.app_resolver,
             check_results: self.check_results.delegation(result),
         })
     }

@@ -11,7 +11,7 @@ use std::net::{IpAddr, Ipv4Addr};
 use tracing::info;
 
 use crate::app::modules::check::config::CheckConfig;
-use crate::app::modules::check::lints::cnames::Cnames;
+use crate::app::modules::check::lints::delegation::Delegation;
 use crate::app::modules::check::lints::{CheckResult, CheckResults};
 use crate::app::modules::{Environment, PartialResult};
 use crate::app::resolver::AppResolver;
@@ -29,7 +29,7 @@ pub struct Ns<'a> {
 }
 
 impl<'a> Ns<'a> {
-    pub async fn ns(self) -> PartialResult<Cnames<'a>> {
+    pub async fn ns(self) -> PartialResult<Delegation<'a>> {
         let result = if self.env.mod_config.ns {
             let results = self.do_ns().await?;
             Some(results)
@@ -37,7 +37,7 @@ impl<'a> Ns<'a> {
             None
         };
 
-        Ok(Cnames {
+        Ok(Delegation {
             env: self.env,
             domain_name: self.domain_name,
             app_resolver: self.app_resolver,
