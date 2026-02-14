@@ -158,10 +158,7 @@ $ docker run lukaspustina/mhost:latest mhost l mhost.pustina.de
 
 ### Homebrew
 
-You can add this repository as a custom tap and then install `mhost` like this:
-
 ```sh
-$ brew tap lukaspustina/mhost https://github.com/lukaspustina/mhost.git
 $ brew install lukaspustina/mhost/mhost
 ```
 
