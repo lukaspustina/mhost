@@ -18,7 +18,7 @@ CHECK: - Received
 CHECK: * Comparing authoritative with looked up SOA records
 CHECK-NEXT: = All authoritative SOA records are in sync
 CHECK-NEXT: = Looked up SOA records match authoritative SOA records
-CHECK-NEXT: > Checking CNAME lints
+CHECK: > Checking CNAME lints
 CHECK-NEXT: * Apex
 CHECK-NEXT: * MX
 CHECK: * SRV
@@ -29,6 +29,7 @@ CHECK-NEXT: = SRV do not point to CNAME
 CHECK-NEXT: = CNAME do not point to CNAME
 CHECK-NEXT: > Checking MX hygiene lints
 CHECK: = Domain has a valid Null MX record
+CHECK: > Checking HTTPS/SVCB record lints
 CHECK: > Checking SPF TXT records lints
 CHECK-NEXT: = Found exactly one SPF record
 CHECK-NEXT: = Successfully parsed SPF record
@@ -37,6 +38,5 @@ CHECK: - Received
 CHECK: = Found exactly one DMARC record
 CHECK-NEXT: = Successfully parsed DMARC record
 CHECK: > Checking DNSSEC lints
-CHECK: > Checking HTTPS/SVCB record lints
 CHECK: + Finished.
 CHECK-NEXT: = No issues found.

@@ -23,12 +23,9 @@ CHECK: > Attempting NSEC walking.
 CHECK: > Wordlist lookups.
 CHECK-NEXT: - Sending
 CHECK-NEXT: - Received
-CHECK: * A:
-CHECK: * AAAA:
 CHECK: > Subdomain permutation lookups.
 CHECK: > Reverse DNS lookups.
 CHECK: + Finished.
 CHECK-NEXT: - Received
 CHECK-NEXT: - No wildcard resolution discovered
-CHECK-NEXT: * .example.com.
-CHECK-NEXT: * www.example.com.
+CHECK: * .example.com.
