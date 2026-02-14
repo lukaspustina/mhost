@@ -346,6 +346,48 @@ fn check_subcommand() -> Command {
                 .action(ArgAction::SetTrue)
                 .help("Does not run SPF check"),
         )
+        .arg(
+            Arg::new("no-dmarc")
+                .long("no-dmarc")
+                .action(ArgAction::SetTrue)
+                .help("Does not run DMARC check"),
+        )
+        .arg(
+            Arg::new("no-ns")
+                .long("no-ns")
+                .action(ArgAction::SetTrue)
+                .help("Does not run NS delegation check"),
+        )
+        .arg(
+            Arg::new("no-mx")
+                .long("no-mx")
+                .action(ArgAction::SetTrue)
+                .help("Does not run MX hygiene check"),
+        )
+        .arg(
+            Arg::new("no-caa")
+                .long("no-caa")
+                .action(ArgAction::SetTrue)
+                .help("Does not run CAA check"),
+        )
+        .arg(
+            Arg::new("no-ttl")
+                .long("no-ttl")
+                .action(ArgAction::SetTrue)
+                .help("Does not run TTL sanity check"),
+        )
+        .arg(
+            Arg::new("no-dnssec")
+                .long("no-dnssec")
+                .action(ArgAction::SetTrue)
+                .help("Does not run DNSSEC check"),
+        )
+        .arg(
+            Arg::new("no-https-svcb")
+                .long("no-https-svcb")
+                .action(ArgAction::SetTrue)
+                .help("Does not run HTTPS/SVCB check"),
+        )
 }
 
 fn discover_subcommand() -> Command {

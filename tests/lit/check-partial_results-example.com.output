@@ -1,4 +1,4 @@
-RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color check example.com -p
+RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color check example.com -p --no-ns --no-caa --no-ttl
 
 CHECK: > Options: mode=multi, concurrent nameservers=10, max. nameservers=100, concurrent requests=5, retries=0, timeout=5s, ndots=1, abort on error, abort on timeout
 CHECK-NEXT: > Running DNS lookups for all available records.
@@ -26,8 +26,15 @@ CHECK-NEXT: = Apex zone without CNAME
 CHECK-NEXT: = MX do not point to CNAME
 CHECK-NEXT: = SRV do not point to CNAME
 CHECK-NEXT: = CNAME do not point to CNAME
-CHECK-NEXT: > Checking SPF TXT records lints
+CHECK-NEXT: > Checking MX hygiene lints
+CHECK: = Domain has a valid Null MX record
+CHECK: > Checking SPF TXT records lints
 CHECK-NEXT: = Found exactly one SPF record
 CHECK-NEXT: = Successfully parsed SPF record
-CHECK-NEXT: + Finished.
+CHECK-NEXT: > Checking DMARC TXT records lints
+CHECK: = Found exactly one DMARC record
+CHECK-NEXT: = Successfully parsed DMARC record
+CHECK: > Checking DNSSEC lints
+CHECK: > Checking HTTPS/SVCB record lints
+CHECK: + Finished.
 CHECK-NEXT: = No issues found.

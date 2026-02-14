@@ -6,7 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 use crate::app::modules::check::config::CheckConfig;
-use crate::app::modules::check::lints::{CheckResult, CheckResults, OutputCheckResults};
+use crate::app::modules::check::lints::dmarc::DmarcCheck;
+use crate::app::modules::check::lints::{CheckResult, CheckResults};
 use crate::app::modules::{Environment, PartialResult};
 use crate::app::resolver::AppResolver;
 use crate::diff::Differ;
@@ -23,16 +24,17 @@ pub struct Spf<'a> {
 }
 
 impl<'a> Spf<'a> {
-    pub fn spf(self) -> PartialResult<OutputCheckResults<'a>> {
+    pub fn spf(self) -> PartialResult<DmarcCheck<'a>> {
         let result = if self.env.mod_config.spf {
             Some(self.do_spf())
         } else {
             None
         };
 
-        Ok(OutputCheckResults {
+        Ok(DmarcCheck {
             env: self.env,
             domain_name: self.domain_name,
+            app_resolver: self.app_resolver,
             check_results: self.check_results.spf(result),
         })
     }

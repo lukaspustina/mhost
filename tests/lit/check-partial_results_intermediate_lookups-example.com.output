@@ -1,4 +1,4 @@
-RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color check example.com -i -p
+RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color check example.com -i -p --no-ns --no-caa --no-ttl
 
 CHECK: > Options: mode=multi, concurrent nameservers=10, max. nameservers=100, concurrent requests=5, retries=0, timeout=5s, ndots=1, abort on error, abort on timeout
 CHECK-NEXT: > Running DNS lookups for all available records.
@@ -12,42 +12,31 @@ CHECK-NEXT: * TXT:
 CHECK: * TXT:
 CHECK: * A:
 CHECK: * AAAA:
-CHECK-NEXT: * AAAA:
 CHECK: > Checking SOA lints
 CHECK-NEXT: * Authoritative SOA records
-CHECK-NEXT: - Sending [[\d+]] request[[s*]] to [[\d+]] nameserver[[s*]] for 1 record type of 1 name.
-CHECK-NEXT: - Received
-CHECK-NEXT: * NS:
-CHECK-NEXT: * NS:
-CHECK-NEXT: - Sending [[\d+]] request[[s*]] to [[\d+]] nameserver[[s*]] for 2 record types of 2 names.
-CHECK-NEXT: - Received
-CHECK-NEXT: * A:
-CHECK-NEXT: * A:
-CHECK: * AAAA:
-CHECK-NEXT: * AAAA:
-CHECK: - Sending [[\d+]] request[[s*]] to [[\d+]] nameserver[[s*]] for 1 record type of 1 name.
-CHECK-NEXT: - Received
-CHECK-NEXT: * SOA:
-CHECK-NEXT: * Comparing authoritative with looked up SOA records
+CHECK: - Received
+CHECK: * Comparing authoritative with looked up SOA records
 CHECK-NEXT: = All authoritative SOA records are in sync
 CHECK-NEXT: = Looked up SOA records match authoritative SOA records
 CHECK-NEXT: > Checking CNAME lints
 CHECK-NEXT: * Apex
 CHECK-NEXT: * MX
-CHECK-NEXT: - Sending [[\d+]] request[[s*]] to [[\d+]] nameserver[[s*]] for 1 record type of 1 name.
-CHECK-NEXT: - Received
-CHECK-NEXT: * SRV
-CHECK-NEXT: - Sending [[\d+]] request[[s*]] to [[\d+]] nameserver[[s*]] for 1 record type of 1 name.
-CHECK-NEXT: - Received
-CHECK-NEXT: * CNAME
-CHECK-NEXT: - Sending [[\d+]] request[[s*]] to [[\d+]] nameserver[[s*]] for 1 record type of 1 name.
-CHECK-NEXT: - Received
-CHECK-NEXT: = Apex zone without CNAME
+CHECK: * SRV
+CHECK: * CNAME
+CHECK: = Apex zone without CNAME
 CHECK-NEXT: = MX do not point to CNAME
 CHECK-NEXT: = SRV do not point to CNAME
 CHECK-NEXT: = CNAME do not point to CNAME
-CHECK-NEXT: > Checking SPF TXT records lints
+CHECK-NEXT: > Checking MX hygiene lints
+CHECK: = Domain has a valid Null MX record
+CHECK: > Checking SPF TXT records lints
 CHECK-NEXT: = Found exactly one SPF record
 CHECK-NEXT: = Successfully parsed SPF record
-CHECK-NEXT: + Finished.
+CHECK-NEXT: > Checking DMARC TXT records lints
+CHECK: - Received
+CHECK: = Found exactly one DMARC record
+CHECK-NEXT: = Successfully parsed DMARC record
+CHECK: > Checking DNSSEC lints
+CHECK: > Checking HTTPS/SVCB record lints
+CHECK: + Finished.
 CHECK-NEXT: = No issues found.

@@ -63,16 +63,30 @@ macro_rules! __intermediate_lookups {
     };
 }
 
+pub mod caa;
 pub mod cnames;
+pub mod dmarc;
+pub mod dnssec_lint;
+pub mod https_svcb;
+pub mod mx;
+pub mod ns;
 pub mod soa;
 pub mod spf;
+pub mod ttl;
 
 #[derive(Debug, Serialize)]
 pub struct CheckResults {
     lookups: Lookups,
     soa: Option<Vec<CheckResult>>,
+    ns: Option<Vec<CheckResult>>,
     cnames: Option<Vec<CheckResult>>,
+    mx: Option<Vec<CheckResult>>,
     spf: Option<Vec<CheckResult>>,
+    dmarc: Option<Vec<CheckResult>>,
+    caa: Option<Vec<CheckResult>>,
+    ttl: Option<Vec<CheckResult>>,
+    dnssec: Option<Vec<CheckResult>>,
+    https_svcb: Option<Vec<CheckResult>>,
 }
 
 impl CheckResults {
@@ -80,33 +94,82 @@ impl CheckResults {
         CheckResults {
             lookups,
             soa: None,
-            spf: None,
+            ns: None,
             cnames: None,
+            mx: None,
+            spf: None,
+            dmarc: None,
+            caa: None,
+            ttl: None,
+            dnssec: None,
+            https_svcb: None,
         }
-    }
-
-    pub fn cnames(self, cnames: Option<Vec<CheckResult>>) -> CheckResults {
-        CheckResults { cnames, ..self }
     }
 
     pub fn soa(self, soa: Option<Vec<CheckResult>>) -> CheckResults {
         CheckResults { soa, ..self }
     }
 
+    pub fn ns(self, ns: Option<Vec<CheckResult>>) -> CheckResults {
+        CheckResults { ns, ..self }
+    }
+
+    pub fn cnames(self, cnames: Option<Vec<CheckResult>>) -> CheckResults {
+        CheckResults { cnames, ..self }
+    }
+
+    pub fn mx(self, mx: Option<Vec<CheckResult>>) -> CheckResults {
+        CheckResults { mx, ..self }
+    }
+
     pub fn spf(self, spf: Option<Vec<CheckResult>>) -> CheckResults {
         CheckResults { spf, ..self }
     }
 
+    pub fn dmarc(self, dmarc: Option<Vec<CheckResult>>) -> CheckResults {
+        CheckResults { dmarc, ..self }
+    }
+
+    pub fn caa(self, caa: Option<Vec<CheckResult>>) -> CheckResults {
+        CheckResults { caa, ..self }
+    }
+
+    pub fn ttl(self, ttl: Option<Vec<CheckResult>>) -> CheckResults {
+        CheckResults { ttl, ..self }
+    }
+
+    pub fn dnssec(self, dnssec: Option<Vec<CheckResult>>) -> CheckResults {
+        CheckResults { dnssec, ..self }
+    }
+
+    pub fn https_svcb(self, https_svcb: Option<Vec<CheckResult>>) -> CheckResults {
+        CheckResults { https_svcb, ..self }
+    }
+
+    fn has_any<F: Fn(&CheckResult) -> bool>(&self, predicate: F) -> bool {
+        let all_checks: [&Option<Vec<CheckResult>>; 10] = [
+            &self.soa,
+            &self.ns,
+            &self.cnames,
+            &self.mx,
+            &self.spf,
+            &self.dmarc,
+            &self.caa,
+            &self.ttl,
+            &self.dnssec,
+            &self.https_svcb,
+        ];
+        all_checks
+            .iter()
+            .any(|check| check.as_ref().is_some_and(|results| results.iter().any(&predicate)))
+    }
+
     pub fn has_warnings(&self) -> bool {
-        (self.cnames.is_some() && self.cnames.as_ref().unwrap().iter().any(|x| x.is_warning()))
-            || (self.soa.is_some() && self.soa.as_ref().unwrap().iter().any(|x| x.is_warning()))
-            || (self.spf.is_some() && self.spf.as_ref().unwrap().iter().any(|x| x.is_warning()))
+        self.has_any(|x| x.is_warning())
     }
 
     pub fn has_failures(&self) -> bool {
-        (self.cnames.is_some() && self.cnames.as_ref().unwrap().iter().any(|x| x.is_failed()))
-            || (self.soa.is_some() && self.soa.as_ref().unwrap().iter().any(|x| x.is_failed()))
-            || (self.spf.is_some() && self.spf.as_ref().unwrap().iter().any(|x| x.is_failed()))
+        self.has_any(|x| x.is_failed())
     }
 }
 
