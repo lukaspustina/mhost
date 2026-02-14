@@ -79,6 +79,7 @@ macro_rules! print_check_results {
     };
 }
 
+pub mod axfr;
 pub mod caa;
 pub mod cnames;
 pub mod dmarc;
@@ -103,6 +104,7 @@ pub struct CheckResults {
     ttl: Option<Vec<CheckResult>>,
     dnssec: Option<Vec<CheckResult>>,
     https_svcb: Option<Vec<CheckResult>>,
+    axfr: Option<Vec<CheckResult>>,
 }
 
 macro_rules! check_result_builders {
@@ -129,13 +131,14 @@ impl CheckResults {
             ttl: None,
             dnssec: None,
             https_svcb: None,
+            axfr: None,
         }
     }
 
-    check_result_builders!(soa, ns, cnames, mx, spf, dmarc, caa, ttl, dnssec, https_svcb);
+    check_result_builders!(soa, ns, cnames, mx, spf, dmarc, caa, ttl, dnssec, https_svcb, axfr);
 
     fn has_any<F: Fn(&CheckResult) -> bool>(&self, predicate: F) -> bool {
-        let all_checks: [&Option<Vec<CheckResult>>; 10] = [
+        let all_checks: [&Option<Vec<CheckResult>>; 11] = [
             &self.soa,
             &self.ns,
             &self.cnames,
@@ -146,6 +149,7 @@ impl CheckResults {
             &self.ttl,
             &self.dnssec,
             &self.https_svcb,
+            &self.axfr,
         ];
         all_checks
             .iter()

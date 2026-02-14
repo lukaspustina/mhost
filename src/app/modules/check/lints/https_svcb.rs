@@ -8,7 +8,8 @@
 use tracing::info;
 
 use crate::app::modules::check::config::CheckConfig;
-use crate::app::modules::check::lints::{CheckResult, CheckResults, OutputCheckResults};
+use crate::app::modules::check::lints::axfr::Axfr;
+use crate::app::modules::check::lints::{CheckResult, CheckResults};
 use crate::app::modules::{Environment, PartialResult};
 use crate::app::resolver::AppResolver;
 use crate::app::utils::time;
@@ -25,16 +26,17 @@ pub struct HttpsSvcb<'a> {
 }
 
 impl<'a> HttpsSvcb<'a> {
-    pub async fn https_svcb(self) -> PartialResult<OutputCheckResults<'a>> {
+    pub async fn https_svcb(self) -> PartialResult<Axfr<'a>> {
         let result = if self.env.mod_config.https_svcb {
             Some(self.do_https_svcb().await?)
         } else {
             None
         };
 
-        Ok(OutputCheckResults {
+        Ok(Axfr {
             env: self.env,
             domain_name: self.domain_name,
+            app_resolver: self.app_resolver,
             check_results: self.check_results.https_svcb(result),
         })
     }

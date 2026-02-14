@@ -434,6 +434,12 @@ fn check_subcommand() -> Command {
                 .action(ArgAction::SetTrue)
                 .help("Does not run HTTPS/SVCB check"),
         )
+        .arg(
+            Arg::new("no-axfr")
+                .long("no-axfr")
+                .action(ArgAction::SetTrue)
+                .help("Does not run AXFR zone transfer security check"),
+        )
 }
 
 fn discover_subcommand() -> Command {

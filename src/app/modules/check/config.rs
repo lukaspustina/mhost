@@ -25,6 +25,7 @@ pub struct CheckConfig {
     pub ttl: bool,
     pub dnssec: bool,
     pub https_svcb: bool,
+    pub axfr: bool,
 }
 
 impl ModConfig for CheckConfig {
@@ -54,6 +55,7 @@ impl TryFrom<&ArgMatches> for CheckConfig {
             ttl: !args.get_flag("no-ttl"),
             dnssec: !args.get_flag("no-dnssec"),
             https_svcb: !args.get_flag("no-https-svcb"),
+            axfr: !args.get_flag("no-axfr"),
         };
 
         Ok(config)
