@@ -1,5 +1,41 @@
 # Changelog
 
+## v0.5.0
+
+### New features
+
+- `info` command — reference guide for DNS record types, TXT sub-types, and well-known subdomains
+- `domain-lookup` command — combined forward + reverse DNS lookup for a full domain profile in one operation
+- CAA record type support (certificate authority authorization)
+- TLSA record type support (DANE/TLS authentication)
+- 8 new discovery strategies: CT log mining, TXT record mining, SRV probing, permutation generation, zone transfer attempts, wildcard detection, NSEC walking, SOA/NS enumeration
+- Expanded default discovery wordlist from 83 to 424 entries
+- 7 new DNS health checks: NS lame delegation, NS network diversity, MX hygiene (Null MX, duplicate preferences, target resolution), DMARC policy validation, CAA tag validation, TTL sanity, DNSSEC presence, HTTPS/SVCB well-formedness
+- Enhanced human-readable summary output for all DNS record types
+
+### Bug fixes
+
+- Fix blocking mutex in async context
+- Fix `--all` flag panic with new record types
+- Fix unimplemented panics for SSHFP/TLSA/NAPTR/HINFO/OPENPGPKEY output
+- Fix confusing CLI flag names
+- Fix flaky lookup_predefined lit test
+
+### Code quality
+
+- Remove panicking `.unwrap()` calls from output rendering path
+- Add 50MB response size limit for CT log queries
+- Robustify WHOIS date parsing with fallback for missing fields
+- Add CLI argument bounds validation
+- Remove lazy_static dependency
+- Reduce boilerplate with `print_check_results!`, `iana_enum!`, and `check_result_builders!` macros
+- Improve error handling and preserve error context throughout
+
+### Documentation
+
+- Comprehensive README rewrite with all new features and commands
+- Updated CLAUDE.md with expanded architecture, CLI commands table, and test guidelines
+
 ## v0.4.1
 
 - Fix release workflow not uploading .deb package to GitHub release

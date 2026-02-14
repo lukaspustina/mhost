@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**mhost** (v0.4.1) is a modern, high-performance DNS lookup utility written in Rust. It is both a CLI tool and a reusable library. Think of it as an advanced replacement for the classic `host` / `dig` commands.
+**mhost** (v0.5.0) is a modern, high-performance DNS lookup utility written in Rust. It is both a CLI tool and a reusable library. Think of it as an advanced replacement for the classic `host` / `dig` commands.
 
 - **Author**: Lukas Pustina
 - **License**: MIT / Apache-2.0
