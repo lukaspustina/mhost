@@ -447,6 +447,12 @@ fn check_subcommand() -> Command {
                 .action(ArgAction::SetTrue)
                 .help("Does not run open resolver detection check"),
         )
+        .arg(
+            Arg::new("no-delegation")
+                .long("no-delegation")
+                .action(ArgAction::SetTrue)
+                .help("Does not run delegation consistency check"),
+        )
 }
 
 fn diff_subcommand() -> Command {
