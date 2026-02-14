@@ -13,7 +13,7 @@ use tabwriter::TabWriter;
 
 use crate::resolver::Lookups;
 use crate::resources::rdata::parsed_txt::{DomainVerification, Mechanism, Modifier, ParsedTxt, Word};
-use crate::resources::rdata::{parsed_txt::Spf, Name, MX, NULL, SOA, SRV, TXT, UNKNOWN};
+use crate::resources::rdata::{parsed_txt::Spf, Name, CAA, MX, NULL, SOA, SRV, TLSA, TXT, UNKNOWN};
 use crate::resources::{NameToIpAddr, Record};
 use crate::{Error, RecordType};
 
@@ -131,6 +131,12 @@ impl Rendering for Record {
                 self.data().cname().unwrap().render(opts),
                 suffix
             ),
+            RecordType::CAA => format!(
+                "{}:\t{}{}",
+                "CAA".paint(*styles::CAA),
+                self.data().caa().unwrap().render(opts),
+                suffix
+            ),
             RecordType::CNAME => format!(
                 "{}:\t{}{}",
                 "CNAME".paint(*styles::NAME),
@@ -166,6 +172,12 @@ impl Rendering for Record {
                 "{}:\t{}{}",
                 "SRV".paint(*styles::SRV),
                 self.data().srv().unwrap().render(opts),
+                suffix
+            ),
+            RecordType::TLSA => format!(
+                "{}:\t{}{}",
+                "TLSA".paint(*styles::TLSA),
+                self.data().tlsa().unwrap().render(opts),
                 suffix
             ),
             RecordType::TXT => format!(
@@ -204,6 +216,23 @@ impl Rendering for MX {
             self.exchange().paint(*styles::MX),
             self.preference().paint(*styles::MX),
         )
+    }
+}
+
+impl Rendering for CAA {
+    fn render(&self, opts: &SummaryOptions) -> String {
+        let style = *styles::CAA;
+        let critical = if self.issuer_critical() { " (critical)" } else { "" };
+        if opts.human {
+            format!("{} {}{}", self.tag().paint(style), self.value().paint(style), critical.paint(style))
+        } else {
+            format!(
+                "tag={}, value={}, issuer_critical={}",
+                self.tag().paint(style),
+                self.value().paint(style),
+                self.issuer_critical().paint(style)
+            )
+        }
     }
 }
 
@@ -269,6 +298,30 @@ impl Rendering for SRV {
             self.priority().paint(style),
             self.weight().paint(style)
         )
+    }
+}
+
+impl Rendering for TLSA {
+    fn render(&self, opts: &SummaryOptions) -> String {
+        let style = *styles::TLSA;
+        let hex_data: String = self.cert_data().iter().map(|b| format!("{:02x}", b)).collect();
+        if opts.human {
+            format!(
+                "usage {}, selector {}, matching {}, data {}",
+                self.cert_usage().paint(style),
+                self.selector().paint(style),
+                self.matching().paint(style),
+                hex_data.paint(style)
+            )
+        } else {
+            format!(
+                "{} {} {} {}",
+                self.cert_usage().paint(style),
+                self.selector().paint(style),
+                self.matching().paint(style),
+                hex_data.paint(style)
+            )
+        }
     }
 }
 
@@ -468,10 +521,12 @@ mod styles {
     lazy_static! {
         pub static ref A: Style = Style::new().fg(Color::White).bold();
         pub static ref AAAA: Style = Style::new().fg(Color::White).bold();
+        pub static ref CAA: Style = Style::new().fg(Color::Cyan);
         pub static ref MX: Style = Style::new().fg(Color::Yellow);
         pub static ref NAME: Style = Style::new().fg(Color::Blue);
         pub static ref SOA: Style = Style::new().fg(Color::Green);
         pub static ref SRV: Style = Style::new().fg(Color::Red);
+        pub static ref TLSA: Style = Style::new().fg(Color::Cyan).bold();
         pub static ref TXT: Style = Style::new().fg(Color::Magenta);
     }
 }

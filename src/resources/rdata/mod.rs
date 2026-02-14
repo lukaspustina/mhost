@@ -12,19 +12,23 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 
 use serde::Serialize;
 
+pub use caa::CAA;
 pub use mx::MX;
 pub use null::NULL;
 pub use soa::SOA;
 pub use srv::SRV;
 pub use hickory_resolver::{IntoName, Name};
+pub use tlsa::{TLSA, CertUsage, Selector, Matching};
 pub use txt::TXT;
 pub use unknown::UNKNOWN;
 
+mod caa;
 mod mx;
 mod null;
 pub mod parsed_txt;
 mod soa;
 mod srv;
+mod tlsa;
 mod txt;
 mod unknown;
 
@@ -34,8 +38,7 @@ pub enum RData {
     A(Ipv4Addr),
     AAAA(Ipv6Addr),
     ANAME(Name),
-    // TODO: CAA(CAA),
-    CAA,
+    CAA(CAA),
     CNAME(Name),
     // TODO: HINFO(HINFO),
     HINFO,
@@ -57,8 +60,7 @@ pub enum RData {
     SSHFP,
     // SVCB(SVCB),
     SVCB,
-    // TODO: TLSA(TLSA),
-    TLSA,
+    TLSA(TLSA),
     TXT(TXT),
     // TODO: DNSSEC(DNSSECRData),
     DNSSEC,
@@ -81,6 +83,7 @@ impl RData {
     accessor!(A, a, Ipv4Addr);
     accessor!(AAAA, aaaa, Ipv6Addr);
     accessor!(ANAME, aname, Name);
+    accessor!(CAA, caa, CAA);
     accessor!(CNAME, cname, Name);
     accessor!(MX, mx, MX);
     accessor!(NULL, null, NULL);
@@ -88,6 +91,7 @@ impl RData {
     accessor!(PTR, ptr, Name);
     accessor!(SOA, soa, SOA);
     accessor!(SRV, srv, SRV);
+    accessor!(TLSA, tlsa, TLSA);
     accessor!(TXT, txt, TXT);
     accessor!(Unknown, unknown, UNKNOWN);
 }
@@ -102,7 +106,7 @@ impl From<hickory_resolver::proto::rr::RData> for RData {
             TRData::A(value) => RData::A(value.0),
             TRData::AAAA(value) => RData::AAAA(value.0),
             TRData::ANAME(value) => RData::ANAME(value.0),
-            TRData::CAA(value) => RData::CAA,
+            TRData::CAA(value) => RData::CAA(value.into()),
             TRData::CNAME(value) => RData::CNAME(value.0),
             TRData::HINFO(value) => RData::HINFO,
             TRData::HTTPS(value) => RData::HTTPS,
@@ -117,7 +121,7 @@ impl From<hickory_resolver::proto::rr::RData> for RData {
             TRData::SRV(value) => RData::SRV(value.into()),
             TRData::SSHFP(value) => RData::SSHFP,
             TRData::SVCB(value) => RData::SVCB,
-            TRData::TLSA(value) => RData::TLSA,
+            TRData::TLSA(value) => RData::TLSA(value.into()),
             TRData::TXT(value) => RData::TXT(value.into()),
             TRData::DNSSEC(value) => RData::DNSSEC,
             TRData::Unknown { code, rdata } => {

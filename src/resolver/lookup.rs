@@ -23,7 +23,7 @@ use hickory_resolver::ResolveError;
 use crate::error::Errors;
 use crate::nameserver::NameServerConfig;
 use crate::resolver::{Error, MultiQuery, Resolver, ResolverResult, UniQuery};
-use crate::resources::rdata::{Name, MX, NULL, SOA, SRV, TXT, UNKNOWN};
+use crate::resources::rdata::{Name, CAA, MX, NULL, SOA, SRV, TLSA, TXT, UNKNOWN};
 use crate::resources::{RData, Record};
 use crate::utils::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
 use crate::utils::serialize::ser_arc_nameserver_config;
@@ -110,6 +110,7 @@ impl Lookups {
     lookups_data_accessor!(a, Ipv4Addr);
     lookups_data_accessor!(aaaa, Ipv6Addr);
     lookups_data_accessor!(aname, Name);
+    lookups_data_accessor!(caa, CAA);
     lookups_data_accessor!(cname, Name);
     lookups_data_accessor!(mx, MX);
     lookups_data_accessor!(null, NULL);
@@ -117,6 +118,7 @@ impl Lookups {
     lookups_data_accessor!(ptr, Name);
     lookups_data_accessor!(soa, SOA);
     lookups_data_accessor!(srv, SRV);
+    lookups_data_accessor!(tlsa, TLSA);
     lookups_data_accessor!(txt, TXT);
     lookups_data_accessor!(unknown, UNKNOWN);
 
@@ -133,6 +135,7 @@ impl Lookups {
     lookups_record_accessor!(rr_a, RecordType::A);
     lookups_record_accessor!(rr_aaaa, RecordType::AAAA);
     lookups_record_accessor!(rr_aname, RecordType::ANAME);
+    lookups_record_accessor!(rr_caa, RecordType::CAA);
     lookups_record_accessor!(rr_cname, RecordType::CNAME);
     lookups_record_accessor!(rr_mx, RecordType::MX);
     lookups_record_accessor!(rr_null, RecordType::NULL);
@@ -140,6 +143,7 @@ impl Lookups {
     lookups_record_accessor!(rr_ptr, RecordType::PTR);
     lookups_record_accessor!(rr_soa, RecordType::SOA);
     lookups_record_accessor!(rr_srv, RecordType::SRV);
+    lookups_record_accessor!(rr_tlsa, RecordType::TLSA);
     lookups_record_accessor!(rr_txt, RecordType::TXT);
 
     pub fn rr_unknown(&self) -> Vec<&Record> {
@@ -334,6 +338,7 @@ impl Lookup {
     lookup_data_accessor!(a, Ipv4Addr);
     lookup_data_accessor!(aaaa, Ipv6Addr);
     lookup_data_accessor!(aname, Name);
+    lookup_data_accessor!(caa, CAA);
     lookup_data_accessor!(cname, Name);
     lookup_data_accessor!(mx, MX);
     lookup_data_accessor!(null, NULL);
@@ -341,6 +346,7 @@ impl Lookup {
     lookup_data_accessor!(ptr, Name);
     lookup_data_accessor!(soa, SOA);
     lookup_data_accessor!(srv, SRV);
+    lookup_data_accessor!(tlsa, TLSA);
     lookup_data_accessor!(txt, TXT);
     lookup_data_accessor!(unknown, UNKNOWN);
 
@@ -353,6 +359,7 @@ impl Lookup {
     lookup_record_accessor!(rr_a, RecordType::A);
     lookup_record_accessor!(rr_aaaa, RecordType::AAAA);
     lookup_record_accessor!(rr_aname, RecordType::ANAME);
+    lookup_record_accessor!(rr_caa, RecordType::CAA);
     lookup_record_accessor!(rr_cname, RecordType::CNAME);
     lookup_record_accessor!(rr_mx, RecordType::MX);
     lookup_record_accessor!(rr_null, RecordType::NULL);
@@ -360,6 +367,7 @@ impl Lookup {
     lookup_record_accessor!(rr_ptr, RecordType::PTR);
     lookup_record_accessor!(rr_soa, RecordType::SOA);
     lookup_record_accessor!(rr_srv, RecordType::SRV);
+    lookup_record_accessor!(rr_tlsa, RecordType::TLSA);
     lookup_record_accessor!(rr_txt, RecordType::TXT);
 
     pub fn rr_unknown(&self) -> Vec<&Record> {

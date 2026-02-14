@@ -93,11 +93,13 @@ impl<'a> RequestAll<'a> {
                 RecordType::AAAA,
                 RecordType::ANY,
                 RecordType::ANAME,
+                RecordType::CAA,
                 RecordType::CNAME,
                 RecordType::MX,
                 RecordType::NS,
                 RecordType::SRV,
                 RecordType::SOA,
+                RecordType::TLSA,
                 RecordType::TXT,
             ],
         )?;
