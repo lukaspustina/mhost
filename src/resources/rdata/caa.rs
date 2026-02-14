@@ -37,6 +37,27 @@ impl CAA {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn caa_new_and_accessors() {
+        let caa = CAA::new(true, "issue".to_string(), "letsencrypt.org".to_string());
+        assert!(caa.issuer_critical());
+        assert_eq!(caa.tag(), "issue");
+        assert_eq!(caa.value(), "letsencrypt.org");
+    }
+
+    #[test]
+    fn caa_not_critical() {
+        let caa = CAA::new(false, "issuewild".to_string(), ";".to_string());
+        assert!(!caa.issuer_critical());
+        assert_eq!(caa.tag(), "issuewild");
+        assert_eq!(caa.value(), ";");
+    }
+}
+
 #[doc(hidden)]
 impl From<hickory_resolver::proto::rr::rdata::CAA> for CAA {
     fn from(caa: hickory_resolver::proto::rr::rdata::CAA) -> Self {

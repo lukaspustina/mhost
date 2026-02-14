@@ -25,13 +25,20 @@
 cargo build                # Build everything (default feature = "app")
 cargo build --lib          # Build library only
 cargo check                # Type-check without full compilation
-cargo test --lib           # Run library unit tests (83 tests, fast, no network needed)
-cargo test                 # Run all tests including CLI integration tests (slower, may need network)
+cargo test --lib           # Run library unit tests (127 tests, fast, no network needed)
+cargo test                 # Run all tests including CLI integration tests (slower, needs network)
 cargo clippy               # Lint
 cargo fmt                  # Format
 ```
 
-**Note**: The CLI integration tests (`tests/cli_output_tests.rs`) use the `lit` crate for CLI output testing and may fail if external DNS queries time out. `cargo test --lib` is the reliable quick check.
+### Test guidelines
+
+- **`cargo test --lib`** is the reliable quick check — 127 unit tests, no network needed.
+- **`cargo test`** also runs lit-based CLI integration tests (`tests/cli_output_tests.rs`) that make real DNS queries via `8.8.8.8`. These may fail due to DNS timeouts or changed records.
+- **Every new rdata type or RecordType variant must have unit tests.** Each rdata module has a `#[cfg(test)] mod tests` block covering constructor/accessor round-trips and any enum conversions (`From<u8>`, `Display`).
+- **`RecordType::from_str` must cover all variants.** If you add a new `RecordType` variant, add it to `FromStr`, `all()`, and the `from_str_all_standard_types` test. The `display_round_trip` test will catch omissions.
+- **`RData` accessor tests** in `src/resources/rdata/mod.rs` verify each variant's accessor returns `Some` and unrelated accessors return `None`.
+- **Lit tests** live in `tests/lit/*.output`. Use regex patterns (`[[\d+]]`, `[[s*]]`) instead of hardcoded counts for values that change when record types are added (e.g., request counts, record type counts). Avoid asserting on specific subdomains from wordlist discovery — these are flaky due to DNS timeouts.
 
 ## Architecture
 
