@@ -1,0 +1,14 @@
+RUN: @mhost_bin --ascii --no-color info
+
+CHECK: > DNS Record Types:
+CHECK: * A
+CHECK: * AAAA
+CHECK: * SSHFP
+CHECK: * TLSA
+CHECK: > Parsed TXT Sub-Types:
+CHECK: * SPF
+CHECK: * DMARC
+CHECK: > Well-Known Subdomains (domain-lookup):
+CHECK: * _dmarc
+CHECK: * _443._tcp
+CHECK: Use 'mhost info <TOPIC>' for details on a specific type.
