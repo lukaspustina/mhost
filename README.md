@@ -1,4 +1,4 @@
-# ![mhost](doc/images/logo.png) mhost
+# ![mhost](docs/images/logo.png) mhost
 
 A modern take on the classic `host` DNS lookup utility including an easy to use and very fast Rust lookup library.
 
@@ -24,7 +24,7 @@ For details see sections [Use Cases](#Use-Cases) and [Documentation](#documentat
 
 1.  Install `mhost` – see below for [installation instructions](#installation).
 
-2.  Run `mhost -p l --all -w github.com` and you’ve just asked 16 name servers for all available DNS records of *github.com* in 34 ms. And in addition you get the WHOIS information for GitHub’s subnet. ![Multi lookup for all available records of github.com.](doc/images/multi-lookup-all-records-github.png)
+2.  Run `mhost -p l --all -w github.com` and you’ve just asked 16 name servers for all available DNS records of *github.com* in 34 ms. And in addition you get the WHOIS information for GitHub’s subnet. ![Multi lookup for all available records of github.com.](docs/images/multi-lookup-all-records-github.png)
 
 3.  Run `mhost -q -p --output json l --all -w github.com  | jq '.lookups[] | .result.Response.records[]? | select(.type == "A") | .data.A'` and get all IPv4 addresses.
 
@@ -74,7 +74,7 @@ For details see sections [Use Cases](#Use-Cases) and [Documentation](#documentat
 $ mhost l github.com
 ```
 
-![Default lookup for github.com.](doc/images/default-lookup-github.png)
+![Default lookup for github.com.](docs/images/default-lookup-github.png)
 
 In this run, all default settings are applied. Especially, `most` uses only the local system’s name servers and queries only the default record types.
 
@@ -84,7 +84,7 @@ In this run, all default settings are applied. Especially, `most` uses only the 
 $ mhost -p l github.com
 ```
 
-![Default lookup with predefined servers for github.com.](doc/images/default-lookup-predefined-servers-github.png)
+![Default lookup with predefined servers for github.com.](docs/images/default-lookup-predefined-servers-github.png)
 
 See, there’re more answers than before!
 
@@ -97,7 +97,7 @@ $ mhost server-lists public-dns -o servers.txt
 $ mhost --limit 6000 --max-concurrent-servers 1000 --timeout 1 -f servers.txt l www.github.com
 ```
 
-![Default lookup with servers list for github.com.](doc/images/default-lookup-servers-list-github.png)
+![Default lookup with servers list for github.com.](docs/images/default-lookup-servers-list-github.png)
 
 See, there’re even more answers than before!
 
@@ -115,7 +115,7 @@ As already mentioned before, `mhost` supports DNS queries over UDP, TCP, DNS ove
 
 This command also shows the syntax for name server specification, which in general is `protocol:<host name | ip address>:port,tls_auth_name=hostname,name=human-readable-name`.
 
-![Default lookup with all protocols for github.com.](doc/images/default-lookup-all-protocols-github.png)
+![Default lookup with all protocols for github.com.](docs/images/default-lookup-all-protocols-github.png)
 
 ### Discover a domain
 
@@ -127,7 +127,7 @@ $ mhost -p d github.com -p
 
 This command uses the predefined name servers to discover the GitHub domain. The `-s` reduces all discovered names to real subdomains of `github.com.`.
 
-![Discover github.com.](doc/images/discover-github.png)
+![Discover github.com.](docs/images/discover-github.png)
 
 You can go one more step and explore the autonomous systems GitHub uses. In order to discover those, you can use the following commands:
 
@@ -136,7 +136,7 @@ $ mhost -p l --all -w github.com
 $ mhost -p l --all 140.82.121.0/24
 ```
 
-![Discover AS of github.com.](doc/images/discover-as-github.png)
+![Discover AS of github.com.](docs/images/discover-as-github.png)
 
 ### Check your name server configuration
 
@@ -144,7 +144,7 @@ $ mhost -p l --all 140.82.121.0/24
 $ mhost -p c github.com -p
 ```
 
-![Check github.com.](doc/images/check-github.png)
+![Check github.com.](docs/images/check-github.png)
 
 ## Installation
 
@@ -306,7 +306,7 @@ $ make install
 
 ### Architecture Design Records
 
-The subdirectory [doc/adr](doc/adr/) contains Architecture Design Records (ADRs) for this project. Record keeping has started during the project so not all decisions have been recorded. I still hope they will help everybody interested including me to understand the rational of design decisions.
+The subdirectory [docs/adr](docs/adr/) contains Architecture Design Records (ADRs) for this project. Record keeping has started during the project so not all decisions have been recorded. I still hope they will help everybody interested including me to understand the rational of design decisions.
 
 ## Changelog
 
