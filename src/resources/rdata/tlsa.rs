@@ -44,114 +44,42 @@ impl TLSA {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone, Serialize)]
-pub enum CertUsage {
-    /// CA constraint (0)
-    PkixTa,
-    /// Service certificate constraint (1)
-    PkixEe,
-    /// Trust anchor assertion (2)
-    DaneTa,
-    /// Domain-issued certificate (3)
-    DaneEe,
-    Unassigned(u8),
-    /// Private use (255)
-    Private,
-}
-
-impl fmt::Display for CertUsage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            CertUsage::PkixTa => write!(f, "PKIX-TA"),
-            CertUsage::PkixEe => write!(f, "PKIX-EE"),
-            CertUsage::DaneTa => write!(f, "DANE-TA"),
-            CertUsage::DaneEe => write!(f, "DANE-EE"),
-            CertUsage::Unassigned(v) => write!(f, "Unassigned({})", v),
-            CertUsage::Private => write!(f, "Private"),
-        }
+iana_enum! {
+    pub enum CertUsage {
+        /// CA constraint (0)
+        PkixTa = 0 => "PKIX-TA",
+        /// Service certificate constraint (1)
+        PkixEe = 1 => "PKIX-EE",
+        /// Trust anchor assertion (2)
+        DaneTa = 2 => "DANE-TA",
+        /// Domain-issued certificate (3)
+        DaneEe = 3 => "DANE-EE",
+        /// Private use (255)
+        Private = 255 => "Private",
     }
 }
 
-impl From<u8> for CertUsage {
-    fn from(v: u8) -> Self {
-        match v {
-            0 => CertUsage::PkixTa,
-            1 => CertUsage::PkixEe,
-            2 => CertUsage::DaneTa,
-            3 => CertUsage::DaneEe,
-            255 => CertUsage::Private,
-            v => CertUsage::Unassigned(v),
-        }
+iana_enum! {
+    pub enum Selector {
+        /// Full certificate (0)
+        Full = 0 => "Full",
+        /// SubjectPublicKeyInfo (1)
+        Spki = 1 => "SPKI",
+        /// Private use (255)
+        Private = 255 => "Private",
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone, Serialize)]
-pub enum Selector {
-    /// Full certificate (0)
-    Full,
-    /// SubjectPublicKeyInfo (1)
-    Spki,
-    Unassigned(u8),
-    /// Private use (255)
-    Private,
-}
-
-impl fmt::Display for Selector {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Selector::Full => write!(f, "Full"),
-            Selector::Spki => write!(f, "SPKI"),
-            Selector::Unassigned(v) => write!(f, "Unassigned({})", v),
-            Selector::Private => write!(f, "Private"),
-        }
-    }
-}
-
-impl From<u8> for Selector {
-    fn from(v: u8) -> Self {
-        match v {
-            0 => Selector::Full,
-            1 => Selector::Spki,
-            255 => Selector::Private,
-            v => Selector::Unassigned(v),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone, Serialize)]
-pub enum Matching {
-    /// Exact match on selected content (0)
-    Raw,
-    /// SHA-256 hash of selected content (1)
-    Sha256,
-    /// SHA-512 hash of selected content (2)
-    Sha512,
-    Unassigned(u8),
-    /// Private use (255)
-    Private,
-}
-
-impl fmt::Display for Matching {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Matching::Raw => write!(f, "Raw"),
-            Matching::Sha256 => write!(f, "SHA-256"),
-            Matching::Sha512 => write!(f, "SHA-512"),
-            Matching::Unassigned(v) => write!(f, "Unassigned({})", v),
-            Matching::Private => write!(f, "Private"),
-        }
-    }
-}
-
-impl From<u8> for Matching {
-    fn from(v: u8) -> Self {
-        match v {
-            0 => Matching::Raw,
-            1 => Matching::Sha256,
-            2 => Matching::Sha512,
-            255 => Matching::Private,
-            v => Matching::Unassigned(v),
-        }
+iana_enum! {
+    pub enum Matching {
+        /// Exact match on selected content (0)
+        Raw = 0 => "Raw",
+        /// SHA-256 hash of selected content (1)
+        Sha256 = 1 => "SHA-256",
+        /// SHA-512 hash of selected content (2)
+        Sha512 = 2 => "SHA-512",
+        /// Private use (255)
+        Private = 255 => "Private",
     }
 }
 

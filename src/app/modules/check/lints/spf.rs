@@ -58,16 +58,7 @@ impl<'a> Spf<'a> {
         Spf::check_num_of_spf_records(&spfs, &mut results);
         Spf::check_parsed_spf_records(&spfs, &mut results);
 
-        if self.env.console.show_partial_results() {
-            for r in &results {
-                match r {
-                    CheckResult::NotFound() => self.env.console.info("No SPF records found."),
-                    CheckResult::Ok(str) => self.env.console.ok(str),
-                    CheckResult::Warning(str) => self.env.console.attention(str),
-                    CheckResult::Failed(str) => self.env.console.failed(str),
-                }
-            }
-        }
+        print_check_results!(self, results, "No SPF records found.");
 
         results
     }
