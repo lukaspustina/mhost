@@ -333,6 +333,7 @@ Examples:
 fn subcommands() -> Vec<Command> {
     let visible: Vec<Command> = vec![
         check_subcommand(),
+        diff_subcommand(),
         discover_subcommand(),
         domain_lookup_subcommand(),
         info_subcommand(),
@@ -439,6 +440,56 @@ fn check_subcommand() -> Command {
                 .long("no-axfr")
                 .action(ArgAction::SetTrue)
                 .help("Does not run AXFR zone transfer security check"),
+        )
+}
+
+fn diff_subcommand() -> Command {
+    Command::new("diff")
+        .about("Compares DNS records from two different nameserver sets")
+        .arg(
+            Arg::new("domain name")
+                .required(true)
+                .index(1)
+                .value_name("DOMAIN NAME")
+                .help("domain name to compare")
+                .long_help("* DOMAIN NAME may be any valid DNS name, e.g., example.com"),
+        )
+        .arg(
+            Arg::new("record-types")
+                .short('t')
+                .long("record-type")
+                .value_name("RECORD TYPE")
+                .action(ArgAction::Append)
+                .value_delimiter(',')
+                .default_value("A,AAAA,CNAME,MX,NS,SOA,TXT")
+                .value_parser(SUPPORTED_RECORD_TYPES.to_vec())
+                .help("Sets record types to compare"),
+        )
+        .arg(
+            Arg::new("all-record-types")
+                .long("all")
+                .action(ArgAction::SetTrue)
+                .help("Enables comparison for all record types"),
+        )
+        .arg(
+            Arg::new("left")
+                .short('l')
+                .long("left")
+                .required(true)
+                .num_args(1..)
+                .value_name("NAMESERVER")
+                .help("Left nameserver(s) to query")
+                .long_help("Left nameserver(s) to query. Accepts the same nameserver spec format as --nameserver."),
+        )
+        .arg(
+            Arg::new("right")
+                .short('r')
+                .long("right")
+                .required(true)
+                .num_args(1..)
+                .value_name("NAMESERVER")
+                .help("Right nameserver(s) to query")
+                .long_help("Right nameserver(s) to query. Accepts the same nameserver spec format as --nameserver."),
         )
 }
 

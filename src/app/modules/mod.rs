@@ -16,6 +16,7 @@ use crate::app::{self, AppConfig, ExitStatus};
 
 pub mod check;
 pub mod completions;
+pub mod diff;
 pub mod discover;
 pub mod domain_lookup;
 pub mod get_server_lists;

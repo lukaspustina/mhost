@@ -1,0 +1,10 @@
+RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color diff example.com --left 8.8.8.8 --right 1.1.1.1
+
+CHECK: > Options: mode=multi, concurrent nameservers=10, max. nameservers=100, concurrent requests=5, retries=0, timeout=5s, ndots=1, abort on error, abort on timeout
+CHECK: > Running left lookups.
+CHECK-NEXT: - Sending [[\d+]] request[[s*]] to [[\d+]] nameserver[[s*]] for 7 record types of 1 name.
+CHECK: > Running right lookups.
+CHECK-NEXT: - Sending [[\d+]] request[[s*]] to [[\d+]] nameserver[[s*]] for 7 record types of 1 name.
+CHECK: DNS Diff for example.com
+CHECK-NEXT: Left: [[.*]]
+CHECK-NEXT: Right: [[.*]]
