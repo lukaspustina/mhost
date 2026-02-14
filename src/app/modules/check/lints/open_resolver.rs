@@ -10,8 +10,7 @@ use std::time::Duration;
 use tracing::{debug, info};
 
 use crate::app::modules::check::config::CheckConfig;
-use crate::app::modules::check::lints::{CheckResult, CheckResults};
-use super::open_resolver::OpenResolver;
+use crate::app::modules::check::lints::{CheckResult, CheckResults, OutputCheckResults};
 use crate::app::modules::{Environment, PartialResult};
 use crate::app::resolver::AppResolver;
 use crate::app::utils::time;
@@ -19,32 +18,31 @@ use crate::resolver::lookup::Uniquify;
 use crate::resolver::{Lookups, MultiQuery, ResolverConfig};
 use crate::{Name, RecordType};
 
-pub struct Axfr<'a> {
+pub struct OpenResolver<'a> {
     pub env: Environment<'a, CheckConfig>,
     pub domain_name: Name,
     pub app_resolver: AppResolver,
     pub check_results: CheckResults,
 }
 
-impl<'a> Axfr<'a> {
-    pub async fn axfr(self) -> PartialResult<OpenResolver<'a>> {
-        let result = if self.env.mod_config.axfr {
-            Some(self.do_axfr().await?)
+impl<'a> OpenResolver<'a> {
+    pub async fn open_resolver(self) -> PartialResult<OutputCheckResults<'a>> {
+        let result = if self.env.mod_config.open_resolver {
+            Some(self.do_open_resolver().await?)
         } else {
             None
         };
 
-        Ok(OpenResolver {
+        Ok(OutputCheckResults {
             env: self.env,
             domain_name: self.domain_name,
-            app_resolver: self.app_resolver,
-            check_results: self.check_results.axfr(result),
+            check_results: self.check_results.open_resolver(result),
         })
     }
 
-    async fn do_axfr(&self) -> PartialResult<Vec<CheckResult>> {
+    async fn do_open_resolver(&self) -> PartialResult<Vec<CheckResult>> {
         if self.env.console.show_partial_headers() {
-            self.env.console.caption("Checking AXFR zone transfer security");
+            self.env.console.caption("Checking for open resolver");
         }
 
         let ns_names: Vec<Name> = self
@@ -58,7 +56,7 @@ impl<'a> Axfr<'a> {
 
         if ns_names.is_empty() {
             let results = vec![CheckResult::NotFound()];
-            print_check_results!(self, results, "No NS records found, cannot check AXFR.");
+            print_check_results!(self, results, "No NS records found, cannot check for open resolver.");
             return Ok(results);
         }
 
@@ -67,14 +65,15 @@ impl<'a> Axfr<'a> {
             Ok(q) => q,
             Err(_) => {
                 let results = vec![CheckResult::Warning(
-                    "Could not resolve NS server addresses for AXFR check".to_string(),
+                    "Could not resolve NS server addresses for open resolver check".to_string(),
                 )];
-                print_check_results!(self, results, "No NS records found, cannot check AXFR.");
+                print_check_results!(self, results, "No NS records found, cannot check for open resolver.");
                 return Ok(results);
             }
         };
 
-        let lookups: Lookups = intermediate_lookups!(self, query, "Running lookups for NS server IP addresses for AXFR check.");
+        let lookups: Lookups =
+            intermediate_lookups!(self, query, "Running lookups for NS server IP addresses for open resolver check.");
         let ns_ips: Vec<std::net::IpAddr> = lookups
             .a()
             .unique()
@@ -86,75 +85,74 @@ impl<'a> Axfr<'a> {
 
         if ns_ips.is_empty() {
             let results = vec![CheckResult::Warning(
-                "No IP addresses resolved for NS servers: cannot check AXFR".to_string(),
+                "No IP addresses resolved for NS servers: cannot check for open resolver".to_string(),
             )];
-            print_check_results!(self, results, "No NS records found, cannot check AXFR.");
+            print_check_results!(self, results, "No NS records found, cannot check for open resolver.");
             return Ok(results);
         }
 
-        let results = Self::check_axfr(&self.domain_name, &ns_ips, &self.app_resolver, self.env.app_config).await;
+        let results = Self::check_open_resolver(&ns_ips, self.env.app_config).await;
 
-        print_check_results!(self, results, "No NS records found, cannot check AXFR.");
+        print_check_results!(self, results, "No NS records found, cannot check for open resolver.");
 
         Ok(results)
     }
 
-    async fn check_axfr(
-        domain_name: &Name,
+    async fn check_open_resolver(
         ns_ips: &[std::net::IpAddr],
-        _app_resolver: &AppResolver,
         app_config: &crate::app::AppConfig,
     ) -> Vec<CheckResult> {
-        let mut vulnerable_ips = Vec::new();
+        let mut open_ips = Vec::new();
+        let probe_name: Name = "www.google.com.".parse().expect("valid probe domain name");
 
         for ip in ns_ips.iter().take(3) {
-            info!("Trying AXFR against {} for security check", ip);
+            info!("Probing {} for open resolver behavior", ip);
 
-            let ns_config = crate::nameserver::NameServerConfig::tcp((*ip, 53));
+            let ns_config = crate::nameserver::NameServerConfig::udp((*ip, 53));
             let resolver_config = ResolverConfig::new(ns_config);
 
             match AppResolver::from_configs(vec![resolver_config], app_config).await {
-                Ok(axfr_resolver) => {
-                    if let Ok(query) = MultiQuery::multi_record(domain_name.clone(), vec![RecordType::AXFR]) {
-                        match tokio::time::timeout(Duration::from_secs(5), axfr_resolver.lookup(query)).await {
-                            Ok(Ok(axfr_lookups)) if axfr_lookups.has_records() => {
-                                info!("AXFR succeeded against {} - zone transfer is publicly accessible!", ip);
-                                vulnerable_ips.push((*ip, axfr_lookups.records().len()));
+                Ok(probe_resolver) => {
+                    if let Ok(query) = MultiQuery::multi_record(probe_name.clone(), vec![RecordType::A]) {
+                        match tokio::time::timeout(Duration::from_secs(5), probe_resolver.lookup(query)).await {
+                            Ok(Ok(probe_lookups)) if probe_lookups.has_records() => {
+                                info!("Open resolver detected at {} - answered recursive query for external domain", ip);
+                                open_ips.push(*ip);
                             }
                             Ok(Ok(_)) => {
-                                debug!("AXFR returned no records from {}", ip);
+                                debug!("No records returned from {} for external query (properly configured)", ip);
                             }
                             Ok(Err(e)) => {
-                                debug!("AXFR refused/failed against {} (expected): {}", ip, e);
+                                debug!("Query refused/failed against {} (expected): {}", ip, e);
                             }
                             Err(_) => {
-                                debug!("AXFR timed out against {} (expected)", ip);
+                                debug!("Query timed out against {} (expected)", ip);
                             }
                         }
                     }
                 }
                 Err(e) => {
-                    debug!("Failed to create resolver for AXFR against {}: {}", ip, e);
+                    debug!("Failed to create resolver for open resolver probe against {}: {}", ip, e);
                 }
             }
         }
 
-        classify_axfr_results(&vulnerable_ips)
+        classify_open_resolver_results(&open_ips)
     }
 }
 
-fn classify_axfr_results(vulnerable_ips: &[(std::net::IpAddr, usize)]) -> Vec<CheckResult> {
-    if vulnerable_ips.is_empty() {
+fn classify_open_resolver_results(open_ips: &[std::net::IpAddr]) -> Vec<CheckResult> {
+    if open_ips.is_empty() {
         vec![CheckResult::Ok(
-            "Zone transfer (AXFR) properly restricted".to_string(),
+            "No open resolvers detected among authoritative nameservers".to_string(),
         )]
     } else {
-        vulnerable_ips
+        open_ips
             .iter()
-            .map(|(ip, count)| {
+            .map(|ip| {
                 CheckResult::Failed(format!(
-                    "Zone transfer publicly accessible from {} ({} records returned): attackers can enumerate all DNS records",
-                    ip, count
+                    "Open resolver detected at {}: answers recursive queries for external domains, enabling DNS amplification attacks",
+                    ip
                 ))
             })
             .collect()
@@ -166,29 +164,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn check_axfr_no_vulnerable_ips() {
-        let results = classify_axfr_results(&[]);
+    fn no_open_resolvers() {
+        let results = classify_open_resolver_results(&[]);
         assert_eq!(results.len(), 1);
         assert!(matches!(&results[0], CheckResult::Ok(_)));
     }
 
     #[test]
-    fn check_axfr_one_vulnerable() {
+    fn one_open_resolver() {
         let ip: std::net::IpAddr = "192.168.1.1".parse().unwrap();
-        let results = classify_axfr_results(&[(ip, 42)]);
+        let results = classify_open_resolver_results(&[ip]);
         assert_eq!(results.len(), 1);
         assert!(matches!(&results[0], CheckResult::Failed(_)));
         if let CheckResult::Failed(msg) = &results[0] {
             assert!(msg.contains("192.168.1.1"));
-            assert!(msg.contains("42 records"));
+            assert!(msg.contains("amplification"));
         }
     }
 
     #[test]
-    fn check_axfr_multiple_vulnerable() {
+    fn multiple_open_resolvers() {
         let ip1: std::net::IpAddr = "192.168.1.1".parse().unwrap();
         let ip2: std::net::IpAddr = "10.0.0.1".parse().unwrap();
-        let results = classify_axfr_results(&[(ip1, 10), (ip2, 20)]);
+        let results = classify_open_resolver_results(&[ip1, ip2]);
         assert_eq!(results.len(), 2);
         assert!(results.iter().all(|r| matches!(r, CheckResult::Failed(_))));
     }

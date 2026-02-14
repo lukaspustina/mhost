@@ -48,6 +48,8 @@ pub async fn run(args: &ArgMatches, app_config: &AppConfig) -> Result<ExitStatus
         .await?
         .axfr()
         .await?
+        .open_resolver()
+        .await?
         .output()
         .into_result()
 }

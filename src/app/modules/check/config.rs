@@ -26,6 +26,7 @@ pub struct CheckConfig {
     pub dnssec: bool,
     pub https_svcb: bool,
     pub axfr: bool,
+    pub open_resolver: bool,
 }
 
 impl ModConfig for CheckConfig {
@@ -56,6 +57,7 @@ impl TryFrom<&ArgMatches> for CheckConfig {
             dnssec: !args.get_flag("no-dnssec"),
             https_svcb: !args.get_flag("no-https-svcb"),
             axfr: !args.get_flag("no-axfr"),
+            open_resolver: !args.get_flag("no-open-resolver"),
         };
 
         Ok(config)
