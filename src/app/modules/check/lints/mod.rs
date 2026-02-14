@@ -89,6 +89,16 @@ pub struct CheckResults {
     https_svcb: Option<Vec<CheckResult>>,
 }
 
+macro_rules! check_result_builders {
+    ($($field:ident),+ $(,)?) => {
+        $(
+            pub fn $field(self, $field: Option<Vec<CheckResult>>) -> CheckResults {
+                CheckResults { $field, ..self }
+            }
+        )+
+    };
+}
+
 impl CheckResults {
     pub fn new(lookups: Lookups) -> CheckResults {
         CheckResults {
@@ -106,45 +116,7 @@ impl CheckResults {
         }
     }
 
-    pub fn soa(self, soa: Option<Vec<CheckResult>>) -> CheckResults {
-        CheckResults { soa, ..self }
-    }
-
-    pub fn ns(self, ns: Option<Vec<CheckResult>>) -> CheckResults {
-        CheckResults { ns, ..self }
-    }
-
-    pub fn cnames(self, cnames: Option<Vec<CheckResult>>) -> CheckResults {
-        CheckResults { cnames, ..self }
-    }
-
-    pub fn mx(self, mx: Option<Vec<CheckResult>>) -> CheckResults {
-        CheckResults { mx, ..self }
-    }
-
-    pub fn spf(self, spf: Option<Vec<CheckResult>>) -> CheckResults {
-        CheckResults { spf, ..self }
-    }
-
-    pub fn dmarc(self, dmarc: Option<Vec<CheckResult>>) -> CheckResults {
-        CheckResults { dmarc, ..self }
-    }
-
-    pub fn caa(self, caa: Option<Vec<CheckResult>>) -> CheckResults {
-        CheckResults { caa, ..self }
-    }
-
-    pub fn ttl(self, ttl: Option<Vec<CheckResult>>) -> CheckResults {
-        CheckResults { ttl, ..self }
-    }
-
-    pub fn dnssec(self, dnssec: Option<Vec<CheckResult>>) -> CheckResults {
-        CheckResults { dnssec, ..self }
-    }
-
-    pub fn https_svcb(self, https_svcb: Option<Vec<CheckResult>>) -> CheckResults {
-        CheckResults { https_svcb, ..self }
-    }
+    check_result_builders!(soa, ns, cnames, mx, spf, dmarc, caa, ttl, dnssec, https_svcb);
 
     fn has_any<F: Fn(&CheckResult) -> bool>(&self, predicate: F) -> bool {
         let all_checks: [&Option<Vec<CheckResult>>; 10] = [

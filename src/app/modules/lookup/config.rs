@@ -52,7 +52,7 @@ fn record_types(args: &ArgMatches) -> Result<Vec<RecordType>> {
         Ok(SUPPORTED_RECORD_TYPES
             .iter()
             .filter(|x| **x != "ANY")
-            .map(|x| RecordType::from_str(x).unwrap())
+            .map(|x| RecordType::from_str(x).expect("SUPPORTED_RECORD_TYPES entries must be valid"))
             .collect())
     } else {
         let args: Vec<&str> = args
