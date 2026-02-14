@@ -33,6 +33,7 @@ path = "src/lib.rs"
 [dependencies]
 anyhow = { version = "1", optional = true }
 clap = { version = "4", optional = true }
+clap_complete = { version = "4", optional = true }
 chrono = { version = "0.4", features = ["serde"] }
 futures = { version = "0.3.*"}
 hostname = { version = "0.4", optional = true }
@@ -70,7 +71,7 @@ spectral = "0.6"
 
 [features]
 default = ["app"]
-app = ["anyhow", "clap", "hostname", "humantime", "tabwriter", "tracing-log", "tracing-subscriber"]
+app = ["anyhow", "clap", "clap_complete", "hostname", "humantime", "tabwriter", "tracing-log", "tracing-subscriber"]
 
 [profile.release]
 lto = true

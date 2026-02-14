@@ -331,7 +331,7 @@ Examples:
 }
 
 fn subcommands() -> Vec<Command> {
-    vec![
+    let visible: Vec<Command> = vec![
         check_subcommand(),
         discover_subcommand(),
         domain_lookup_subcommand(),
@@ -341,7 +341,11 @@ fn subcommands() -> Vec<Command> {
     ]
     .into_iter()
     .map(|x| x.version(env!("CARGO_PKG_VERSION")).author(env!("CARGO_PKG_AUTHORS")))
-    .collect()
+    .collect();
+
+    let hidden = vec![completions_subcommand()];
+
+    visible.into_iter().chain(hidden).collect()
 }
 
 fn check_subcommand() -> Command {
@@ -634,6 +638,20 @@ fn server_lists_subcommand() -> Command {
                 .required(true)
                 .value_name("FILE")
                 .help("Sets path to output file"),
+        )
+}
+
+fn completions_subcommand() -> Command {
+    Command::new("completions")
+        .about("Generate shell completions for mhost")
+        .hide(true)
+        .arg(
+            Arg::new("shell")
+                .index(1)
+                .required(true)
+                .value_name("SHELL")
+                .value_parser(clap::builder::EnumValueParser::<clap_complete::Shell>::new())
+                .help("Shell to generate completions for [bash, elvish, fish, powershell, zsh]"),
         )
 }
 
