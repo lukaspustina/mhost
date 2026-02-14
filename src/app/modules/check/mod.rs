@@ -50,6 +50,8 @@ pub async fn run(args: &ArgMatches, app_config: &AppConfig) -> Result<ExitStatus
         .await?
         .open_resolver()
         .await?
+        .delegation()
+        .await?
         .output()
         .into_result()
 }

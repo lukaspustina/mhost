@@ -27,6 +27,7 @@ pub struct CheckConfig {
     pub https_svcb: bool,
     pub axfr: bool,
     pub open_resolver: bool,
+    pub delegation: bool,
 }
 
 impl ModConfig for CheckConfig {
@@ -58,6 +59,7 @@ impl TryFrom<&ArgMatches> for CheckConfig {
             https_svcb: !args.get_flag("no-https-svcb"),
             axfr: !args.get_flag("no-axfr"),
             open_resolver: !args.get_flag("no-open-resolver"),
+            delegation: !args.get_flag("no-delegation"),
         };
 
         Ok(config)
