@@ -1058,7 +1058,9 @@ impl OutputDiscoverResult<'_> {
         }
         impl SummaryFormatter for Json {
             fn output<W: Write>(&self, _: &mut W, _: &SummaryOptions) -> crate::Result<()> {
-                unimplemented!()
+                Err(crate::Error::InternalError {
+                    msg: "summary formatting is not supported for JSON output",
+                })
             }
         }
         let data = Json {

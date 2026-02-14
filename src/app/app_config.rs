@@ -74,8 +74,8 @@ impl TryFrom<&ArgMatches> for AppConfig {
                 Duration::from_secs(secs)
             },
             expects_multiple_responses: args.get_flag("wait-multiple-responses"),
-            abort_on_error: !(args.get_flag("no-abort-on-error") || args.get_flag("no-aborts")),
-            abort_on_timeout: !(args.get_flag("no-abort-on-timeout") || args.get_flag("no-aborts")),
+            abort_on_error: !(args.get_flag("continue-on-error") || args.get_flag("continue-on-all-errors")),
+            abort_on_timeout: !(args.get_flag("continue-on-timeout") || args.get_flag("continue-on-all-errors")),
             resolv_conf_path: args
                 .get_one::<String>("resolv-conf")
                 .map(|s| s.as_str())

@@ -5,7 +5,9 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+
+use tokio::sync::Mutex;
 
 use futures::stream::{self, StreamExt};
 use futures::Future;
@@ -193,9 +195,9 @@ fn create_breaker(on_error: bool) -> Box<dyn Fn(&WhoisResponse) -> bool + Send> 
 
 #[instrument(name = "single query", level = "info", skip(whois, query), fields(r = %query.resource, t = ?query.query_type))]
 async fn single_query(whois: WhoisClient, query: UniQuery) -> WhoisResponse {
-    let response = if let Some(cache_arc) = whois.lru_cache.clone().as_ref() {
+    let response = if let Some(cache_arc) = whois.lru_cache.clone() {
         debug!("Sending query request using cache");
-        single_query_with_cache(cache_arc, whois, query).await
+        single_query_with_cache(&cache_arc, whois, query).await
     } else {
         debug!("Sending query request");
         send_query(whois, query).await
@@ -219,10 +221,8 @@ async fn single_query_with_cache(
     whois: WhoisClient,
     query: UniQuery,
 ) -> WhoisResponse {
-    // This extra block is necessary, to convince the compiler that the Mutex not cross a thread
-    // boundary: So to keep this future `Send`
     {
-        let mut cache = cache_arc.lock().unwrap();
+        let mut cache = cache_arc.lock().await;
         if let Some(v) = cache.get(&query) {
             trace!("Hit cache for whois query {:?}", query);
             return v.clone();
@@ -231,7 +231,7 @@ async fn single_query_with_cache(
 
     let response = send_query(whois.clone(), query.clone()).await;
 
-    let mut cache = cache_arc.lock().unwrap();
+    let mut cache = cache_arc.lock().await;
     trace!(
         "Inserting response {:?} into cache for whois query {:?}",
         response,

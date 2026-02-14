@@ -202,22 +202,25 @@ Examples:
                 .help("Waits until timeout for additional responses from nameservers"),
         )
         .arg(
-            Arg::new("no-abort-on-error")
-                .long("no-abort-on-error")
+            Arg::new("continue-on-error")
+                .long("continue-on-error")
+                .alias("no-abort-on-error")
                 .action(ArgAction::SetTrue)
-                .help("Sets do-not-ignore errors from nameservers"),
+                .help("Continues lookups even when nameservers return errors"),
         )
         .arg(
-            Arg::new("no-abort-on-timeout")
-                .long("no-abort-on-timeout")
+            Arg::new("continue-on-timeout")
+                .long("continue-on-timeout")
+                .alias("no-abort-on-timeout")
                 .action(ArgAction::SetTrue)
-                .help("Sets do-not-ignore timeouts from nameservers"),
+                .help("Continues lookups even when nameservers time out"),
         )
         .arg(
-            Arg::new("no-aborts")
-                .long("no-aborts")
+            Arg::new("continue-on-all-errors")
+                .long("continue-on-all-errors")
+                .alias("no-aborts")
                 .action(ArgAction::SetTrue)
-                .help("Sets do-not-ignore errors and timeouts from nameservers"),
+                .help("Continues lookups on all errors and timeouts from nameservers"),
         )
         .arg(
             Arg::new("output")
