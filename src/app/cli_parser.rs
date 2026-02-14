@@ -441,6 +441,12 @@ fn check_subcommand() -> Command {
                 .action(ArgAction::SetTrue)
                 .help("Does not run AXFR zone transfer security check"),
         )
+        .arg(
+            Arg::new("no-open-resolver")
+                .long("no-open-resolver")
+                .action(ArgAction::SetTrue)
+                .help("Does not run open resolver detection check"),
+        )
 }
 
 fn diff_subcommand() -> Command {
