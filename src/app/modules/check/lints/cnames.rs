@@ -5,8 +5,10 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::collections::HashSet;
+
 use anyhow::Result;
-use tracing::info;
+use tracing::{debug, info};
 
 use crate::app::modules::check::config::CheckConfig;
 use crate::app::modules::check::lints::mx::Mx;
@@ -84,6 +86,7 @@ impl<'a> Cnames<'a> {
         self.mx(&mut results).await?;
         self.srv(&mut results).await?;
         self.cname(&mut results).await?;
+        self.cname_chain_depth(&mut results).await?;
 
         print_check_results!(self, results, "No records found.");
 
@@ -138,4 +141,130 @@ impl<'a> Cnames<'a> {
         Warning,
         "CNAME points to other CNAME: this should be avoided; cf. RFC 1034, section 3.6.2"
     );
+
+    async fn cname_chain_depth(&self, results: &mut Vec<CheckResult>) -> Result<()> {
+        let cname_targets: Vec<Name> = self
+            .check_results
+            .lookups
+            .cname()
+            .unique()
+            .to_owned()
+            .into_iter()
+            .collect();
+
+        if cname_targets.is_empty() {
+            return Ok(());
+        }
+
+        if self.env.console.show_partial_headers() {
+            self.env.console.itemize("Chain depth");
+        }
+
+        for start in &cname_targets {
+            let mut seen = HashSet::new();
+            seen.insert(self.domain_name.clone());
+            let mut current = start.clone();
+            let mut depth: usize = 1;
+
+            loop {
+                if seen.contains(&current) {
+                    results.push(CheckResult::Failed(format!(
+                        "Circular CNAME chain detected: {} points back to already-seen name {}",
+                        if depth == 1 { &self.domain_name } else { &current },
+                        current
+                    )));
+                    break;
+                }
+
+                seen.insert(current.clone());
+
+                let query = match MultiQuery::multi_record(current.clone(), vec![RecordType::CNAME]) {
+                    Ok(q) => q,
+                    Err(_) => break,
+                };
+
+                debug!("Following CNAME chain at depth {} for {}", depth, current);
+                let lookups = intermediate_lookups!(self, query, "Following CNAME chain at depth {}.", depth);
+                let next_targets: Vec<Name> = lookups.cname().unique().to_owned().into_iter().collect();
+
+                if next_targets.is_empty() {
+                    // Chain terminates — classify the depth
+                    results.extend(classify_chain_depth(&self.domain_name, depth));
+                    break;
+                }
+
+                depth += 1;
+                current = next_targets.into_iter().next().unwrap();
+
+                // Safety limit to avoid runaway resolution
+                if depth > 15 {
+                    results.push(CheckResult::Failed(format!(
+                        "CNAME chain from {} exceeds safety limit of 15 hops",
+                        self.domain_name
+                    )));
+                    break;
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+fn classify_chain_depth(origin: &Name, depth: usize) -> Vec<CheckResult> {
+    if depth <= 3 {
+        vec![CheckResult::Ok(format!(
+            "CNAME chain from {} has acceptable depth of {}",
+            origin, depth
+        ))]
+    } else {
+        vec![CheckResult::Warning(format!(
+            "CNAME chain from {} has depth {}: deep chains increase latency and fragility",
+            origin, depth
+        ))]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn name(s: &str) -> Name {
+        s.parse().unwrap()
+    }
+
+    #[test]
+    fn chain_depth_1_is_ok() {
+        let results = classify_chain_depth(&name("example.com."), 1);
+        assert_eq!(results.len(), 1);
+        assert!(matches!(&results[0], CheckResult::Ok(_)));
+    }
+
+    #[test]
+    fn chain_depth_3_is_ok() {
+        let results = classify_chain_depth(&name("example.com."), 3);
+        assert_eq!(results.len(), 1);
+        assert!(matches!(&results[0], CheckResult::Ok(_)));
+    }
+
+    #[test]
+    fn chain_depth_4_is_warning() {
+        let results = classify_chain_depth(&name("example.com."), 4);
+        assert_eq!(results.len(), 1);
+        assert!(matches!(&results[0], CheckResult::Warning(_)));
+        if let CheckResult::Warning(msg) = &results[0] {
+            assert!(msg.contains("depth 4"));
+            assert!(msg.contains("latency"));
+        }
+    }
+
+    #[test]
+    fn chain_depth_10_is_warning() {
+        let results = classify_chain_depth(&name("example.com."), 10);
+        assert_eq!(results.len(), 1);
+        assert!(matches!(&results[0], CheckResult::Warning(_)));
+        if let CheckResult::Warning(msg) = &results[0] {
+            assert!(msg.contains("depth 10"));
+        }
+    }
 }
