@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use tracing::info;
 
 use crate::app::modules::check::config::CheckConfig;
-use crate::app::modules::check::lints::spf::Spf;
+use crate::app::modules::check::lints::https_svcb::HttpsSvcb;
 use crate::app::modules::check::lints::{CheckResult, CheckResults};
 use crate::app::modules::{Environment, PartialResult};
 use crate::app::resolver::AppResolver;
@@ -28,14 +28,14 @@ pub struct Mx<'a> {
 }
 
 impl<'a> Mx<'a> {
-    pub async fn mx(self) -> PartialResult<Spf<'a>> {
+    pub async fn mx(self) -> PartialResult<HttpsSvcb<'a>> {
         let result = if self.env.mod_config.mx {
             Some(self.do_mx().await?)
         } else {
             None
         };
 
-        Ok(Spf {
+        Ok(HttpsSvcb {
             env: self.env,
             domain_name: self.domain_name,
             app_resolver: self.app_resolver,

@@ -34,9 +34,13 @@ pub async fn run(args: &ArgMatches, app_config: &AppConfig) -> Result<ExitStatus
         .await?
         .ns()
         .await?
+        .delegation()
+        .await?
         .cnames()
         .await?
         .mx()
+        .await?
+        .https_svcb()
         .await?
         .spf()?
         .dmarc()
@@ -44,13 +48,9 @@ pub async fn run(args: &ArgMatches, app_config: &AppConfig) -> Result<ExitStatus
         .caa()?
         .ttl()?
         .dnssec()?
-        .https_svcb()
-        .await?
         .axfr()
         .await?
         .open_resolver()
-        .await?
-        .delegation()
         .await?
         .output()
         .into_result()
