@@ -11,7 +11,7 @@ use anyhow::Result;
 use tabwriter::TabWriter;
 
 use crate::app::console::{Console, ConsoleOpts, Fmt};
-use crate::app::output::styles::ITEMAZATION_PREFIX;
+use crate::app::output::styles;
 use crate::app::ExitStatus;
 
 use super::reference_data::{self, InfoEntry, Tier};
@@ -31,7 +31,7 @@ fn print_listing(console: &Console) -> Result<ExitStatus> {
     let mut tw = TabWriter::new(vec![]);
     for rt in reference_data::record_types() {
         let rfc_str = rt.rfc.map(|r| format!("({})", r)).unwrap_or_default();
-        writeln!(tw, " {} {}\t{}\t{}", &*ITEMAZATION_PREFIX, rt.name, rt.summary, rfc_str)?;
+        writeln!(tw, " {} {}\t{}\t{}", styles::itemization_prefix(), rt.name, rt.summary, rfc_str)?;
     }
     flush_tabwriter(tw)?;
 
@@ -44,7 +44,7 @@ fn print_listing(console: &Console) -> Result<ExitStatus> {
         writeln!(
             tw,
             " {} {}\t{}\t{}",
-            &*ITEMAZATION_PREFIX, txt.name, txt.summary, rfc_str
+            styles::itemization_prefix(), txt.name, txt.summary, rfc_str
         )?;
     }
     flush_tabwriter(tw)?;
@@ -69,7 +69,7 @@ fn print_listing(console: &Console) -> Result<ExitStatus> {
         writeln!(
             tw,
             " {} {}\t{}\t{}",
-            &*ITEMAZATION_PREFIX, sub.subdomain, sub.record_type, sub.summary
+            styles::itemization_prefix(), sub.subdomain, sub.record_type, sub.summary
         )?;
     }
     flush_tabwriter(tw)?;

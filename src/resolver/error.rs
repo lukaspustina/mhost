@@ -5,6 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use hickory_resolver::proto::op::ResponseCode;
 use hickory_resolver::proto::{ProtoError, ProtoErrorKind};
 use hickory_resolver::{ResolveError, ResolveErrorKind};
 use serde::Serialize;
@@ -19,6 +20,8 @@ pub enum Error {
     ServerFailure,
     #[error("request timed out")]
     Timeout,
+    #[error("no records found")]
+    NoRecordsFound,
     #[error("resolver error: {reason}")]
     ResolveError { reason: String },
     #[error("protocol error: {reason}")]
@@ -33,14 +36,9 @@ impl From<ResolveError> for Error {
     fn from(error: ResolveError) -> Self {
         match error.kind() {
             ResolveErrorKind::Proto(proto_error) => Self::from(proto_error.clone()),
-            _ => {
-                let msg = error.to_string();
-                if msg.contains("Refused") {
-                    Error::QueryRefused
-                } else {
-                    Error::ResolveError { reason: msg }
-                }
-            }
+            _ => Error::ResolveError {
+                reason: error.to_string(),
+            },
         }
     }
 }
@@ -49,16 +47,19 @@ impl From<ProtoError> for Error {
     fn from(error: ProtoError) -> Self {
         match error.kind() {
             ProtoErrorKind::Timeout => Error::Timeout,
-            _ => {
-                let msg = error.to_string();
-                if msg.contains("SERVFAIL") || msg.contains("server failure") {
-                    Error::ServerFailure
-                } else if msg.contains("Refused") {
-                    Error::QueryRefused
-                } else {
-                    Error::ProtoError { reason: msg }
-                }
-            }
+            ProtoErrorKind::RequestRefused => Error::QueryRefused,
+            ProtoErrorKind::NoRecordsFound {
+                response_code: ResponseCode::ServFail,
+                ..
+            } => Error::ServerFailure,
+            ProtoErrorKind::NoRecordsFound {
+                response_code: ResponseCode::Refused,
+                ..
+            } => Error::QueryRefused,
+            ProtoErrorKind::NoRecordsFound { .. } => Error::NoRecordsFound,
+            _ => Error::ProtoError {
+                reason: error.to_string(),
+            },
         }
     }
 }

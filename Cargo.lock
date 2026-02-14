@@ -1230,7 +1230,6 @@ dependencies = [
  "humantime",
  "indexmap",
  "ipnetwork",
- "lazy_static",
  "lit",
  "lru_time_cache",
  "nom",

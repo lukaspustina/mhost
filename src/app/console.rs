@@ -12,9 +12,7 @@ use std::time::Duration;
 use serde::Serialize;
 use yansi::Paint;
 
-use crate::app::output::styles::{
-    self, ATTENTION_PREFIX, CAPTION_PREFIX, ERROR_PREFIX, FINISHED_PREFIX, INFO_PREFIX, ITEMAZATION_PREFIX, OK_PREFIX,
-};
+use crate::app::output::styles;
 use crate::app::output::summary::SummaryFormatter;
 use crate::app::output::OutputConfig;
 use crate::app::{output, AppConfig};
@@ -143,7 +141,7 @@ impl Console {
 
         println!(
             "{} Sending up to {} requests for {} query types of {} resources.",
-            &*INFO_PREFIX, num_calls, num_queries, num_resources
+            styles::info_prefix(), num_calls, num_queries, num_resources
         );
     }
 
@@ -220,35 +218,35 @@ impl Console {
     }
 
     pub fn info<T: AsRef<str>>(&self, str: T) {
-        println!("{} {}", &*INFO_PREFIX, str.as_ref());
+        println!("{} {}", styles::info_prefix(), str.as_ref());
     }
 
     pub fn attention<T: AsRef<str>>(&self, str: T) {
-        println!("{} {}", Fmt::attention(&*ATTENTION_PREFIX), str.as_ref());
+        println!("{} {}", Fmt::attention(styles::attention_prefix()), str.as_ref());
     }
 
     pub fn finished(&self) {
-        self.emphasize(format!("{} Finished.", &*FINISHED_PREFIX));
+        self.emphasize(format!("{} Finished.", styles::finished_prefix()));
     }
 
     pub fn caption<T: AsRef<str>>(&self, str: T) {
-        self.emphasize(format!("{} {}", &*CAPTION_PREFIX, str.as_ref()));
+        self.emphasize(format!("{} {}", styles::caption_prefix(), str.as_ref()));
     }
 
     pub fn failed<T: AsRef<str>>(&self, str: T) {
-        println!("{} {}", Fmt::error(&*ERROR_PREFIX), str.as_ref());
+        println!("{} {}", Fmt::error(styles::error_prefix()), str.as_ref());
     }
 
     pub fn error<T: AsRef<str>>(&self, str: T) {
-        eprintln!("{} {}", Fmt::error(&*ERROR_PREFIX), str.as_ref());
+        eprintln!("{} {}", Fmt::error(styles::error_prefix()), str.as_ref());
     }
 
     pub fn ok<T: AsRef<str>>(&self, str: T) {
-        println!("{} {}", Fmt::ok(&*OK_PREFIX), str.as_ref());
+        println!("{} {}", Fmt::ok(styles::ok_prefix()), str.as_ref());
     }
 
     pub fn itemize<T: AsRef<str>>(&self, str: T) {
-        println!(" {} {}", &*ITEMAZATION_PREFIX, str.as_ref());
+        println!(" {} {}", styles::itemization_prefix(), str.as_ref());
     }
 
     pub fn not_quiet(&self) -> bool {
@@ -284,18 +282,18 @@ pub struct Fmt {}
 
 impl Fmt {
     pub fn emph<T: fmt::Display>(item: T) -> String {
-        format!("{}", item.paint(*styles::EMPH))
+        format!("{}", item.paint(styles::EMPH))
     }
 
     pub fn attention<T: fmt::Display>(item: T) -> String {
-        format!("{}", item.paint(*styles::ATTENTION))
+        format!("{}", item.paint(styles::ATTENTION))
     }
 
     pub fn error<T: fmt::Display>(item: T) -> String {
-        format!("{}", item.paint(*styles::ERROR))
+        format!("{}", item.paint(styles::ERROR))
     }
 
     pub fn ok<T: fmt::Display>(item: T) -> String {
-        format!("{}", item.paint(*styles::OK))
+        format!("{}", item.paint(styles::OK))
     }
 }

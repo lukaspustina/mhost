@@ -12,7 +12,7 @@ use tabwriter::TabWriter;
 use yansi::Paint;
 
 use super::*;
-use crate::app::output::styles::ITEMAZATION_PREFIX;
+use crate::app::output::styles;
 use crate::services::whois::{GeoLocation, NetworkInfo, Whois, WhoisResponse, WhoisResponses};
 use ipnetwork::IpNetwork;
 
@@ -46,7 +46,7 @@ fn output_responses<W: Write>(
     responses.sort_by(order_by_ordinal);
 
     let strs: Vec<_> = responses.iter_mut().map(|x| x.render(opts)).collect();
-    writeln!(writer, " {} {}\t{}", &*ITEMAZATION_PREFIX, ip_network, strs.join(", "))?;
+    writeln!(writer, " {} {}\t{}", styles::itemization_prefix(), ip_network, strs.join(", "))?;
 
     Ok(())
 }
@@ -87,30 +87,30 @@ fn render_geo_location(geo_location: &GeoLocation, _opts: &SummaryOptions) -> St
         .next()
         .unwrap_or_else(|| "-".to_string());
 
-    format!("Location {}", geo_location.paint(*styles::EMPH))
+    format!("Location {}", geo_location.paint(styles::EMPH))
 }
 
 fn render_network_info(network_info: &NetworkInfo, _opts: &SummaryOptions) -> String {
     format!(
         "AS {}, Prefix {}",
-        network_info.asns().join(", ").paint(*styles::EMPH),
-        network_info.prefix().paint(*styles::EMPH)
+        network_info.asns().join(", ").paint(styles::EMPH),
+        network_info.prefix().paint(styles::EMPH)
     )
 }
 
 fn render_whois(whois: &Whois, _opts: &SummaryOptions) -> String {
     format!(
         "Net name {}, Org {}, Authority {}",
-        whois.net_name().map(|x| x.as_str()).unwrap_or("-").paint(*styles::EMPH),
+        whois.net_name().map(|x| x.as_str()).unwrap_or("-").paint(styles::EMPH),
         whois
             .organization()
             .map(|x| x.as_str())
             .unwrap_or("-")
-            .paint(*styles::EMPH),
+            .paint(styles::EMPH),
         whois
             .source()
             .map(|x| x.to_string())
             .unwrap_or_else(|| "-".to_string())
-            .paint(*styles::EMPH),
+            .paint(styles::EMPH),
     )
 }

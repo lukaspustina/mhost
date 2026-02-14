@@ -92,11 +92,11 @@ impl MultiQuery {
         queries
     }
 
-    pub fn resources(&self) -> &Vec<IpNetwork> {
+    pub fn resources(&self) -> &[IpNetwork] {
         &self.resources
     }
 
-    pub fn query_types(&self) -> &Vec<QueryType> {
+    pub fn query_types(&self) -> &[QueryType] {
         &self.query_types
     }
 }

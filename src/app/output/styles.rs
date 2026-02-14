@@ -8,7 +8,6 @@
 use core::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::SeqCst;
 
-use lazy_static::lazy_static;
 use yansi::{Color, Style};
 
 static ASCII_MODE: AtomicBool = AtomicBool::new(false);
@@ -21,16 +20,35 @@ pub fn no_color_mode() {
     yansi::disable();
 }
 
-lazy_static! {
-    pub static ref ATTENTION: Style = Style::new().fg(Color::Yellow).bold();
-    pub static ref ERROR: Style = Style::new().fg(Color::Red).bold();
-    pub static ref EMPH: Style = Style::new().fg(Color::White).bold();
-    pub static ref OK: Style = Style::new().fg(Color::Green).bold();
-    pub static ref ATTENTION_PREFIX: String = (if ASCII_MODE.load(SeqCst) { "!" } else { "⚠︎" }).to_string();
-    pub static ref CAPTION_PREFIX: String = (if ASCII_MODE.load(SeqCst) { ">" } else { "▶︎" }).to_string();
-    pub static ref ERROR_PREFIX: String = (if ASCII_MODE.load(SeqCst) { "!" } else { "⚡︎" }).to_string();
-    pub static ref INFO_PREFIX: String = (if ASCII_MODE.load(SeqCst) { "-" } else { "▸" }).to_string();
-    pub static ref ITEMAZATION_PREFIX: String = (if ASCII_MODE.load(SeqCst) { "*" } else { "∙" }).to_string();
-    pub static ref FINISHED_PREFIX: String = (if ASCII_MODE.load(SeqCst) { "+" } else { "❖" }).to_string();
-    pub static ref OK_PREFIX: String = (if ASCII_MODE.load(SeqCst) { "=" } else { "✓" }).to_string();
+pub static ATTENTION: Style = Style::new().fg(Color::Yellow).bold();
+pub static ERROR: Style = Style::new().fg(Color::Red).bold();
+pub static EMPH: Style = Style::new().fg(Color::White).bold();
+pub static OK: Style = Style::new().fg(Color::Green).bold();
+
+pub fn attention_prefix() -> &'static str {
+    if ASCII_MODE.load(SeqCst) { "!" } else { "⚠︎" }
+}
+
+pub fn caption_prefix() -> &'static str {
+    if ASCII_MODE.load(SeqCst) { ">" } else { "▶︎" }
+}
+
+pub fn error_prefix() -> &'static str {
+    if ASCII_MODE.load(SeqCst) { "!" } else { "⚡︎" }
+}
+
+pub fn info_prefix() -> &'static str {
+    if ASCII_MODE.load(SeqCst) { "-" } else { "▸" }
+}
+
+pub fn itemization_prefix() -> &'static str {
+    if ASCII_MODE.load(SeqCst) { "*" } else { "∙" }
+}
+
+pub fn finished_prefix() -> &'static str {
+    if ASCII_MODE.load(SeqCst) { "+" } else { "❖" }
+}
+
+pub fn ok_prefix() -> &'static str {
+    if ASCII_MODE.load(SeqCst) { "=" } else { "✓" }
 }

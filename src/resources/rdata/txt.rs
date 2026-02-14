@@ -56,9 +56,8 @@ impl TXT {
 
 #[doc(hidden)]
 impl From<hickory_resolver::proto::rr::rdata::TXT> for TXT {
-    #[allow(clippy::map_clone)]
     fn from(txt: hickory_resolver::proto::rr::rdata::TXT) -> Self {
-        let txt_data = txt.iter().map(|s| s.clone()).collect::<Vec<_>>().into_boxed_slice();
+        let txt_data = txt.iter().cloned().collect::<Vec<_>>().into_boxed_slice();
         TXT { txt_data }
     }
 }

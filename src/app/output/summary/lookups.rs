@@ -24,7 +24,7 @@ use crate::{Error, RecordType};
 use yansi::Paint;
 
 use super::*;
-use crate::app::output::styles::ITEMAZATION_PREFIX;
+use crate::app::output::styles as output_styles;
 
 impl SummaryFormatter for Lookups {
     fn output<W: Write>(&self, writer: &mut W, opts: &SummaryOptions) -> Result<()> {
@@ -75,7 +75,7 @@ fn output_records<W: Write>(writer: &mut W, records: Vec<&Record>, opts: &Summar
         writeln!(
             writer,
             " {} {}",
-            &*ITEMAZATION_PREFIX,
+            output_styles::itemization_prefix(),
             r.render_with_suffix(&suffix, opts)
         )?;
     }
@@ -124,44 +124,44 @@ impl Rendering for Record {
         match self.record_type() {
             RecordType::A => format!(
                 "{}:\t{}{}",
-                "A".paint(*styles::A),
+                "A".paint(styles::A),
                 self.data().a().unwrap().render(opts),
                 suffix
             ),
             RecordType::AAAA => format!(
                 "{}:\t{}{}",
-                "AAAA".paint(*styles::AAAA),
+                "AAAA".paint(styles::AAAA),
                 self.data().aaaa().unwrap().render(opts),
                 suffix
             ),
             RecordType::ANAME => format!(
                 "{}:\t{}{}",
-                "ANAME".paint(*styles::NAME),
+                "ANAME".paint(styles::NAME),
                 self.data().cname().unwrap().render(opts),
                 suffix
             ),
             RecordType::CAA => format!(
                 "{}:\t{}{}",
-                "CAA".paint(*styles::CAA),
+                "CAA".paint(styles::CAA),
                 self.data().caa().unwrap().render(opts),
                 suffix
             ),
             RecordType::CNAME => format!(
                 "{}:\t{}{}",
-                "CNAME".paint(*styles::NAME),
+                "CNAME".paint(styles::NAME),
                 self.data().cname().unwrap().render(opts),
                 suffix
             ),
             RecordType::MX => format!(
                 "{}:\t{}{}",
-                "MX".paint(*styles::MX),
+                "MX".paint(styles::MX),
                 self.data().mx().unwrap().render(opts),
                 suffix
             ),
             RecordType::NULL => format!("{}:\t{}{}", "NULL", self.data().null().unwrap().render(opts), suffix),
             RecordType::NS => format!(
                 "{}:\t{}{}",
-                "NS".paint(*styles::NAME),
+                "NS".paint(styles::NAME),
                 self.data().ns().unwrap().render(opts),
                 suffix
             ),
@@ -173,66 +173,66 @@ impl Rendering for Record {
             ),
             RecordType::SOA => format!(
                 "{}:\t{}{}",
-                "SOA".paint(*styles::SOA),
+                "SOA".paint(styles::SOA),
                 self.data().soa().unwrap().render(opts),
                 suffix
             ),
             RecordType::SRV => format!(
                 "{}:\t{}{}",
-                "SRV".paint(*styles::SRV),
+                "SRV".paint(styles::SRV),
                 self.data().srv().unwrap().render(opts),
                 suffix
             ),
             RecordType::HINFO => format!(
                 "{}:\t{}{}",
-                "HINFO".paint(*styles::HINFO),
+                "HINFO".paint(styles::HINFO),
                 self.data().hinfo().unwrap().render(opts),
                 suffix
             ),
             RecordType::HTTPS => format!(
                 "{}:\t{}{}",
-                "HTTPS".paint(*styles::SVCB),
+                "HTTPS".paint(styles::SVCB),
                 self.data().https().unwrap().render(opts),
                 suffix
             ),
             RecordType::NAPTR => format!(
                 "{}:\t{}{}",
-                "NAPTR".paint(*styles::NAPTR),
+                "NAPTR".paint(styles::NAPTR),
                 self.data().naptr().unwrap().render(opts),
                 suffix
             ),
             RecordType::OPENPGPKEY => format!(
                 "{}:\t{}{}",
-                "OPENPGPKEY".paint(*styles::OPENPGPKEY),
+                "OPENPGPKEY".paint(styles::OPENPGPKEY),
                 self.data().openpgpkey().unwrap().render(opts),
                 suffix
             ),
             RecordType::SSHFP => format!(
                 "{}:\t{}{}",
-                "SSHFP".paint(*styles::SSHFP),
+                "SSHFP".paint(styles::SSHFP),
                 self.data().sshfp().unwrap().render(opts),
                 suffix
             ),
             RecordType::SVCB => format!(
                 "{}:\t{}{}",
-                "SVCB".paint(*styles::SVCB),
+                "SVCB".paint(styles::SVCB),
                 self.data().svcb().unwrap().render(opts),
                 suffix
             ),
             RecordType::TLSA => format!(
                 "{}:\t{}{}",
-                "TLSA".paint(*styles::TLSA),
+                "TLSA".paint(styles::TLSA),
                 self.data().tlsa().unwrap().render(opts),
                 suffix
             ),
             RecordType::TXT => format!(
                 "{}:\t{}",
-                "TXT".paint(*styles::TXT),
+                "TXT".paint(styles::TXT),
                 self.data().txt().unwrap().render_with_suffix(suffix, opts)
             ),
             RecordType::DNSSEC => format!(
                 "{}:\t{}{}",
-                "DNSSEC".paint(*styles::DNSSEC),
+                "DNSSEC".paint(styles::DNSSEC),
                 self.data().dnssec().unwrap().render(opts),
                 suffix
             ),
@@ -244,19 +244,19 @@ impl Rendering for Record {
 
 impl Rendering for Ipv4Addr {
     fn render(&self, _: &SummaryOptions) -> String {
-        self.paint(*styles::A).to_string()
+        self.paint(styles::A).to_string()
     }
 }
 
 impl Rendering for Ipv6Addr {
     fn render(&self, _: &SummaryOptions) -> String {
-        self.paint(*styles::AAAA).to_string()
+        self.paint(styles::AAAA).to_string()
     }
 }
 
 impl Rendering for Name {
     fn render(&self, _: &SummaryOptions) -> String {
-        self.paint(*styles::NAME).to_string()
+        self.paint(styles::NAME).to_string()
     }
 }
 
@@ -265,14 +265,14 @@ impl Rendering for MX {
         if opts.human {
             format!(
                 "{}\tpreference {:2}",
-                self.exchange().paint(*styles::MX),
-                self.preference().paint(*styles::MX),
+                self.exchange().paint(styles::MX),
+                self.preference().paint(styles::MX),
             )
         } else {
             format!(
                 "{}\tpreference={:2}",
-                self.exchange().paint(*styles::MX),
-                self.preference().paint(*styles::MX),
+                self.exchange().paint(styles::MX),
+                self.preference().paint(styles::MX),
             )
         }
     }
@@ -280,7 +280,7 @@ impl Rendering for MX {
 
 impl Rendering for CAA {
     fn render(&self, opts: &SummaryOptions) -> String {
-        let style = *styles::CAA;
+        let style = styles::CAA;
         let critical = if self.issuer_critical() { " (critical)" } else { "" };
         if opts.human {
             let description = match (self.tag(), self.value().trim()) {
@@ -333,33 +333,33 @@ impl SOA {
         let minimum = humantime::format_duration(Duration::from_secs(self.minimum() as u64));
         format!(
             "origin NS {}, responsible party {}, serial {}, refresh {}, retry {}, expire {}, negative response TTL {}",
-            self.mname().paint(*styles::SOA),
-            self.rname().paint(*styles::SOA),
-            self.serial().paint(*styles::SOA),
-            refresh.paint(*styles::SOA),
-            retry.paint(*styles::SOA),
-            expire.paint(*styles::SOA),
-            minimum.paint(*styles::SOA),
+            self.mname().paint(styles::SOA),
+            self.rname().paint(styles::SOA),
+            self.serial().paint(styles::SOA),
+            refresh.paint(styles::SOA),
+            retry.paint(styles::SOA),
+            expire.paint(styles::SOA),
+            minimum.paint(styles::SOA),
         )
     }
 
     fn plain(&self, _: &SummaryOptions) -> String {
         format!(
             "mname {}, rname {}, serial {}, refresh in {}, retry in {}, expire in {}, negative response TTL {}",
-            self.mname().paint(*styles::SOA),
-            self.rname().paint(*styles::SOA),
-            self.serial().paint(*styles::SOA),
-            self.refresh().paint(*styles::SOA),
-            self.retry().paint(*styles::SOA),
-            self.expire().paint(*styles::SOA),
-            self.minimum().paint(*styles::SOA),
+            self.mname().paint(styles::SOA),
+            self.rname().paint(styles::SOA),
+            self.serial().paint(styles::SOA),
+            self.refresh().paint(styles::SOA),
+            self.retry().paint(styles::SOA),
+            self.expire().paint(styles::SOA),
+            self.minimum().paint(styles::SOA),
         )
     }
 }
 
 impl Rendering for SRV {
     fn render(&self, _: &SummaryOptions) -> String {
-        let style = *styles::SRV;
+        let style = styles::SRV;
         format!(
             "{} on port {} with priority {} and weight {}",
             self.target().paint(style),
@@ -372,7 +372,7 @@ impl Rendering for SRV {
 
 impl Rendering for TLSA {
     fn render(&self, opts: &SummaryOptions) -> String {
-        let style = *styles::TLSA;
+        let style = styles::TLSA;
         let hex_data: String = self.cert_data().iter().map(|b| format!("{:02x}", b)).collect();
         if opts.human {
             let usage = match self.cert_usage() {
@@ -466,21 +466,21 @@ impl TXT {
             Ok(ParsedTxt::TlsRpt(ref tls_rpt)) => TXT::format_tls_rpt(tls_rpt, suffix),
             Ok(ParsedTxt::Bimi(ref bimi)) => TXT::format_bimi(bimi, suffix),
             Ok(ParsedTxt::DomainVerification(ref dv)) => TXT::format_dv(dv, suffix),
-            _ => format!("'{}'{}", txt.paint(*styles::TXT), suffix),
+            _ => format!("'{}'{}", txt.paint(styles::TXT), suffix),
         }
     }
 
     fn format_spf(spf: &Spf, suffix: &str) -> String {
         let mut buf = String::new();
-        buf.push_str(&format!("SPF version={}{}", spf.version().paint(*styles::TXT), suffix));
+        buf.push_str(&format!("SPF version={}{}", spf.version().paint(styles::TXT), suffix));
         for word in spf.words() {
-            buf.push_str(&format!("\n\t{} {}", &*ITEMAZATION_PREFIX, TXT::format_spf_word(word)));
+            buf.push_str(&format!("\n\t{} {}", output_styles::itemization_prefix(), TXT::format_spf_word(word)));
         }
         buf
     }
 
     fn format_spf_word(word: &Word) -> String {
-        let style = *styles::TXT;
+        let style = styles::TXT;
         match word {
             Word::Word(q, Mechanism::All) => format!("{:?} for {}", q.paint(style), "all".paint(style)),
 
@@ -601,7 +601,7 @@ impl TXT {
     }
 
     fn format_dmarc(dmarc: &Dmarc, suffix: &str) -> String {
-        let style = *styles::TXT;
+        let style = styles::TXT;
         let mut buf = String::new();
         buf.push_str(&format!(
             "DMARC version={}, policy={}{}",
@@ -612,56 +612,56 @@ impl TXT {
         if let Some(sp) = dmarc.subdomain_policy() {
             buf.push_str(&format!(
                 "\n\t{} subdomain policy: {}",
-                &*ITEMAZATION_PREFIX,
+                output_styles::itemization_prefix(),
                 sp.paint(style)
             ));
         }
         if let Some(adkim) = dmarc.adkim() {
             buf.push_str(&format!(
                 "\n\t{} DKIM alignment: {}",
-                &*ITEMAZATION_PREFIX,
+                output_styles::itemization_prefix(),
                 adkim.paint(style)
             ));
         }
         if let Some(aspf) = dmarc.aspf() {
             buf.push_str(&format!(
                 "\n\t{} SPF alignment: {}",
-                &*ITEMAZATION_PREFIX,
+                output_styles::itemization_prefix(),
                 aspf.paint(style)
             ));
         }
         if let Some(pct) = dmarc.pct() {
             buf.push_str(&format!(
                 "\n\t{} percentage: {}%",
-                &*ITEMAZATION_PREFIX,
+                output_styles::itemization_prefix(),
                 pct.paint(style)
             ));
         }
         if let Some(rua) = dmarc.rua() {
             buf.push_str(&format!(
                 "\n\t{} aggregate reports: {}",
-                &*ITEMAZATION_PREFIX,
+                output_styles::itemization_prefix(),
                 rua.paint(style)
             ));
         }
         if let Some(ruf) = dmarc.ruf() {
             buf.push_str(&format!(
                 "\n\t{} forensic reports: {}",
-                &*ITEMAZATION_PREFIX,
+                output_styles::itemization_prefix(),
                 ruf.paint(style)
             ));
         }
         if let Some(fo) = dmarc.fo() {
             buf.push_str(&format!(
                 "\n\t{} failure options: {}",
-                &*ITEMAZATION_PREFIX,
+                output_styles::itemization_prefix(),
                 fo.paint(style)
             ));
         }
         if let Some(ri) = dmarc.ri() {
             buf.push_str(&format!(
                 "\n\t{} report interval: {}s",
-                &*ITEMAZATION_PREFIX,
+                output_styles::itemization_prefix(),
                 ri.paint(style)
             ));
         }
@@ -669,7 +669,7 @@ impl TXT {
     }
 
     fn format_mta_sts(mta_sts: &MtaSts, suffix: &str) -> String {
-        let style = *styles::TXT;
+        let style = styles::TXT;
         format!(
             "MTA-STS version={}, id={}{}",
             mta_sts.version().paint(style),
@@ -679,7 +679,7 @@ impl TXT {
     }
 
     fn format_tls_rpt(tls_rpt: &TlsRpt, suffix: &str) -> String {
-        let style = *styles::TXT;
+        let style = styles::TXT;
         format!(
             "TLS-RPT version={}, rua={}{}",
             tls_rpt.version().paint(style),
@@ -689,16 +689,16 @@ impl TXT {
     }
 
     fn format_bimi(bimi: &Bimi, suffix: &str) -> String {
-        let style = *styles::TXT;
+        let style = styles::TXT;
         let mut buf = String::new();
         buf.push_str(&format!("BIMI version={}{}", bimi.version().paint(style), suffix));
         if let Some(logo) = bimi.logo() {
-            buf.push_str(&format!("\n\t{} logo: {}", &*ITEMAZATION_PREFIX, logo.paint(style)));
+            buf.push_str(&format!("\n\t{} logo: {}", output_styles::itemization_prefix(), logo.paint(style)));
         }
         if let Some(authority) = bimi.authority() {
             buf.push_str(&format!(
                 "\n\t{} authority: {}",
-                &*ITEMAZATION_PREFIX,
+                output_styles::itemization_prefix(),
                 authority.paint(style)
             ));
         }
@@ -706,7 +706,7 @@ impl TXT {
     }
 
     fn format_dv(dv: &DomainVerification, suffix: &str) -> String {
-        let style = *styles::TXT;
+        let style = styles::TXT;
         format!(
             "{} verification for {} with {}{}",
             dv.scope().paint(style),
@@ -724,13 +724,13 @@ impl TXT {
             buf.push_str(&str);
         }
 
-        format!("'{}'{}", buf.paint(*styles::TXT), suffix)
+        format!("'{}'{}", buf.paint(styles::TXT), suffix)
     }
 }
 
 impl Rendering for HINFO {
     fn render(&self, opts: &SummaryOptions) -> String {
-        let style = *styles::HINFO;
+        let style = styles::HINFO;
         if opts.human {
             format!("CPU: {}, OS: {}", self.cpu().paint(style), self.os().paint(style))
         } else {
@@ -741,7 +741,7 @@ impl Rendering for HINFO {
 
 impl Rendering for NAPTR {
     fn render(&self, opts: &SummaryOptions) -> String {
-        let style = *styles::NAPTR;
+        let style = styles::NAPTR;
         if opts.human {
             let flag_desc = match self.flags().to_lowercase().as_str() {
                 "s" => "\u{2192} SRV lookup",
@@ -782,7 +782,7 @@ impl Rendering for NAPTR {
 
 impl Rendering for OPENPGPKEY {
     fn render(&self, _: &SummaryOptions) -> String {
-        let style = *styles::OPENPGPKEY;
+        let style = styles::OPENPGPKEY;
         let hex: String = self
             .public_key()
             .iter()
@@ -796,7 +796,7 @@ impl Rendering for OPENPGPKEY {
 
 impl Rendering for SSHFP {
     fn render(&self, opts: &SummaryOptions) -> String {
-        let style = *styles::SSHFP;
+        let style = styles::SSHFP;
         let hex: String = self.fingerprint().iter().map(|b| format!("{:02x}", b)).collect();
         if opts.human {
             format!(
@@ -818,7 +818,7 @@ impl Rendering for SSHFP {
 
 impl Rendering for SVCB {
     fn render(&self, opts: &SummaryOptions) -> String {
-        let style = *styles::SVCB;
+        let style = styles::SVCB;
         if opts.human {
             if self.is_alias() {
                 format!("alias to {}", self.target_name().paint(style))
@@ -842,7 +842,7 @@ impl Rendering for SVCB {
                         }
                         key => format!("{}: {}", key, clean_value.paint(style)),
                     };
-                    result.push_str(&format!("\n\t{} {}", &*ITEMAZATION_PREFIX, param_str));
+                    result.push_str(&format!("\n\t{} {}", output_styles::itemization_prefix(), param_str));
                 }
                 result
             }
@@ -864,7 +864,7 @@ impl Rendering for SVCB {
 
 impl Rendering for DNSSEC {
     fn render(&self, _: &SummaryOptions) -> String {
-        let style = *styles::DNSSEC;
+        let style = styles::DNSSEC;
         format!("{}: {}", self.sub_type().paint(style), self.description().paint(style))
     }
 }
@@ -876,26 +876,23 @@ impl Rendering for UNKNOWN {
 }
 
 mod styles {
-    use lazy_static::lazy_static;
     use yansi::{Color, Style};
 
-    lazy_static! {
-        pub static ref A: Style = Style::new().fg(Color::White).bold();
-        pub static ref AAAA: Style = Style::new().fg(Color::White).bold();
-        pub static ref CAA: Style = Style::new().fg(Color::Cyan);
-        pub static ref DNSSEC: Style = Style::new().fg(Color::Green).bold();
-        pub static ref HINFO: Style = Style::new().fg(Color::Yellow).bold();
-        pub static ref MX: Style = Style::new().fg(Color::Yellow);
-        pub static ref NAME: Style = Style::new().fg(Color::Blue);
-        pub static ref NAPTR: Style = Style::new().fg(Color::Red).bold();
-        pub static ref OPENPGPKEY: Style = Style::new().fg(Color::Magenta).bold();
-        pub static ref SOA: Style = Style::new().fg(Color::Green);
-        pub static ref SRV: Style = Style::new().fg(Color::Red);
-        pub static ref SSHFP: Style = Style::new().fg(Color::Blue).bold();
-        pub static ref SVCB: Style = Style::new().fg(Color::Cyan).bold();
-        pub static ref TLSA: Style = Style::new().fg(Color::Cyan).bold();
-        pub static ref TXT: Style = Style::new().fg(Color::Magenta);
-    }
+    pub static A: Style = Style::new().fg(Color::White).bold();
+    pub static AAAA: Style = Style::new().fg(Color::White).bold();
+    pub static CAA: Style = Style::new().fg(Color::Cyan);
+    pub static DNSSEC: Style = Style::new().fg(Color::Green).bold();
+    pub static HINFO: Style = Style::new().fg(Color::Yellow).bold();
+    pub static MX: Style = Style::new().fg(Color::Yellow);
+    pub static NAME: Style = Style::new().fg(Color::Blue);
+    pub static NAPTR: Style = Style::new().fg(Color::Red).bold();
+    pub static OPENPGPKEY: Style = Style::new().fg(Color::Magenta).bold();
+    pub static SOA: Style = Style::new().fg(Color::Green);
+    pub static SRV: Style = Style::new().fg(Color::Red);
+    pub static SSHFP: Style = Style::new().fg(Color::Blue).bold();
+    pub static SVCB: Style = Style::new().fg(Color::Cyan).bold();
+    pub static TLSA: Style = Style::new().fg(Color::Cyan).bold();
+    pub static TXT: Style = Style::new().fg(Color::Magenta);
 }
 
 #[cfg(test)]
