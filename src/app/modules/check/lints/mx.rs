@@ -82,7 +82,9 @@ impl<'a> Mx<'a> {
     }
 
     fn check_null_mx(mx_records: &[&MX], results: &mut Vec<CheckResult>) {
-        let has_null_mx = mx_records.iter().any(|mx| mx.preference() == 0 && mx.exchange().is_root());
+        let has_null_mx = mx_records
+            .iter()
+            .any(|mx| mx.preference() == 0 && mx.exchange().is_root());
 
         if has_null_mx {
             if mx_records.len() > 1 {
@@ -90,7 +92,9 @@ impl<'a> Mx<'a> {
                     "Null MX (preference 0, target '.') must be the only MX record; cf. RFC 7505".to_string(),
                 ));
             } else {
-                results.push(CheckResult::Ok("Domain has a valid Null MX record (RFC 7505)".to_string()));
+                results.push(CheckResult::Ok(
+                    "Domain has a valid Null MX record (RFC 7505)".to_string(),
+                ));
             }
         }
     }
@@ -139,16 +143,8 @@ impl<'a> Mx<'a> {
 
         let lookups = intermediate_lookups!(self, query, "Running lookups for MX target IP addresses.");
 
-        let resolved_a: Vec<Name> = lookups
-            .rr_a()
-            .iter()
-            .map(|r| r.name().clone())
-            .collect();
-        let resolved_aaaa: Vec<Name> = lookups
-            .rr_aaaa()
-            .iter()
-            .map(|r| r.name().clone())
-            .collect();
+        let resolved_a: Vec<Name> = lookups.rr_a().iter().map(|r| r.name().clone()).collect();
+        let resolved_aaaa: Vec<Name> = lookups.rr_aaaa().iter().map(|r| r.name().clone()).collect();
 
         let mut dangling = Vec::new();
         for exchange in &exchanges {

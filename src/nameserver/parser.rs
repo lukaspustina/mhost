@@ -7,8 +7,8 @@
 
 use std::net::IpAddr;
 
-use nom::Err;
 use nom::error::Error as NomError;
+use nom::Err;
 
 use crate::nameserver::NameServerConfig;
 use crate::resolver::lookup::Uniquify;
@@ -29,7 +29,8 @@ impl NameServerConfig {
                 to: "NameServerConfig",
                 why: "input is incomplete".to_string(),
             }),
-            Err(Err::Error(NomError { input: what, code: why })) | Err(Err::Failure(NomError { input: what, code: why })) => Err(Error::ParserError {
+            Err(Err::Error(NomError { input: what, code: why }))
+            | Err(Err::Failure(NomError { input: what, code: why })) => Err(Error::ParserError {
                 what: what.to_string(),
                 to: "NameServerConfig",
                 why: format!("{:?}", why),
@@ -59,7 +60,8 @@ impl NameServerConfig {
                 to: "NameServerConfig",
                 why: "input is incomplete".to_string(),
             }),
-            Err(Err::Error(NomError { input: what, code: why })) | Err(Err::Failure(NomError { input: what, code: why })) => Err(Error::ParserError {
+            Err(Err::Error(NomError { input: what, code: why }))
+            | Err(Err::Failure(NomError { input: what, code: why })) => Err(Error::ParserError {
                 what: what.to_string(),
                 to: "NameServerConfig",
                 why: format!("{:?}", why),

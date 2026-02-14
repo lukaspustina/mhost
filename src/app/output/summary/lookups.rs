@@ -12,8 +12,12 @@ use std::time::Duration;
 use tabwriter::TabWriter;
 
 use crate::resolver::Lookups;
-use crate::resources::rdata::parsed_txt::{Bimi, Dmarc, DomainVerification, Mechanism, Modifier, MtaSts, ParsedTxt, TlsRpt, Word};
-use crate::resources::rdata::{parsed_txt::Spf, Name, CAA, DNSSEC, HINFO, MX, NAPTR, NULL, OPENPGPKEY, SOA, SRV, SSHFP, SVCB, TLSA, TXT, UNKNOWN};
+use crate::resources::rdata::parsed_txt::{
+    Bimi, Dmarc, DomainVerification, Mechanism, Modifier, MtaSts, ParsedTxt, TlsRpt, Word,
+};
+use crate::resources::rdata::{
+    parsed_txt::Spf, Name, CAA, DNSSEC, HINFO, MX, NAPTR, NULL, OPENPGPKEY, SOA, SRV, SSHFP, SVCB, TLSA, TXT, UNKNOWN,
+};
 use crate::resources::{NameToIpAddr, Record};
 use crate::{Error, RecordType};
 
@@ -118,7 +122,12 @@ impl Rendering for Record {
 
     fn render_with_suffix(&self, suffix: &str, opts: &SummaryOptions) -> String {
         match self.record_type() {
-            RecordType::A => format!("{}:\t{}{}", "A".paint(*styles::A), self.data().a().unwrap().render(opts), suffix),
+            RecordType::A => format!(
+                "{}:\t{}{}",
+                "A".paint(*styles::A),
+                self.data().a().unwrap().render(opts),
+                suffix
+            ),
             RecordType::AAAA => format!(
                 "{}:\t{}{}",
                 "AAAA".paint(*styles::AAAA),
@@ -371,36 +380,42 @@ impl Rendering for TLSA {
                 crate::resources::rdata::CertUsage::PkixEe => "service certificate constraint",
                 crate::resources::rdata::CertUsage::DaneTa => "trust anchor",
                 crate::resources::rdata::CertUsage::DaneEe => "domain-issued certificate",
-                other => return format!(
-                    "{}, match {} of {}, data {}",
-                    other.paint(style),
-                    self.matching().paint(style),
-                    self.selector().paint(style),
-                    hex_data.paint(style)
-                ),
+                other => {
+                    return format!(
+                        "{}, match {} of {}, data {}",
+                        other.paint(style),
+                        self.matching().paint(style),
+                        self.selector().paint(style),
+                        hex_data.paint(style)
+                    )
+                }
             };
             let selector = match self.selector() {
                 crate::resources::rdata::Selector::Full => "full certificate",
                 crate::resources::rdata::Selector::Spki => "public key only",
-                other => return format!(
-                    "{}, match {} of {}, data {}",
-                    usage.paint(style),
-                    self.matching().paint(style),
-                    other.paint(style),
-                    hex_data.paint(style)
-                ),
+                other => {
+                    return format!(
+                        "{}, match {} of {}, data {}",
+                        usage.paint(style),
+                        self.matching().paint(style),
+                        other.paint(style),
+                        hex_data.paint(style)
+                    )
+                }
             };
             let matching = match self.matching() {
                 crate::resources::rdata::Matching::Raw => "exact match",
                 crate::resources::rdata::Matching::Sha256 => "SHA-256 hash",
                 crate::resources::rdata::Matching::Sha512 => "SHA-512 hash",
-                other => return format!(
-                    "{}, match {} of {}, data {}",
-                    usage.paint(style),
-                    other.paint(style),
-                    selector.paint(style),
-                    hex_data.paint(style)
-                ),
+                other => {
+                    return format!(
+                        "{}, match {} of {}, data {}",
+                        usage.paint(style),
+                        other.paint(style),
+                        selector.paint(style),
+                        hex_data.paint(style)
+                    )
+                }
             };
             format!(
                 "{}, match {} of {}, data {}",
@@ -588,30 +603,67 @@ impl TXT {
     fn format_dmarc(dmarc: &Dmarc, suffix: &str) -> String {
         let style = *styles::TXT;
         let mut buf = String::new();
-        buf.push_str(&format!("DMARC version={}, policy={}{}", dmarc.version().paint(style), dmarc.policy().paint(style), suffix));
+        buf.push_str(&format!(
+            "DMARC version={}, policy={}{}",
+            dmarc.version().paint(style),
+            dmarc.policy().paint(style),
+            suffix
+        ));
         if let Some(sp) = dmarc.subdomain_policy() {
-            buf.push_str(&format!("\n\t{} subdomain policy: {}", &*ITEMAZATION_PREFIX, sp.paint(style)));
+            buf.push_str(&format!(
+                "\n\t{} subdomain policy: {}",
+                &*ITEMAZATION_PREFIX,
+                sp.paint(style)
+            ));
         }
         if let Some(adkim) = dmarc.adkim() {
-            buf.push_str(&format!("\n\t{} DKIM alignment: {}", &*ITEMAZATION_PREFIX, adkim.paint(style)));
+            buf.push_str(&format!(
+                "\n\t{} DKIM alignment: {}",
+                &*ITEMAZATION_PREFIX,
+                adkim.paint(style)
+            ));
         }
         if let Some(aspf) = dmarc.aspf() {
-            buf.push_str(&format!("\n\t{} SPF alignment: {}", &*ITEMAZATION_PREFIX, aspf.paint(style)));
+            buf.push_str(&format!(
+                "\n\t{} SPF alignment: {}",
+                &*ITEMAZATION_PREFIX,
+                aspf.paint(style)
+            ));
         }
         if let Some(pct) = dmarc.pct() {
-            buf.push_str(&format!("\n\t{} percentage: {}%", &*ITEMAZATION_PREFIX, pct.paint(style)));
+            buf.push_str(&format!(
+                "\n\t{} percentage: {}%",
+                &*ITEMAZATION_PREFIX,
+                pct.paint(style)
+            ));
         }
         if let Some(rua) = dmarc.rua() {
-            buf.push_str(&format!("\n\t{} aggregate reports: {}", &*ITEMAZATION_PREFIX, rua.paint(style)));
+            buf.push_str(&format!(
+                "\n\t{} aggregate reports: {}",
+                &*ITEMAZATION_PREFIX,
+                rua.paint(style)
+            ));
         }
         if let Some(ruf) = dmarc.ruf() {
-            buf.push_str(&format!("\n\t{} forensic reports: {}", &*ITEMAZATION_PREFIX, ruf.paint(style)));
+            buf.push_str(&format!(
+                "\n\t{} forensic reports: {}",
+                &*ITEMAZATION_PREFIX,
+                ruf.paint(style)
+            ));
         }
         if let Some(fo) = dmarc.fo() {
-            buf.push_str(&format!("\n\t{} failure options: {}", &*ITEMAZATION_PREFIX, fo.paint(style)));
+            buf.push_str(&format!(
+                "\n\t{} failure options: {}",
+                &*ITEMAZATION_PREFIX,
+                fo.paint(style)
+            ));
         }
         if let Some(ri) = dmarc.ri() {
-            buf.push_str(&format!("\n\t{} report interval: {}s", &*ITEMAZATION_PREFIX, ri.paint(style)));
+            buf.push_str(&format!(
+                "\n\t{} report interval: {}s",
+                &*ITEMAZATION_PREFIX,
+                ri.paint(style)
+            ));
         }
         buf
     }
@@ -644,7 +696,11 @@ impl TXT {
             buf.push_str(&format!("\n\t{} logo: {}", &*ITEMAZATION_PREFIX, logo.paint(style)));
         }
         if let Some(authority) = bimi.authority() {
-            buf.push_str(&format!("\n\t{} authority: {}", &*ITEMAZATION_PREFIX, authority.paint(style)));
+            buf.push_str(&format!(
+                "\n\t{} authority: {}",
+                &*ITEMAZATION_PREFIX,
+                authority.paint(style)
+            ));
         }
         buf
     }
@@ -727,7 +783,12 @@ impl Rendering for NAPTR {
 impl Rendering for OPENPGPKEY {
     fn render(&self, _: &SummaryOptions) -> String {
         let style = *styles::OPENPGPKEY;
-        let hex: String = self.public_key().iter().take(16).map(|b| format!("{:02x}", b)).collect();
+        let hex: String = self
+            .public_key()
+            .iter()
+            .take(16)
+            .map(|b| format!("{:02x}", b))
+            .collect();
         let suffix = if self.public_key().len() > 16 { "..." } else { "" };
         format!("key={}{} ({} bytes)", hex.paint(style), suffix, self.public_key().len())
     }
@@ -786,7 +847,11 @@ impl Rendering for SVCB {
                 result
             }
         } else {
-            let params: Vec<String> = self.svc_params().iter().map(|p| format!("{}={}", p.key(), p.value())).collect();
+            let params: Vec<String> = self
+                .svc_params()
+                .iter()
+                .map(|p| format!("{}={}", p.key(), p.value()))
+                .collect();
             format!(
                 "{} {} {}",
                 self.svc_priority().paint(style),

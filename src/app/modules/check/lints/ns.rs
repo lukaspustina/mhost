@@ -93,7 +93,11 @@ impl<'a> Ns<'a> {
         }
     }
 
-    async fn check_delegation_and_diversity(&self, ns_names: &[Name], results: &mut Vec<CheckResult>) -> PartialResult<()> {
+    async fn check_delegation_and_diversity(
+        &self,
+        ns_names: &[Name],
+        results: &mut Vec<CheckResult>,
+    ) -> PartialResult<()> {
         // Resolve NS names to IPs (shared for both lame delegation and diversity checks)
         if self.env.console.show_partial_headers() {
             self.env.console.itemize("Lame delegation");
@@ -102,7 +106,9 @@ impl<'a> Ns<'a> {
         let query = match MultiQuery::new(ns_names.to_vec(), vec![RecordType::A, RecordType::AAAA]) {
             Ok(q) => q,
             Err(_) => {
-                results.push(CheckResult::Warning("Could not resolve NS server addresses".to_string()));
+                results.push(CheckResult::Warning(
+                    "Could not resolve NS server addresses".to_string(),
+                ));
                 return Ok(());
             }
         };
@@ -131,7 +137,9 @@ impl<'a> Ns<'a> {
         let resolvers = match AppResolver::from_configs(authoritative_configs, self.env.app_config).await {
             Ok(r) => r,
             Err(_) => {
-                results.push(CheckResult::Warning("Could not create resolvers for NS lame delegation check".to_string()));
+                results.push(CheckResult::Warning(
+                    "Could not create resolvers for NS lame delegation check".to_string(),
+                ));
                 return Ok(());
             }
         };
@@ -147,10 +155,7 @@ impl<'a> Ns<'a> {
             "Running SOA lookups against NS servers to detect lame delegation."
         );
 
-        let responding = soa_lookups
-            .iter()
-            .filter(|l| l.result().is_response())
-            .count();
+        let responding = soa_lookups.iter().filter(|l| l.result().is_response()).count();
         let total = ns_ips.len();
 
         if responding == total {
@@ -236,10 +241,7 @@ mod tests {
     #[test]
     fn check_network_diversity_same_network() {
         let mut results = Vec::new();
-        let ips = vec![
-            Ipv4Addr::new(192, 168, 1, 1),
-            Ipv4Addr::new(192, 168, 1, 2),
-        ];
+        let ips = vec![Ipv4Addr::new(192, 168, 1, 1), Ipv4Addr::new(192, 168, 1, 2)];
         Ns::check_network_diversity(&ips, &mut results);
         assert_eq!(results.len(), 1);
         assert!(matches!(&results[0], CheckResult::Warning(_)));
@@ -248,10 +250,7 @@ mod tests {
     #[test]
     fn check_network_diversity_different_networks() {
         let mut results = Vec::new();
-        let ips = vec![
-            Ipv4Addr::new(192, 168, 1, 1),
-            Ipv4Addr::new(10, 0, 0, 1),
-        ];
+        let ips = vec![Ipv4Addr::new(192, 168, 1, 1), Ipv4Addr::new(10, 0, 0, 1)];
         Ns::check_network_diversity(&ips, &mut results);
         assert_eq!(results.len(), 1);
         assert!(matches!(&results[0], CheckResult::Ok(_)));

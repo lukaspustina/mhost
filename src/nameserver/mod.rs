@@ -10,9 +10,9 @@
 use std::fmt;
 use std::net::{IpAddr, SocketAddr};
 
-use std::str::FromStr;
 use resolv_conf::ScopedIp;
 use serde::Serialize;
+use std::str::FromStr;
 
 use crate::Result;
 use crate::{system_config, Error};

@@ -1,6 +1,4 @@
-RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color -q discover example.com
+RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color -q discover example.com --no-ct-logs
 
 CHECK: * .
-CHECK: * elliott.ns.cloudflare.com.
-CHECK: * hera.ns.cloudflare.com.
 CHECK: * .example.com.

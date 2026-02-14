@@ -14,6 +14,7 @@ use serde::Serialize;
 
 pub use caa::CAA;
 pub use dnssec::DNSSEC;
+pub use hickory_resolver::{IntoName, Name};
 pub use hinfo::HINFO;
 pub use mx::MX;
 pub use naptr::NAPTR;
@@ -23,8 +24,7 @@ pub use soa::SOA;
 pub use srv::SRV;
 pub use sshfp::SSHFP;
 pub use svcb::SVCB;
-pub use hickory_resolver::{IntoName, Name};
-pub use tlsa::{TLSA, CertUsage, Selector, Matching};
+pub use tlsa::{CertUsage, Matching, Selector, TLSA};
 pub use txt::TXT;
 pub use unknown::UNKNOWN;
 

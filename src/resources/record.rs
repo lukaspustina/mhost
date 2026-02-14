@@ -9,9 +9,9 @@
 // copied, modified, or distributed except according to those terms.
 
 use crate::resources::{RData, RecordType};
+use hickory_resolver::Name;
 use serde::Serialize;
 use std::hash::{Hash, Hasher};
-use hickory_resolver::Name;
 
 #[derive(Debug, Eq, Clone, Serialize)]
 pub struct Record {

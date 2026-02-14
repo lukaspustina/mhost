@@ -1011,12 +1011,32 @@ mod tests {
         // These are the SUPPORTED_RECORD_TYPES from cli_parser.rs minus ANY (which is a
         // meta-type, not a real record type to document)
         let supported = [
-            "A", "AAAA", "ANAME", "CAA", "CNAME", "HINFO", "HTTPS", "MX", "NAPTR", "NULL", "NS",
-            "OPENPGPKEY", "PTR", "SOA", "SRV", "SSHFP", "SVCB", "TLSA", "TXT",
+            "A",
+            "AAAA",
+            "ANAME",
+            "CAA",
+            "CNAME",
+            "HINFO",
+            "HTTPS",
+            "MX",
+            "NAPTR",
+            "NULL",
+            "NS",
+            "OPENPGPKEY",
+            "PTR",
+            "SOA",
+            "SRV",
+            "SSHFP",
+            "SVCB",
+            "TLSA",
+            "TXT",
         ];
         let info_names: Vec<&str> = record_types().iter().map(|r| r.name).collect();
         for name in &supported {
-            assert!(info_names.contains(name), "Missing reference data for record type {name}");
+            assert!(
+                info_names.contains(name),
+                "Missing reference data for record type {name}"
+            );
         }
     }
 
@@ -1028,10 +1048,7 @@ mod tests {
             .into_iter()
             .filter(|e| !e.subdomain.is_empty())
             .collect();
-        let ref_subdomains: Vec<(&str, &str)> = subdomains()
-            .iter()
-            .map(|s| (s.subdomain, s.record_type))
-            .collect();
+        let ref_subdomains: Vec<(&str, &str)> = subdomains().iter().map(|s| (s.subdomain, s.record_type)).collect();
         for entry in &spec_entries {
             let rt_str: &str = entry.record_type.into();
             assert!(

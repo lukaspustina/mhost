@@ -5,8 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-pub mod reference_data;
 mod output;
+pub mod reference_data;
 
 use anyhow::Result;
 use clap::ArgMatches;

@@ -6,8 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 use anyhow::{anyhow, Result};
-use nom::Err;
 use nom::error::Error as NomError;
+use nom::Err;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ServiceSpec {
@@ -43,11 +43,9 @@ impl ServiceSpec {
                 "failed to parse service spec '{}' because input is incomplete",
                 str
             )),
-            Err(Err::Error(NomError { input: _, code: why })) | Err(Err::Failure(NomError { input: _, code: why })) => Err(anyhow!(
-                "failed to parse service spec '{}' because {:?}",
-                str,
-                why
-            )),
+            Err(Err::Error(NomError { input: _, code: why })) | Err(Err::Failure(NomError { input: _, code: why })) => {
+                Err(anyhow!("failed to parse service spec '{}' because {:?}", str, why))
+            }
         }
     }
 }

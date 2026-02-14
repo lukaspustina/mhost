@@ -5,8 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use nom::Err;
 use nom::error::Error as NomError;
+use nom::Err;
 
 use crate::{Error, Result};
 
@@ -26,7 +26,8 @@ impl<'a> MtaSts<'a> {
                 to: "MTA-STS TXT Record",
                 why: "input is incomplete".to_string(),
             }),
-            Err(Err::Error(NomError { input: what, code: why })) | Err(Err::Failure(NomError { input: what, code: why })) => Err(Error::ParserError {
+            Err(Err::Error(NomError { input: what, code: why }))
+            | Err(Err::Failure(NomError { input: what, code: why })) => Err(Error::ParserError {
                 what: what.to_string(),
                 to: "MTA-STS TXT Record",
                 why: format!("{:?}", why),
@@ -66,13 +67,7 @@ pub(crate) mod parser {
             None => return Err(Err::Error(NomError::new(input, ErrorKind::Tag))),
         };
 
-        Ok((
-            rest,
-            MtaSts {
-                version: "STSv1",
-                id,
-            },
-        ))
+        Ok((rest, MtaSts { version: "STSv1", id }))
     }
 }
 

@@ -41,7 +41,10 @@ pub(crate) mod parser {
         let (input, _) = space0(input)?;
         // After a semicolon, we might be at end of input (trailing semicolon)
         if input.is_empty() || !input.contains('=') {
-            return Err(nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Tag)));
+            return Err(nom::Err::Error(nom::error::Error::new(
+                input,
+                nom::error::ErrorKind::Tag,
+            )));
         }
         tag_pair(input)
     }
@@ -90,11 +93,7 @@ mod test {
         assert!(rest.is_empty());
         assert_eq!(
             tags,
-            vec![
-                ("v", "DMARC1"),
-                ("p", "none"),
-                ("rua", "mailto:d@example.com"),
-            ]
+            vec![("v", "DMARC1"), ("p", "none"), ("rua", "mailto:d@example.com"),]
         );
     }
 

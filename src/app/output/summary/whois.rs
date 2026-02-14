@@ -102,7 +102,15 @@ fn render_whois(whois: &Whois, _opts: &SummaryOptions) -> String {
     format!(
         "Net name {}, Org {}, Authority {}",
         whois.net_name().map(|x| x.as_str()).unwrap_or("-").paint(*styles::EMPH),
-        whois.organization().map(|x| x.as_str()).unwrap_or("-").paint(*styles::EMPH),
-        whois.source().map(|x| x.to_string()).unwrap_or_else(|| "-".to_string()).paint(*styles::EMPH),
+        whois
+            .organization()
+            .map(|x| x.as_str())
+            .unwrap_or("-")
+            .paint(*styles::EMPH),
+        whois
+            .source()
+            .map(|x| x.to_string())
+            .unwrap_or_else(|| "-".to_string())
+            .paint(*styles::EMPH),
     )
 }

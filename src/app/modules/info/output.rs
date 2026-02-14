@@ -41,7 +41,11 @@ fn print_listing(console: &Console) -> Result<ExitStatus> {
     let mut tw = TabWriter::new(vec![]);
     for txt in reference_data::txt_sub_types() {
         let rfc_str = txt.rfc.map(|r| format!("({})", r)).unwrap_or_default();
-        writeln!(tw, " {} {}\t{}\t{}", &*ITEMAZATION_PREFIX, txt.name, txt.summary, rfc_str)?;
+        writeln!(
+            tw,
+            " {} {}\t{}\t{}",
+            &*ITEMAZATION_PREFIX, txt.name, txt.summary, rfc_str
+        )?;
     }
     flush_tabwriter(tw)?;
 
@@ -118,9 +122,8 @@ fn print_detail(console: &Console, topic: &str) -> Result<ExitStatus> {
         }
         None => {
             console.caption(format!("Unknown topic: '{}'", topic));
-            console.info(
-                "Use 'mhost info' to list all supported record types, TXT sub-types, and well-known subdomains.",
-            );
+            console
+                .info("Use 'mhost info' to list all supported record types, TXT sub-types, and well-known subdomains.");
             Ok(ExitStatus::Ok)
         }
     }

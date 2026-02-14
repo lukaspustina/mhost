@@ -78,8 +78,8 @@ impl RecordType {
     pub fn all() -> Vec<RecordType> {
         use RecordType::*;
         vec![
-            A, AAAA, ANAME, ANY, AXFR, CAA, CNAME, HINFO, HTTPS, IXFR, MX, NAPTR, NS, NULL, OPENPGPKEY, OPT, PTR,
-            SOA, SRV, SSHFP, SVCB, TLSA, TXT, DNSSEC, ZERO,
+            A, AAAA, ANAME, ANY, AXFR, CAA, CNAME, HINFO, HTTPS, IXFR, MX, NAPTR, NS, NULL, OPENPGPKEY, OPT, PTR, SOA,
+            SRV, SSHFP, SVCB, TLSA, TXT, DNSSEC, ZERO,
         ]
     }
 }

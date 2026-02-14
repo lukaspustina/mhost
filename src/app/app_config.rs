@@ -65,16 +65,10 @@ impl TryFrom<&ArgMatches> for AppConfig {
             .unwrap()?; // Safe unwrap, because of clap's validation
         let config = AppConfig {
             list_predefined: args.get_flag("list-predefined"),
-            max_concurrent_servers: *args
-                .get_one::<usize>("max-concurrent-servers")
-                .unwrap(), // Safe unwrap, because clap's validation
+            max_concurrent_servers: *args.get_one::<usize>("max-concurrent-servers").unwrap(), // Safe unwrap, because clap's validation
             use_system_resolv_opt: args.get_flag("use-system-resolv-opt"),
-            retries: *args
-                .get_one::<usize>("retries")
-                .unwrap(), // Safe unwrap, because clap's validation
-            max_concurrent_requests: *args
-                .get_one::<usize>("max-concurrent-requests")
-                .unwrap(), // Safe unwrap, because clap's validation
+            retries: *args.get_one::<usize>("retries").unwrap(), // Safe unwrap, because clap's validation
+            max_concurrent_requests: *args.get_one::<usize>("max-concurrent-requests").unwrap(), // Safe unwrap, because clap's validation
             timeout: {
                 let secs = *args.get_one::<u64>("timeout").unwrap(); // Safe unwrap, because clap's validation
                 Duration::from_secs(secs)
@@ -87,9 +81,7 @@ impl TryFrom<&ArgMatches> for AppConfig {
                 .map(|s| s.as_str())
                 .unwrap_or("/etc/resolv.conf")
                 .to_string(),
-            ndots: *args
-                .get_one::<u8>("ndots")
-                .unwrap(), // Safe unwrap, because clap's validation
+            ndots: *args.get_one::<u8>("ndots").unwrap(), // Safe unwrap, because clap's validation
             search_domain: args.get_one::<String>("search-domain").map(ToString::to_string),
             show_errors: args.get_flag("show-errors"),
             quiet: args.get_flag("quiet"),
@@ -103,9 +95,7 @@ impl TryFrom<&ArgMatches> for AppConfig {
                 .get_many::<String>("predefined-filter")
                 .map(|xs| xs.map(ToString::to_string).collect()),
             nameserver_file_path: args.get_one::<String>("nameservers-from-file").map(ToString::to_string),
-            limit: *args
-                .get_one::<usize>("limit")
-                .unwrap(), // Safe unwrap, because clap's validation
+            limit: *args.get_one::<usize>("limit").unwrap(), // Safe unwrap, because clap's validation
             system_nameservers: args
                 .get_many::<String>("system nameservers")
                 .map(|xs| xs.map(ToString::to_string).collect()),
@@ -115,9 +105,7 @@ impl TryFrom<&ArgMatches> for AppConfig {
             },
             output_config: output_config(output, args)?,
             output,
-            max_worker_threads: args
-                .get_one::<usize>("max-worker-threads")
-                .copied(),
+            max_worker_threads: args.get_one::<usize>("max-worker-threads").copied(),
         };
 
         Ok(config)

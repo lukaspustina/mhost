@@ -55,7 +55,8 @@ impl<'a> HttpsSvcb<'a> {
         } else {
             if !https_records.is_empty() {
                 Self::check_svcb_records("HTTPS", &https_records, &mut results);
-                self.check_targets_resolve("HTTPS", &https_records, &mut results).await?;
+                self.check_targets_resolve("HTTPS", &https_records, &mut results)
+                    .await?;
             }
             if !svcb_records.is_empty() {
                 Self::check_svcb_records("SVCB", &svcb_records, &mut results);
@@ -99,11 +100,14 @@ impl<'a> HttpsSvcb<'a> {
         }
     }
 
-    async fn check_targets_resolve(&self, record_type: &str, records: &[&SVCB], results: &mut Vec<CheckResult>) -> PartialResult<()> {
+    async fn check_targets_resolve(
+        &self,
+        record_type: &str,
+        records: &[&SVCB],
+        results: &mut Vec<CheckResult>,
+    ) -> PartialResult<()> {
         if self.env.console.show_partial_headers() {
-            self.env
-                .console
-                .itemize(format!("{} target resolution", record_type));
+            self.env.console.itemize(format!("{} target resolution", record_type));
         }
 
         let targets: Vec<Name> = records
@@ -123,12 +127,7 @@ impl<'a> HttpsSvcb<'a> {
             Err(_) => return Ok(()),
         };
 
-        let lookups = intermediate_lookups!(
-            self,
-            query,
-            "Running lookups for {} target IP addresses.",
-            record_type
-        );
+        let lookups = intermediate_lookups!(self, query, "Running lookups for {} target IP addresses.", record_type);
 
         let resolved_names: Vec<Name> = lookups
             .rr_a()

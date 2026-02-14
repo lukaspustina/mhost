@@ -8,8 +8,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use serde::Serialize;
 use hickory_resolver::Name;
+use serde::Serialize;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize)]
 #[allow(clippy::upper_case_acronyms)]
