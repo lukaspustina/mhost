@@ -33,6 +33,7 @@ pub mod error;
 pub mod lookup;
 pub mod predefined;
 pub mod query;
+pub mod raw;
 
 pub type ResolverResult<T> = std::result::Result<T, Error>;
 

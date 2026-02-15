@@ -1,0 +1,9 @@
+RUN: @mhost_bin --no-system-lookups --ascii --no-color trace example.com -t A
+
+CHECK: DNS Trace: example.com A
+CHECK: Hop 1: Root (.)
+CHECK: Referral
+CHECK: Hop 2:
+CHECK: Hop [[\d+]]:
+CHECK: Trace complete: [[\d+]] hop
+CHECK: + Finished.

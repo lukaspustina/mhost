@@ -23,6 +23,7 @@ pub mod get_server_lists;
 pub mod info;
 pub mod lookup;
 pub mod propagation;
+pub mod trace;
 
 /** Return type for App modules that go through multiple steps
  *
