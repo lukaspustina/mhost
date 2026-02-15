@@ -11,12 +11,10 @@ use std::io::Write;
 use anyhow::{Context, Result};
 use serde::Serialize;
 use tracing::{debug, info};
-use yansi::Paint;
 
 use crate::app::modules::diff::config::DiffConfig;
 use crate::app::modules::{AppModule, Environment, PartialResult, RunInfo};
-use crate::app::output::summary::{Rendering, SummaryFormatter, SummaryOptions};
-use crate::app::output::styles as output_styles;
+use crate::app::output::summary::{SummaryFormatter, SummaryOptions};
 use crate::app::output::OutputType;
 use crate::app::resolver::AppResolver;
 use crate::app::utils::time;
@@ -198,44 +196,6 @@ pub struct RecordTypeDiff {
 impl DiffResults {
     pub fn has_differences(&self) -> bool {
         !self.record_diffs.is_empty()
-    }
-}
-
-impl SummaryFormatter for DiffResults {
-    fn output<W: Write>(&self, writer: &mut W, opts: &SummaryOptions) -> crate::Result<()> {
-        writeln!(writer, "DNS Diff for {}", self.domain_name)?;
-        writeln!(writer, "  Left:  {}", self.left_servers.join(", "))?;
-        writeln!(writer, "  Right: {}", self.right_servers.join(", "))?;
-        writeln!(writer)?;
-
-        if self.record_diffs.is_empty() {
-            writeln!(writer, " {} No differences found.", output_styles::ok_prefix())?;
-            return Ok(());
-        }
-
-        for diff in &self.record_diffs {
-            writeln!(writer, " {} {}:", output_styles::caption_prefix(), diff.record_type)?;
-
-            for record in &diff.only_left {
-                writeln!(
-                    writer,
-                    "   {} left only: {}",
-                    "-".paint(output_styles::ATTENTION),
-                    record.render(opts),
-                )?;
-            }
-
-            for record in &diff.only_right {
-                writeln!(
-                    writer,
-                    "   {} right only: {}",
-                    "+".paint(output_styles::OK),
-                    record.render(opts),
-                )?;
-            }
-        }
-
-        Ok(())
     }
 }
 

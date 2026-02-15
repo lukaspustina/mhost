@@ -11,7 +11,9 @@ use crate::Error;
 
 use super::*;
 
+pub mod diff;
 pub mod lookups;
+pub mod propagation;
 pub mod whois;
 
 #[derive(Debug)]

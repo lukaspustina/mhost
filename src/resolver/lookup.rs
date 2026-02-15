@@ -407,6 +407,17 @@ impl Lookup {
     }
 }
 
+#[cfg(test)]
+impl Lookup {
+    pub fn new_for_test(query: UniQuery, name_server: Arc<NameServerConfig>, result: LookupResult) -> Self {
+        Lookup {
+            query,
+            name_server,
+            result,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub enum LookupResult {
     Response(Response),
@@ -485,9 +496,27 @@ impl Response {
     }
 }
 
+#[cfg(test)]
+impl Response {
+    pub fn new_for_test(records: Vec<Record>, response_time: Duration) -> Self {
+        Response {
+            records,
+            response_time,
+            valid_until: Utc::now(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct NxDomain {
     response_time: Duration,
+}
+
+#[cfg(test)]
+impl NxDomain {
+    pub fn new_for_test(response_time: Duration) -> Self {
+        NxDomain { response_time }
+    }
 }
 
 #[instrument(name = "multi lookup", level = "info", skip(resolver, query), fields(r = %resolver.name_server, ns = field::Empty, ts = field::Empty))]
