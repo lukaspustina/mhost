@@ -7,19 +7,29 @@
 
 use crate::nameserver::NameServerConfig;
 
-/// Returns UDP-only IPv4 nameservers for propagation checking — one per unique IP across 6 providers.
+/// Returns UDP nameservers for propagation checking — one per unique IP across 6 providers.
+/// Includes both IPv4 and IPv6 entries where available.
 pub fn propagation_nameserver_configs() -> Vec<NameServerConfig> {
     vec![
         cloudflare::udp(),
         cloudflare::udp_2(),
+        cloudflare::udp6(),
+        cloudflare::udp6_2(),
         google::udp(),
         google::udp_2(),
+        google::udp6(),
+        google::udp6_2(),
         quad9::udp(),
         quad9::udp_2(),
+        quad9::udp6(),
+        quad9::udp6_2(),
         mullvad::udp(),
         mullvad::udp_2(),
+        mullvad::udp6(),
         wikimedia::udp(),
         wikimedia::udp_2(),
+        wikimedia::udp6(),
+        wikimedia::udp6_2(),
         dns4eu::udp(),
         dns4eu::udp_2(),
     ]

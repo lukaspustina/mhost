@@ -10,7 +10,7 @@
 //! Used by the trace command to perform iterative DNS resolution, querying
 //! nameservers directly without recursion and inspecting authority/additional sections.
 
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::time::{Duration, Instant};
 
 use futures::stream::{self, StreamExt};
@@ -37,6 +37,23 @@ pub static ROOT_SERVERS: &[Ipv4Addr] = &[
     Ipv4Addr::new(193, 0, 14, 129),  // k.root-servers.net
     Ipv4Addr::new(199, 7, 83, 42),   // l.root-servers.net
     Ipv4Addr::new(202, 12, 27, 33),  // m.root-servers.net
+];
+
+/// Root DNS server IPv6 addresses (a.root-servers.net through m.root-servers.net).
+pub static ROOT_SERVERS_V6: &[Ipv6Addr] = &[
+    Ipv6Addr::new(0x2001, 0x0503, 0xba3e, 0, 0, 0, 0x0002, 0x0030), // a.root-servers.net
+    Ipv6Addr::new(0x2801, 0x01b8, 0x0010, 0, 0, 0, 0, 0x000b),       // b.root-servers.net
+    Ipv6Addr::new(0x2001, 0x0500, 0x0002, 0, 0, 0, 0, 0x000c),       // c.root-servers.net
+    Ipv6Addr::new(0x2001, 0x0500, 0x002d, 0, 0, 0, 0, 0x000d),       // d.root-servers.net
+    Ipv6Addr::new(0x2001, 0x0500, 0x00a8, 0, 0, 0, 0, 0x000e),       // e.root-servers.net
+    Ipv6Addr::new(0x2001, 0x0500, 0x002f, 0, 0, 0, 0, 0x000f),       // f.root-servers.net
+    Ipv6Addr::new(0x2001, 0x0500, 0x0012, 0, 0, 0, 0, 0x0d0d),       // g.root-servers.net
+    Ipv6Addr::new(0x2001, 0x0500, 0x0001, 0, 0, 0, 0, 0x0053),       // h.root-servers.net
+    Ipv6Addr::new(0x2001, 0x07fe, 0, 0, 0, 0, 0, 0x0053),            // i.root-servers.net
+    Ipv6Addr::new(0x2001, 0x0503, 0x0c27, 0, 0, 0, 0x0002, 0x0030),  // j.root-servers.net
+    Ipv6Addr::new(0x2001, 0x07fd, 0, 0, 0, 0, 0, 0x0001),            // k.root-servers.net
+    Ipv6Addr::new(0x2001, 0x0500, 0x009f, 0, 0, 0, 0, 0x0042),       // l.root-servers.net
+    Ipv6Addr::new(0x2001, 0x0dc3, 0, 0, 0, 0, 0, 0x0035),            // m.root-servers.net
 ];
 
 #[derive(Debug, Error)]
@@ -292,6 +309,11 @@ mod tests {
     #[test]
     fn root_servers_count() {
         assert_eq!(ROOT_SERVERS.len(), 13);
+    }
+
+    #[test]
+    fn root_servers_v6_count() {
+        assert_eq!(ROOT_SERVERS_V6.len(), 13);
     }
 
     #[test]

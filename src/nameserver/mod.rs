@@ -155,6 +155,15 @@ impl NameServerConfig {
             NameServerConfig::Tls { .. } => Protocol::Tls,
         }
     }
+
+    pub fn ip_addr(&self) -> IpAddr {
+        match self {
+            NameServerConfig::Udp { ip_addr, .. }
+            | NameServerConfig::Tcp { ip_addr, .. }
+            | NameServerConfig::Tls { ip_addr, .. }
+            | NameServerConfig::Https { ip_addr, .. } => *ip_addr,
+        }
+    }
 }
 
 impl fmt::Display for NameServerConfig {
@@ -389,5 +398,19 @@ mod test {
         asserting("display equals parsable string")
             .that(&display.as_str())
             .is_equal_to(expected);
+    }
+
+    #[test]
+    fn ip_addr_accessor_ipv4() {
+        let nsc = NameServerConfig::udp((Ipv4Addr::new(1, 1, 1, 1), 53));
+        assert_eq!(nsc.ip_addr(), IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)));
+        assert!(nsc.ip_addr().is_ipv4());
+    }
+
+    #[test]
+    fn ip_addr_accessor_ipv6() {
+        let nsc = NameServerConfig::tcp((Ipv6Addr::LOCALHOST, 53));
+        assert_eq!(nsc.ip_addr(), IpAddr::V6(Ipv6Addr::LOCALHOST));
+        assert!(nsc.ip_addr().is_ipv6());
     }
 }

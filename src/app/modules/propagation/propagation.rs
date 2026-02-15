@@ -51,6 +51,7 @@ impl Propagation {
 
         let configs: Vec<ResolverConfig> = predefined::propagation_nameserver_configs()
             .into_iter()
+            .filter(|ns| app_config.ip_allowed(ns.ip_addr()))
             .map(ResolverConfig::from)
             .collect();
 
