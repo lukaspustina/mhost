@@ -59,10 +59,15 @@ impl<'a> TraceRun<'a> {
         let show_all_servers = self.env.mod_config.show_all_servers;
         let partial_results = self.env.console.show_partial_results();
 
+        let root_label = match (self.env.app_config.ipv4_only, self.env.app_config.ipv6_only) {
+            (true, _) => "IPv4 root servers",
+            (_, true) => "IPv6 root servers",
+            _ => "IPv4+IPv6 root servers",
+        };
         if self.env.console.not_quiet() {
             self.env.console.info(format!(
-                "Tracing {} {} from root servers.",
-                self.domain_name, record_type
+                "Tracing {} {} from {}.",
+                self.domain_name, record_type, root_label
             ));
         }
         info!("Starting DNS trace for {} {}", self.domain_name, record_type);
@@ -126,24 +131,44 @@ impl<'a> TraceRun<'a> {
         let partial_results = self.env.console.show_partial_results();
         let mut hops = Vec::new();
 
-        // Start with root servers — use IPv6 roots when --ipv6-only
-        let mut current_servers: Vec<(SocketAddr, Option<String>)> = if self.env.app_config.ipv6_only {
-            raw::ROOT_SERVERS_V6
-                .iter()
-                .map(|ip| (SocketAddr::new(IpAddr::V6(*ip), 53), None))
-                .collect()
-        } else {
-            ROOT_SERVERS
-                .iter()
-                .map(|ip| (SocketAddr::new(IpAddr::V4(*ip), 53), None))
-                .collect()
-        };
+        // Start with root servers based on IP version flags:
+        //   -4 → IPv4 roots only, -6 → IPv6 roots only, default → both
+        let mut current_servers: Vec<(SocketAddr, Option<String>)> = Vec::new();
+        if !self.env.app_config.ipv6_only {
+            current_servers.extend(
+                ROOT_SERVERS
+                    .iter()
+                    .map(|ip| (SocketAddr::new(IpAddr::V4(*ip), 53), None)),
+            );
+        }
+        if !self.env.app_config.ipv4_only {
+            current_servers.extend(
+                raw::ROOT_SERVERS_V6
+                    .iter()
+                    .map(|ip| (SocketAddr::new(IpAddr::V6(*ip), 53), None)),
+            );
+        }
 
         let mut current_zone = ".".to_string();
 
         for level in 0..max_hops {
             if current_servers.is_empty() {
                 warn!("No servers to query at level {}", level);
+                if self.env.console.not_quiet() {
+                    let family = if self.env.app_config.ipv4_only {
+                        "IPv4"
+                    } else if self.env.app_config.ipv6_only {
+                        "IPv6"
+                    } else {
+                        "any"
+                    };
+                    self.env.console.attention(format!(
+                        "No {} addresses available for nameservers at hop {}. \
+                         Try without -4/-6 for dual-stack.",
+                        family,
+                        level + 1
+                    ));
+                }
                 break;
             }
 
