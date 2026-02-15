@@ -340,6 +340,7 @@ fn subcommands() -> Vec<Command> {
         lookup_subcommand(),
         propagation_subcommand(),
         server_lists_subcommand(),
+        trace_subcommand(),
     ]
     .into_iter()
     .map(|x| x.version(env!("CARGO_PKG_VERSION")).author(env!("CARGO_PKG_AUTHORS")))
@@ -738,6 +739,55 @@ fn propagation_subcommand() -> Command {
                 .long("all")
                 .action(ArgAction::SetTrue)
                 .help("Enables propagation check for all record types"),
+        )
+}
+
+fn trace_subcommand() -> Command {
+    Command::new("trace")
+        .alias("t")
+        .about("Traces DNS delegation path from root servers to authoritative nameservers")
+        .long_about(
+            r#"Traces the DNS delegation path from root servers down to the authoritative nameservers for a domain. At each delegation level, all nameservers are queried in parallel and referral consistency is checked.
+
+Unlike `dig +trace` which queries one server per hop, mhost queries all servers at each level concurrently, detects divergence in referrals, and reports per-server latency."#,
+        )
+        .arg(
+            Arg::new("domain name")
+                .required(true)
+                .index(1)
+                .value_name("DOMAIN NAME")
+                .help("domain name to trace")
+                .long_help("* DOMAIN NAME may be any valid DNS name, e.g., example.com"),
+        )
+        .arg(
+            Arg::new("record-type")
+                .short('t')
+                .long("record-type")
+                .value_name("RECORD TYPE")
+                .default_value("A")
+                .value_parser(SUPPORTED_RECORD_TYPES.to_vec())
+                .help("Sets record type to query at the final authoritative server"),
+        )
+        .arg(
+            Arg::new("max-hops")
+                .long("max-hops")
+                .value_name("NUMBER")
+                .default_value("10")
+                .value_parser(usize_range(1, 20))
+                .help("Sets maximum number of delegation hops"),
+        )
+        .arg(
+            Arg::new("show-all-servers")
+                .long("show-all-servers")
+                .action(ArgAction::SetTrue)
+                .help("Shows individual server details (IP, latency, outcome) for each hop"),
+        )
+        .arg(
+            Arg::new("partial-results")
+                .short('p')
+                .long("show-partial-results")
+                .action(ArgAction::SetTrue)
+                .help("Shows results after each delegation hop completes"),
         )
 }
 
