@@ -20,14 +20,14 @@ Work through these tasks in order, top to bottom. Each task is self-contained wi
 **Task**: Add global `--ipv4-only` (`-4`) and `--ipv6-only` (`-6`) flags that restrict DNS queries to a single address family. These flags should be mutually exclusive and affect all commands that make DNS queries.
 
 **Acceptance criteria**:
-- [ ] `mhost -4 trace example.com` only queries IPv4 nameservers
-- [ ] `mhost -6 lookup example.com` only queries IPv6 nameservers
-- [ ] `-4` and `-6` are mutually exclusive (clap conflict)
-- [ ] Applies globally: trace, propagation, lookup, discover, check, domain-lookup, diff
-- [ ] Glue record filtering in trace respects the flag
-- [ ] Predefined nameserver filtering in propagation respects the flag
-- [ ] `cargo test --lib` passes
-- [ ] `cargo clippy` clean
+- [x] `mhost -4 trace example.com` only queries IPv4 nameservers
+- [x] `mhost -6 lookup example.com` only queries IPv6 nameservers
+- [x] `-4` and `-6` are mutually exclusive (clap conflict)
+- [x] Applies globally: trace, propagation, lookup, discover, check, domain-lookup, diff
+- [x] Glue record filtering in trace respects the flag
+- [x] Predefined nameserver filtering in propagation respects the flag
+- [x] `cargo test --lib` passes
+- [x] `cargo clippy` clean
 
 ---
 

@@ -114,7 +114,8 @@ impl AppResolver {
         let resolver_group_opts = load_resolver_group_opts(app_config)?;
         let resolver_opts = load_resolver_opts(app_config)?;
 
-        let system_resolver_group: ResolverConfigGroup = load_system_nameservers(app_config)?.into();
+        let system_ns = filter_by_family(load_system_nameservers(app_config)?, app_config);
+        let system_resolver_group: ResolverConfigGroup = system_ns.into();
         let mut system_resolvers = ResolverGroup::from_configs(
             system_resolver_group,
             resolver_opts.clone(),
@@ -124,7 +125,8 @@ impl AppResolver {
         .context("Failed to create system resolvers")?;
         info!("Created {} system resolvers.", system_resolvers.len());
 
-        let resolver_group: ResolverConfigGroup = load_nameservers(app_config, &mut system_resolvers).await?.into();
+        let user_ns = filter_by_family(load_nameservers(app_config, &mut system_resolvers).await?, app_config);
+        let resolver_group: ResolverConfigGroup = user_ns.into();
         let mut resolvers = ResolverGroup::from_configs(resolver_group, resolver_opts, resolver_group_opts)
             .await
             .context("Failed to load resolvers")?;
@@ -132,6 +134,12 @@ impl AppResolver {
 
         if !app_config.no_system_lookups {
             resolvers.merge(system_resolvers);
+        }
+
+        if resolvers.is_empty() {
+            return Err(anyhow!(
+                "No nameservers available for the requested address family. Check your -4/-6 flags."
+            ));
         }
 
         Ok(AppResolver {
@@ -245,6 +253,26 @@ pub fn load_resolver_opts(config: &AppConfig) -> Result<ResolverOpts> {
     debug!("Resolver opts: {:?}", &opts);
 
     Ok(opts)
+}
+
+fn filter_by_family(group: NameServerConfigGroup, config: &AppConfig) -> NameServerConfigGroup {
+    if !config.ipv4_only && !config.ipv6_only {
+        return group;
+    }
+    let before = group.len();
+    let filtered: Vec<_> = group
+        .into_iter()
+        .filter(|ns| config.ip_allowed(ns.ip_addr()))
+        .collect();
+    let after = filtered.len();
+    if after < before {
+        let family = if config.ipv4_only { "IPv4" } else { "IPv6" };
+        debug!(
+            "Filtered nameservers by {}: {} -> {} servers",
+            family, before, after,
+        );
+    }
+    NameServerConfigGroup::new(filtered)
 }
 
 pub fn load_system_nameservers(config: &AppConfig) -> Result<NameServerConfigGroup> {

@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::convert::TryFrom;
+use std::net::IpAddr;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -44,11 +45,22 @@ pub struct AppConfig {
     pub resolvers_mode: Mode,
     pub output: OutputType,
     pub output_config: OutputConfig,
+    pub ipv4_only: bool,
+    pub ipv6_only: bool,
     #[doc(hidden)]
     pub max_worker_threads: Option<usize>,
 }
 
 impl AppConfig {
+    /// Returns true if the given address is allowed by the IP family filter.
+    pub fn ip_allowed(&self, addr: IpAddr) -> bool {
+        match (self.ipv4_only, self.ipv6_only) {
+            (true, _) => addr.is_ipv4(),
+            (_, true) => addr.is_ipv6(),
+            _ => true,
+        }
+    }
+
     #[doc(hidden)]
     pub fn max_worker_threads(&self) -> Option<usize> {
         self.max_worker_threads
@@ -105,6 +117,8 @@ impl TryFrom<&ArgMatches> for AppConfig {
             },
             output_config: output_config(output, args)?,
             output,
+            ipv4_only: args.get_flag("ipv4-only"),
+            ipv6_only: args.get_flag("ipv6-only"),
             max_worker_threads: args.get_one::<usize>("max-worker-threads").copied(),
         };
 
@@ -132,5 +146,65 @@ fn parse_output_options<'a, I: Iterator<Item = &'a str>>(output_type: OutputType
             let options = SummaryOptions::try_from(options).context("failed to parse json options")?;
             Ok(OutputConfig::summary(options))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{Ipv4Addr, Ipv6Addr};
+
+    fn make_config(ipv4_only: bool, ipv6_only: bool) -> AppConfig {
+        AppConfig {
+            list_predefined: false,
+            max_concurrent_servers: 1,
+            use_system_resolv_opt: false,
+            retries: 0,
+            max_concurrent_requests: 1,
+            timeout: Duration::from_secs(5),
+            expects_multiple_responses: false,
+            abort_on_error: true,
+            abort_on_timeout: true,
+            resolv_conf_path: "/etc/resolv.conf".to_string(),
+            ndots: 1,
+            search_domain: None,
+            show_errors: false,
+            quiet: false,
+            ignore_system_nameservers: false,
+            no_system_lookups: false,
+            nameservers: None,
+            predefined: false,
+            predefined_filter: None,
+            nameserver_file_path: None,
+            limit: 10,
+            system_nameservers: None,
+            resolvers_mode: Mode::Multi,
+            output: OutputType::Summary,
+            output_config: OutputConfig::summary(SummaryOptions::default()),
+            ipv4_only,
+            ipv6_only,
+            max_worker_threads: None,
+        }
+    }
+
+    #[test]
+    fn ip_allowed_default_allows_both() {
+        let config = make_config(false, false);
+        assert!(config.ip_allowed(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1))));
+        assert!(config.ip_allowed(IpAddr::V6(Ipv6Addr::LOCALHOST)));
+    }
+
+    #[test]
+    fn ip_allowed_ipv4_only() {
+        let config = make_config(true, false);
+        assert!(config.ip_allowed(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1))));
+        assert!(!config.ip_allowed(IpAddr::V6(Ipv6Addr::LOCALHOST)));
+    }
+
+    #[test]
+    fn ip_allowed_ipv6_only() {
+        let config = make_config(false, true);
+        assert!(!config.ip_allowed(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1))));
+        assert!(config.ip_allowed(IpAddr::V6(Ipv6Addr::LOCALHOST)));
     }
 }

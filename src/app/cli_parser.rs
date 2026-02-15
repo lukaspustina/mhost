@@ -286,6 +286,22 @@ Examples:
                 .action(ArgAction::SetTrue)
                 .help("Does not print anything but results"),
         )
+        .arg(
+            Arg::new("ipv4-only")
+                .short('4')
+                .long("ipv4-only")
+                .action(ArgAction::SetTrue)
+                .conflicts_with("ipv6-only")
+                .help("Only use IPv4 for DNS connections (avoids IPv6 timeouts)"),
+        )
+        .arg(
+            Arg::new("ipv6-only")
+                .short('6')
+                .long("ipv6-only")
+                .action(ArgAction::SetTrue)
+                .conflicts_with("ipv4-only")
+                .help("Only use IPv6 for DNS connections"),
+        )
         // This is a special option that is not reflected in GlobalConfig, but is checked during
         // setup in `mhost.rs`.
         .arg(

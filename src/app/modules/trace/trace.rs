@@ -126,16 +126,18 @@ impl<'a> TraceRun<'a> {
         let partial_results = self.env.console.show_partial_results();
         let mut hops = Vec::new();
 
-        // Start with root servers
-        let mut current_servers: Vec<(SocketAddr, Option<String>)> = ROOT_SERVERS
-            .iter()
-            .map(|ip| {
-                (
-                    SocketAddr::new(IpAddr::V4(*ip), 53),
-                    None, // root servers don't have well-known individual names in this context
-                )
-            })
-            .collect();
+        // Start with root servers — use IPv6 roots when --ipv6-only
+        let mut current_servers: Vec<(SocketAddr, Option<String>)> = if self.env.app_config.ipv6_only {
+            raw::ROOT_SERVERS_V6
+                .iter()
+                .map(|ip| (SocketAddr::new(IpAddr::V6(*ip), 53), None))
+                .collect()
+        } else {
+            ROOT_SERVERS
+                .iter()
+                .map(|ip| (SocketAddr::new(IpAddr::V4(*ip), 53), None))
+                .collect()
+        };
 
         let mut current_zone = ".".to_string();
 
@@ -238,15 +240,19 @@ impl<'a> TraceRun<'a> {
                 }
             }
 
-            // Build next hop server list
+            // Build next hop server list, filtering by address family
             let mut next_zone = current_zone.clone();
             current_servers = Vec::new();
             for (ns_name, ips) in &resolved_servers {
-                if ips.is_empty() {
-                    warn!("Could not resolve NS {}", ns_name);
+                let filtered_ips: Vec<&IpAddr> = ips
+                    .iter()
+                    .filter(|ip| self.env.app_config.ip_allowed(**ip))
+                    .collect();
+                if filtered_ips.is_empty() {
+                    warn!("No matching addresses for NS {}", ns_name);
                     continue;
                 }
-                for ip in ips {
+                for ip in filtered_ips {
                     current_servers.push((
                         SocketAddr::new(*ip, 53),
                         Some(ns_name.clone()),
@@ -420,10 +426,13 @@ impl<'a> TraceRun<'a> {
                 }
             };
 
-            let query = match MultiQuery::multi_record(
-                name,
-                vec![RecordType::A, RecordType::AAAA],
-            ) {
+            let query_types = match (self.env.app_config.ipv4_only, self.env.app_config.ipv6_only) {
+                (true, _) => vec![RecordType::A],
+                (_, true) => vec![RecordType::AAAA],
+                _ => vec![RecordType::A, RecordType::AAAA],
+            };
+
+            let query = match MultiQuery::multi_record(name, query_types) {
                 Ok(q) => q,
                 Err(e) => {
                     warn!("Failed to build query for {}: {}", ns_name, e);
@@ -434,11 +443,15 @@ impl<'a> TraceRun<'a> {
             match resolver.lookup(query).await {
                 Ok(lookups) => {
                     let mut ips = Vec::new();
-                    for ip in lookups.a().unique().to_owned() {
-                        ips.push(IpAddr::V4(ip));
+                    if !self.env.app_config.ipv6_only {
+                        for ip in lookups.a().unique().to_owned() {
+                            ips.push(IpAddr::V4(ip));
+                        }
                     }
-                    for ip in lookups.aaaa().unique().to_owned() {
-                        ips.push(IpAddr::V6(ip));
+                    if !self.env.app_config.ipv4_only {
+                        for ip in lookups.aaaa().unique().to_owned() {
+                            ips.push(IpAddr::V6(ip));
+                        }
                     }
                     results.push((ns_name.clone(), ips));
                 }
