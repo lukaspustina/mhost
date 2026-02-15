@@ -186,7 +186,7 @@ impl SummaryFormatter for PropagationResults {
             if self.is_fully_propagated() {
                 writeln!(
                     writer,
-                    " {} Propagation: 100% complete.",
+                    "{} Propagation: 100% complete.",
                     output_styles::ok_prefix()
                 )?;
             } else {
