@@ -3,4 +3,4 @@ RUN: @mhost_bin
 CHECK: More than host
 CHECK: Usage:
 CHECK: Commands:
-CHECK: Options:
+CHECK: mhost -h
