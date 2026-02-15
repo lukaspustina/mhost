@@ -182,6 +182,168 @@ Added `ResolverGroupBuilder` with fluent API and `PredefinedProvider` enum.
 - [ ] Unit tests with known-good and known-bad DNSSEC data
 - [ ] `cargo test --lib` passes
 
+### 7. DNSSEC trust chain visualization
+
+**Context**: After tasks 5+6, mhost can validate the DNSSEC chain cryptographically. This task adds a visual representation of the trust chain in the terminal, making DNSSEC debugging accessible and intuitive. No existing CLI tool does this well.
+
+**Task**: Add a `--visualize` flag to the DNSSEC check lint (or a standalone `mhost dnssec` subcommand) that renders the full trust chain:
+1. Query root → TLD → zone for DS, DNSKEY, and RRSIG records at each level
+2. Render a tree showing: root KSK → TLD DS → TLD DNSKEY → zone DS → zone DNSKEY → RRSIG
+3. Color-code each link: green for valid, red for broken, yellow for warnings (weak algo, near-expiry)
+4. Show key tags, algorithms, and expiration dates inline
+
+**Acceptance criteria**:
+- [ ] Renders a delegation-level trust chain from root to target zone
+- [ ] Each node shows: record type, key tag, algorithm name, validity status
+- [ ] Color-coded: green (valid), red (broken/expired), yellow (weak algo or expiring within 7 days)
+- [ ] Works with `--ascii` flag (no Unicode box-drawing)
+- [ ] JSON output includes structured chain data
+- [ ] `cargo test --lib` passes
+- [ ] `cargo clippy` clean
+
+---
+
+## Next Phase
+
+### 8. DNS snapshot and timeline diff
+
+**Context**: The existing `diff` command compares records between two nameserver sets at a single point in time. This task adds the ability to snapshot a domain's full DNS profile to disk and later diff against it, enabling before/after validation for DNS migrations, provider switches, or change tracking.
+
+**Task**: Add snapshot and timeline diff capabilities:
+1. `mhost snapshot example.com` — save a full DNS profile (all record types, all nameservers) to a JSON file with timestamp
+2. `mhost snapshot example.com --output before.json` — save to a specific file
+3. `mhost diff --snapshot before.json example.com` — compare saved snapshot against current live DNS state
+4. `mhost diff --snapshot before.json --snapshot after.json` — compare two snapshots offline
+
+**Files**:
+- New `src/app/modules/snapshot/` module for snapshot creation and serialization
+- Extend `src/app/modules/diff/` to accept snapshot files as input
+- Reuse existing `Differ`/`SetDiffer` traits from `src/diff.rs`
+
+**Acceptance criteria**:
+- [ ] `mhost snapshot example.com` writes a timestamped JSON file with all record types and per-server results
+- [ ] Snapshot file includes metadata: domain, timestamp, nameservers used, mhost version
+- [ ] `mhost diff --snapshot <file>` compares snapshot against live DNS and shows added/removed/changed records
+- [ ] `mhost diff --snapshot <file1> --snapshot <file2>` compares two snapshots offline
+- [ ] Summary output highlights changes with clear before/after values
+- [ ] JSON output includes structured diff data
+- [ ] `cargo test --lib` passes
+- [ ] `cargo clippy` clean
+
+
+### 9. DNS monitoring / watch mode
+
+**Context**: During DNS migrations, TTL changes, or incident response, operators need to continuously monitor DNS state and be alerted to changes. Currently this requires scripting around `mhost lookup` in a loop. A built-in watch mode would be far more ergonomic and powerful.
+
+**Task**: Add a `watch` subcommand (or `--watch` flag on `lookup`/`propagation`) that continuously polls DNS and reports changes:
+1. `mhost watch example.com A --interval 30s` — poll every 30 seconds, print only when records change
+2. `mhost watch example.com --all --interval 1m` — watch all record types
+3. Show timestamp and delta for each change (record added/removed/modified, TTL change, SOA serial bump)
+4. Optional `--exit-on-change` for scripting (exit 0 on first detected change)
+
+**Acceptance criteria**:
+- [ ] `mhost watch example.com A` polls at a configurable interval (default: 60s)
+- [ ] Only prints output when records change (suppresses identical results)
+- [ ] Shows timestamp and clear change description (added, removed, modified)
+- [ ] Detects SOA serial changes
+- [ ] `--exit-on-change` exits with code 0 on first change (useful for scripting)
+- [ ] `--interval` accepts humantime durations (e.g., `30s`, `5m`)
+- [ ] JSON output includes change events with timestamps
+- [ ] Ctrl+C exits cleanly
+- [ ] `cargo test --lib` passes
+- [ ] `cargo clippy` clean
+
+---
+
+### 10. Resolver response time benchmarking
+
+**Context**: Choosing a DNS resolver often comes down to latency. While mhost already reports per-server latency in `trace` and `propagation`, there is no dedicated benchmarking mode that provides statistical analysis over many rounds. This fills a gap — existing tools like `dnsperf` are complex and server-focused.
+
+**Task**: Add a `bench` subcommand for resolver performance benchmarking:
+1. `mhost bench example.com --rounds 100` — query a domain N times across configured resolvers
+2. Report per-resolver statistics: min, max, mean, median, p95, p99, stddev
+3. `mhost bench example.com --resolvers 8.8.8.8,1.1.1.1 --rounds 50` — compare specific resolvers head-to-head
+4. Summary output as a sorted table (fastest to slowest)
+
+**Acceptance criteria**:
+- [ ] `mhost bench example.com` runs configurable rounds (default: 50, range: 1-1000)
+- [ ] Reports per-resolver: min, max, mean, median, p95, p99, stddev
+- [ ] Summary output shows a sorted table (fastest resolver first)
+- [ ] Supports `--record-type` flag (default: A)
+- [ ] Supports all resolver specification methods (IP, predefined, system)
+- [ ] JSON output includes full per-round timing data
+- [ ] `cargo test --lib` passes
+- [ ] `cargo clippy` clean
+
+---
+
+### 11. Export DNS records to infrastructure formats
+
+**Context**: After discovering or looking up DNS records, operators often need to recreate them in a different provider or infrastructure-as-code tool. Manually transcribing records is tedious and error-prone. mhost already has all the data — it just needs output formatters.
+
+**Task**: Add export capabilities to `lookup` and `domain-lookup`:
+1. `mhost lookup example.com --export zone` — export as RFC 1035 zone file format
+2. `mhost lookup example.com --export terraform` — export as Terraform `aws_route53_record` resources (or generic `dns_*_record_set`)
+3. `mhost lookup example.com --export cloudflare` — export as Cloudflare API JSON payloads
+
+**Files**:
+- New `src/app/output/export/` module with per-format exporters
+- Extend `OutputConfig` to support export formats alongside summary/JSON
+
+**Acceptance criteria**:
+- [ ] `--export zone` produces valid RFC 1035 zone file syntax
+- [ ] `--export terraform` produces valid HCL for `dns_*_record_set` resources
+- [ ] Handles all major record types: A, AAAA, CNAME, MX, TXT, SRV, CAA, NS, SOA
+- [ ] Export works with both `lookup` and `domain-lookup` commands
+- [ ] `cargo test --lib` passes
+- [ ] `cargo clippy` clean
+
+---
+
+## Future Work
+
+Ideas for longer-term consideration. These are not prioritized and may require significant design work.
+
+### Interactive TUI mode
+
+A terminal UI (using `ratatui` or similar) for exploring DNS interactively: type a domain, see records update live, drill into subdomains, navigate the delegation tree visually. Would set mhost apart from every other DNS CLI tool. Large scope — may warrant its own crate/binary built on the mhost library.
+
+---
+
+### DNS-over-QUIC (DoQ) support
+
+DNS-over-QUIC (RFC 9250) is the next evolution of encrypted DNS transport. Hickory-dns has preliminary DoQ support. Adding DoQ as a transport option alongside UDP/TCP/DoT/DoH would future-proof mhost. Requires evaluating hickory-dns DoQ maturity and adding a new `NameServerConfig::Quic` variant.
+
+---
+
+### Zone file import and pre-deployment validation
+
+Parse BIND-style zone files and validate them with the existing 13 check lints *before* deploying. Shift-left DNS validation: `mhost check --zone-file db.example.com` catches misconfigurations before they go live. Requires a zone file parser (potentially via hickory-dns zone file parsing) and adapting the lint pipeline to work against static data instead of live queries.
+
+---
+
+### Configuration profiles
+
+Add `~/.config/mhost/profiles.toml` with named resolver sets, default options, and per-domain overrides. Power users managing dozens of domains have different resolver needs per context (internal vs external, staging vs production). Example: `mhost --profile internal lookup service.corp.example.com` uses corporate resolvers while `mhost --profile external` uses public ones.
+
+---
+
+### Geolocation-aware propagation
+
+Enhance the `propagation` command to show results grouped by geographic region (Americas, Europe, Asia-Pacific). The predefined providers already span multiple regions. Adding region metadata to provider configs would enable output like "Propagated: 100% Americas, 83% Europe, 67% Asia-Pacific". Could integrate with IP geolocation databases or simply use static provider metadata.
+
+---
+
+### DNS response explainer
+
+`mhost explain` — paste or pipe a raw DNS wire-format response, dig output, or packet capture and get a plain-English explanation. "Here's what this response means, here's what's unusual about it, here's what to check next." Useful for learning and debugging. Could also explain common DNS error scenarios (SERVFAIL, NXDOMAIN, truncation, etc.) with contextual guidance.
+
+---
+
+### Progress indicators for long operations
+
+The `discover` command with CT logs + wordlist + recursive depth can take a while. Add richer progress reporting: current strategy name, discovered count so far, elapsed time, and estimated completion. Could use `indicatif` for progress bars. The `--partial` flag already exists for incremental output, but a proper progress bar would be more informative for interactive use.
+
 ---
 
 ### 7.2 Richer error types ✅
