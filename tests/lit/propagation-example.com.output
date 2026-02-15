@@ -1,0 +1,9 @@
+RUN: @mhost_bin --no-system-lookups --ascii --no-color propagation example.com -t A
+
+CHECK: > Options: mode=multi, concurrent nameservers=10, max. nameservers=100, concurrent requests=5, retries=0, timeout=5s, ndots=1
+CHECK: DNS Propagation for example.com (A)
+CHECK: Authoritative Nameservers
+CHECK: SOA serial
+CHECK: Recursive Resolvers
+CHECK: Propagation
+CHECK: + Finished.

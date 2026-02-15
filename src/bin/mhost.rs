@@ -133,6 +133,7 @@ async fn run_command(args: &ArgMatches, app_config: &AppConfig, console: &Consol
         Some("info") => modules::info::run(args),
         Some("server-lists") => modules::get_server_lists::run(args, app_config).await,
         Some("lookup") => modules::lookup::run(args, app_config).await,
+        Some("propagation") => modules::propagation::run(args, app_config).await,
         _ => {
             cli_parser::show_help();
             Ok(exit_subcommand_invalid())

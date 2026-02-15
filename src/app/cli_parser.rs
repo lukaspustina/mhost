@@ -338,6 +338,7 @@ fn subcommands() -> Vec<Command> {
         domain_lookup_subcommand(),
         info_subcommand(),
         lookup_subcommand(),
+        propagation_subcommand(),
         server_lists_subcommand(),
     ]
     .into_iter()
@@ -707,6 +708,36 @@ fn server_lists_subcommand() -> Command {
                 .required(true)
                 .value_name("FILE")
                 .help("Sets path to output file"),
+        )
+}
+
+fn propagation_subcommand() -> Command {
+    Command::new("propagation")
+        .alias("prop")
+        .about("Checks DNS record propagation across public resolvers")
+        .arg(
+            Arg::new("domain name")
+                .required(true)
+                .index(1)
+                .value_name("DOMAIN NAME")
+                .help("domain name to check propagation for"),
+        )
+        .arg(
+            Arg::new("record-types")
+                .short('t')
+                .long("record-type")
+                .value_name("RECORD TYPE")
+                .action(ArgAction::Append)
+                .value_delimiter(',')
+                .default_value("A,AAAA,CNAME,MX")
+                .value_parser(SUPPORTED_RECORD_TYPES.to_vec())
+                .help("Sets record types to check"),
+        )
+        .arg(
+            Arg::new("all-record-types")
+                .long("all")
+                .action(ArgAction::SetTrue)
+                .help("Enables propagation check for all record types"),
         )
 }
 
