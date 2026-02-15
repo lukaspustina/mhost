@@ -15,6 +15,7 @@ use crate::{Error, RecordType, Result};
 use serde::Serialize;
 
 pub mod json;
+pub mod records;
 pub mod styles;
 pub mod summary;
 
@@ -106,27 +107,27 @@ impl Ordinal for RecordType {
             RecordType::NS => 2,
             RecordType::MX => 3,
             RecordType::TXT => 4,
-            RecordType::CNAME => 5,
-            RecordType::A => 6,
-            RecordType::AAAA => 7,
-            RecordType::ANAME => 8,
-            RecordType::ANY => 9,
-            RecordType::AXFR => 10,
-            RecordType::CAA => 11,
-            RecordType::IXFR => 12,
-            RecordType::NAPTR => 13,
-            RecordType::NULL => 14,
-            RecordType::OPENPGPKEY => 15,
-            RecordType::OPT => 16,
-            RecordType::PTR => 17,
-            RecordType::SRV => 18,
-            RecordType::SSHFP => 19,
-            RecordType::TLSA => 20,
-            RecordType::DNSSEC => 21,
-            RecordType::HINFO => 22,
-            RecordType::HTTPS => 23,
-            RecordType::SVCB => 24,
-            RecordType::ZERO => 25,
+            RecordType::ANY => 5,
+            RecordType::AXFR => 6,
+            RecordType::CAA => 7,
+            RecordType::IXFR => 8,
+            RecordType::NAPTR => 9,
+            RecordType::OPENPGPKEY => 10,
+            RecordType::OPT => 11,
+            RecordType::SSHFP => 12,
+            RecordType::TLSA => 13,
+            RecordType::DNSSEC => 14,
+            RecordType::HINFO => 15,
+            RecordType::HTTPS => 16,
+            RecordType::SVCB => 17,
+            RecordType::ZERO => 18,
+            RecordType::CNAME => 19,
+            RecordType::A => 20,
+            RecordType::AAAA => 21,
+            RecordType::ANAME => 22,
+            RecordType::PTR => 23,
+            RecordType::SRV => 24,
+            RecordType::NULL => 25,
             RecordType::Unknown(_) => 26,
         }
     }
