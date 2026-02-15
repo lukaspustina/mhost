@@ -35,6 +35,7 @@ anyhow = { version = "1", optional = true }
 clap = { version = "4", optional = true }
 clap_complete = { version = "4", optional = true }
 chrono = { version = "0.4", features = ["serde"] }
+data-encoding = "2"
 futures = { version = "0.3.*"}
 hostname = { version = "0.4", optional = true }
 humantime = { version = "2", optional = true }

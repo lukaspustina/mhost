@@ -46,8 +46,12 @@ pub enum RecordType {
     SVCB,
     TLSA,
     TXT,
-    // TODO: DNSSEC(DNSSECRecordType),
-    DNSSEC,
+    DNSKEY,
+    DS,
+    NSEC,
+    NSEC3,
+    NSEC3PARAM,
+    RRSIG,
     Unknown(u16),
     ZERO,
 }
@@ -82,8 +86,8 @@ impl RecordType {
     pub fn all() -> Vec<RecordType> {
         use RecordType::*;
         vec![
-            A, AAAA, ANAME, ANY, AXFR, CAA, CNAME, HINFO, HTTPS, IXFR, MX, NAPTR, NS, NULL, OPENPGPKEY, OPT, PTR, SOA,
-            SRV, SSHFP, SVCB, TLSA, TXT, DNSSEC, ZERO,
+            A, AAAA, ANAME, ANY, AXFR, CAA, CNAME, DNSKEY, DS, HINFO, HTTPS, IXFR, MX, NAPTR, NS, NSEC, NSEC3,
+            NSEC3PARAM, NULL, OPENPGPKEY, OPT, PTR, RRSIG, SOA, SRV, SSHFP, SVCB, TLSA, TXT, ZERO,
         ]
     }
 }
@@ -117,8 +121,12 @@ impl From<RecordType> for hickory_resolver::proto::rr::RecordType {
             RecordType::SVCB => Trt::SVCB,
             RecordType::TLSA => Trt::TLSA,
             RecordType::TXT => Trt::TXT,
-            // Map DNSSEC to DNSKEY as a representative DNSSEC record type
-            RecordType::DNSSEC => Trt::DNSKEY,
+            RecordType::DNSKEY => Trt::DNSKEY,
+            RecordType::DS => Trt::DS,
+            RecordType::NSEC => Trt::NSEC,
+            RecordType::NSEC3 => Trt::NSEC3,
+            RecordType::NSEC3PARAM => Trt::NSEC3PARAM,
+            RecordType::RRSIG => Trt::RRSIG,
             RecordType::Unknown(value) => Trt::Unknown(value),
             RecordType::ZERO => Trt::ZERO,
         }
@@ -154,10 +162,12 @@ impl From<hickory_resolver::proto::rr::RecordType> for RecordType {
             Trt::SVCB => RecordType::SVCB,
             Trt::TLSA => RecordType::TLSA,
             Trt::TXT => RecordType::TXT,
-            // Map all DNSSEC-related types to our single DNSSEC variant
-            Trt::DNSKEY | Trt::DS | Trt::KEY | Trt::NSEC | Trt::NSEC3 | Trt::NSEC3PARAM | Trt::RRSIG | Trt::SIG => {
-                RecordType::DNSSEC
-            }
+            Trt::DNSKEY | Trt::KEY => RecordType::DNSKEY,
+            Trt::DS => RecordType::DS,
+            Trt::NSEC => RecordType::NSEC,
+            Trt::NSEC3 => RecordType::NSEC3,
+            Trt::NSEC3PARAM => RecordType::NSEC3PARAM,
+            Trt::RRSIG | Trt::SIG => RecordType::RRSIG,
             Trt::Unknown(value) => RecordType::Unknown(value),
             Trt::ZERO => RecordType::ZERO,
             // Catch any other new variants
@@ -192,10 +202,12 @@ impl FromStr for RecordType {
             "TXT" => Ok(RecordType::TXT),
             "ANY" | "*" => Ok(RecordType::ANY),
             "AXFR" => Ok(RecordType::AXFR),
-            "DNSKEY" | "DS" | "KEY" | "NSEC" | "NSEC3" | "NSEC3PARAM" | "RRSIG" | "SIG" => {
-                // TODO: Ok(RecordType::DNSSEC(str.parse()?))
-                Ok(RecordType::DNSSEC)
-            }
+            "DNSKEY" | "KEY" => Ok(RecordType::DNSKEY),
+            "DS" => Ok(RecordType::DS),
+            "NSEC" => Ok(RecordType::NSEC),
+            "NSEC3" => Ok(RecordType::NSEC3),
+            "NSEC3PARAM" => Ok(RecordType::NSEC3PARAM),
+            "RRSIG" | "SIG" => Ok(RecordType::RRSIG),
             _ => Err(Error::ParserError {
                 what: str.to_string(),
                 to: "RecordType",
@@ -231,8 +243,12 @@ impl From<RecordType> for &'static str {
             RecordType::SVCB => "SVCB",
             RecordType::TLSA => "TLSA",
             RecordType::TXT => "TXT",
-            // TODO: RecordType::DNSSEC(rt) => rt.into(),
-            RecordType::DNSSEC => "DNSSEC",
+            RecordType::DNSKEY => "DNSKEY",
+            RecordType::DS => "DS",
+            RecordType::NSEC => "NSEC",
+            RecordType::NSEC3 => "NSEC3",
+            RecordType::NSEC3PARAM => "NSEC3PARAM",
+            RecordType::RRSIG => "RRSIG",
             RecordType::ZERO => "",
             RecordType::Unknown(_) => "Unknown",
         }
@@ -271,6 +287,12 @@ mod tests {
             ("SVCB", RecordType::SVCB),
             ("TLSA", RecordType::TLSA),
             ("TXT", RecordType::TXT),
+            ("DNSKEY", RecordType::DNSKEY),
+            ("DS", RecordType::DS),
+            ("NSEC", RecordType::NSEC),
+            ("NSEC3", RecordType::NSEC3),
+            ("NSEC3PARAM", RecordType::NSEC3PARAM),
+            ("RRSIG", RecordType::RRSIG),
             ("ANY", RecordType::ANY),
             ("*", RecordType::ANY),
             ("AXFR", RecordType::AXFR),
@@ -281,14 +303,19 @@ mod tests {
     }
 
     #[test]
-    fn from_str_dnssec_aliases() {
-        let dnssec_names = ["DNSKEY", "DS", "KEY", "NSEC", "NSEC3", "NSEC3PARAM", "RRSIG", "SIG"];
-        for name in &dnssec_names {
-            assert_eq!(
-                RecordType::from_str(name).unwrap(),
-                RecordType::DNSSEC,
-                "failed for {name}"
-            );
+    fn from_str_dnssec_types() {
+        let cases = vec![
+            ("DNSKEY", RecordType::DNSKEY),
+            ("KEY", RecordType::DNSKEY),
+            ("DS", RecordType::DS),
+            ("NSEC", RecordType::NSEC),
+            ("NSEC3", RecordType::NSEC3),
+            ("NSEC3PARAM", RecordType::NSEC3PARAM),
+            ("RRSIG", RecordType::RRSIG),
+            ("SIG", RecordType::RRSIG),
+        ];
+        for (input, expected) in cases {
+            assert_eq!(RecordType::from_str(input).unwrap(), expected, "failed for {input}");
         }
     }
 
@@ -307,14 +334,20 @@ mod tests {
             RecordType::ANAME,
             RecordType::CAA,
             RecordType::CNAME,
+            RecordType::DNSKEY,
+            RecordType::DS,
             RecordType::HINFO,
             RecordType::HTTPS,
             RecordType::MX,
             RecordType::NAPTR,
             RecordType::NS,
+            RecordType::NSEC,
+            RecordType::NSEC3,
+            RecordType::NSEC3PARAM,
             RecordType::NULL,
             RecordType::OPENPGPKEY,
             RecordType::PTR,
+            RecordType::RRSIG,
             RecordType::SOA,
             RecordType::SRV,
             RecordType::SSHFP,
@@ -342,6 +375,12 @@ mod tests {
         assert!(all.contains(&RecordType::OPENPGPKEY));
         assert!(all.contains(&RecordType::CAA));
         assert!(all.contains(&RecordType::TLSA));
+        assert!(all.contains(&RecordType::DNSKEY));
+        assert!(all.contains(&RecordType::DS));
+        assert!(all.contains(&RecordType::NSEC));
+        assert!(all.contains(&RecordType::NSEC3));
+        assert!(all.contains(&RecordType::NSEC3PARAM));
+        assert!(all.contains(&RecordType::RRSIG));
     }
 
     #[test]

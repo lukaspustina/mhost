@@ -228,9 +228,9 @@ impl<'a> LookupAllThereIs<'a> {
             use RecordType::*;
             vec![
                 // TODO: AXFR seems to kill dnsmasq in the macOS test-env
-                //A, AAAA, ANAME, ANY, AXFR, CAA, CNAME, IXFR, MX, NS, OPT, SOA, SRV, TXT, DNSSEC,
-                A, AAAA, ANAME, ANY, CAA, CNAME, HINFO, HTTPS, IXFR, MX, NAPTR, NS, OPENPGPKEY, OPT, SOA, SRV, SSHFP,
-                SVCB, TLSA, TXT, DNSSEC,
+                //A, AAAA, ANAME, ANY, AXFR, CAA, CNAME, IXFR, MX, NS, OPT, SOA, SRV, TXT, DNSKEY, DS, RRSIG, NSEC, NSEC3, NSEC3PARAM,
+                A, AAAA, ANAME, ANY, CAA, CNAME, DNSKEY, DS, HINFO, HTTPS, IXFR, MX, NAPTR, NS, NSEC, NSEC3,
+                NSEC3PARAM, OPENPGPKEY, OPT, RRSIG, SOA, SRV, SSHFP, SVCB, TLSA, TXT,
             ]
         };
         let query = MultiQuery::multi_record(self.domain_name.clone(), record_types)?;

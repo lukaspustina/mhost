@@ -587,38 +587,40 @@ impl<'a> NsecWalking<'a> {
             self.env.console.caption("Attempting NSEC walking.");
         }
 
-        // Query DNSSEC records for the domain to see if NSEC is available
-        if let Ok(query) = MultiQuery::multi_record(self.domain_name.clone(), vec![RecordType::DNSSEC]) {
+        // Query NSEC/NSEC3 records for the domain to see if NSEC walking is possible
+        if let Ok(query) =
+            MultiQuery::multi_record(self.domain_name.clone(), vec![RecordType::NSEC, RecordType::NSEC3])
+        {
             match time(self.app_resolver.lookup(query)).await {
-                Ok((dnssec_lookups, _)) => {
-                    let dnssec_records = dnssec_lookups.dnssec();
-                    if dnssec_records.is_empty() {
-                        info!("No DNSSEC records found, skipping NSEC walking.");
+                Ok((nsec_lookups, _)) => {
+                    let nsec_count = nsec_lookups.nsec().len() + nsec_lookups.nsec3().len();
+                    if nsec_count == 0 {
+                        info!("No NSEC/NSEC3 records found, skipping NSEC walking.");
                         if self.env.console.show_partial_headers() {
-                            self.env.console.info("No DNSSEC/NSEC records found.");
+                            self.env.console.info("No NSEC/NSEC3 records found.");
                         }
                     } else {
                         info!(
-                            "Found {} DNSSEC records. NSEC walking is fragile and may not yield results.",
-                            dnssec_records.len()
+                            "Found {} NSEC/NSEC3 records. NSEC walking is fragile and may not yield results.",
+                            nsec_count
                         );
                         if self.env.console.show_partial_headers() {
                             self.env.console.info(format!(
-                                "Found {} DNSSEC records (NSEC walking is best-effort).",
-                                dnssec_records.len()
+                                "Found {} NSEC/NSEC3 records (NSEC walking is best-effort).",
+                                nsec_count
                             ));
                         }
                         // NSEC walking requires parsing the "next name" from NSEC record data.
                         // The description string format is fragile and implementation-specific.
-                        // For now, we log that we found DNSSEC but don't attempt full walking
+                        // For now, we log that we found NSEC but don't attempt full walking
                         // since the hickory resolver doesn't expose raw NSEC next-name fields
                         // in a structured way through our abstraction layer.
                     }
                 }
                 Err(e) => {
-                    debug!("DNSSEC query failed: {}", e);
+                    debug!("NSEC query failed: {}", e);
                     if self.env.console.show_partial_headers() {
-                        self.env.console.info("DNSSEC query failed, skipping NSEC walking.");
+                        self.env.console.info("NSEC query failed, skipping NSEC walking.");
                     }
                 }
             }

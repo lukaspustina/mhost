@@ -69,7 +69,12 @@ impl Record {
             RData::SVCB(ref x) => x.target_name(),
             RData::TLSA(_) => self.name(),
             RData::TXT(_) => self.name(),
-            RData::DNSSEC(_) => self.name(),
+            RData::DNSKEY(_) => self.name(),
+            RData::DS(_) => self.name(),
+            RData::RRSIG(_) => self.name(),
+            RData::NSEC(_) => self.name(),
+            RData::NSEC3(_) => self.name(),
+            RData::NSEC3PARAM(_) => self.name(),
             RData::Unknown(_) => self.name(),
             RData::ZERO => self.name(),
         }

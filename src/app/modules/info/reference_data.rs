@@ -99,6 +99,26 @@ static RECORD_TYPES: &[RecordTypeInfo] = &[
         rfc_url: Some("https://datatracker.ietf.org/doc/html/rfc1035"),
     },
     RecordTypeInfo {
+        name: "DNSKEY",
+        summary: "DNSSEC public key",
+        detail: "Holds a public key used for DNSSEC validation. Resolvers use DNSKEY records to \
+                 verify RRSIG signatures over DNS record sets, establishing a chain of trust from \
+                 the DNS root to the queried zone. Each key has flags indicating whether it is a \
+                 Zone Signing Key (ZSK) or Key Signing Key (KSK).",
+        rfc: Some("RFC 4034"),
+        rfc_url: Some("https://datatracker.ietf.org/doc/html/rfc4034"),
+    },
+    RecordTypeInfo {
+        name: "DS",
+        summary: "Delegation Signer",
+        detail: "Contains a hash of a child zone's DNSKEY record, published in the parent zone \
+                 to establish the DNSSEC chain of trust across zone boundaries. When a resolver \
+                 follows a delegation, it uses the DS record from the parent to verify the child \
+                 zone's DNSKEY.",
+        rfc: Some("RFC 4034"),
+        rfc_url: Some("https://datatracker.ietf.org/doc/html/rfc4034"),
+    },
+    RecordTypeInfo {
         name: "HINFO",
         summary: "Host information (CPU & OS)",
         detail: "Originally intended to describe the host's CPU type and operating system. \
@@ -147,6 +167,35 @@ static RECORD_TYPES: &[RecordTypeInfo] = &[
         rfc_url: Some("https://datatracker.ietf.org/doc/html/rfc1035"),
     },
     RecordTypeInfo {
+        name: "NSEC",
+        summary: "Next Secure record",
+        detail: "Provides authenticated denial of existence in DNSSEC by listing the next domain \
+                 name in the zone and the record types that exist at the current name. When a \
+                 queried name or type does not exist, the server returns NSEC records proving the \
+                 gap. Can expose all names in a zone (zone walking).",
+        rfc: Some("RFC 4034"),
+        rfc_url: Some("https://datatracker.ietf.org/doc/html/rfc4034"),
+    },
+    RecordTypeInfo {
+        name: "NSEC3",
+        summary: "Next Secure v3 (hashed)",
+        detail: "An alternative to NSEC that uses hashed owner names instead of plaintext, \
+                 preventing trivial zone enumeration. Provides the same authenticated denial of \
+                 existence as NSEC but with improved privacy. Uses an iterated hash with a salt \
+                 to obscure the original domain names.",
+        rfc: Some("RFC 5155"),
+        rfc_url: Some("https://datatracker.ietf.org/doc/html/rfc5155"),
+    },
+    RecordTypeInfo {
+        name: "NSEC3PARAM",
+        summary: "NSEC3 hash parameters",
+        detail: "Published at the zone apex to communicate the hash algorithm, iteration count, \
+                 and salt used to generate NSEC3 records in the zone. Authoritative servers use \
+                 these parameters when computing NSEC3 hashes for denial-of-existence responses.",
+        rfc: Some("RFC 5155"),
+        rfc_url: Some("https://datatracker.ietf.org/doc/html/rfc5155"),
+    },
+    RecordTypeInfo {
         name: "NULL",
         summary: "Null record (opaque data)",
         detail: "A record type that can hold arbitrary binary data up to 65535 bytes. Rarely \
@@ -173,6 +222,16 @@ static RECORD_TYPES: &[RecordTypeInfo] = &[
                  as many mail servers reject messages from IPs without valid PTR records.",
         rfc: Some("RFC 1035"),
         rfc_url: Some("https://datatracker.ietf.org/doc/html/rfc1035"),
+    },
+    RecordTypeInfo {
+        name: "RRSIG",
+        summary: "DNSSEC signature",
+        detail: "Contains a cryptographic signature over a DNS record set (RRset), allowing \
+                 resolvers to verify the authenticity and integrity of DNS responses. Each RRSIG \
+                 covers one specific record type at a specific name and has an expiration time. \
+                 Verified using the corresponding DNSKEY record.",
+        rfc: Some("RFC 4034"),
+        rfc_url: Some("https://datatracker.ietf.org/doc/html/rfc4034"),
     },
     RecordTypeInfo {
         name: "SOA",
@@ -1016,14 +1075,20 @@ mod tests {
             "ANAME",
             "CAA",
             "CNAME",
+            "DNSKEY",
+            "DS",
             "HINFO",
             "HTTPS",
             "MX",
             "NAPTR",
+            "NSEC",
+            "NSEC3",
+            "NSEC3PARAM",
             "NULL",
             "NS",
             "OPENPGPKEY",
             "PTR",
+            "RRSIG",
             "SOA",
             "SRV",
             "SSHFP",
