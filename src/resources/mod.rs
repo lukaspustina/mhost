@@ -5,10 +5,14 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Resources like records and record types that are used to communicate queries and results.
+//! DNS record types, records, and record data.
 //!
-//! This is mostly a copy of the trust-dns' types in order to gain more control. Please see [Trust-DNS RR module](http://trust-dns.org/target/doc/trust_dns/rr/index.html)
+//! This module defines mhost's own DNS resource record types, providing a stable API
+//! independent of the underlying resolver library:
 //!
+//! - [`RecordType`] — an enum of supported DNS record types (A, AAAA, MX, TXT, etc.)
+//! - [`Record`] — a DNS record with name, type, TTL, and data
+//! - [`RData`] — the record-specific data, with typed accessors for each variant
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 

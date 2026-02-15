@@ -5,70 +5,80 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! `mhost` is a modern take on the classic `host` DNS lookup utility including an easy to use, and very fast Rust library.
+//! `mhost` is a modern, high-performance DNS lookup library and CLI tool.
 //!
-//! The library is currently still in a PoC state. It works and the command line tool `mhost`
-//! already uses it. Nevertheless, I'm not satisfied with the design and architecture so it is
-//! still work in progress.
+//! It provides multi-server concurrent DNS lookups across UDP, TCP, TLS (DoT), and HTTPS (DoH)
+//! transports, with support for 20+ DNS record types. The library can query many nameservers in
+//! parallel and aggregate results, making it well suited for DNS diagnostics, propagation checking,
+//! and subdomain discovery.
 //!
-//! Unfortunately, this also means that the library totally lacks documentation. If you want to use
-//! the library in your own project, please be aware that the API might change. Even though
-//! documentation is missing, you can find fully working examples that might help to jump start
-//! you.
+//! # Quick Start — Builder API
 //!
-//! Please feel free to give me feedback in form of GitHub issues and I welcome any PRs.
+//! The easiest way to get started is with [`ResolverGroupBuilder`](resolver::ResolverGroupBuilder):
 //!
-//! # Example
-//! Lookup A, AAAA, and TXT records for `mhost.pustina.de` using the local operating system's nameservers as
-//! well as Google's nameserver.
+//! ```no_run
+//! use mhost::resolver::{ResolverGroupBuilder, MultiQuery};
+//! use mhost::resolver::lookup::Uniquify;
+//! use mhost::nameserver::predefined::PredefinedProvider;
+//! use mhost::RecordType;
+//! use std::time::Duration;
+//!
+//! # #[tokio::main]
+//! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! // Build a resolver group with system nameservers + Google DNS
+//! let resolvers = ResolverGroupBuilder::new()
+//!     .system()
+//!     .predefined(PredefinedProvider::Google)
+//!     .timeout(Duration::from_secs(3))
+//!     .build()
+//!     .await?;
+//!
+//! // Query for A and AAAA records
+//! let query = MultiQuery::multi_record(
+//!     "example.com",
+//!     vec![RecordType::A, RecordType::AAAA],
+//! )?;
+//! let lookups = resolvers.lookup(query).await?;
+//!
+//! // Deduplicate results across nameservers
+//! let a_records = lookups.a().unique().to_owned();
+//! println!("A records: {:?}", a_records);
+//! # Ok(())
+//! # }
 //! ```
+//!
+//! # Manual Construction
+//!
+//! For full control, you can construct resolvers manually:
+//!
+//! ```no_run
 //! use mhost::nameserver::NameServerConfig;
 //! use mhost::resolver::{MultiQuery, Resolver, ResolverConfig, ResolverGroup};
 //! use mhost::resolver::lookup::Uniquify;
-//! use mhost::statistics::Statistics;
 //! use mhost::RecordType;
 //! use std::net::SocketAddr;
 //!
 //! # #[tokio::main]
-//! # async fn main() {
-//! #
-//! // Create a `ResolverGroup` with operating system's nameservers; a `ResolverGroup`
-//! // acts the same a single `Resolver` and allows to lookup records from multiple name servers.
+//! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! // Create a ResolverGroup from the OS nameservers
 //! let mut resolvers = ResolverGroup::from_system_config(Default::default())
-//!      .await
-//!      .expect("failed to create system resolvers");
+//!     .await?;
 //!
-//! // Create a Resolver for Google's DNS nameserver with UDP transport
-//! let sock_addr: SocketAddr = "8.8.8.8:53".parse().unwrap();
-//! let name_server_config = NameServerConfig::udp(sock_addr);
-//! let config = ResolverConfig::new(name_server_config);
-//! let google = Resolver::new(config, Default::default())
-//!     .await
-//!     .expect("Failed to create Google resolver");
-//!
-//! // Add Google resolver to `ResolverGroup`
+//! // Add a custom resolver for Google DNS
+//! let sock_addr: SocketAddr = "8.8.8.8:53".parse()?;
+//! let config = ResolverConfig::new(NameServerConfig::udp(sock_addr));
+//! let google = Resolver::new(config, Default::default()).await?;
 //! resolvers.add(google);
 //!
-//! // Prepare a `MultiQuery`: Query multiple names and/or multiple record types at once
+//! // Lookup A, AAAA, and TXT records
 //! let query = MultiQuery::multi_record(
-//!     "mhost.pustina.de",
-//!     vec![RecordType::A, RecordType::AAAA, RecordType::TXT]
-//! ).expect("Failed to create query");
-//!
-//! // Perform multi-lookup
-//! let lookups = resolvers.lookup(query).await.expect("Failed to execute lookups");
-//!
-//! // Print statistics about lookup results
-//! println!("Statistics: {:#?}", lookups.statistics());
-//!
-//! // Print all results
-//! println!("Multi-Lookup results: {:#?}", lookups);
-//!
-//! // Aggregate all A records
+//!     "example.com",
+//!     vec![RecordType::A, RecordType::AAAA, RecordType::TXT],
+//! )?;
+//! let lookups = resolvers.lookup(query).await?;
 //! let a_records = lookups.a().unique().to_owned();
-//! println!("A records: {:#?}", a_records);
-//!
-//! # assert!(a_records.len() > 0);
+//! println!("A records: {:?}", a_records);
+//! # Ok(())
 //! # }
 //! ```
 

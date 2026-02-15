@@ -5,6 +5,13 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! Lookup results and aggregation.
+//!
+//! [`Lookup`] holds the result of a single query against a single nameserver.
+//! [`Lookups`] aggregates results from multiple resolvers/queries, providing
+//! typed accessors (`.a()`, `.mx()`, `.txt()`, etc.) and deduplication via
+//! the [`Uniquify`] trait.
+
 use std::collections::HashSet;
 use std::hash::Hash;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
@@ -33,6 +40,11 @@ use crate::RecordType;
 use std::fmt::Debug;
 use tracing_futures::Instrument;
 
+/// Aggregated DNS lookup results from one or more resolvers and queries.
+///
+/// Provides typed accessors for each record type (e.g., `.a()`, `.mx()`, `.txt()`)
+/// that return references into the contained records. Use the [`Uniquify`] trait
+/// on accessor results to deduplicate across nameservers.
 #[derive(Debug, Clone, Serialize)]
 pub struct Lookups {
     #[serde(rename = "lookups")]
@@ -225,6 +237,10 @@ impl Errors for Lookups {
     }
 }
 
+/// Trait for deduplicating lookup results across multiple nameservers.
+///
+/// Call `.unique()` on a `Vec<&T>` returned by accessor methods to get a
+/// deduplicated set.
 pub trait Uniquify<'a, T: Clone + Eq + Hash> {
     fn unique(self) -> Uniquified<'a, T>;
 }
@@ -285,6 +301,10 @@ impl From<Vec<Lookup>> for Lookups {
     }
 }
 
+/// The result of a single DNS query against a single nameserver.
+///
+/// Contains the original [`UniQuery`], the [`NameServerConfig`] that was queried,
+/// and the [`LookupResult`] (response, NxDomain, or error).
 #[derive(Debug, Clone, Serialize)]
 pub struct Lookup {
     query: UniQuery,
@@ -418,10 +438,14 @@ impl Lookup {
     }
 }
 
+/// The outcome of a single DNS lookup: a successful response, an NxDomain, or an error.
 #[derive(Debug, Clone, Serialize)]
 pub enum LookupResult {
+    /// The nameserver returned DNS records.
     Response(Response),
+    /// The queried name does not exist.
     NxDomain(NxDomain),
+    /// The lookup failed with a resolver error.
     Error(Error),
 }
 
@@ -475,6 +499,7 @@ impl LookupResult {
     }
 }
 
+/// A successful DNS response containing records, timing, and cache validity.
 #[derive(Debug, Clone, Serialize)]
 pub struct Response {
     records: Vec<Record>,
@@ -507,6 +532,7 @@ impl Response {
     }
 }
 
+/// An NxDomain response indicating the queried name does not exist.
 #[derive(Debug, Clone, Serialize)]
 pub struct NxDomain {
     response_time: Duration,

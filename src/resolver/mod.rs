@@ -5,7 +5,17 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! A resolver uses name servers configuration to resolve queries.
+//! DNS resolver abstractions for concurrent multi-server lookups.
+//!
+//! This module provides [`Resolver`] for querying a single nameserver and
+//! [`ResolverGroup`] for fanning out queries across multiple nameservers concurrently.
+//! Use [`ResolverGroupBuilder`] for ergonomic construction, or build resolvers manually
+//! via [`ResolverGroup::from_configs`] and [`ResolverGroup::from_system_config`].
+//!
+//! Queries are expressed as [`UniQuery`] (single name + record type) or [`MultiQuery`]
+//! (multiple names and/or record types). Results are returned as [`Lookups`], which
+//! provides typed accessors (`.a()`, `.mx()`, `.txt()`, etc.) and deduplication via
+//! the [`Uniquify`](lookup::Uniquify) trait.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -18,6 +28,7 @@ use rand::seq::IndexedRandom;
 use tokio::task;
 use tracing::instrument;
 
+pub use builder::ResolverGroupBuilder;
 pub use error::Error;
 pub use lookup::{Lookup, Lookups};
 pub use query::{MultiQuery, UniQuery};
@@ -29,6 +40,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::str::FromStr;
 
+pub mod builder;
 pub mod error;
 pub mod lookup;
 pub mod predefined;
@@ -37,6 +49,7 @@ pub mod raw;
 
 pub type ResolverResult<T> = std::result::Result<T, Error>;
 
+/// Configuration for a single [`Resolver`], wrapping a [`NameServerConfig`].
 #[derive(Debug)]
 pub struct ResolverConfig {
     name_server_config: NameServerConfig,
@@ -56,10 +69,14 @@ impl From<NameServerConfig> for ResolverConfig {
     }
 }
 
+/// Per-resolver options controlling timeout, retries, and query behavior.
+///
+/// Defaults are suitable for most use cases. Use [`from_system_config`](Self::from_system_config)
+/// to derive options from the operating system's resolver configuration.
 #[derive(Debug, Clone)]
 pub struct ResolverOpts {
     pub retries: usize,
-    /// Maximum number of concurrent queries send with this resolver
+    /// Maximum number of concurrent queries sent with this resolver.
     pub max_concurrent_requests: usize,
     pub ndots: usize,
     pub preserve_intermediates: bool,
@@ -100,6 +117,7 @@ impl Default for ResolverOpts {
     }
 }
 
+/// A collection of [`ResolverConfig`]s, typically used to create a [`ResolverGroup`].
 #[derive(Debug)]
 pub struct ResolverConfigGroup {
     configs: Vec<ResolverConfig>,
@@ -134,6 +152,10 @@ impl IntoIterator for ResolverConfigGroup {
     }
 }
 
+/// A DNS resolver bound to a single nameserver.
+///
+/// Wraps a [`hickory_resolver::TokioResolver`] and tracks the associated
+/// [`NameServerConfig`] and [`ResolverOpts`]. Cloning is cheap (inner state is `Arc`-wrapped).
 #[derive(Debug, Clone)]
 pub struct Resolver {
     pub(crate) inner: Arc<hickory_resolver::TokioResolver>,
@@ -173,21 +195,24 @@ impl Resolver {
     }
 }
 
+/// Group-level options for a [`ResolverGroup`].
 #[derive(Debug, Clone)]
 pub struct ResolverGroupOpts {
-    /// Maximum number of concurrent active resolvers
+    /// Maximum number of resolvers queried concurrently.
     pub max_concurrent: usize,
+    /// Optional limit on the number of resolvers used per query.
     pub limit: Option<usize>,
-    /// Set lookup mode
+    /// Lookup mode: [`Multi`](Mode::Multi) fans out to all resolvers,
+    /// [`Uni`](Mode::Uni) picks one at random per query.
     pub mode: Mode,
 }
 
-/// Lookup mode
+/// Lookup mode controlling how queries are distributed across resolvers.
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum Mode {
-    /// Send each query to all available resolvers,
+    /// Send each query to all available resolvers and aggregate results.
     Multi,
-    /// Send each to query to only one resolver
+    /// Send each query to a single randomly chosen resolver.
     Uni,
 }
 
@@ -226,6 +251,12 @@ impl Default for ResolverGroupOpts {
     }
 }
 
+/// A group of DNS [`Resolver`]s that fans out queries concurrently.
+///
+/// A `ResolverGroup` queries multiple nameservers in parallel and collects
+/// the results into [`Lookups`]. Use [`ResolverGroupBuilder`] for ergonomic
+/// construction, or create one directly via [`from_configs`](Self::from_configs)
+/// or [`from_system_config`](Self::from_system_config).
 #[derive(Debug)]
 pub struct ResolverGroup {
     pub(crate) resolvers: Vec<Resolver>,

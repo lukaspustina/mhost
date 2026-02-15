@@ -5,6 +5,13 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! Resolver-specific error types.
+//!
+//! [`enum@Error`] classifies DNS failures into structured variants such as
+//! [`Timeout`](Error::Timeout), [`QueryRefused`](Error::QueryRefused), and
+//! [`ServerFailure`](Error::ServerFailure), making it easy to handle specific
+//! failure modes programmatically.
+
 use hickory_resolver::proto::op::ResponseCode;
 use hickory_resolver::proto::{ProtoError, ProtoErrorKind};
 use hickory_resolver::{ResolveError, ResolveErrorKind};

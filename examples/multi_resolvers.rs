@@ -9,7 +9,7 @@ use std::env;
 use std::net::{Ipv4Addr, SocketAddr};
 
 use mhost::nameserver::NameServerConfig;
-use mhost::resolver::{MultiQuery, Resolver, ResolverGroup};
+use mhost::resolver::{MultiQuery, ResolverGroupBuilder};
 use mhost::RecordType;
 
 #[tokio::main]
@@ -17,19 +17,12 @@ async fn main() {
     let name = env::args().nth(1).unwrap_or_else(|| "www.example.com".to_string());
 
     let sock_addr: SocketAddr = "8.8.8.8:53".parse().unwrap();
-    let config = NameServerConfig::udp(sock_addr).into();
-    let resolver = Resolver::new(config, Default::default())
+    let resolvers = ResolverGroupBuilder::new()
+        .nameserver(NameServerConfig::udp(sock_addr))
+        .nameserver(NameServerConfig::udp((Ipv4Addr::new(8, 8, 4, 4), 53)))
+        .build()
         .await
-        .expect("Failed to create resolver");
-
-    let mut resolvers = ResolverGroup::new([resolver], Default::default());
-
-    let config = NameServerConfig::udp((Ipv4Addr::new(8, 8, 8, 8), 53)).into();
-    let resolvers_2 = ResolverGroup::from_configs(vec![config], Default::default(), Default::default())
-        .await
-        .expect("Failed to create 2. resolver group");
-
-    resolvers.merge(resolvers_2);
+        .expect("Failed to create resolver group");
 
     let mq = MultiQuery::multi_record(name, vec![RecordType::A, RecordType::AAAA, RecordType::TXT])
         .expect("Failed to create multi-query");

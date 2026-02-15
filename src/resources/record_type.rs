@@ -14,6 +14,10 @@ use serde::Serialize;
 use std::fmt;
 use std::str::FromStr;
 
+/// A DNS record type identifier.
+///
+/// Covers the most common record types used in DNS lookups. Unknown types
+/// are represented as `Unknown(u16)` with their numeric type code.
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Copy, Clone)]
 #[allow(dead_code)]
 #[allow(clippy::upper_case_acronyms)]

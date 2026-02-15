@@ -8,7 +8,7 @@
 use std::env;
 use std::time::Instant;
 
-use mhost::resolver::{predefined, Mode, MultiQuery, ResolverGroup, ResolverGroupOpts};
+use mhost::resolver::{Mode, MultiQuery, ResolverGroupBuilder};
 use mhost::statistics::Statistics;
 use mhost::RecordType;
 
@@ -16,12 +16,10 @@ use mhost::RecordType;
 async fn main() {
     let name = env::args().nth(1).unwrap_or_else(|| "www.example.com".to_string());
 
-    let resolver_configs = predefined::resolver_configs();
-    let resolvers_opts = ResolverGroupOpts {
-        mode: Mode::Uni,
-        ..Default::default()
-    };
-    let resolvers = ResolverGroup::from_configs(resolver_configs, Default::default(), resolvers_opts)
+    let resolvers = ResolverGroupBuilder::new()
+        .all_predefined()
+        .mode(Mode::Uni)
+        .build()
         .await
         .expect("failed to create resolvers");
 

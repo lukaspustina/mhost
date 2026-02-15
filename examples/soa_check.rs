@@ -10,14 +10,16 @@ use std::env;
 use mhost::estimate::Estimate;
 use mhost::nameserver::NameServerConfig;
 use mhost::resolver::lookup::Uniquify;
-use mhost::resolver::{MultiQuery, ResolverConfig, ResolverGroup, UniQuery};
+use mhost::resolver::{MultiQuery, ResolverGroupBuilder, UniQuery};
 use mhost::RecordType;
 
 #[tokio::main]
 async fn main() {
     let name = env::args().nth(1).unwrap_or_else(|| "example.com".to_string());
 
-    let resolvers = ResolverGroup::from_system_config(Default::default())
+    let resolvers = ResolverGroupBuilder::new()
+        .system()
+        .build()
         .await
         .expect("failed to create system resolvers");
 
@@ -38,11 +40,13 @@ async fn main() {
     let authoritative_name_server_ips = resolvers.lookup(q).await.unwrap().a().unique().to_owned();
     // println!("Authoritative name server name IPs: {:#?}", &authoritative_name_server_ips);
 
-    let authoritative_name_servers = authoritative_name_server_ips
+    let authoritative_nameservers: Vec<_> = authoritative_name_server_ips
         .into_iter()
         .map(|ip| NameServerConfig::udp((ip, 53)))
-        .map(ResolverConfig::new);
-    let resolvers = ResolverGroup::from_configs(authoritative_name_servers, Default::default(), Default::default())
+        .collect();
+    let resolvers = ResolverGroupBuilder::new()
+        .nameservers(authoritative_nameservers)
+        .build()
         .await
         .expect("failed to create authoritative resolvers");
 
