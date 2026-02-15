@@ -755,8 +755,21 @@ fn completions_subcommand() -> Command {
         )
 }
 
-pub fn show_help() {
-    let _ = create_parser().print_help();
-    // Force line break; otherwise the shell prompt starts at last line of help.
+/// Prints a minimal command listing for when mhost is invoked without a subcommand.
+/// Captures clap's own `-h` output and prints everything up to (but not including) the
+/// "Options:" section, followed by a hint to run `mhost -h` for the full option list.
+pub fn show_commands() {
+    let mut buf = Vec::new();
+    let _ = create_parser().write_help(&mut buf);
+    let help = String::from_utf8_lossy(&buf);
+
+    // Print everything before the Options section.
+    let output = if let Some(pos) = help.find("\nOptions:") {
+        help[..pos].trim_end()
+    } else {
+        help.trim_end()
+    };
+    println!("{}", output);
     println!();
+    println!("Run 'mhost -h' for global options, or 'mhost <command> -h' for command help.");
 }
