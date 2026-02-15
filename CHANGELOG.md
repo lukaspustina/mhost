@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.6.0
+
+### New commands
+
+- `trace` command — trace the DNS delegation path from root servers to authoritative nameservers, querying all servers at each hop in parallel with referral divergence detection
+- `diff` command — compare DNS records between two nameserver sets to debug inconsistencies or verify migrations
+- `propagation` command — check DNS record propagation across predefined public resolvers with SOA-serial-based detection
+- `completions` command — generate shell completions for bash, zsh, or fish on demand
+
+### New features
+
+- Global `-4`/`--ipv4-only` and `-6`/`--ipv6-only` flags to restrict queries and results by address family
+- `ResolverGroupBuilder` and `PredefinedProvider` for ergonomic library usage
+- Three-tier CLI help: bare `mhost` shows commands only, `--help` adds global options, `<command> --help` shows command details
+- 4 new DNS health check lints: AXFR zone transfer exposure, open resolver detection, delegation consistency, CNAME chain depth (deep and circular chain detection)
+
+### Bug fixes
+
+- Fix lame delegation lint to warn on IPv6-only failures instead of false positives
+
+### Code quality
+
+- Extract shared record rendering from lookups into dedicated `records.rs` module
+- Reorder check lints by semantic category (structural, email, security, advanced)
+
+### Documentation
+
+- Comprehensive README rewrite covering all commands, library API, and JSON output examples
+- Library doc comments with quick-start builder API and manual construction examples
+
 ## v0.5.0
 
 ### New features
