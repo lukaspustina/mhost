@@ -15,7 +15,7 @@
 - DNS over UDP, TCP, TLS (DoT), and HTTPS (DoH)
 - 20 DNS record types: A, AAAA, ANAME, ANY, CAA, CNAME, HINFO, HTTPS, MX, NAPTR, NS, NULL, OPENPGPKEY, PTR, SOA, SRV, SSHFP, SVCB, TLSA, TXT, plus DNSSEC records
 - Domain/subdomain discovery via 10+ strategies (wordlists, CT logs, SRV probing, TXT mining, AXFR, NSEC walking, permutation, reverse DNS, recursive)
-- DNS configuration validation with 10 lints (SOA, NS, CNAME, MX, SPF, DMARC, CAA, TTL, DNSSEC, HTTPS/SVCB)
+- DNS configuration validation with 13 lints (SOA, NS, CNAME, MX, SPF, DMARC, CAA, TTL, DNSSEC, HTTPS/SVCB, AXFR, open resolver, delegation)
 - Domain lookup command for full DNS profile in one operation (~40-65 well-known subdomain/record combinations)
 - WHOIS integration (via RIPEStats API)
 - Output as human-readable summary tables or JSON
@@ -96,7 +96,17 @@ src/
 │   ├── resolver.rs         #   App-level resolver setup
 │   ├── console.rs          #   User console output
 │   ├── logging.rs          #   tracing/logging setup
-│   ├── output/             #   Output formatting (json.rs, summary/, styles.rs)
+│   ├── output/             #   Output formatting
+│   │   ├── mod.rs          #     OutputConfig, OutputFormat, Output, Ordinal trait
+│   │   ├── json.rs         #     JSON output formatter
+│   │   ├── styles.rs       #     Shared output styles (prefixes, colors for status indicators)
+│   │   ├── records.rs      #     Rendering impls for all DNS record types (shared across commands)
+│   │   └── summary/        #     Summary (human-readable) output formatters
+│   │       ├── mod.rs      #       SummaryOptions, SummaryFormat, SummaryFormatter, Rendering trait
+│   │       ├── lookups.rs  #       SummaryFormatter for Lookups (lookup-specific output)
+│   │       ├── diff.rs     #       SummaryFormatter for DiffResults
+│   │       ├── propagation.rs #    SummaryFormatter for PropagationResults
+│   │       └── whois.rs    #       SummaryFormatter for WhoisResponse
 │   └── modules/            #   Command implementations:
 │       ├── lookup/         #     DNS record lookups (+ service_spec.rs for SRV)
 │       ├── domain_lookup/  #     Domain-wide lookup of apex + well-known subdomains
@@ -104,8 +114,12 @@ src/
 │       │                   #       txt_mining.rs, permutation.rs)
 │       ├── check/          #     DNS validation lints:
 │       │   └── lints/      #       cnames.rs, soa.rs, spf.rs, dmarc.rs, ns.rs, mx.rs,
-│       │                   #       caa.rs, ttl.rs, dnssec_lint.rs, https_svcb.rs
+│       │                   #       caa.rs, ttl.rs, dnssec_lint.rs, https_svcb.rs,
+│       │                   #       axfr.rs, open_resolver.rs, delegation.rs
+│       ├── propagation/    #     DNS propagation checking
+│       ├── diff/           #     DNS record diff between nameservers
 │       ├── info/           #     DNS record type info display
+│       ├── completions/    #     Shell completion generation
 │       └── get_server_lists/ #   Download nameserver lists
 │
 ├── system_config.rs         # Parse /etc/resolv.conf
@@ -121,8 +135,11 @@ src/
 | `lookup` | `l` | Look up arbitrary DNS records of a domain name, IP address, or CIDR block |
 | `domain-lookup` | `domain` | Look up a domain's apex records and ~40-65 well-known subdomains in one operation |
 | `discover` | `d` | Discover host names and subdomains using 10+ strategies |
-| `check` | `c` | Validate DNS configuration using 10 lints |
+| `check` | `c` | Validate DNS configuration using 13 lints |
+| `propagation` | `prop` | Check DNS propagation across predefined public resolvers |
+| `diff` | -- | Compare DNS records between two nameserver sets |
 | `info` | -- | Show information about DNS record types and well-known subdomains |
+| `completions` | -- | Generate shell completions for bash, zsh, or fish |
 | `server-lists` | -- | Download public nameserver lists |
 
 ## Key Dependencies
@@ -173,6 +190,20 @@ Releases are automated via GitHub Actions (`.github/workflows/release.yml`):
 - **Predefined servers use unfiltered endpoints** — no content filtering/blocking by default.
 - **CLI argument validation**: All numeric CLI arguments have range bounds enforced via custom `ValueParser` functions in `cli_parser.rs`.
 - **Styles**: Terminal styling uses `yansi` 1.0 with plain `static` constants (no `lazy_static`). Runtime-dependent prefixes (affected by `--ascii` mode) are functions in `styles.rs`.
+
+## Output Module Structure
+
+The `app/output/` module has a layered design separating shared concerns from command-specific formatting:
+
+- **`output/mod.rs`** — Top-level `OutputConfig` (JSON vs Summary), `Output` dispatcher, `Ordinal` trait for record type ordering.
+- **`output/styles.rs`** — Shared output chrome: status prefixes (`ok_prefix()`, `attention_prefix()`, `itemization_prefix()`), status colors (`OK`, `ATTENTION`, `ERROR`). Used by all summary formatters.
+- **`output/records.rs`** — `Rendering` trait impls for all DNS record/rdata types (`Record`, `MX`, `SOA`, `TXT`, `SVCB`, etc.) plus a private `styles` submodule with per-record-type colors. This is a **shared rendering layer** — not tied to any single command. Used by lookups, propagation, diff, and any future command that displays DNS records.
+- **`output/summary/mod.rs`** — Defines `SummaryOptions`, `SummaryFormat`, `SummaryFormatter` trait, and the `Rendering` trait. Each command implements `SummaryFormatter` in its own file under `summary/`.
+- **`output/summary/{lookups,diff,propagation,whois}.rs`** — Per-command `SummaryFormatter` impls. These contain only command-specific output logic (headers, grouping, tables), delegating record rendering to the shared `Rendering` impls in `records.rs`.
+
+**Key rule**: DNS record rendering (`impl Rendering for X`) belongs in `records.rs`, not in command-specific files. Command files should only contain `SummaryFormatter` impls and command-specific presentation logic.
+
+**Visibility note**: `records.rs` is a sibling of `summary/` (both children of `output/`), so it accesses `SummaryOptions` fields via their public accessor methods (`opts.human()`, `opts.condensed()`), not direct field access.
 
 ## Common Patterns
 
