@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Code stolen from futures crate -- https://docs.rs/futures-util/0.3.5/src/futures_util/stream/stream/buffer_unordered.rs.html#15-23
+//! Code stolen from futures crate -- <https://docs.rs/futures-util/0.3.5/src/futures_util/stream/stream/buffer_unordered.rs.html#15-23>
 use core::pin::Pin;
 
 use futures::stream::{Fuse, FuturesUnordered, StreamExt};

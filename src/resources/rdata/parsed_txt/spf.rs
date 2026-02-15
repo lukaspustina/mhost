@@ -98,7 +98,7 @@ impl From<Option<char>> for Qualifier {
     }
 }
 
-/// SPF Parser -- cf. https://tools.ietf.org/html/rfc4408
+/// SPF Parser -- cf. <https://tools.ietf.org/html/rfc4408>
 pub(crate) mod parser {
     use std::str;
 
