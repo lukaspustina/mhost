@@ -1,0 +1,5 @@
+RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color lookup -t DS cloudflare.com
+
+CHECK: > Running lookups.
+CHECK: * DS:      key tag
+CHECK: + Finished.

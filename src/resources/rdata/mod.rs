@@ -13,7 +13,7 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 use serde::Serialize;
 
 pub use caa::CAA;
-pub use dnssec::DNSSEC;
+pub use dnssec::{DigestType, DnssecAlgorithm, DNSKEY, DS, NSEC, NSEC3, NSEC3PARAM, RRSIG};
 pub use hickory_resolver::{IntoName, Name};
 pub use hinfo::HINFO;
 pub use mx::MX;
@@ -108,7 +108,12 @@ pub enum RData {
     SVCB(SVCB),
     TLSA(TLSA),
     TXT(TXT),
-    DNSSEC(DNSSEC),
+    DNSKEY(DNSKEY),
+    DS(DS),
+    RRSIG(RRSIG),
+    NSEC(NSEC),
+    NSEC3(NSEC3),
+    NSEC3PARAM(NSEC3PARAM),
     Unknown(UNKNOWN),
     ZERO,
 }
@@ -144,7 +149,12 @@ impl RData {
     accessor!(SVCB, svcb, SVCB);
     accessor!(TLSA, tlsa, TLSA);
     accessor!(TXT, txt, TXT);
-    accessor!(DNSSEC, dnssec, DNSSEC);
+    accessor!(DNSKEY, dnskey, DNSKEY);
+    accessor!(DS, ds, DS);
+    accessor!(RRSIG, rrsig, RRSIG);
+    accessor!(NSEC, nsec, NSEC);
+    accessor!(NSEC3, nsec3, NSEC3);
+    accessor!(NSEC3PARAM, nsec3param, NSEC3PARAM);
     accessor!(Unknown, unknown, UNKNOWN);
 }
 
@@ -247,11 +257,64 @@ mod tests {
     }
 
     #[test]
-    fn rdata_dnssec_accessor() {
-        let dnssec = DNSSEC::new("DNSKEY".to_string(), "key data".to_string());
-        let rdata = RData::DNSSEC(dnssec.clone());
-        assert_eq!(rdata.dnssec(), Some(&dnssec));
+    fn rdata_dnskey_accessor() {
+        let dnskey = DNSKEY::new(
+            257, 3, DnssecAlgorithm::EcdsaP256Sha256,
+            "key_data".to_string(), Some(2371), true, true, false,
+        );
+        let rdata = RData::DNSKEY(dnskey.clone());
+        assert_eq!(rdata.dnskey(), Some(&dnskey));
         assert!(rdata.a().is_none());
+    }
+
+    #[test]
+    fn rdata_ds_accessor() {
+        let ds = DS::new(
+            12345, DnssecAlgorithm::RsaSha256, DigestType::Sha256, "ABCDEF".to_string(),
+        );
+        let rdata = RData::DS(ds.clone());
+        assert_eq!(rdata.ds(), Some(&ds));
+        assert!(rdata.dnskey().is_none());
+    }
+
+    #[test]
+    fn rdata_rrsig_accessor() {
+        let name = Name::from_str("example.com.").unwrap();
+        let rrsig = RRSIG::new(
+            "A".to_string(), DnssecAlgorithm::RsaSha256, 2, 300,
+            1700000000, 1699000000, 12345, name, "sig".to_string(),
+        );
+        let rdata = RData::RRSIG(rrsig.clone());
+        assert_eq!(rdata.rrsig(), Some(&rrsig));
+        assert!(rdata.dnskey().is_none());
+    }
+
+    #[test]
+    fn rdata_nsec_accessor() {
+        let name = Name::from_str("next.example.com.").unwrap();
+        let nsec = NSEC::new(name, vec!["A".to_string(), "AAAA".to_string()]);
+        let rdata = RData::NSEC(nsec.clone());
+        assert_eq!(rdata.nsec(), Some(&nsec));
+        assert!(rdata.dnskey().is_none());
+    }
+
+    #[test]
+    fn rdata_nsec3_accessor() {
+        let nsec3 = NSEC3::new(
+            "SHA-1".to_string(), false, 10, "ABCDEF".to_string(),
+            "HASH".to_string(), vec!["A".to_string()],
+        );
+        let rdata = RData::NSEC3(nsec3.clone());
+        assert_eq!(rdata.nsec3(), Some(&nsec3));
+        assert!(rdata.nsec().is_none());
+    }
+
+    #[test]
+    fn rdata_nsec3param_accessor() {
+        let nsec3param = NSEC3PARAM::new("SHA-1".to_string(), false, 10, "salt".to_string());
+        let rdata = RData::NSEC3PARAM(nsec3param.clone());
+        assert_eq!(rdata.nsec3param(), Some(&nsec3param));
+        assert!(rdata.nsec3().is_none());
     }
 }
 
@@ -284,24 +347,130 @@ impl From<hickory_resolver::proto::rr::RData> for RData {
             TRData::TXT(value) => RData::TXT(value.into()),
             TRData::DNSSEC(value) => {
                 use hickory_resolver::proto::dnssec::rdata::DNSSECRData as TDnssec;
-                let sub_type = match &value {
-                    TDnssec::DNSKEY(_) => "DNSKEY",
-                    TDnssec::DS(_) => "DS",
-                    TDnssec::RRSIG(_) => "RRSIG",
-                    TDnssec::SIG(_) => "SIG",
-                    TDnssec::KEY(_) => "KEY",
-                    TDnssec::NSEC(_) => "NSEC",
-                    TDnssec::NSEC3(_) => "NSEC3",
-                    TDnssec::NSEC3PARAM(_) => "NSEC3PARAM",
-                    TDnssec::CDNSKEY(_) => "CDNSKEY",
-                    TDnssec::CDS(_) => "CDS",
-                    TDnssec::TSIG(_) => "TSIG",
-                    TDnssec::Unknown { .. } => "Unknown",
-                    _ => "Unknown",
+                use hickory_resolver::proto::dnssec::PublicKey as HickoryPublicKey;
+
+                fn nsec3_hash_algorithm_name(algo: hickory_resolver::proto::dnssec::Nsec3HashAlgorithm) -> String {
+                    match u8::from(algo) {
+                        1 => "SHA-1".to_string(),
+                        v => format!("Unknown({})", v),
+                    }
                 }
-                .to_string();
-                let description = format!("{}", value);
-                RData::DNSSEC(DNSSEC::new(sub_type, description))
+
+                fn hex_or_dash(bytes: &[u8]) -> String {
+                    if bytes.is_empty() {
+                        "-".to_string()
+                    } else {
+                        bytes.iter().map(|b| format!("{:02X}", b)).collect()
+                    }
+                }
+
+                fn convert_sig(sig: &hickory_resolver::proto::dnssec::rdata::SIG) -> RData {
+                    let algo_u8: u8 = sig.algorithm().into();
+                    RData::RRSIG(RRSIG::new(
+                        sig.type_covered().to_string(),
+                        algo_u8.into(),
+                        sig.num_labels(),
+                        sig.original_ttl(),
+                        sig.sig_expiration().get(),
+                        sig.sig_inception().get(),
+                        sig.key_tag(),
+                        sig.signer_name().clone(),
+                        data_encoding::BASE64.encode(sig.sig()),
+                    ))
+                }
+
+                match value {
+                    TDnssec::DNSKEY(ref key) => {
+                        let algo_u8: u8 = key.public_key().algorithm().into();
+                        RData::DNSKEY(DNSKEY::new(
+                            key.flags(),
+                            3,
+                            algo_u8.into(),
+                            data_encoding::BASE64.encode(key.public_key().public_bytes()),
+                            key.calculate_key_tag().ok(),
+                            key.zone_key(),
+                            key.secure_entry_point(),
+                            key.revoke(),
+                        ))
+                    }
+                    TDnssec::CDNSKEY(ref key) => {
+                        let algo_u8: u8 = key.algorithm().map(u8::from).unwrap_or(0);
+                        let pub_key_b64 = key
+                            .public_key()
+                            .map(|pk| data_encoding::BASE64.encode(pk.public_bytes()))
+                            .unwrap_or_default();
+                        RData::DNSKEY(DNSKEY::new(
+                            key.flags(),
+                            3,
+                            algo_u8.into(),
+                            pub_key_b64,
+                            None,
+                            key.zone_key(),
+                            key.secure_entry_point(),
+                            key.revoke(),
+                        ))
+                    }
+                    TDnssec::KEY(ref key) => {
+                        let algo_u8: u8 = key.algorithm().into();
+                        RData::DNSKEY(DNSKEY::new(
+                            key.flags(),
+                            3,
+                            algo_u8.into(),
+                            data_encoding::BASE64.encode(key.public_key()),
+                            None,
+                            false,
+                            false,
+                            key.revoke(),
+                        ))
+                    }
+                    TDnssec::DS(ref ds) => {
+                        let algo_u8: u8 = ds.algorithm().into();
+                        let digest_u8: u8 = ds.digest_type().into();
+                        let digest_hex: String =
+                            ds.digest().iter().map(|b| format!("{:02X}", b)).collect();
+                        RData::DS(DS::new(ds.key_tag(), algo_u8.into(), digest_u8.into(), digest_hex))
+                    }
+                    TDnssec::CDS(ref ds) => {
+                        let algo_u8: u8 = ds.algorithm().map(u8::from).unwrap_or(0);
+                        let digest_u8: u8 = ds.digest_type().into();
+                        let digest_hex: String =
+                            ds.digest().iter().map(|b| format!("{:02X}", b)).collect();
+                        RData::DS(DS::new(ds.key_tag(), algo_u8.into(), digest_u8.into(), digest_hex))
+                    }
+                    TDnssec::RRSIG(ref sig) => convert_sig(sig),
+                    TDnssec::SIG(ref sig) => convert_sig(sig),
+                    TDnssec::NSEC(ref nsec) => {
+                        let types: Vec<String> = nsec.type_bit_maps().map(|rt| rt.to_string()).collect();
+                        RData::NSEC(NSEC::new(nsec.next_domain_name().clone(), types))
+                    }
+                    TDnssec::NSEC3(ref nsec3) => {
+                        let hash_algo = nsec3_hash_algorithm_name(nsec3.hash_algorithm());
+                        let salt = hex_or_dash(nsec3.salt());
+                        let next_hashed =
+                            data_encoding::BASE32HEX_NOPAD.encode(nsec3.next_hashed_owner_name());
+                        let types: Vec<String> =
+                            nsec3.type_bit_maps().map(|rt| rt.to_string()).collect();
+                        RData::NSEC3(NSEC3::new(
+                            hash_algo,
+                            nsec3.opt_out(),
+                            nsec3.iterations(),
+                            salt,
+                            next_hashed,
+                            types,
+                        ))
+                    }
+                    TDnssec::NSEC3PARAM(ref param) => {
+                        let hash_algo = nsec3_hash_algorithm_name(param.hash_algorithm());
+                        let salt = hex_or_dash(param.salt());
+                        RData::NSEC3PARAM(NSEC3PARAM::new(
+                            hash_algo,
+                            param.opt_out(),
+                            param.iterations(),
+                            salt,
+                        ))
+                    }
+                    _ => RData::Unknown(UNKNOWN::new(0, NULL::new())),
+                }
             }
             TRData::Unknown { code, rdata } => {
                 let code_u16: u16 = code.into();

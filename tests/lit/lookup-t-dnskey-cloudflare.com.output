@@ -1,0 +1,6 @@
+RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color lookup -t DNSKEY cloudflare.com
+
+CHECK: > Running lookups.
+CHECK: * DNSKEY:
+CHECK: key tag
+CHECK: + Finished.

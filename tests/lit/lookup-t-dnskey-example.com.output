@@ -1,0 +1,6 @@
+RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color lookup -t DNSKEY example.com
+
+CHECK: > Running lookups.
+CHECK: * DNSKEY:  KSK (key signing key), ECDSA P-256/SHA-256, key tag
+CHECK: * DNSKEY:  ZSK (zone signing key), ECDSA P-256/SHA-256, key tag
+CHECK: + Finished.

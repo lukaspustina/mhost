@@ -14,8 +14,8 @@ use crate::resources::rdata::parsed_txt::{
     Bimi, Dmarc, DomainVerification, Mechanism, Modifier, MtaSts, ParsedTxt, TlsRpt, Word,
 };
 use crate::resources::rdata::{
-    parsed_txt::Spf, Name, CAA, DNSSEC, HINFO, MX, NAPTR, NULL, OPENPGPKEY, SOA, SRV, SSHFP, SVCB, TLSA, TXT,
-    UNKNOWN,
+    parsed_txt::Spf, Name, CAA, DNSKEY, DS, HINFO, MX, NAPTR, NSEC, NSEC3, NSEC3PARAM, NULL, OPENPGPKEY, RRSIG, SOA,
+    SRV, SSHFP, SVCB, TLSA, TXT, UNKNOWN,
 };
 use crate::resources::{NameToIpAddr, Record};
 use crate::RecordType;
@@ -78,7 +78,12 @@ impl Rendering for Record {
                     format!("{}:\t<data unavailable>{}", "TXT".paint(styles::TXT), suffix)
                 }
             }
-            RecordType::DNSSEC => render_rr!("DNSSEC", styles::DNSSEC, dnssec),
+            RecordType::DNSKEY => render_rr!("DNSKEY", styles::DNSSEC, dnskey),
+            RecordType::DS => render_rr!("DS", styles::DNSSEC, ds),
+            RecordType::RRSIG => render_rr!("RRSIG", styles::DNSSEC, rrsig),
+            RecordType::NSEC => render_rr!("NSEC", styles::DNSSEC, nsec),
+            RecordType::NSEC3 => render_rr!("NSEC3", styles::DNSSEC, nsec3),
+            RecordType::NSEC3PARAM => render_rr!("NSEC3PARAM", styles::DNSSEC, nsec3param),
             RecordType::Unknown(_) => {
                 if let Some(data) = self.data().unknown() {
                     format!("Unknown:\t{}{}", data.render(opts), suffix)
@@ -711,10 +716,165 @@ impl Rendering for SVCB {
     }
 }
 
-impl Rendering for DNSSEC {
-    fn render(&self, _: &SummaryOptions) -> String {
+fn truncate(s: &str, max_len: usize) -> String {
+    if s.len() > max_len {
+        format!("{}...", &s[..max_len])
+    } else {
+        s.to_string()
+    }
+}
+
+impl Rendering for DNSKEY {
+    fn render(&self, opts: &SummaryOptions) -> String {
         let style = styles::DNSSEC;
-        format!("{}: {}", self.sub_type().paint(style), self.description().paint(style))
+        if opts.human() {
+            let role = if self.is_revoked() {
+                "revoked key"
+            } else if self.is_secure_entry_point() && self.is_zone_key() {
+                "KSK (key signing key)"
+            } else if self.is_zone_key() {
+                "ZSK (zone signing key)"
+            } else {
+                "non-zone key"
+            };
+            let key_tag_str = self
+                .key_tag()
+                .map(|t| format!(", key tag {}", t.paint(style)))
+                .unwrap_or_default();
+            format!("{}, {}{}", role.paint(style), self.algorithm().paint(style), key_tag_str)
+        } else {
+            let key_display = truncate(self.public_key(), 20);
+            let key_tag_str = self
+                .key_tag()
+                .map(|t| format!(", key_tag={}", t.paint(style)))
+                .unwrap_or_default();
+            format!(
+                "flags={}, protocol={}, algorithm={}{}, key={}",
+                self.flags().paint(style),
+                self.protocol().paint(style),
+                self.algorithm().paint(style),
+                key_tag_str,
+                key_display.paint(style),
+            )
+        }
+    }
+}
+
+impl Rendering for DS {
+    fn render(&self, opts: &SummaryOptions) -> String {
+        let style = styles::DNSSEC;
+        let digest_display = truncate(self.digest(), 16);
+        if opts.human() {
+            format!(
+                "key tag {}, {}, {} digest {}",
+                self.key_tag().paint(style),
+                self.algorithm().paint(style),
+                self.digest_type().paint(style),
+                digest_display.paint(style),
+            )
+        } else {
+            format!(
+                "key_tag={}, algorithm={}, digest_type={}, digest={}",
+                self.key_tag().paint(style),
+                self.algorithm().paint(style),
+                self.digest_type().paint(style),
+                digest_display.paint(style),
+            )
+        }
+    }
+}
+
+impl Rendering for RRSIG {
+    fn render(&self, opts: &SummaryOptions) -> String {
+        let style = styles::DNSSEC;
+        if opts.human() {
+            format!(
+                "covers {}, by {}, {}, key tag {}",
+                self.type_covered().paint(style),
+                self.signer_name().paint(style),
+                self.algorithm().paint(style),
+                self.key_tag().paint(style),
+            )
+        } else {
+            format!(
+                "type_covered={}, signer={}, algorithm={}, key_tag={}, labels={}, original_ttl={}, expiration={}, inception={}",
+                self.type_covered().paint(style),
+                self.signer_name().paint(style),
+                self.algorithm().paint(style),
+                self.key_tag().paint(style),
+                self.labels().paint(style),
+                self.original_ttl().paint(style),
+                self.expiration().paint(style),
+                self.inception().paint(style),
+            )
+        }
+    }
+}
+
+impl Rendering for NSEC {
+    fn render(&self, opts: &SummaryOptions) -> String {
+        let style = styles::DNSSEC;
+        if opts.human() {
+            format!(
+                "next domain {}, types: {}",
+                self.next_domain_name().paint(style),
+                self.types().join(", ").paint(style),
+            )
+        } else {
+            format!(
+                "next_domain={}, types={}",
+                self.next_domain_name().paint(style),
+                self.types().join(" ").paint(style),
+            )
+        }
+    }
+}
+
+impl Rendering for NSEC3 {
+    fn render(&self, opts: &SummaryOptions) -> String {
+        let style = styles::DNSSEC;
+        if opts.human() {
+            format!(
+                "{}, {} iteration(s), opt-out: {}, types: {}",
+                self.hash_algorithm().paint(style),
+                self.iterations().paint(style),
+                if self.opt_out() { "yes" } else { "no" }.paint(style),
+                self.types().join(", ").paint(style),
+            )
+        } else {
+            format!(
+                "hash_algorithm={}, iterations={}, opt_out={}, salt={}, types={}",
+                self.hash_algorithm().paint(style),
+                self.iterations().paint(style),
+                self.opt_out().paint(style),
+                self.salt().paint(style),
+                self.types().join(" ").paint(style),
+            )
+        }
+    }
+}
+
+impl Rendering for NSEC3PARAM {
+    fn render(&self, opts: &SummaryOptions) -> String {
+        let style = styles::DNSSEC;
+        let salt_display = if self.salt() == "-" { "(empty)" } else { self.salt() };
+        if opts.human() {
+            format!(
+                "{}, {} iteration(s), opt-out: {}, salt: {}",
+                self.hash_algorithm().paint(style),
+                self.iterations().paint(style),
+                if self.opt_out() { "yes" } else { "no" }.paint(style),
+                salt_display.paint(style),
+            )
+        } else {
+            format!(
+                "hash_algorithm={}, iterations={}, opt_out={}, salt={}",
+                self.hash_algorithm().paint(style),
+                self.iterations().paint(style),
+                self.opt_out().paint(style),
+                self.salt().paint(style),
+            )
+        }
     }
 }
 

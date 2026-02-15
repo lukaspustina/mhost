@@ -1224,6 +1224,7 @@ dependencies = [
  "chrono",
  "clap 4.5.58",
  "clap_complete",
+ "data-encoding",
  "futures",
  "hickory-resolver",
  "hostname",
