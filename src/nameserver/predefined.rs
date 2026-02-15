@@ -5,7 +5,189 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::fmt;
+use std::str::FromStr;
+
 use crate::nameserver::NameServerConfig;
+use crate::Error;
+
+/// A well-known public DNS provider with preconfigured nameserver addresses.
+///
+/// Each provider offers nameservers across multiple transports (UDP, TCP, TLS, HTTPS)
+/// and address families (IPv4, IPv6). Use [`configs`](PredefinedProvider::configs) to
+/// obtain all [`NameServerConfig`]s for a given provider.
+///
+/// # Example
+/// ```
+/// use mhost::nameserver::predefined::PredefinedProvider;
+///
+/// let configs = PredefinedProvider::Google.configs();
+/// assert!(!configs.is_empty());
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PredefinedProvider {
+    /// Cloudflare DNS (1.1.1.1, 1.0.0.1)
+    Cloudflare,
+    /// Google Public DNS (8.8.8.8, 8.8.4.4)
+    Google,
+    /// Quad9 unfiltered DNS (9.9.9.10, 149.112.112.10)
+    Quad9,
+    /// Mullvad DNS (194.242.2.2, 193.19.108.2)
+    Mullvad,
+    /// Wikimedia DNS (185.71.138.138, 185.71.139.139)
+    Wikimedia,
+    /// DNS4EU unfiltered DNS (185.134.197.54, 185.134.196.54)
+    Dns4eu,
+}
+
+impl PredefinedProvider {
+    /// Returns all available predefined providers.
+    pub fn all() -> &'static [PredefinedProvider] {
+        &[
+            PredefinedProvider::Cloudflare,
+            PredefinedProvider::Google,
+            PredefinedProvider::Quad9,
+            PredefinedProvider::Mullvad,
+            PredefinedProvider::Wikimedia,
+            PredefinedProvider::Dns4eu,
+        ]
+    }
+
+    /// Returns all [`NameServerConfig`]s for this provider, across all transports and address families.
+    pub fn configs(&self) -> Vec<NameServerConfig> {
+        match self {
+            PredefinedProvider::Cloudflare => vec![
+                cloudflare::udp(),
+                cloudflare::tcp(),
+                cloudflare::https(),
+                cloudflare::tls(),
+                cloudflare::udp_2(),
+                cloudflare::tcp_2(),
+                cloudflare::https_2(),
+                cloudflare::tls_2(),
+                cloudflare::udp6(),
+                cloudflare::tcp6(),
+                cloudflare::https6(),
+                cloudflare::tls6(),
+                cloudflare::udp6_2(),
+                cloudflare::tcp6_2(),
+                cloudflare::https6_2(),
+                cloudflare::tls6_2(),
+            ],
+            PredefinedProvider::Google => vec![
+                google::udp(),
+                google::tcp(),
+                google::https(),
+                google::tls(),
+                google::udp_2(),
+                google::tcp_2(),
+                google::https_2(),
+                google::tls_2(),
+                google::udp6(),
+                google::tcp6(),
+                google::https6(),
+                google::tls6(),
+                google::udp6_2(),
+                google::tcp6_2(),
+                google::https6_2(),
+                google::tls6_2(),
+            ],
+            PredefinedProvider::Quad9 => vec![
+                quad9::udp(),
+                quad9::tcp(),
+                quad9::https(),
+                quad9::tls(),
+                quad9::udp_2(),
+                quad9::tcp_2(),
+                quad9::https_2(),
+                quad9::tls_2(),
+                quad9::udp6(),
+                quad9::tcp6(),
+                quad9::https6(),
+                quad9::tls6(),
+                quad9::udp6_2(),
+                quad9::tcp6_2(),
+                quad9::https6_2(),
+                quad9::tls6_2(),
+            ],
+            PredefinedProvider::Mullvad => vec![
+                mullvad::udp(),
+                mullvad::tcp(),
+                mullvad::https(),
+                mullvad::tls(),
+                mullvad::udp_2(),
+                mullvad::tcp_2(),
+                mullvad::https_2(),
+                mullvad::tls_2(),
+                mullvad::udp6(),
+                mullvad::tcp6(),
+                mullvad::https6(),
+                mullvad::tls6(),
+            ],
+            PredefinedProvider::Wikimedia => vec![
+                wikimedia::udp(),
+                wikimedia::tcp(),
+                wikimedia::https(),
+                wikimedia::tls(),
+                wikimedia::udp_2(),
+                wikimedia::tcp_2(),
+                wikimedia::https_2(),
+                wikimedia::tls_2(),
+                wikimedia::udp6(),
+                wikimedia::tcp6(),
+                wikimedia::https6(),
+                wikimedia::tls6(),
+                wikimedia::udp6_2(),
+                wikimedia::tcp6_2(),
+                wikimedia::https6_2(),
+                wikimedia::tls6_2(),
+            ],
+            PredefinedProvider::Dns4eu => vec![
+                dns4eu::udp(),
+                dns4eu::tcp(),
+                dns4eu::https(),
+                dns4eu::tls(),
+                dns4eu::udp_2(),
+                dns4eu::tcp_2(),
+                dns4eu::https_2(),
+                dns4eu::tls_2(),
+            ],
+        }
+    }
+}
+
+impl fmt::Display for PredefinedProvider {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PredefinedProvider::Cloudflare => write!(f, "cloudflare"),
+            PredefinedProvider::Google => write!(f, "google"),
+            PredefinedProvider::Quad9 => write!(f, "quad9"),
+            PredefinedProvider::Mullvad => write!(f, "mullvad"),
+            PredefinedProvider::Wikimedia => write!(f, "wikimedia"),
+            PredefinedProvider::Dns4eu => write!(f, "dns4eu"),
+        }
+    }
+}
+
+impl FromStr for PredefinedProvider {
+    type Err = Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "cloudflare" => Ok(PredefinedProvider::Cloudflare),
+            "google" => Ok(PredefinedProvider::Google),
+            "quad9" => Ok(PredefinedProvider::Quad9),
+            "mullvad" => Ok(PredefinedProvider::Mullvad),
+            "wikimedia" => Ok(PredefinedProvider::Wikimedia),
+            "dns4eu" => Ok(PredefinedProvider::Dns4eu),
+            _ => Err(Error::ParserError {
+                what: s.to_string(),
+                to: "PredefinedProvider",
+                why: "unknown provider".to_string(),
+            }),
+        }
+    }
+}
 
 /// Returns UDP nameservers for propagation checking — one per unique IP across 6 providers.
 /// Includes both IPv4 and IPv6 entries where available.
@@ -542,5 +724,44 @@ pub mod dns4eu {
 
     pub fn tls_2() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV4_2, 853), "unfiltered.joindns4.eu", "DNS4EU 2".to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn all_returns_six_providers() {
+        assert_eq!(PredefinedProvider::all().len(), 6);
+    }
+
+    #[test]
+    fn configs_total_matches_nameserver_configs() {
+        let total: usize = PredefinedProvider::all().iter().map(|p| p.configs().len()).sum();
+        assert_eq!(total, nameserver_configs().len());
+    }
+
+    #[test]
+    fn from_str_round_trip() {
+        for provider in PredefinedProvider::all() {
+            let s = provider.to_string();
+            let parsed: PredefinedProvider = s.parse().unwrap();
+            assert_eq!(parsed, *provider);
+        }
+    }
+
+    #[test]
+    fn from_str_case_insensitive() {
+        assert_eq!(PredefinedProvider::from_str("CLOUDFLARE").unwrap(), PredefinedProvider::Cloudflare);
+        assert_eq!(PredefinedProvider::from_str("Google").unwrap(), PredefinedProvider::Google);
+        assert_eq!(PredefinedProvider::from_str("QUAD9").unwrap(), PredefinedProvider::Quad9);
+        assert_eq!(PredefinedProvider::from_str("Dns4eu").unwrap(), PredefinedProvider::Dns4eu);
+    }
+
+    #[test]
+    fn from_str_rejects_unknown() {
+        assert!(PredefinedProvider::from_str("unknown_provider").is_err());
+        assert!(PredefinedProvider::from_str("").is_err());
     }
 }

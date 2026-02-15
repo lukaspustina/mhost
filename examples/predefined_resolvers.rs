@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use mhost::resolver::{predefined, ResolverGroup, UniQuery};
+use mhost::resolver::{ResolverGroupBuilder, UniQuery};
 use mhost::RecordType;
 use std::env;
 
@@ -13,9 +13,9 @@ use std::env;
 async fn main() {
     let name = env::args().nth(1).unwrap_or_else(|| "www.example.com".to_string());
 
-    let resolver_configs = predefined::resolver_configs();
-
-    let resolvers = ResolverGroup::from_configs(resolver_configs, Default::default(), Default::default())
+    let resolvers = ResolverGroupBuilder::new()
+        .all_predefined()
+        .build()
         .await
         .expect("failed to create resolvers");
 

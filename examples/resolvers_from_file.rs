@@ -9,7 +9,7 @@ use std::env;
 use std::time::{Duration, Instant};
 
 use mhost::nameserver::NameServerConfigGroup;
-use mhost::resolver::{MultiQuery, ResolverConfigGroup, ResolverGroup, ResolverGroupOpts, ResolverOpts};
+use mhost::resolver::{MultiQuery, ResolverGroupBuilder};
 use mhost::statistics::Statistics;
 use mhost::RecordType;
 
@@ -20,7 +20,9 @@ async fn main() {
         .unwrap_or_else(|| "contrib/resolvers.txt".to_string());
     let name = env::args().nth(2).unwrap_or_else(|| "www.example.com".to_string());
 
-    let system_resolvers = ResolverGroup::from_system_config(Default::default())
+    let system_resolvers = ResolverGroupBuilder::new()
+        .system()
+        .build()
         .await
         .expect("failed to create system resolvers");
 
@@ -28,20 +30,14 @@ async fn main() {
         .await
         .expect("failed to read name server configs from file");
     println!("Loaded {} name servers", configs.len());
-    let resolver_configs: ResolverConfigGroup = configs.into();
 
-    let resolver_opts = ResolverOpts {
-        retries: 1,
-        max_concurrent_requests: 20,
-        timeout: Duration::from_secs(1),
-        ..Default::default()
-    };
-    let group_opts = ResolverGroupOpts {
-        max_concurrent: 1000,
-        ..Default::default()
-    };
-
-    let resolvers = ResolverGroup::from_configs(resolver_configs, resolver_opts, group_opts)
+    let resolvers = ResolverGroupBuilder::new()
+        .nameservers(configs)
+        .retries(1)
+        .max_concurrent_requests(20)
+        .timeout(Duration::from_secs(1))
+        .max_concurrent_servers(1000)
+        .build()
         .await
         .expect("failed to create resolvers");
     println!("Created {} resolvers", resolvers.len());

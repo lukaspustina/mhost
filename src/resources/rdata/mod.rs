@@ -79,6 +79,11 @@ mod tlsa;
 mod txt;
 mod unknown;
 
+/// DNS record data, with one variant per supported record type.
+///
+/// Use the typed accessor methods (`.a()`, `.mx()`, `.txt()`, etc.) to extract
+/// the inner data for a specific type. Each accessor returns `Option<&T>`,
+/// returning `None` if the variant doesn't match.
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum RData {

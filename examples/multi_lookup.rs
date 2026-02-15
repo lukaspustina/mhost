@@ -5,26 +5,26 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use mhost::nameserver::NameServerConfig;
-use mhost::resolver::{MultiQuery, Resolver, ResolverConfig, UniQuery};
-use mhost::RecordType;
 use std::env;
 use std::net::SocketAddr;
+
+use mhost::nameserver::NameServerConfig;
+use mhost::resolver::{MultiQuery, ResolverGroupBuilder, UniQuery};
+use mhost::RecordType;
 
 #[tokio::main]
 async fn main() {
     let name = env::args().nth(1).unwrap_or_else(|| "www.example.com".to_string());
 
     let sock_addr: SocketAddr = "8.8.8.8:53".parse().unwrap();
-    let name_server_config = NameServerConfig::udp(sock_addr);
-    let config = ResolverConfig::new(name_server_config);
-
-    let resolver = Resolver::new(config, Default::default())
+    let resolvers = ResolverGroupBuilder::new()
+        .nameserver(NameServerConfig::udp(sock_addr))
+        .build()
         .await
         .expect("Failed to create resolver");
 
     let query = UniQuery::new(name, RecordType::A).expect("Failed to create query");
-    let one_lookup = resolver.lookup(query).await.expect("failed to execute lookups");
+    let one_lookup = resolvers.lookup(query).await.expect("failed to execute lookups");
     println!("Lookup result: #{} {:?}", one_lookup.len(), &one_lookup);
 
     let mq = MultiQuery::multi_record(
@@ -32,7 +32,7 @@ async fn main() {
         vec![RecordType::A, RecordType::AAAA, RecordType::TXT],
     )
     .expect("Failed to create multi-query");
-    let lookups = resolver.lookup(mq).await.expect("failed to execute lookups");
+    let lookups = resolvers.lookup(mq).await.expect("failed to execute lookups");
 
     //println!("Multi-Lookup results: {:#?}", multi_lookup);
 

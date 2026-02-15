@@ -5,6 +5,12 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! Query types for DNS lookups.
+//!
+//! [`UniQuery`] represents a single (name, record type) pair. [`MultiQuery`] represents
+//! the Cartesian product of multiple names and record types, enabling batch lookups in
+//! a single call.
+
 use hickory_resolver::IntoName;
 use hickory_resolver::Name;
 use serde::Serialize;
@@ -12,9 +18,9 @@ use serde::Serialize;
 use crate::resolver::{Error, ResolverResult};
 use crate::RecordType;
 
-/// UniQuery
+/// A single DNS query: one name and one record type.
 ///
-/// Name's labels are all Rc, so clone is cheap
+/// Cloning is cheap because `Name` labels are reference-counted.
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
 pub struct UniQuery {
     pub(crate) name: Name,
@@ -46,9 +52,9 @@ impl From<UniQuery> for MultiQuery {
     }
 }
 
-/// MultiQuery allows to lookup multiple names for multiple record types
+/// A batch DNS query: the Cartesian product of multiple names and record types.
 ///
-/// It can be easily constructed from a simple `UniQuery`
+/// A `MultiQuery` can be constructed from individual components or converted from a [`UniQuery`].
 ///
 /// # Example
 /// ```

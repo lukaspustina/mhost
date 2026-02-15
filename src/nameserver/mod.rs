@@ -5,7 +5,16 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Name servers are the basic abstraction for DNS servers configuration.
+//! Nameserver configuration and transport protocol types.
+//!
+//! [`NameServerConfig`] describes how to reach a DNS nameserver, supporting four
+//! transport protocols: UDP, TCP, TLS (DNS-over-TLS), and HTTPS (DNS-over-HTTPS).
+//! Use the factory methods ([`udp`](NameServerConfig::udp), [`tcp`](NameServerConfig::tcp),
+//! [`tls`](NameServerConfig::tls), [`https`](NameServerConfig::https)) to create
+//! configurations.
+//!
+//! The [`predefined`] submodule provides preconfigured nameservers for well-known
+//! public DNS providers (Cloudflare, Google, Quad9, Mullvad, Wikimedia, DNS4EU).
 
 use std::fmt;
 use std::net::{IpAddr, SocketAddr};
@@ -22,11 +31,16 @@ pub mod load;
 mod parser;
 pub mod predefined;
 
+/// DNS transport protocol.
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
 pub enum Protocol {
+    /// Plain UDP (port 53).
     Udp,
+    /// Plain TCP (port 53).
     Tcp,
+    /// DNS-over-HTTPS (port 443).
     Https,
+    /// DNS-over-TLS (port 853).
     Tls,
 }
 
@@ -48,6 +62,10 @@ impl FromStr for Protocol {
     }
 }
 
+/// Configuration for a DNS nameserver, including transport protocol and address.
+///
+/// Each variant carries the protocol, IP address, port, and an optional human-readable name.
+/// TLS and HTTPS variants additionally carry the TLS hostname for certificate validation.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize)]
 pub enum NameServerConfig {
     Udp {
@@ -225,6 +243,7 @@ fn format_name(name: &Option<String>) -> String {
         .unwrap_or("".to_string())
 }
 
+/// A collection of [`NameServerConfig`]s, typically loaded from system configuration or predefined lists.
 #[derive(Debug)]
 pub struct NameServerConfigGroup {
     configs: Vec<NameServerConfig>,

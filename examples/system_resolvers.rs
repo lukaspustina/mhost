@@ -7,14 +7,16 @@
 
 use std::env;
 
-use mhost::resolver::{MultiQuery, ResolverGroup};
+use mhost::resolver::{MultiQuery, ResolverGroupBuilder};
 use mhost::RecordType;
 
 #[tokio::main]
 async fn main() {
     let name = env::args().nth(1).unwrap_or_else(|| "www.example.com".to_string());
 
-    let resolvers = ResolverGroup::from_system_config(Default::default())
+    let resolvers = ResolverGroupBuilder::new()
+        .system()
+        .build()
         .await
         .expect("failed to create system resolvers");
 
