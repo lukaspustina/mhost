@@ -30,14 +30,15 @@
 
 **mhost** is a modern DNS lookup utility and reusable Rust library — an advanced replacement for `host`/`dig`. Two binaries: `mhost` (CLI) and `mdive` (interactive TUI). Feature flags: **`app`** (default, enables CLI binary), **`tui`** (enables `mdive`, depends on `app`). Without `app`: library-only build with minimal dependencies.
 
+- **Author**: Lukas Pustina | **License**: MIT / Apache-2.0 | **Edition**: 2021
+- **Repository**: https://github.com/lukaspustina/mhost.git
+
 mhost provides and all functionality must adhere to these core principles:
+
 - high performance
 - high efficiency
 - high stability
 - high security
-
-- **Author**: Lukas Pustina | **License**: MIT / Apache-2.0 | **Edition**: 2021
-- **Repository**: https://github.com/lukaspustina/mhost.git
 
 ## Roadmap
 
