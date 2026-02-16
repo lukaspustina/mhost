@@ -1,43 +1,73 @@
-use std::collections::BTreeSet;
+use std::collections::{HashMap, HashSet};
+use std::str::FromStr;
 use std::time::Duration;
 
 use mhost::app::common::ordinal::Ordinal;
 use mhost::app::common::rdata_format::format_rdata;
+use mhost::app::modules::domain_lookup::subdomain_spec::{default_entries, Category};
 use mhost::resolver::lookup::Lookups;
 use mhost::resources::rdata::parsed_txt::{Mechanism, Modifier, ParsedTxt, Qualifier, Word};
-use mhost::RecordType;
+use mhost::{Name, RecordType};
 use ratatui::widgets::TableState;
 
-/// All record types available for toggling, in display order.
+/// All categories available for toggling, in display order.
 /// Keys 1-9 map to indices 0-8, key 0 maps to index 9.
-pub const TOGGLEABLE_TYPES: &[RecordType] = &[
-    RecordType::A,
-    RecordType::AAAA,
-    RecordType::CAA,
-    RecordType::CNAME,
-    RecordType::HINFO,
-    RecordType::HTTPS,
-    RecordType::MX,
-    RecordType::NAPTR,
-    RecordType::NS,
-    RecordType::SOA,
-    RecordType::SRV,
-    RecordType::SSHFP,
-    RecordType::SVCB,
-    RecordType::TLSA,
-    RecordType::TXT,
+pub const TOGGLEABLE_CATEGORIES: &[Category] = &[
+    Category::EmailAuthentication,  // 1
+    Category::EmailServices,        // 2
+    Category::TlsDane,              // 3
+    Category::Communication,        // 4
+    Category::CalendarContacts,     // 5
+    Category::Infrastructure,       // 6
+    Category::ModernProtocols,      // 7
+    Category::VerificationMetadata, // 8
+    Category::Legacy,               // 9
+    Category::Gaming,               // 0
 ];
 
-/// Default active types on startup.
-const DEFAULT_TYPES: &[RecordType] = &[
-    RecordType::A,
-    RecordType::AAAA,
-    RecordType::CNAME,
-    RecordType::MX,
-    RecordType::NS,
-    RecordType::TXT,
-    RecordType::SOA,
+/// Default active categories on startup (Legacy and Gaming off by default).
+const DEFAULT_CATEGORIES: &[Category] = &[
+    Category::EmailAuthentication,
+    Category::EmailServices,
+    Category::TlsDane,
+    Category::Communication,
+    Category::CalendarContacts,
+    Category::Infrastructure,
+    Category::ModernProtocols,
+    Category::VerificationMetadata,
 ];
+
+pub fn category_short_label(cat: Category) -> &'static str {
+    match cat {
+        Category::EmailAuthentication => "Email",
+        Category::EmailServices => "Svc",
+        Category::TlsDane => "TLS",
+        Category::Communication => "Comm",
+        Category::CalendarContacts => "Cal",
+        Category::Infrastructure => "Infra",
+        Category::ModernProtocols => "Modern",
+        Category::VerificationMetadata => "Verify",
+        Category::Legacy => "Legacy",
+        Category::Gaming => "Gaming",
+        Category::Apex => "Apex",
+    }
+}
+
+fn category_ordinal(cat: Category) -> u8 {
+    match cat {
+        Category::Apex => 0,
+        Category::EmailAuthentication => 1,
+        Category::EmailServices => 2,
+        Category::TlsDane => 3,
+        Category::Communication => 4,
+        Category::CalendarContacts => 5,
+        Category::Infrastructure => 6,
+        Category::ModernProtocols => 7,
+        Category::VerificationMetadata => 8,
+        Category::Legacy => 9,
+        Category::Gaming => 10,
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
@@ -54,6 +84,7 @@ pub enum QueryState {
     Done {
         domain: String,
         record_count: usize,
+        total_record_count: usize,
         server_count: usize,
         elapsed: Duration,
     },
@@ -70,6 +101,7 @@ pub struct RecordRow {
     pub ttl: u32,
     pub value: String,
     pub nameserver: String,
+    pub category: Category,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -77,6 +109,7 @@ pub enum Popup {
     None,
     RecordDetail(usize),
     Help,
+    Servers,
 }
 
 pub enum Action {
@@ -91,7 +124,7 @@ pub enum Action {
     InputHome,
     InputEnd,
     InputDeleteWord,
-    ToggleRecordType(RecordType),
+    ToggleCategory(Category),
     SelectAll,
     SelectNone,
     ToggleHumanView,
@@ -103,22 +136,31 @@ pub enum Action {
     End,
     OpenPopup,
     OpenHelp,
+    OpenServers,
     ClosePopup,
-    DnsResult(Result<Lookups, String>),
+    DigitPress(char),
+    PressG,
+    PressCapG,
+    DnsBatch { lookups: Lookups, completed: usize, total: usize },
+    DnsComplete(Duration),
+    DnsError(String),
 }
 
 pub struct App {
     pub mode: Mode,
     pub input: String,
     pub cursor_pos: usize,
-    pub active_types: BTreeSet<RecordType>,
+    pub active_categories: HashSet<Category>,
     pub query_state: QueryState,
     pub rows: Vec<RecordRow>,
     pub table_state: TableState,
     pub should_quit: bool,
     pub popup: Popup,
     pub human_view: bool,
-    lookups: Option<Lookups>,
+    pub batch_progress: (usize, usize),
+    pub count_buffer: String,
+    pub pending_g: bool,
+    pub(crate) lookups: Option<Lookups>,
 }
 
 impl App {
@@ -127,18 +169,43 @@ impl App {
             mode: Mode::Normal,
             input: String::new(),
             cursor_pos: 0,
-            active_types: DEFAULT_TYPES.iter().copied().collect(),
+            active_categories: DEFAULT_CATEGORIES.iter().copied().collect(),
             query_state: QueryState::Idle,
             rows: Vec::new(),
             table_state: TableState::default(),
             should_quit: false,
             popup: Popup::None,
             human_view: false,
+            batch_progress: (0, 0),
+            count_buffer: String::new(),
+            pending_g: false,
             lookups: None,
         }
     }
 
     pub fn update(&mut self, action: Action) {
+        // Vi-count bookkeeping: on non-count actions, flush a single-digit buffer
+        // as a category toggle, then clear state.
+        match &action {
+            Action::DigitPress(_) | Action::PressG | Action::PressCapG => {}
+            _ => {
+                if self.count_buffer.len() == 1 && !self.pending_g {
+                    let c = self.count_buffer.chars().next().unwrap();
+                    let idx = if c == '0' { 9 } else { (c as usize) - ('1' as usize) };
+                    if let Some(cat) = TOGGLEABLE_CATEGORIES.get(idx) {
+                        if self.active_categories.contains(cat) {
+                            self.active_categories.remove(cat);
+                        } else {
+                            self.active_categories.insert(*cat);
+                        }
+                        self.rebuild_rows();
+                    }
+                }
+                self.count_buffer.clear();
+                self.pending_g = false;
+            }
+        }
+
         match action {
             Action::Quit => self.should_quit = true,
 
@@ -157,6 +224,7 @@ impl App {
                     };
                     self.rows.clear();
                     self.lookups = None;
+                    self.batch_progress = (0, 0);
                     self.table_state.select(None);
                 }
             }
@@ -213,22 +281,22 @@ impl App {
                 }
             }
 
-            Action::ToggleRecordType(rt) => {
-                if self.active_types.contains(&rt) {
-                    self.active_types.remove(&rt);
+            Action::ToggleCategory(cat) => {
+                if self.active_categories.contains(&cat) {
+                    self.active_categories.remove(&cat);
                 } else {
-                    self.active_types.insert(rt);
+                    self.active_categories.insert(cat);
                 }
                 self.rebuild_rows();
             }
             Action::SelectAll => {
-                for rt in TOGGLEABLE_TYPES {
-                    self.active_types.insert(*rt);
+                for cat in TOGGLEABLE_CATEGORIES {
+                    self.active_categories.insert(*cat);
                 }
                 self.rebuild_rows();
             }
             Action::SelectNone => {
-                self.active_types.clear();
+                self.active_categories.clear();
                 self.rebuild_rows();
             }
             Action::ToggleHumanView => {
@@ -282,6 +350,41 @@ impl App {
                 }
             }
 
+            Action::DigitPress(c) => {
+                self.count_buffer.push(c);
+            }
+            Action::PressG => {
+                if self.pending_g {
+                    // Second g: jump to line N or top
+                    self.pending_g = false;
+                    let line = self.count_buffer.parse::<usize>().unwrap_or(0);
+                    self.count_buffer.clear();
+                    if !self.rows.is_empty() {
+                        if line > 0 {
+                            self.table_state
+                                .select(Some((line - 1).min(self.rows.len() - 1)));
+                        } else {
+                            self.table_state.select(Some(0));
+                        }
+                    }
+                } else {
+                    self.pending_g = true;
+                }
+            }
+            Action::PressCapG => {
+                self.pending_g = false;
+                let line = self.count_buffer.parse::<usize>().unwrap_or(0);
+                self.count_buffer.clear();
+                if !self.rows.is_empty() {
+                    if line > 0 {
+                        self.table_state
+                            .select(Some((line - 1).min(self.rows.len() - 1)));
+                    } else {
+                        self.table_state.select(Some(self.rows.len() - 1));
+                    }
+                }
+            }
+
             Action::OpenPopup => {
                 if let Some(idx) = self.table_state.selected() {
                     self.popup = Popup::RecordDetail(idx);
@@ -290,62 +393,102 @@ impl App {
             Action::OpenHelp => {
                 self.popup = Popup::Help;
             }
+            Action::OpenServers => {
+                self.popup = Popup::Servers;
+            }
             Action::ClosePopup => {
                 self.popup = Popup::None;
             }
 
-            Action::DnsResult(result) => match result {
-                Ok(lookups) => {
-                    let server_count = {
-                        let mut servers = std::collections::HashSet::new();
-                        for lookup in lookups.iter() {
-                            servers.insert(format!("{}", lookup.name_server()));
-                        }
-                        servers.len()
-                    };
-                    let elapsed = lookups
-                        .iter()
-                        .filter_map(|l| l.result().response_time())
-                        .max()
-                        .unwrap_or_default();
-                    let domain = match &self.query_state {
-                        QueryState::Querying { domain } => domain.clone(),
-                        QueryState::Loading { domain } => domain.clone(),
-                        _ => String::new(),
-                    };
-                    self.lookups = Some(lookups);
-                    self.rebuild_rows();
-                    let record_count = self.rows.len();
-                    self.query_state = QueryState::Done {
-                        domain,
-                        record_count,
-                        server_count,
-                        elapsed,
-                    };
-                    if !self.rows.is_empty() {
-                        self.table_state.select(Some(0));
+            Action::DnsBatch { lookups, completed, total } => {
+                self.batch_progress = (completed, total);
+                match self.lookups.take() {
+                    Some(existing) => self.lookups = Some(existing.merge(lookups)),
+                    None => self.lookups = Some(lookups),
+                }
+                self.rebuild_rows();
+                if !self.rows.is_empty() && self.table_state.selected().is_none() {
+                    self.table_state.select(Some(0));
+                }
+            }
+            Action::DnsComplete(elapsed) => {
+                let server_count = self.lookups.as_ref().map_or(0, |lookups| {
+                    let mut servers = std::collections::HashSet::new();
+                    for lookup in lookups.iter() {
+                        servers.insert(format!("{}", lookup.name_server()));
                     }
-                }
-                Err(message) => {
-                    let domain = match &self.query_state {
-                        QueryState::Querying { domain } => domain.clone(),
-                        QueryState::Loading { domain } => domain.clone(),
-                        _ => String::new(),
-                    };
-                    self.query_state = QueryState::Error { domain, message };
-                }
-            },
+                    servers.len()
+                });
+                // Count total unique records (before category filtering)
+                let total_record_count = self.lookups.as_ref().map_or(0, |lookups| {
+                    let mut seen = std::collections::HashSet::new();
+                    for lookup in lookups.iter() {
+                        for record in lookup.records() {
+                            let key = (
+                                record.name().to_string(),
+                                record.record_type(),
+                                format!("{:?}", record.data()),
+                            );
+                            seen.insert(key);
+                        }
+                    }
+                    seen.len()
+                });
+                let domain = self.current_domain().to_string();
+                let record_count = self.rows.len();
+                self.query_state = QueryState::Done {
+                    domain,
+                    record_count,
+                    total_record_count,
+                    server_count,
+                    elapsed,
+                };
+                self.batch_progress = (0, 0);
+            }
+            Action::DnsError(message) => {
+                let domain = self.current_domain().to_string();
+                self.query_state = QueryState::Error { domain, message };
+                self.batch_progress = (0, 0);
+            }
         }
     }
 
-    pub fn active_type_list(&self) -> Vec<RecordType> {
-        self.active_types.iter().copied().collect()
+    pub fn current_domain(&self) -> &str {
+        match &self.query_state {
+            QueryState::Loading { domain }
+            | QueryState::Querying { domain }
+            | QueryState::Done { domain, .. }
+            | QueryState::Error { domain, .. } => domain,
+            QueryState::Idle => "",
+        }
     }
 
     fn rebuild_rows(&mut self) {
         let Some(lookups) = &self.lookups else {
             return;
         };
+        let domain = self.current_domain().to_string();
+        if domain.is_empty() {
+            return;
+        }
+
+        // Build lookup table: (full_name, record_type) -> category
+        let domain_name = match Name::from_str(&domain) {
+            Ok(n) => n,
+            Err(_) => return,
+        };
+        let entries = default_entries();
+        let mut category_map: HashMap<(String, RecordType), Category> = HashMap::new();
+        for entry in &entries {
+            if entry.subdomain.is_empty() {
+                // Apex: key is the domain itself
+                category_map.insert((domain_name.to_string(), entry.record_type), Category::Apex);
+            } else if let Ok(sub) = Name::from_str(entry.subdomain) {
+                if let Ok(full) = sub.append_domain(&domain_name) {
+                    category_map.insert((full.to_string(), entry.record_type), entry.category);
+                }
+            }
+        }
 
         let mut seen = std::collections::HashSet::new();
         let mut rows = Vec::new();
@@ -353,29 +496,42 @@ impl App {
         for lookup in lookups.iter() {
             let ns = format!("{}", lookup.name_server());
             for record in lookup.records() {
-                if !self.active_types.contains(&record.record_type()) {
+                let name_str = record.name().to_string();
+                let rt = record.record_type();
+
+                // Look up category for this record
+                let category = category_map
+                    .get(&(name_str.clone(), rt))
+                    .copied()
+                    .unwrap_or(Category::Apex);
+
+                // Apex always included; non-Apex filtered by active categories
+                if category != Category::Apex && !self.active_categories.contains(&category) {
                     continue;
                 }
-                // Dedup key: (name, type, value) — ignoring TTL and nameserver
+
+                // Dedup by (name, type, value)
                 let value = format_rdata(record.data());
-                let key = (record.name().to_string(), record.record_type(), value.clone());
+                let key = (name_str.clone(), rt, value.clone());
                 if !seen.insert(key) {
                     continue;
                 }
+
                 rows.push(RecordRow {
-                    name: record.name().to_string(),
-                    record_type: record.record_type(),
+                    name: name_str,
+                    record_type: rt,
                     ttl: record.ttl(),
                     value,
                     nameserver: ns.clone(),
+                    category,
                 });
             }
         }
 
         rows.sort_by(|a, b| {
-            a.record_type
-                .ordinal()
-                .cmp(&b.record_type.ordinal())
+            category_ordinal(a.category)
+                .cmp(&category_ordinal(b.category))
+                .then_with(|| a.record_type.ordinal().cmp(&b.record_type.ordinal()))
                 .then_with(|| a.name.cmp(&b.name))
                 .then_with(|| a.value.cmp(&b.value))
         });
@@ -436,7 +592,6 @@ pub fn format_rdata_human(row: &RecordRow) -> String {
             }
         }
         RecordType::CAA => {
-            // format: "128 issue \"letsencrypt.org\""
             let parts: Vec<&str> = value.splitn(3, ' ').collect();
             if parts.len() == 3 {
                 let critical = parts[0] == "128";
@@ -469,7 +624,6 @@ pub fn format_rdata_human(row: &RecordRow) -> String {
             }
         }
         RecordType::TLSA => {
-            // format: "3 1 1 [32B]"
             let parts: Vec<&str> = value.splitn(4, ' ').collect();
             if parts.len() == 4 {
                 format!(
@@ -481,7 +635,6 @@ pub fn format_rdata_human(row: &RecordRow) -> String {
             }
         }
         RecordType::SSHFP => {
-            // format: "1 2 abcdef..."
             let parts: Vec<&str> = value.splitn(3, ' ').collect();
             if parts.len() == 3 {
                 format!(
@@ -493,7 +646,6 @@ pub fn format_rdata_human(row: &RecordRow) -> String {
             }
         }
         RecordType::NAPTR => {
-            // format: order pref "flags" "services" "regexp" replacement
             let parts: Vec<&str> = value.splitn(6, ' ').collect();
             if parts.len() == 6 {
                 format!(
@@ -591,7 +743,6 @@ pub fn format_rdata_human(row: &RecordRow) -> String {
             format!("Value: {value}")
         }
         RecordType::DNSKEY => {
-            // format: "tag=12345 algo=8 flags=257"
             let mut tag = "";
             let mut algo = "";
             let mut flags = "";
@@ -622,7 +773,6 @@ pub fn format_rdata_human(row: &RecordRow) -> String {
             format!("Key Tag: {tag}\nAlgorithm: {algo}\nDigest Type: {digest}")
         }
         RecordType::RRSIG => {
-            // format: "A 8 tag=12345"
             let parts: Vec<&str> = value.splitn(3, ' ').collect();
             if parts.len() == 3 {
                 let tag = parts[2].strip_prefix("tag=").unwrap_or(parts[2]);
@@ -662,4 +812,3 @@ pub fn format_nameserver_human(raw: &str) -> String {
         format!("{name} ({protocol}, {host})")
     }
 }
-

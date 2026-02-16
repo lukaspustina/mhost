@@ -13,7 +13,7 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use tokio::sync::mpsc;
 
-use app::{Action, App, Mode, Popup, QueryState, TOGGLEABLE_TYPES};
+use app::{Action, App, Mode, Popup, QueryState};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -57,15 +57,14 @@ async fn run(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, domain: Opti
     loop {
         terminal.draw(|f| ui::draw(f, &app))?;
 
-        // If Loading, spawn a DNS query task and transition to Querying
+        // If Loading, spawn a domain query task and transition to Querying
         if let QueryState::Loading { ref domain } = app.query_state {
             let domain = domain.clone();
-            let types = app.active_type_list();
             let tx = tx.clone();
             app.query_state = QueryState::Querying {
                 domain: domain.clone(),
             };
-            dns::spawn_query(domain, types, tx);
+            dns::spawn_domain_query(domain, tx);
         }
 
         tokio::select! {
@@ -145,24 +144,19 @@ fn map_normal_key(key: KeyEvent, app: &App) -> Option<Action> {
         }
         KeyCode::Char('j') | KeyCode::Down => Some(Action::MoveDown),
         KeyCode::Char('k') | KeyCode::Up => Some(Action::MoveUp),
-        KeyCode::Char('g') | KeyCode::Home => Some(Action::Home),
-        KeyCode::Char('G') | KeyCode::End => Some(Action::End),
+        KeyCode::Char('g') => Some(Action::PressG),
+        KeyCode::Char('G') => Some(Action::PressCapG),
+        KeyCode::Home => Some(Action::Home),
+        KeyCode::End => Some(Action::End),
         KeyCode::PageUp => Some(Action::PageUp),
         KeyCode::PageDown => Some(Action::PageDown),
         KeyCode::Char('r') => Some(Action::SubmitQuery),
+        KeyCode::Char('s') => Some(Action::OpenServers),
         KeyCode::Char('?') => Some(Action::OpenHelp),
         KeyCode::Char('h') => Some(Action::ToggleHumanView),
         KeyCode::Char('a') => Some(Action::SelectAll),
         KeyCode::Char('n') => Some(Action::SelectNone),
-        KeyCode::Char(c @ '1'..='9') => {
-            let idx = (c as usize) - ('1' as usize);
-            TOGGLEABLE_TYPES
-                .get(idx)
-                .map(|rt| Action::ToggleRecordType(*rt))
-        }
-        KeyCode::Char('0') => TOGGLEABLE_TYPES
-            .get(9)
-            .map(|rt| Action::ToggleRecordType(*rt)),
+        KeyCode::Char(c @ '0'..='9') => Some(Action::DigitPress(c)),
         _ => None,
     }
 }
