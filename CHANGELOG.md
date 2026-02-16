@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.8.0
+
+### New: mdive interactive TUI
+
+First full-featured release of `mdive`, the interactive DNS exploration terminal.
+
+- **Concurrent multi-server queries** — Fan out lookups across all configured resolvers in parallel with real-time table population
+- **CLI integration** — Accept domain name as argument for immediate query on launch; share resolver configuration flags with `mhost` (`--predefined`, `--system`, `--nameserver`, `-4`/`-6`, etc.)
+- **Human-readable view** — Toggle between raw and human-readable record values with TTL formatting
+- **Free-text search/filter** — `/` enters regex search mode with case-insensitive matching across all columns
+- **Drill-down navigation** — Enter drills into subdomains, `l`/`→` follows hostname targets (CNAME, MX, NS, SRV, SOA, SVCB/HTTPS, NAPTR, PTR). Full state history with `←`/`Backspace` to go back
+- **Grouping modes** — Tab cycles between Category, Type, Name, and Server grouping
+- **Discovery strategies** — Interactive panel (`d`) with CT Logs, Wordlist, SRV Probing, TXT Mining, and Permutation strategies. Run individually or all at once
+- **DNS health checks** — Popup (`c`) running 9 lint categories with color-coded results
+- **WHOIS panel** — Popup (`w`) showing network, ASN, organization, and geo-location for all unique IPs
+- **Per-server stats** — Popup (`s`) with per-server response time table (protocol, OK/error counts, min/avg/max latency)
+- **Stats panel** — Expandable status bar (`S`) showing record distribution, query health, and DNSSEC status badge
+- **DNSSEC indicator** — Color-coded badge (signed/partial/broken/unsigned) in stats panel
+
+### Improvements
+
+- Improve human-readable formatting for HTTPS/SVCB records and simple values
+
+### Bug fixes
+
+- Fix TUI security, architecture, and UX issues found during code review
+
+### Documentation
+
+- Add comprehensive mdive TUI documentation to README
+- Add DNS zone file verification design document
+
 ## v0.7.0
 
 ### New features
