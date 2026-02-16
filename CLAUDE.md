@@ -14,6 +14,9 @@
 
 ## Engineering Principles
 
+- **Performance**: Prioritize efficient algorithms and data structures. Benchmark critical paths, avoid unnecessary allocations and copies.
+- **Efficiency**: Make use of mhost async, multi-query capabilities to parallelize lookups across 
+- **Rust patterns**: Use idiomatic Rust constructs (enums, traits, iterators) for clarity and safety. Leverage type system to prevent invalid states.
 - **KISS**: Simplest solution that works. Three similar lines beat a premature abstraction.
 - **YAGNI**: Don't build for hypothetical future requirements — solve the current problem.
 - **DRY + Rule of Three**: Tolerate duplication until the third occurrence, then extract.
@@ -27,8 +30,18 @@
 
 **mhost** is a modern DNS lookup utility and reusable Rust library — an advanced replacement for `host`/`dig`. Two binaries: `mhost` (CLI) and `mdive` (interactive TUI). Feature flags: **`app`** (default, enables CLI binary), **`tui`** (enables `mdive`, depends on `app`). Without `app`: library-only build with minimal dependencies.
 
+mhost provides and all functionality must adhere to these core principles:
+- high performance
+- high efficiency
+- high stability
+- high security
+
 - **Author**: Lukas Pustina | **License**: MIT / Apache-2.0 | **Edition**: 2021
 - **Repository**: https://github.com/lukaspustina/mhost.git
+
+## Roadmap
+
+The roadmap of this project is in file ROADMAP.md. It contains a prioritized list of features, improvements, and bug fixes planned for future releases. The roadmap is a living document and may be updated as the project evolves.
 
 ## Build & Test
 
