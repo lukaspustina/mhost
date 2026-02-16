@@ -30,6 +30,7 @@
 - Summary and JSON output for all commands
 - 84 predefined unfiltered DNS server configurations across 6 providers
 - Full `Serialize` + `Deserialize` on all DNS types — JSON round-trip for snapshots
+- DNS snapshot and timeline diff: save lookup JSON, diff against live DNS or another snapshot via `--left-from-file` / `--right-from-file`
 - Full module-level documentation, `cargo doc --no-deps` builds clean
 </details>
 
@@ -37,28 +38,13 @@
 
 ## Up next
 
-### DNS snapshot and timeline diff
+### Interactive TUI mode
 
-Save a domain's full DNS profile to disk and diff against it later — useful for migration validation, provider switches, and change tracking.
+Terminal UI (ratatui) for exploring DNS interactively: type a domain, see records update live, drill into subdomains, navigate the delegation tree. May warrant its own crate/binary built on the mhost library.
 
-**Done:**
-- `mhost lookup -s 8.8.8.8 -q -t A,AAAA,MX example.com --output json > before.json` — snapshot via existing lookup JSON output
-- `mhost diff --left-from-file before.json --right 1.1.1.1 example.com` — compare snapshot against live DNS
-- `mhost diff --left-from-file before.json --right-from-file after.json example.com` — compare two snapshots offline
-- Full `Deserialize` support for the entire `Lookups` serialization chain (round-trip JSON)
+### Geolocation-aware propagation
 
-**Remaining:**
-- `mhost watch` / monitoring mode (see below)
-- Dedicated `mhost snapshot` convenience command (optional — lookup + json already works)
-
-### DNS monitoring / watch mode
-
-Continuously poll DNS and report changes — for migrations, TTL changes, and incident response.
-
-- `mhost watch example.com A --interval 30s` — poll and print only on change
-- `mhost watch example.com --all --interval 1m` — watch all record types
-- `--exit-on-change` for scripting (exit 0 on first detected change)
-- Shows timestamp and delta: record added/removed/modified, TTL change, SOA serial bump
+Group propagation results by geographic region (Americas, Europe, Asia-Pacific) using provider metadata.
 
 ### Resolver benchmarking
 
@@ -69,21 +55,13 @@ Statistical analysis of resolver latency over many rounds.
 - `--resolvers 8.8.8.8,1.1.1.1` for head-to-head comparison
 - Summary output as a sorted table (fastest to slowest)
 
-### Export DNS records to infrastructure formats
-
-Export discovered/looked-up records into formats ready for another provider or IaC tool.
-
-- `--export zone` — RFC 1035 zone file syntax
-- `--export terraform` — HCL for `dns_*_record_set` resources
-- Works with `lookup` and `domain-lookup`
-
 ---
 
 ## Ideas
 
 Longer-term possibilities — not prioritized, may require significant design work.
 
-- **Interactive TUI mode** — Terminal UI (ratatui) for exploring DNS interactively: type a domain, see records update live, drill into subdomains, navigate the delegation tree. May warrant its own crate/binary built on the mhost library.
+- **Export DNS records to infrastructure formats** — Export discovered/looked-up records into formats ready for another provider or IaC tool. `--export zone` (RFC 1035 zone file syntax), `--export terraform` (HCL for `dns_*_record_set` resources). Works with `lookup` and `domain-lookup`.
 
 - **DNS-over-QUIC (DoQ)** — RFC 9250 transport support alongside UDP/TCP/DoT/DoH. Depends on hickory-dns DoQ maturity.
 
@@ -91,8 +69,12 @@ Longer-term possibilities — not prioritized, may require significant design wo
 
 - **Configuration profiles** — `~/.config/mhost/profiles.toml` with named resolver sets, default options, and per-domain overrides for managing multiple environments.
 
-- **Geolocation-aware propagation** — Group propagation results by geographic region (Americas, Europe, Asia-Pacific) using provider metadata.
-
 - **DNS response explainer** — `mhost explain` to decode raw DNS responses, dig output, or packet captures into plain-English explanations.
 
 - **Progress indicators** — `indicatif` progress bars for long-running discover operations (CT logs + wordlist + recursive depth).
+
+---
+
+## Won't do
+
+- **DNS monitoring / watch mode** — Continuously poll DNS and report changes. Better served by dedicated monitoring tools (e.g., Prometheus + dns_exporter) rather than a CLI utility.
