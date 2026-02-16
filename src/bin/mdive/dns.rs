@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use futures::stream::{FuturesUnordered, StreamExt};
 use mhost::app::common::resolver_args::ResolverArgs;
-use mhost::app::modules::domain_lookup::subdomain_spec::default_entries;
+use mhost::app::common::subdomain_spec::default_entries;
 use mhost::resolver::lookup::Lookups;
 use mhost::resolver::MultiQuery;
 use mhost::{Name, RecordType};
@@ -14,20 +14,41 @@ use crate::app::Action;
 /// Spawns a domain-lookup query on a background OS thread with its own tokio runtime.
 ///
 /// Sends partial results after each completed query so the TUI can display records progressively.
-pub fn spawn_domain_query(domain: String, resolver_args: ResolverArgs, tx: mpsc::Sender<Action>) {
+/// The `generation` tag is attached to every action sent back so the main loop can discard
+/// stale results when the user starts a new query.
+pub fn spawn_domain_query(
+    domain: String,
+    resolver_args: ResolverArgs,
+    tx: mpsc::Sender<Action>,
+    generation: u64,
+) {
     std::thread::spawn(move || {
-        let rt = tokio::runtime::Builder::new_current_thread()
+        let rt = match tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
-            .expect("failed to build DNS runtime");
+        {
+            Ok(rt) => rt,
+            Err(e) => {
+                let _ = tx.blocking_send(Action::DnsError {
+                    generation,
+                    message: format!("failed to build DNS runtime: {e}"),
+                });
+                return;
+            }
+        };
 
         rt.block_on(async {
             let start = Instant::now();
-            if let Err(msg) = run_domain_query(&domain, &resolver_args, &tx).await {
-                let _ = tx.send(Action::DnsError(msg)).await;
+            if let Err(msg) = run_domain_query(&domain, &resolver_args, &tx, generation).await {
+                let _ = tx.send(Action::DnsError { generation, message: msg }).await;
                 return;
             }
-            let _ = tx.send(Action::DnsComplete(start.elapsed())).await;
+            let _ = tx
+                .send(Action::DnsComplete {
+                    generation,
+                    elapsed: start.elapsed(),
+                })
+                .await;
         });
     });
 }
@@ -36,6 +57,7 @@ async fn run_domain_query(
     domain: &str,
     resolver_args: &ResolverArgs,
     tx: &mpsc::Sender<Action>,
+    generation: u64,
 ) -> Result<(), String> {
     let resolvers = resolver_args.build_resolver_group().await?;
 
@@ -90,6 +112,7 @@ async fn run_domain_query(
         let lookups = result.unwrap_or_else(|_| Lookups::empty());
         let _ = tx
             .send(Action::DnsBatch {
+                generation,
                 lookups,
                 completed,
                 total,

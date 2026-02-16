@@ -50,6 +50,7 @@ ipnetwork = { version = "0.21", features = ["serde"] }
 lru_time_cache = "0.11"
 nom = "7"
 rand = "0.9"
+regex = { version = "1", optional = true }
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "query", "hickory-dns"] }
 pin-project = "1"
 resolv-conf = "0.7"
@@ -81,7 +82,7 @@ spectral = "0.6"
 [features]
 default = ["app"]
 app = ["anyhow", "clap", "clap_complete", "hostname", "humantime", "tabwriter", "tracing-log", "tracing-subscriber"]
-tui = ["ratatui", "crossterm", "clap", "humantime"]
+tui = ["ratatui", "crossterm", "clap", "humantime", "regex"]
 
 [profile.release]
 lto = true

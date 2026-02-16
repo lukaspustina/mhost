@@ -256,6 +256,5 @@ pub fn record_types() -> &'static [RecordTypeInfo] {
 }
 
 pub fn find(name: &str) -> Option<&'static RecordTypeInfo> {
-    let lower = name.to_lowercase();
-    RECORD_TYPES.iter().find(|r| r.name.to_lowercase() == lower)
+    RECORD_TYPES.iter().find(|r| r.name.eq_ignore_ascii_case(name))
 }

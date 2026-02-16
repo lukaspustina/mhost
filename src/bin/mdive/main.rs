@@ -134,17 +134,18 @@ async fn run(
     let mut event_stream = EventStream::new();
 
     loop {
-        terminal.draw(|f| ui::draw(f, &app))?;
+        terminal.draw(|f| ui::draw(f, &mut app))?;
 
         // If Loading, spawn a domain query task and transition to Querying
         if let QueryState::Loading { ref domain } = app.query_state {
             let domain = domain.clone();
             let tx = tx.clone();
             let resolver_args = app.resolver_args.clone();
+            let generation = app.query_generation;
             app.query_state = QueryState::Querying {
                 domain: domain.clone(),
             };
-            dns::spawn_domain_query(domain, resolver_args, tx);
+            dns::spawn_domain_query(domain, resolver_args, tx, generation);
         }
 
         tokio::select! {
@@ -188,6 +189,7 @@ fn map_key(key: KeyEvent, app: &App) -> Option<Action> {
 
     match app.mode {
         Mode::Input => map_input_key(key),
+        Mode::Search => map_search_key(key),
         Mode::Normal => map_normal_key(key, app),
     }
 }
@@ -211,10 +213,31 @@ fn map_input_key(key: KeyEvent) -> Option<Action> {
     }
 }
 
+fn map_search_key(key: KeyEvent) -> Option<Action> {
+    if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('w') {
+        return Some(Action::InputDeleteWord);
+    }
+
+    match key.code {
+        KeyCode::Esc => Some(Action::ExitSearchMode),
+        KeyCode::Enter => Some(Action::ApplyFilter),
+        KeyCode::Backspace => Some(Action::InputBackspace),
+        KeyCode::Left => Some(Action::InputLeft),
+        KeyCode::Right => Some(Action::InputRight),
+        KeyCode::Home => Some(Action::InputHome),
+        KeyCode::End => Some(Action::InputEnd),
+        KeyCode::Char(c) => Some(Action::InputChar(c)),
+        _ => None,
+    }
+}
+
 fn map_normal_key(key: KeyEvent, app: &App) -> Option<Action> {
     match key.code {
         KeyCode::Char('q') => Some(Action::Quit),
-        KeyCode::Char('/') | KeyCode::Char('i') => Some(Action::EnterInputMode),
+        KeyCode::Char('i') => Some(Action::EnterInputMode),
+        KeyCode::Char('/') => Some(Action::EnterSearchMode),
+        KeyCode::Char('F') if app.filter.is_some() => Some(Action::ClearFilter),
+        KeyCode::Esc if app.filter.is_some() => Some(Action::ClearFilter),
         KeyCode::Enter => {
             if app.table_state.selected().is_some() {
                 Some(Action::OpenPopup)

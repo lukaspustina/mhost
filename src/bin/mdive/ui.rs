@@ -10,15 +10,15 @@ use ratatui::widgets::{
 use ratatui::Frame;
 
 use mhost::app::common::styles::{record_type_color, record_type_is_bold};
-use mhost::app::modules::info::reference_data;
+use mhost::app::common::reference_data;
 use mhost::RecordType;
 
 use crate::app::{
-    category_short_label, format_nameserver_human, format_rdata_human, record_type_info, App, Mode,
+    category_short_label, format_nameserver_human, record_type_info, App, Mode,
     Popup, QueryState, TOGGLEABLE_CATEGORIES,
 };
 
-pub fn draw(f: &mut Frame, app: &App) {
+pub fn draw(f: &mut Frame, app: &mut App) {
     let chunks = Layout::vertical([
         Constraint::Length(3), // title + input
         Constraint::Length(1), // category toggles
@@ -43,26 +43,53 @@ pub fn draw(f: &mut Frame, app: &App) {
 }
 
 fn draw_input(f: &mut Frame, app: &App, area: Rect) {
-    let title_right = " [?]help [/]search [r]re-run [s]ervers [h]uman [a]ll [n]one [q]uit ";
+    let title_right = " [?]help [/]filter [F]clear [i]nput [r]re-run [s]ervers [h]uman [a]ll [n]one [q]uit ";
+
+    let title_left: Line = if let Some(ref filter) = app.filter {
+        Line::from(vec![
+            Span::raw(" mdive "),
+            Span::styled(
+                format!("regex: \"{}\" ", filter.as_str()),
+                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+            ),
+        ])
+    } else {
+        Line::from(" mdive ")
+    };
+
+    let search_border_color = if app.filter_error { Color::Red } else { Color::Green };
+
     let block = Block::default()
-        .title(" mdive ")
+        .title(title_left)
         .title_bottom(Line::from(title_right).right_aligned())
         .borders(Borders::ALL)
         .border_style(match app.mode {
             Mode::Input => Style::default().fg(Color::Cyan),
+            Mode::Search => Style::default().fg(search_border_color),
             Mode::Normal => Style::default().fg(Color::DarkGray),
         });
 
+    let (prompt, text, cursor_pos) = match app.mode {
+        Mode::Search => ("Filter (regex): ", app.filter_input.as_str(), app.filter_cursor_pos),
+        _ => ("Domain: ", app.input.as_str(), app.cursor_pos),
+    };
+
+    let prompt_style = if app.mode == Mode::Search && app.filter_error {
+        Style::default().fg(Color::Red)
+    } else {
+        Style::default().fg(Color::Gray)
+    };
+
     let input_line = Line::from(vec![
-        Span::styled("Domain: ", Style::default().fg(Color::Gray)),
-        Span::raw(&app.input),
+        Span::styled(prompt, prompt_style),
+        Span::raw(text),
     ]);
 
     let paragraph = Paragraph::new(input_line).block(block);
     f.render_widget(paragraph, area);
 
-    if app.mode == Mode::Input {
-        let cursor_x = area.x + 1 + 8 + app.cursor_pos as u16;
+    if app.mode == Mode::Input || app.mode == Mode::Search {
+        let cursor_x = area.x + 1 + prompt.len() as u16 + cursor_pos as u16;
         let cursor_y = area.y + 1;
         if cursor_x < area.x + area.width - 1 {
             f.set_cursor_position((cursor_x, cursor_y));
@@ -108,7 +135,7 @@ fn draw_category_toggles(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(Paragraph::new(Line::from(spans)), area);
 }
 
-fn draw_table(f: &mut Frame, app: &App, area: Rect) {
+fn draw_table(f: &mut Frame, app: &mut App, area: Rect) {
     let header = Row::new(vec![
         Cell::from("#").style(Style::default().fg(Color::DarkGray)),
         Cell::from("Name").style(Style::default().fg(Color::Gray)),
@@ -133,8 +160,7 @@ fn draw_table(f: &mut Frame, app: &App, area: Rect) {
                 r.ttl.to_string()
             };
             if app.human_view {
-                let human = format_rdata_human(r);
-                let value_lines: Vec<Line> = human
+                let value_lines: Vec<Line> = r.human_value
                     .lines()
                     .map(|line| {
                         if let Some((label, value)) = line.split_once(": ") {
@@ -193,7 +219,7 @@ fn draw_table(f: &mut Frame, app: &App, area: Rect) {
         )
         .highlight_symbol("▸ ");
 
-    f.render_stateful_widget(table, area, &mut app.table_state.clone());
+    f.render_stateful_widget(table, area, &mut app.table_state);
 
     // Scrollbar
     if !app.rows.is_empty() {
@@ -261,6 +287,13 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
                 .bg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         ),
+        Mode::Search => Span::styled(
+            " SEARCH ",
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Green)
+                .add_modifier(Modifier::BOLD),
+        ),
     };
 
     let mut spans = vec![mode_span];
@@ -282,7 +315,7 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
     match &app.query_state {
         QueryState::Idle => {
             spans.push(Span::styled(
-                " Ready — press / to enter a domain",
+                " Ready — press i to enter a domain, / to filter",
                 Style::default().fg(Color::Gray),
             ));
         }
@@ -364,7 +397,7 @@ fn draw_record_popup(f: &mut Frame, app: &App) {
         .map(|(s, d, r)| (s, d, r.unwrap_or("")))
         .unwrap_or(("", "", ""));
 
-    let human = format_rdata_human(row);
+    let human = &row.human_value;
 
     let mut lines: Vec<Line> = vec![
         Line::raw(""),
@@ -528,7 +561,9 @@ fn draw_help_popup(f: &mut Frame) {
             "Query",
             Style::default().add_modifier(Modifier::BOLD),
         )),
-        help_line("/ or i", "Enter search / input mode"),
+        help_line("i", "Enter domain input mode"),
+        help_line("/", "Filter results"),
+        help_line("F", "Clear active filter"),
         help_line("r", "Re-run current query"),
         Line::raw(""),
         Line::from(Span::styled(
@@ -582,12 +617,10 @@ fn draw_servers_popup(f: &mut Frame, app: &App) {
 
     if let Some(lookups) = &app.lookups {
         // Collect unique servers and sort for stable display
-        let mut servers: Vec<String> = std::collections::HashSet::<String>::new()
-            .into_iter()
-            .collect();
+        let mut servers: Vec<String> = Vec::new();
         let mut seen = std::collections::HashSet::new();
         for lookup in lookups.iter() {
-            let raw = format!("{}", lookup.name_server());
+            let raw = lookup.name_server().to_string();
             if seen.insert(raw.clone()) {
                 servers.push(raw);
             }
@@ -646,8 +679,7 @@ fn centered_rect(
     let popup_w = (outer.width * pct_width / 100)
         .clamp(min_width.min(outer.width), max_width.min(outer.width));
     let popup_h = (outer.height * pct_height / 100)
-        .max(10)
-        .min(outer.height);
+        .clamp(10.min(outer.height), outer.height);
     let x = outer.x + (outer.width.saturating_sub(popup_w)) / 2;
     let y = outer.y + (outer.height.saturating_sub(popup_h)) / 2;
     Rect::new(x, y, popup_w, popup_h)

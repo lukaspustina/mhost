@@ -3,13 +3,13 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use mhost::app::common::ordinal::Ordinal;
-use mhost::app::common::rdata_format::format_rdata;
+use mhost::app::common::rdata_format::{format_rdata, format_rdata_human};
 use mhost::app::common::resolver_args::ResolverArgs;
-use mhost::app::modules::domain_lookup::subdomain_spec::{default_entries, Category};
+use mhost::app::common::subdomain_spec::{default_entries, Category};
 use mhost::resolver::lookup::Lookups;
-use mhost::resources::rdata::parsed_txt::{Mechanism, Modifier, ParsedTxt, Qualifier, Word};
 use mhost::{Name, RecordType};
 use ratatui::widgets::TableState;
+use regex::RegexBuilder;
 
 /// All categories available for toggling, in display order.
 /// Keys 1-9 map to indices 0-8, key 0 maps to index 9.
@@ -74,10 +74,10 @@ fn category_ordinal(cat: Category) -> u8 {
 pub enum Mode {
     Normal,
     Input,
+    Search,
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub enum QueryState {
     Idle,
     Loading { domain: String },
@@ -101,6 +101,7 @@ pub struct RecordRow {
     pub record_type: RecordType,
     pub ttl: u32,
     pub value: String,
+    pub human_value: String,
     pub nameserver: String,
     pub category: Category,
 }
@@ -117,6 +118,10 @@ pub enum Action {
     Quit,
     EnterInputMode,
     ExitInputMode,
+    EnterSearchMode,
+    ExitSearchMode,
+    ApplyFilter,
+    ClearFilter,
     SubmitQuery,
     InputChar(char),
     InputBackspace,
@@ -125,7 +130,6 @@ pub enum Action {
     InputHome,
     InputEnd,
     InputDeleteWord,
-    ToggleCategory(Category),
     SelectAll,
     SelectNone,
     ToggleHumanView,
@@ -142,9 +146,9 @@ pub enum Action {
     DigitPress(char),
     PressG,
     PressCapG,
-    DnsBatch { lookups: Lookups, completed: usize, total: usize },
-    DnsComplete(Duration),
-    DnsError(String),
+    DnsBatch { generation: u64, lookups: Lookups, completed: usize, total: usize },
+    DnsComplete { generation: u64, elapsed: Duration },
+    DnsError { generation: u64, message: String },
 }
 
 pub struct App {
@@ -152,6 +156,10 @@ pub struct App {
     pub mode: Mode,
     pub input: String,
     pub cursor_pos: usize,
+    pub filter_input: String,
+    pub filter_cursor_pos: usize,
+    pub filter: Option<regex::Regex>,
+    pub filter_error: bool,
     pub active_categories: HashSet<Category>,
     pub query_state: QueryState,
     pub rows: Vec<RecordRow>,
@@ -163,6 +171,8 @@ pub struct App {
     pub count_buffer: String,
     pub pending_g: bool,
     pub(crate) lookups: Option<Lookups>,
+    /// Monotonically increasing query generation; used to discard stale DNS results.
+    pub(crate) query_generation: u64,
 }
 
 impl App {
@@ -172,6 +182,10 @@ impl App {
             mode: Mode::Normal,
             input: String::new(),
             cursor_pos: 0,
+            filter_input: String::new(),
+            filter_cursor_pos: 0,
+            filter: None,
+            filter_error: false,
             active_categories: DEFAULT_CATEGORIES.iter().copied().collect(),
             query_state: QueryState::Idle,
             rows: Vec::new(),
@@ -183,6 +197,16 @@ impl App {
             count_buffer: String::new(),
             pending_g: false,
             lookups: None,
+            query_generation: 0,
+        }
+    }
+
+    /// Returns a mutable reference to the active input buffer and cursor position
+    /// for the current mode (Input or Search).
+    fn active_input_mut(&mut self) -> (&mut String, &mut usize) {
+        match self.mode {
+            Mode::Search => (&mut self.filter_input, &mut self.filter_cursor_pos),
+            _ => (&mut self.input, &mut self.cursor_pos),
         }
     }
 
@@ -218,10 +242,48 @@ impl App {
             Action::ExitInputMode => {
                 self.mode = Mode::Normal;
             }
+            Action::EnterSearchMode => {
+                self.filter_input = self.filter.as_ref().map_or(String::new(), |r| r.as_str().to_string());
+                self.filter_cursor_pos = self.filter_input.len();
+                self.filter_error = false;
+                self.mode = Mode::Search;
+            }
+            Action::ExitSearchMode => {
+                self.filter_error = false;
+                self.mode = Mode::Normal;
+            }
+            Action::ApplyFilter => {
+                let trimmed = self.filter_input.trim().to_string();
+                if trimmed.is_empty() {
+                    self.filter = None;
+                    self.filter_error = false;
+                } else {
+                    match RegexBuilder::new(&trimmed).case_insensitive(true).build() {
+                        Ok(re) => {
+                            self.filter = Some(re);
+                            self.filter_error = false;
+                        }
+                        Err(_) => {
+                            self.filter_error = true;
+                            return;
+                        }
+                    }
+                }
+                self.mode = Mode::Normal;
+                self.rebuild_rows();
+            }
+            Action::ClearFilter => {
+                self.filter = None;
+                self.filter_error = false;
+                self.filter_input.clear();
+                self.filter_cursor_pos = 0;
+                self.rebuild_rows();
+            }
             Action::SubmitQuery => {
                 let domain = self.input.trim().to_string();
                 if !domain.is_empty() {
                     self.mode = Mode::Normal;
+                    self.query_generation += 1;
                     self.query_state = QueryState::Loading {
                         domain: domain.clone(),
                     };
@@ -229,27 +291,34 @@ impl App {
                     self.lookups = None;
                     self.batch_progress = (0, 0);
                     self.table_state.select(None);
+                    self.filter = None;
+                    self.filter_error = false;
+                    self.filter_input.clear();
+                    self.filter_cursor_pos = 0;
                 }
             }
 
             Action::InputChar(c) => {
-                self.input.insert(self.cursor_pos, c);
-                self.cursor_pos += c.len_utf8();
+                let (buf, pos) = self.active_input_mut();
+                buf.insert(*pos, c);
+                *pos += c.len_utf8();
             }
             Action::InputBackspace => {
-                if self.cursor_pos > 0 {
-                    let prev = self.input[..self.cursor_pos]
+                let (buf, pos) = self.active_input_mut();
+                if *pos > 0 {
+                    let prev = buf[..*pos]
                         .char_indices()
                         .next_back()
                         .map(|(i, _)| i)
                         .unwrap_or(0);
-                    self.input.drain(prev..self.cursor_pos);
-                    self.cursor_pos = prev;
+                    buf.drain(prev..*pos);
+                    *pos = prev;
                 }
             }
             Action::InputLeft => {
-                if self.cursor_pos > 0 {
-                    self.cursor_pos = self.input[..self.cursor_pos]
+                let (buf, pos) = self.active_input_mut();
+                if *pos > 0 {
+                    *pos = buf[..*pos]
                         .char_indices()
                         .next_back()
                         .map(|(i, _)| i)
@@ -257,41 +326,36 @@ impl App {
                 }
             }
             Action::InputRight => {
-                if self.cursor_pos < self.input.len() {
-                    self.cursor_pos = self.input[self.cursor_pos..]
+                let (buf, pos) = self.active_input_mut();
+                if *pos < buf.len() {
+                    *pos = buf[*pos..]
                         .char_indices()
                         .nth(1)
-                        .map(|(i, _)| self.cursor_pos + i)
-                        .unwrap_or(self.input.len());
+                        .map(|(i, _)| *pos + i)
+                        .unwrap_or(buf.len());
                 }
             }
             Action::InputHome => {
-                self.cursor_pos = 0;
+                let (_buf, pos) = self.active_input_mut();
+                *pos = 0;
             }
             Action::InputEnd => {
-                self.cursor_pos = self.input.len();
+                let (buf, pos) = self.active_input_mut();
+                *pos = buf.len();
             }
             Action::InputDeleteWord => {
-                if self.cursor_pos > 0 {
-                    let before = &self.input[..self.cursor_pos];
-                    let new_pos = before
+                let (buf, pos) = self.active_input_mut();
+                if *pos > 0 {
+                    let new_pos = buf[..*pos]
                         .trim_end()
                         .rfind(|c: char| c.is_whitespace())
                         .map(|i| i + 1)
                         .unwrap_or(0);
-                    self.input.drain(new_pos..self.cursor_pos);
-                    self.cursor_pos = new_pos;
+                    buf.drain(new_pos..*pos);
+                    *pos = new_pos;
                 }
             }
 
-            Action::ToggleCategory(cat) => {
-                if self.active_categories.contains(&cat) {
-                    self.active_categories.remove(&cat);
-                } else {
-                    self.active_categories.insert(cat);
-                }
-                self.rebuild_rows();
-            }
             Action::SelectAll => {
                 for cat in TOGGLEABLE_CATEGORIES {
                     self.active_categories.insert(*cat);
@@ -403,7 +467,10 @@ impl App {
                 self.popup = Popup::None;
             }
 
-            Action::DnsBatch { lookups, completed, total } => {
+            Action::DnsBatch { generation, lookups, completed, total } => {
+                if generation != self.query_generation {
+                    return; // discard stale results from a previous query
+                }
                 self.batch_progress = (completed, total);
                 match self.lookups.take() {
                     Some(existing) => self.lookups = Some(existing.merge(lookups)),
@@ -414,23 +481,26 @@ impl App {
                     self.table_state.select(Some(0));
                 }
             }
-            Action::DnsComplete(elapsed) => {
+            Action::DnsComplete { generation, elapsed } => {
+                if generation != self.query_generation {
+                    return; // discard stale completion from a previous query
+                }
                 let server_count = self.lookups.as_ref().map_or(0, |lookups| {
-                    let mut servers = std::collections::HashSet::new();
+                    let mut servers = HashSet::new();
                     for lookup in lookups.iter() {
-                        servers.insert(format!("{}", lookup.name_server()));
+                        servers.insert(lookup.name_server().to_string());
                     }
                     servers.len()
                 });
                 // Count total unique records (before category filtering)
                 let total_record_count = self.lookups.as_ref().map_or(0, |lookups| {
-                    let mut seen = std::collections::HashSet::new();
+                    let mut seen = HashSet::new();
                     for lookup in lookups.iter() {
                         for record in lookup.records() {
                             let key = (
                                 record.name().to_string(),
                                 record.record_type(),
-                                format!("{:?}", record.data()),
+                                format_rdata(record.data()),
                             );
                             seen.insert(key);
                         }
@@ -448,7 +518,10 @@ impl App {
                 };
                 self.batch_progress = (0, 0);
             }
-            Action::DnsError(message) => {
+            Action::DnsError { generation, message } => {
+                if generation != self.query_generation {
+                    return; // discard stale error from a previous query
+                }
                 let domain = self.current_domain().to_string();
                 self.query_state = QueryState::Error { domain, message };
                 self.batch_progress = (0, 0);
@@ -493,11 +566,11 @@ impl App {
             }
         }
 
-        let mut seen = std::collections::HashSet::new();
+        let mut seen = HashSet::new();
         let mut rows = Vec::new();
 
         for lookup in lookups.iter() {
-            let ns = format!("{}", lookup.name_server());
+            let ns = lookup.name_server().to_string();
             for record in lookup.records() {
                 let name_str = record.name().to_string();
                 let rt = record.record_type();
@@ -520,11 +593,13 @@ impl App {
                     continue;
                 }
 
+                let human_value = format_rdata_human(record.data());
                 rows.push(RecordRow {
                     name: name_str,
                     record_type: rt,
                     ttl: record.ttl(),
                     value,
+                    human_value,
                     nameserver: ns.clone(),
                     category,
                 });
@@ -538,6 +613,16 @@ impl App {
                 .then_with(|| a.name.cmp(&b.name))
                 .then_with(|| a.value.cmp(&b.value))
         });
+
+        // Apply regex filter
+        if let Some(ref re) = self.filter {
+            rows.retain(|row| {
+                re.is_match(&row.name)
+                    || re.is_match(&row.record_type.to_string())
+                    || re.is_match(&row.value)
+                    || re.is_match(&row.human_value)
+            });
+        }
 
         // Preserve selection if possible
         let prev_selected = self.table_state.selected();
@@ -559,262 +644,6 @@ impl App {
 pub fn record_type_info(rt: RecordType) -> Option<(&'static str, &'static str, Option<&'static str>)> {
     mhost::app::common::record_type_info::find(&rt.to_string())
         .map(|info| (info.summary, info.detail, info.rfc))
-}
-
-pub fn format_rdata_human(row: &RecordRow) -> String {
-    let value = &row.value;
-    match row.record_type {
-        RecordType::MX => {
-            let parts: Vec<&str> = value.splitn(2, ' ').collect();
-            if parts.len() == 2 {
-                format!("Priority: {}\nExchange: {}", parts[0], parts[1])
-            } else {
-                value.to_string()
-            }
-        }
-        RecordType::SOA => {
-            let parts: Vec<&str> = value.splitn(7, ' ').collect();
-            if parts.len() == 7 {
-                format!(
-                    "Primary NS: {}\nContact: {}\nSerial: {}\nRefresh: {}\nRetry: {}\nExpire: {}\nMinimum TTL: {}",
-                    parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], parts[6]
-                )
-            } else {
-                value.to_string()
-            }
-        }
-        RecordType::SRV => {
-            let parts: Vec<&str> = value.splitn(4, ' ').collect();
-            if parts.len() == 4 {
-                format!(
-                    "Priority: {}\nWeight: {}\nPort: {}\nTarget: {}",
-                    parts[0], parts[1], parts[2], parts[3]
-                )
-            } else {
-                value.to_string()
-            }
-        }
-        RecordType::CAA => {
-            let parts: Vec<&str> = value.splitn(3, ' ').collect();
-            if parts.len() == 3 {
-                let critical = parts[0] == "128";
-                let tag = parts[1];
-                let raw_value = parts[2].trim_matches('"');
-                let critical_suffix = if critical { " (critical)" } else { "" };
-                let description = match (tag, raw_value) {
-                    ("issue", v) if v.is_empty() || v == ";" => "no CA is allowed to issue certificates".to_string(),
-                    ("issue", v) => format!("allow {v} to issue certificates"),
-                    ("issuewild", v) if v.is_empty() || v == ";" => "no CA is allowed to issue wildcard certificates".to_string(),
-                    ("issuewild", v) => format!("allow {v} to issue wildcard certificates"),
-                    ("iodef", v) => format!("report policy violations to {v}"),
-                    (t, v) => format!("{t} {v}"),
-                };
-                format!("Policy: {description}{critical_suffix}")
-            } else {
-                value.to_string()
-            }
-        }
-        RecordType::SVCB | RecordType::HTTPS => {
-            let parts: Vec<&str> = value.splitn(3, ' ').collect();
-            if parts.len() >= 2 {
-                let priority: u16 = parts[0].parse().unwrap_or(0);
-                if priority == 0 {
-                    // Alias mode — mhost: "alias to <target>"
-                    format!("alias to {}", parts[1])
-                } else {
-                    let mut lines = vec![format!(
-                        "priority {}, target {}",
-                        parts[0], parts[1]
-                    )];
-                    if parts.len() == 3 {
-                        for param in parts[2].split_whitespace() {
-                            if let Some((key, val)) = param.split_once('=') {
-                                let clean = val.trim_end_matches(',');
-                                let formatted = match key {
-                                    "alpn" => format!("protocols: {clean}"),
-                                    "no-default-alpn" => "no default protocols".to_string(),
-                                    "port" => format!("port: {clean}"),
-                                    "ipv4hint" => format!("IPv4 hints: {clean}"),
-                                    "ipv6hint" => format!("IPv6 hints: {clean}"),
-                                    "ech" => {
-                                        let byte_count = clean.len() * 3 / 4;
-                                        format!("encrypted client hello: ({byte_count} bytes)")
-                                    }
-                                    _ => format!("{key}: {clean}"),
-                                };
-                                lines.push(formatted);
-                            }
-                        }
-                    }
-                    lines.join("\n")
-                }
-            } else {
-                value.to_string()
-            }
-        }
-        RecordType::TLSA => {
-            let parts: Vec<&str> = value.splitn(4, ' ').collect();
-            if parts.len() == 4 {
-                format!(
-                    "Usage: {}\nSelector: {}\nMatching: {}\nData: {}",
-                    parts[0], parts[1], parts[2], parts[3]
-                )
-            } else {
-                value.to_string()
-            }
-        }
-        RecordType::SSHFP => {
-            let parts: Vec<&str> = value.splitn(3, ' ').collect();
-            if parts.len() == 3 {
-                format!(
-                    "Algorithm: {}\nFingerprint Type: {}\nFingerprint: {}",
-                    parts[0], parts[1], parts[2]
-                )
-            } else {
-                value.to_string()
-            }
-        }
-        RecordType::NAPTR => {
-            let parts: Vec<&str> = value.splitn(6, ' ').collect();
-            if parts.len() == 6 {
-                format!(
-                    "Order: {}\nPreference: {}\nFlags: {}\nServices: {}\nRegexp: {}\nReplacement: {}",
-                    parts[0], parts[1], parts[2], parts[3], parts[4], parts[5]
-                )
-            } else {
-                value.to_string()
-            }
-        }
-        RecordType::TXT => match ParsedTxt::from_str(value) {
-            Ok(ParsedTxt::Spf(spf)) => {
-                let mut lines = vec![
-                    format!("Type: SPF"),
-                    format!("Version: {}", spf.version()),
-                ];
-                for word in spf.words() {
-                    match word {
-                        Word::Word(q, mechanism) => {
-                            let qualifier = match q {
-                                Qualifier::Pass => "Pass",
-                                Qualifier::Neutral => "Neutral",
-                                Qualifier::Softfail => "Softfail",
-                                Qualifier::Fail => "Fail",
-                            };
-                            let mechanism_str = match mechanism {
-                                Mechanism::All => "all".to_string(),
-                                Mechanism::A { domain_spec, cidr_len } => {
-                                    let mut s = "a".to_string();
-                                    if let Some(d) = domain_spec { s = format!("a:{d}"); }
-                                    if let Some(c) = cidr_len { s = format!("{s}/{c}"); }
-                                    s
-                                }
-                                Mechanism::IPv4(ip) => format!("ip4:{ip}"),
-                                Mechanism::IPv6(ip) => format!("ip6:{ip}"),
-                                Mechanism::MX { domain_spec, cidr_len } => {
-                                    let mut s = "mx".to_string();
-                                    if let Some(d) = domain_spec { s = format!("mx:{d}"); }
-                                    if let Some(c) = cidr_len { s = format!("{s}/{c}"); }
-                                    s
-                                }
-                                Mechanism::PTR(d) => match d {
-                                    Some(d) => format!("ptr:{d}"),
-                                    None => "ptr".to_string(),
-                                },
-                                Mechanism::Exists(d) => format!("exists:{d}"),
-                                Mechanism::Include(d) => format!("include:{d}"),
-                            };
-                            lines.push(format!("{qualifier}: {mechanism_str}"));
-                        }
-                        Word::Modifier(modifier) => match modifier {
-                            Modifier::Redirect(d) => lines.push(format!("Redirect: {d}")),
-                            Modifier::Exp(d) => lines.push(format!("Exp: {d}")),
-                        },
-                    }
-                }
-                lines.join("\n")
-            }
-            Ok(ParsedTxt::Dmarc(dmarc)) => {
-                let mut lines = vec![
-                    format!("Type: DMARC"),
-                    format!("Policy: {}", dmarc.policy()),
-                ];
-                if let Some(sp) = dmarc.subdomain_policy() { lines.push(format!("Subdomain Policy: {sp}")); }
-                if let Some(rua) = dmarc.rua() { lines.push(format!("RUA: {rua}")); }
-                if let Some(ruf) = dmarc.ruf() { lines.push(format!("RUF: {ruf}")); }
-                if let Some(adkim) = dmarc.adkim() { lines.push(format!("DKIM Alignment: {adkim}")); }
-                if let Some(aspf) = dmarc.aspf() { lines.push(format!("SPF Alignment: {aspf}")); }
-                if let Some(pct) = dmarc.pct() { lines.push(format!("Percentage: {pct}")); }
-                if let Some(fo) = dmarc.fo() { lines.push(format!("Failure Options: {fo}")); }
-                if let Some(ri) = dmarc.ri() { lines.push(format!("Report Interval: {ri}")); }
-                lines.join("\n")
-            }
-            Ok(ParsedTxt::MtaSts(mta_sts)) => {
-                format!("Type: MTA-STS\nVersion: {}\nID: {}", mta_sts.version(), mta_sts.id())
-            }
-            Ok(ParsedTxt::TlsRpt(tls_rpt)) => {
-                format!("Type: TLS-RPT\nVersion: {}\nRUA: {}", tls_rpt.version(), tls_rpt.rua())
-            }
-            Ok(ParsedTxt::Bimi(bimi)) => {
-                let mut lines = vec![
-                    format!("Type: BIMI"),
-                    format!("Version: {}", bimi.version()),
-                ];
-                if let Some(logo) = bimi.logo() { lines.push(format!("Logo: {logo}")); }
-                if let Some(authority) = bimi.authority() { lines.push(format!("Authority: {authority}")); }
-                lines.join("\n")
-            }
-            Ok(ParsedTxt::DomainVerification(dv)) => {
-                format!("Type: Verification\nVerifier: {}\nScope: {}\nID: {}", dv.verifier(), dv.scope(), dv.id())
-            }
-            Err(_) => value.to_string(),
-        }
-        RecordType::HINFO => {
-            value.to_string()
-        }
-        RecordType::DNSKEY => {
-            let mut tag = "";
-            let mut algo = "";
-            let mut flags = "";
-            for part in value.split_whitespace() {
-                if let Some(v) = part.strip_prefix("tag=") {
-                    tag = v;
-                } else if let Some(v) = part.strip_prefix("algo=") {
-                    algo = v;
-                } else if let Some(v) = part.strip_prefix("flags=") {
-                    flags = v;
-                }
-            }
-            format!("Flags: {flags}\nAlgorithm: {algo}\nKey Tag: {tag}")
-        }
-        RecordType::DS => {
-            let mut tag = "";
-            let mut algo = "";
-            let mut digest = "";
-            for part in value.split_whitespace() {
-                if let Some(v) = part.strip_prefix("tag=") {
-                    tag = v;
-                } else if let Some(v) = part.strip_prefix("algo=") {
-                    algo = v;
-                } else if let Some(v) = part.strip_prefix("digest=") {
-                    digest = v;
-                }
-            }
-            format!("Key Tag: {tag}\nAlgorithm: {algo}\nDigest Type: {digest}")
-        }
-        RecordType::RRSIG => {
-            let parts: Vec<&str> = value.splitn(3, ' ').collect();
-            if parts.len() == 3 {
-                let tag = parts[2].strip_prefix("tag=").unwrap_or(parts[2]);
-                format!(
-                    "Type Covered: {}\nAlgorithm: {}\nKey Tag: {}",
-                    parts[0], parts[1], tag
-                )
-            } else {
-                value.to_string()
-            }
-        }
-        _ => value.to_string(),
-    }
 }
 
 /// Format a raw nameserver string like `udp:8.8.8.8:53,name=Google` into

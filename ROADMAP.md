@@ -38,9 +38,36 @@
 
 ## Up next
 
-### Interactive TUI mode
+### mdive TUI enhancements
 
-Terminal UI (ratatui) for exploring DNS interactively: type a domain, see records update live, drill into subdomains, navigate the delegation tree. May warrant its own crate/binary built on the mhost library.
+#### Surface existing mhost capabilities
+
+- **WHOIS panel** — Show registrar, expiry date, and nameserver delegation alongside DNS records using the existing RIPEStats integration.
+- **Discovery strategies** — Let the user interactively kick off CT log lookups, NSEC walking, wordlist expansion, TXT mining, SRV probing and watch subdomains appear in real time.
+- **Lints / health checks** — Surface the 13 `check` lints in the TUI. Show diagnostic badges per record or a dedicated diagnostics panel. Transforms mdive from a viewer into an advisor.
+- **Summary / stats panel** — Collapsible top section: total unique records, record type distribution, server count, anomalies detected.
+- **Propagation view** — Query the same records across all 84 predefined servers and show agreement/disagreement. Flag inconsistencies inline or in a dedicated panel.
+- **DNS trace visualization** — Show full resolution path from root → TLD → authoritative, with referrals. Interactive `dig +trace`. Use mhost trace functionality 
+
+#### Diagnostic depth
+
+- **Per-server response times** — Show latency per server in the servers popup (or upgrade it to a table with latency, success/failure count, protocol).
+- **CNAME chain following** — Press Enter on a CNAME to resolve the target and show the full chain inline.
+- **Discrepancy highlighting** — When different nameservers return different answers for the same query, flag it visually. The single most useful diagnostic signal.
+- **DNSSEC status indicator** — Show whether records were DNSSEC-validated, and if not, why (unsigned zone, broken chain, expired signatures).
+- **TTL countdown / staleness** — Show when records were fetched and how much TTL remains. Indicate when a re-query might give different results.
+
+#### Navigation and workflow
+
+- **Drill-down** — Press Enter on a subdomain to re-query it as a new domain. Follow CNAME targets or MX hostnames. Browse DNS like a hyperlinked document.
+- ~~**Free-text filter / search**~~ — Done. `/` enters search mode with case-insensitive regex matching across name, type, value, and human-readable columns. `F` or `Esc` clears the filter.
+- **Query history** — Keep a list of domains queried in this session. Flip back to previous results without re-querying. Tab or stack-based navigation.
+
+#### Visual and analytical
+
+- **Grouping modes** — Toggle between grouping by category (current), by subdomain, by record type, or by nameserver.
+- **Tree view** — Show the subdomain hierarchy as a tree with record counts per node.
+- **Side-by-side domain comparison** — Split screen to compare two domains or the same domain at two points in time.
 
 ### Geolocation-aware propagation
 
