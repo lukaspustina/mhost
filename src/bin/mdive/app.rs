@@ -10,6 +10,7 @@ use mhost::app::common::subdomain_spec::{default_entries, Category, SubdomainEnt
 use mhost::resolver::lookup::{LookupResult, Lookups};
 use mhost::resolver::ResolverGroup;
 use mhost::resolver::Error as ResolverError;
+use mhost::resources::rdata::RData;
 use mhost::services::whois::WhoisResponses;
 use mhost::{Name, RecordType};
 use ratatui::widgets::TableState;
@@ -79,6 +80,7 @@ fn category_ordinal(cat: Category) -> u8 {
     }
 }
 
+#[derive(Clone)]
 pub struct StatsData {
     pub rr_type_counts: BTreeMap<RecordType, usize>,
     pub total_unique: usize,
@@ -200,6 +202,8 @@ pub struct RecordRow {
     pub human_value: String,
     pub nameserver: String,
     pub category: Category,
+    /// Hostname extracted from value for drill-down navigation (l/→ key).
+    pub drill_target: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -272,6 +276,7 @@ pub enum StrategyStatus {
     Error(String),
 }
 
+#[derive(Clone)]
 pub struct DiscoveryState {
     pub statuses: HashMap<DiscoveryStrategy, StrategyStatus>,
     pub wildcard_lookups: Option<Lookups>,
@@ -311,6 +316,25 @@ pub enum Popup {
     Discovery,
 }
 
+pub struct HistoryEntry {
+    pub domain: String,
+    pub input: String,
+    pub query_state: QueryState,
+    pub lookups: Option<Lookups>,
+    pub rows: Vec<RecordRow>,
+    pub selected_index: Option<usize>,
+    pub stats_data: Option<StatsData>,
+    pub whois_data: Option<WhoisResponses>,
+    pub whois_error: Option<String>,
+    pub lint_results: Option<Vec<LintSection>>,
+    pub discovery_state: Option<DiscoveryState>,
+    pub category_map: HashMap<(String, RecordType), Category>,
+    pub active_categories: HashSet<Category>,
+    pub filter: Option<regex::Regex>,
+    pub filter_input: String,
+    pub batch_progress: (usize, usize),
+}
+
 pub enum Action {
     Quit,
     EnterInputMode,
@@ -337,7 +361,10 @@ pub enum Action {
     PageDown,
     Home,
     End,
-    OpenPopup,
+    OpenRecordDetail,
+    DrillIntoName,
+    DrillIntoValue,
+    GoBack,
     OpenHelp,
     OpenServers,
     OpenWhois,
@@ -416,6 +443,8 @@ pub struct App {
     category_map: HashMap<(String, RecordType), Category>,
     /// Cached default entries (allocated once).
     default_entries: Vec<SubdomainEntry>,
+    /// Navigation history stack for drill-down (max 50 entries).
+    pub history: Vec<HistoryEntry>,
 }
 
 impl App {
@@ -461,6 +490,7 @@ impl App {
             discovery_tasks: Vec::new(),
             category_map: HashMap::new(),
             default_entries: default_entries(),
+            history: Vec::new(),
         }
     }
 
@@ -578,6 +608,9 @@ impl App {
                         handle.abort();
                     }
                     self.resolver_group = None;
+
+                    // Manual query clears navigation history (fresh start)
+                    self.history.clear();
 
                     self.mode = Mode::Normal;
                     self.query_generation += 1;
@@ -761,7 +794,7 @@ impl App {
                 }
             }
 
-            Action::OpenPopup => {
+            Action::OpenRecordDetail => {
                 if let Some(idx) = self.table_state.selected() {
                     if let Some(row) = self.rows.get(idx) {
                         self.record_detail_scroll = 0;
@@ -772,6 +805,47 @@ impl App {
                         };
                     }
                 }
+            }
+            Action::DrillIntoName => {
+                // Only drill when a row is selected and query is done
+                if !matches!(self.query_state, QueryState::Done { .. }) {
+                    return;
+                }
+                if let Some(idx) = self.table_state.selected() {
+                    if let Some(row) = self.rows.get(idx) {
+                        let target = row.name.trim_end_matches('.').to_string();
+                        let current = self.current_domain().trim_end_matches('.');
+                        if !target.is_empty() && target != current {
+                            self.drill_to(target);
+                        }
+                    }
+                }
+            }
+            Action::DrillIntoValue => {
+                if !matches!(self.query_state, QueryState::Done { .. }) {
+                    return;
+                }
+                if let Some(idx) = self.table_state.selected() {
+                    if let Some(row) = self.rows.get(idx) {
+                        if let Some(ref target) = row.drill_target {
+                            let target = target.trim_end_matches('.').to_string();
+                            let current = self.current_domain().trim_end_matches('.');
+                            if !target.is_empty() && target != "." && target != current {
+                                self.drill_to(target);
+                            }
+                        }
+                    }
+                }
+            }
+            Action::GoBack => {
+                // Abort any running tasks before restoring
+                if let Some(handle) = self.dns_task.take() {
+                    handle.abort();
+                }
+                for handle in self.discovery_tasks.drain(..) {
+                    handle.abort();
+                }
+                self.pop_history();
             }
             Action::OpenHelp => {
                 self.popup = Popup::Help;
@@ -1005,6 +1079,89 @@ impl App {
         }
     }
 
+    fn push_history(&mut self) {
+        let entry = HistoryEntry {
+            domain: self.current_domain().to_string(),
+            input: self.input.clone(),
+            query_state: self.query_state.clone(),
+            lookups: self.lookups.clone(),
+            rows: self.rows.clone(),
+            selected_index: self.table_state.selected(),
+            stats_data: self.stats_data.clone(),
+            whois_data: self.whois_data.clone(),
+            whois_error: self.whois_error.clone(),
+            lint_results: self.lint_results.clone(),
+            discovery_state: self.discovery_state.clone(),
+            category_map: self.category_map.clone(),
+            active_categories: self.active_categories.clone(),
+            filter: self.filter.clone(),
+            filter_input: self.filter_input.clone(),
+            batch_progress: self.batch_progress,
+        };
+        if self.history.len() >= 50 {
+            self.history.remove(0);
+        }
+        self.history.push(entry);
+    }
+
+    fn pop_history(&mut self) {
+        if let Some(entry) = self.history.pop() {
+            self.input = entry.input;
+            self.cursor_pos = self.input.len();
+            self.query_state = entry.query_state;
+            self.lookups = entry.lookups;
+            self.rows = entry.rows;
+            self.stats_data = entry.stats_data;
+            self.whois_data = entry.whois_data;
+            self.whois_error = entry.whois_error;
+            self.lint_results = entry.lint_results;
+            self.discovery_state = entry.discovery_state;
+            self.category_map = entry.category_map;
+            self.active_categories = entry.active_categories;
+            self.filter = entry.filter;
+            self.filter_input = entry.filter_input;
+            self.filter_cursor_pos = self.filter_input.len();
+            self.batch_progress = entry.batch_progress;
+            self.table_state.select(entry.selected_index);
+        }
+    }
+
+    fn drill_to(&mut self, domain: String) {
+        self.push_history();
+
+        // Abort existing tasks
+        if let Some(handle) = self.dns_task.take() {
+            handle.abort();
+        }
+        for handle in self.discovery_tasks.drain(..) {
+            handle.abort();
+        }
+        self.resolver_group = None;
+
+        self.input = domain.clone();
+        self.cursor_pos = domain.len();
+        self.mode = Mode::Normal;
+        self.query_generation += 1;
+        self.query_state = QueryState::Loading {
+            domain,
+        };
+        self.rows.clear();
+        self.lookups = None;
+        self.batch_progress = (0, 0);
+        self.table_state.select(None);
+        self.filter = None;
+        self.filter_error = None;
+        self.filter_input.clear();
+        self.filter_cursor_pos = 0;
+        self.whois_data = None;
+        self.whois_error = None;
+        self.whois_loading = false;
+        self.lint_results = None;
+        self.stats_data = None;
+        self.discovery_state = None;
+        self.category_map.clear();
+    }
+
     fn rebuild_rows(&mut self) {
         if self.lookups.is_none() {
             return;
@@ -1068,6 +1225,7 @@ impl App {
                 }
 
                 let human_value = format_rdata_human(record.data());
+                let drill_target = extract_drill_target(record.data());
                 rows.push(RecordRow {
                     name: name_str,
                     record_type: rt,
@@ -1076,6 +1234,7 @@ impl App {
                     human_value,
                     nameserver: ns.clone(),
                     category,
+                    drill_target,
                 });
             }
         }
@@ -1112,6 +1271,36 @@ impl App {
         if let QueryState::Done { record_count, .. } = &mut self.query_state {
             *record_count = self.rows.len();
         }
+    }
+}
+
+/// Extract a drillable hostname target from record data.
+/// Returns `None` for record types without a hostname value (A, AAAA, TXT, etc.).
+fn extract_drill_target(rdata: &RData) -> Option<String> {
+    let name = match rdata {
+        RData::CNAME(name) | RData::ANAME(name) | RData::NS(name) | RData::PTR(name) => {
+            name.to_string()
+        }
+        RData::MX(mx) => mx.exchange().to_string(),
+        RData::SRV(srv) => srv.target().to_string(),
+        RData::SOA(soa) => soa.mname().to_string(),
+        RData::SVCB(svcb) | RData::HTTPS(svcb) => {
+            let t = svcb.target_name().to_string();
+            if t == "." { return None; }
+            t
+        }
+        RData::NAPTR(naptr) => {
+            let t = naptr.replacement().to_string();
+            if t == "." { return None; }
+            t
+        }
+        _ => return None,
+    };
+    let name = name.trim_end_matches('.').to_string();
+    if name.is_empty() {
+        None
+    } else {
+        Some(name)
     }
 }
 

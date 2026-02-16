@@ -399,7 +399,7 @@ impl WhoisResponse {
     response_is_data!(is_err, err);
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct WhoisResponses {
     #[serde(rename = "whois")]
     inner: Vec<WhoisResponse>,

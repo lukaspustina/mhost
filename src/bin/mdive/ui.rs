@@ -53,18 +53,24 @@ pub fn draw(f: &mut Frame, app: &mut App) {
 }
 
 fn draw_input(f: &mut Frame, app: &App, area: Rect) {
-    let title_right = " [?]help [/]search [i]nput [r]run [d]iscover [s]ervers [w]hois [c]heck [h]uman [q]uit ";
+    let title_right = " [?]help [/]search [i]nput [r]run [d]iscover [s]ervers [w]hois [c]heck [h]uman [o]pen [q]uit ";
 
-    let title_left: Line = if let Some(ref filter) = app.filter {
-        Line::from(vec![
-            Span::raw(" mdive "),
-            Span::styled(
+    let title_left: Line = {
+        let mut spans = Vec::new();
+        if !app.history.is_empty() {
+            spans.push(Span::styled(
+                format!(" \u{2190} [{}] ", app.history.len()),
+                Style::default().fg(Color::DarkGray),
+            ));
+        }
+        spans.push(Span::raw(" mdive "));
+        if let Some(ref filter) = app.filter {
+            spans.push(Span::styled(
                 format!("regex: \"{}\" ", filter.as_str()),
                 Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
-            ),
-        ])
-    } else {
-        Line::from(" mdive ")
+            ));
+        }
+        Line::from(spans)
     };
 
     let search_border_color = if app.filter_error.is_some() { Color::Red } else { Color::Green };
@@ -336,7 +342,7 @@ fn draw_table(f: &mut Frame, app: &mut App, area: Rect) {
 fn draw_detail(f: &mut Frame, app: &App, area: Rect) {
     let detail = if let Some(idx) = app.table_state.selected() {
         if let Some(row) = app.rows.get(idx) {
-            Line::from(vec![
+            let mut spans = vec![
                 Span::styled(" ", Style::default()),
                 Span::styled(
                     format!("{}", row.category),
@@ -347,7 +353,15 @@ fn draw_detail(f: &mut Frame, app: &App, area: Rect) {
                     format_nameserver_human(&row.nameserver),
                     Style::default().fg(Color::Yellow),
                 ),
-            ])
+            ];
+            if let Some(ref target) = row.drill_target {
+                spans.push(Span::styled(" | ", Style::default().fg(Color::DarkGray)));
+                spans.push(Span::styled(
+                    format!("[\u{2192}] {target}"),
+                    Style::default().fg(Color::Green),
+                ));
+            }
+            Line::from(spans)
         } else {
             Line::raw("")
         }
@@ -477,6 +491,12 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
                 format!(" {records_str} | {server_count} servers | {secs:.1}s"),
                 Style::default().fg(Color::Gray),
             ));
+            if let Some(prev) = app.history.last() {
+                spans.push(Span::styled(
+                    format!(" [\u{2190}] back to {}", prev.domain),
+                    Style::default().fg(Color::DarkGray),
+                ));
+            }
         }
         QueryState::Error { message, .. } => {
             spans.push(Span::styled(
@@ -648,7 +668,10 @@ fn draw_help_popup(f: &mut Frame) {
         help_line("G / End", "Jump to last row"),
         help_line("22gg / 22G", "Jump to line 22"),
         help_line("PgUp / PgDn", "Scroll by 10 rows"),
-        help_line("Enter", "Show record details"),
+        help_line("Enter", "Drill into subdomain"),
+        help_line("l / Right", "Drill into value target"),
+        help_line("Left / BS", "Go back in history"),
+        help_line("o", "Show record details"),
         help_line("h", "Toggle human-readable view"),
         help_line("s", "Show servers used"),
         help_line("w", "Show WHOIS for result IPs"),

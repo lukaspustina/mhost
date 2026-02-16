@@ -3,6 +3,7 @@ use mhost::resolver::lookup::Uniquify;
 use mhost::resolver::Lookups;
 use mhost::resources::rdata::TXT;
 
+#[derive(Clone)]
 pub struct LintSection {
     pub name: &'static str,
     pub results: Vec<CheckResult>,

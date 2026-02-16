@@ -399,11 +399,20 @@ fn map_normal_key(key: KeyEvent, app: &App) -> Option<Action> {
         KeyCode::Esc if app.filter.is_some() => Some(Action::ClearFilter),
         KeyCode::Enter => {
             if app.table_state.selected().is_some() {
-                Some(Action::OpenPopup)
+                Some(Action::DrillIntoName)
             } else {
                 Some(Action::SubmitQuery)
             }
         }
+        KeyCode::Char('l') | KeyCode::Right => {
+            if app.table_state.selected().is_some() {
+                Some(Action::DrillIntoValue)
+            } else {
+                None
+            }
+        }
+        KeyCode::Left | KeyCode::Backspace => Some(Action::GoBack),
+        KeyCode::Char('o') => Some(Action::OpenRecordDetail),
         KeyCode::Char('j') | KeyCode::Down => Some(Action::MoveDown),
         KeyCode::Char('k') | KeyCode::Up => Some(Action::MoveUp),
         KeyCode::Char('g') => Some(Action::PressG),

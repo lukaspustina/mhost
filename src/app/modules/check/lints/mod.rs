@@ -184,7 +184,7 @@ impl CheckResults {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum CheckResult {
     NotFound(),
     Ok(String),
