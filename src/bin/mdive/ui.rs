@@ -21,25 +21,21 @@ use crate::app::{
 };
 
 pub fn draw(f: &mut Frame, app: &mut App) {
-    let stats_height = if app.show_stats && app.stats_data.is_some() { 2 } else { 0 };
+    let status_height = if app.show_stats && app.stats_data.is_some() { 3 } else { 1 };
     let chunks = Layout::vertical([
-        Constraint::Length(3),            // title + input
-        Constraint::Length(1),            // category toggles
-        Constraint::Length(stats_height), // stats panel (0 or 2)
-        Constraint::Min(5),              // results table
-        Constraint::Length(1),            // detail line
-        Constraint::Length(1),            // status bar
+        Constraint::Length(3),              // title + input
+        Constraint::Length(1),              // category toggles
+        Constraint::Min(5),                // results table
+        Constraint::Length(1),              // detail line
+        Constraint::Length(status_height), // status bar (+ stats when active)
     ])
     .split(f.area());
 
     draw_input(f, app, chunks[0]);
     draw_category_toggles(f, app, chunks[1]);
-    if stats_height > 0 {
-        draw_stats(f, app, chunks[2]);
-    }
-    draw_table(f, app, chunks[3]);
-    draw_detail(f, app, chunks[4]);
-    draw_status(f, app, chunks[5]);
+    draw_table(f, app, chunks[2]);
+    draw_detail(f, app, chunks[3]);
+    draw_status_area(f, app, chunks[4]);
 
     match app.popup {
         Popup::RecordDetail { .. } => draw_record_popup(f, app),
@@ -53,7 +49,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
 }
 
 fn draw_input(f: &mut Frame, app: &App, area: Rect) {
-    let title_right = " [?]help [/]search [i]nput [r]run [d]iscover [s]ervers [w]hois [c]heck [h]uman [o]pen [q]uit ";
+    let title_right = " [?] help  [i] query  [/] filter ";
 
     let title_left: Line = {
         let mut spans = Vec::new();
@@ -155,20 +151,34 @@ fn draw_category_toggles(f: &mut Frame, app: &App, area: Rect) {
 
         if active {
             spans.push(Span::styled(
-                format!("{key}[{label}]"),
+                format!("{key} {label}"),
                 Style::default()
                     .fg(Color::Cyan)
                     .add_modifier(Modifier::BOLD),
             ));
         } else {
             spans.push(Span::styled(
-                format!("{key} {label} "),
-                Style::default().fg(Color::Gray),
+                format!("{key} {label}"),
+                Style::default().fg(Color::DarkGray),
             ));
         }
     }
 
     f.render_widget(Paragraph::new(Line::from(spans)), area);
+}
+
+fn draw_status_area(f: &mut Frame, app: &App, area: Rect) {
+    if app.show_stats && app.stats_data.is_some() {
+        let chunks = Layout::vertical([
+            Constraint::Length(2), // stats
+            Constraint::Length(1), // status bar
+        ])
+        .split(area);
+        draw_stats(f, app, chunks[0]);
+        draw_status(f, app, chunks[1]);
+    } else {
+        draw_status(f, app, area);
+    }
 }
 
 fn draw_stats(f: &mut Frame, app: &App, area: Rect) {
@@ -265,6 +275,7 @@ fn draw_table(f: &mut Frame, app: &mut App, area: Rect) {
     ])
     .bottom_margin(0);
 
+    let current_domain = app.current_domain().trim_end_matches('.').to_owned();
     let rows: Vec<Row> = app
         .rows
         .iter()
@@ -278,6 +289,11 @@ fn draw_table(f: &mut Frame, app: &mut App, area: Rect) {
                 format_ttl(r.ttl)
             } else {
                 r.ttl.to_string()
+            };
+            let name_display = if r.name.trim_end_matches('.') == current_domain {
+                "@".to_string()
+            } else {
+                r.name.clone()
             };
             if app.human_view {
                 let value_lines: Vec<Line> = r.human_value
@@ -299,7 +315,7 @@ fn draw_table(f: &mut Frame, app: &mut App, area: Rect) {
                 let height = value_lines.len() as u16;
                 Row::new(vec![
                     line_num,
-                    Cell::from(r.name.as_str()),
+                    Cell::from(name_display.clone()),
                     Cell::from(type_str).style(type_style),
                     Cell::from(ttl_str).style(Style::default().fg(Color::Gray)),
                     Cell::from(Text::from(value_lines)),
@@ -308,7 +324,7 @@ fn draw_table(f: &mut Frame, app: &mut App, area: Rect) {
             } else {
                 Row::new(vec![
                     line_num,
-                    Cell::from(r.name.as_str()),
+                    Cell::from(name_display.clone()),
                     Cell::from(type_str).style(type_style),
                     Cell::from(ttl_str).style(Style::default().fg(Color::Gray)),
                     Cell::from(r.value.as_str()),
@@ -676,63 +692,56 @@ fn draw_help_popup(f: &mut Frame, app: &mut App) {
         ])
     };
 
+    let section = |title: &'static str| -> Line<'static> {
+        Line::from(Span::styled(
+            title,
+            Style::default().add_modifier(Modifier::BOLD),
+        ))
+    };
+
     let lines: Vec<Line> = vec![
         Line::raw(""),
-        Line::from(Span::styled(
-            "Navigation",
-            Style::default().add_modifier(Modifier::BOLD),
-        )),
-        help_line("j / Down", "Move selection down"),
-        help_line("k / Up", "Move selection up"),
-        help_line("gg / Home", "Jump to first row"),
-        help_line("G / End", "Jump to last row"),
+        section("Navigation"),
+        help_line("j / k", "Move selection down / up"),
+        help_line("gg / G", "Jump to first / last row"),
         help_line("22gg / 22G", "Jump to line 22"),
         help_line("PgUp / PgDn", "Scroll by 10 rows"),
         help_line("Enter", "Drill into subdomain"),
         help_line("l / Right", "Drill into value target"),
         help_line("Left / BS", "Go back in history"),
-        help_line("o", "Show record details"),
+        Line::raw(""),
+        section("Panels"),
+        help_line("o", "Record details"),
+        help_line("s", "Server response times"),
+        help_line("w", "WHOIS for result IPs"),
+        help_line("c", "DNS health checks"),
+        help_line("d", "Subdomain discovery"),
+        Line::raw(""),
+        section("Display"),
         help_line("h", "Toggle human-readable view"),
-        help_line("s", "Show servers used"),
-        help_line("w", "Show WHOIS for result IPs"),
-        help_line("c", "Show DNS health checks"),
         help_line("S", "Toggle stats panel"),
         help_line("Tab", "Cycle grouping mode"),
-        help_line("d", "Open discovery panel"),
         Line::raw(""),
-        Line::from(Span::styled(
-            "Query",
-            Style::default().add_modifier(Modifier::BOLD),
-        )),
+        section("Query"),
         help_line("i", "Enter domain input mode"),
-        help_line("/", "Filter results"),
+        help_line("/", "Filter results (regex)"),
         help_line("C", "Clear active filter"),
         help_line("r", "Re-run current query"),
         Line::raw(""),
-        Line::from(Span::styled(
-            "Categories",
-            Style::default().add_modifier(Modifier::BOLD),
-        )),
-        help_line("1-8", "Toggle categories (Email, Svc, TLS, ...)"),
+        section("Categories"),
+        help_line("1-8", "Toggle (Email, Svc, TLS, ...)"),
         help_line("9, 0", "Toggle Legacy, Gaming"),
-        help_line("a", "Select all categories"),
-        help_line("n", "Deselect all categories"),
+        help_line("a / n", "Select all / none"),
         Line::raw(""),
-        Line::from(Span::styled(
-            "General",
-            Style::default().add_modifier(Modifier::BOLD),
-        )),
-        help_line("?", "Show this help"),
-        help_line("q", "Quit"),
-        help_line("Ctrl+C", "Force quit"),
-        Line::raw(""),
-        Line::from(Span::styled(
-            "Input Mode",
-            Style::default().add_modifier(Modifier::BOLD),
-        )),
+        section("Input Mode"),
         help_line("Enter", "Submit query"),
         help_line("Esc", "Back to normal mode"),
         help_line("Ctrl+W", "Delete word"),
+        Line::raw(""),
+        section("General"),
+        help_line("?", "Show this help"),
+        help_line("q", "Quit"),
+        help_line("Ctrl+C", "Force quit"),
         Line::raw(""),
         Line::from(Span::styled("[Esc] close  [j/k] scroll", dim)).right_aligned(),
     ];
