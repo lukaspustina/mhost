@@ -884,22 +884,4 @@ impl Rendering for UNKNOWN {
     }
 }
 
-mod styles {
-    use yansi::{Color, Style};
-
-    pub static A: Style = Style::new().fg(Color::White).bold();
-    pub static AAAA: Style = Style::new().fg(Color::White).bold();
-    pub static CAA: Style = Style::new().fg(Color::Cyan);
-    pub static DNSSEC: Style = Style::new().fg(Color::Green).bold();
-    pub static HINFO: Style = Style::new().fg(Color::Yellow).bold();
-    pub static MX: Style = Style::new().fg(Color::Yellow);
-    pub static NAME: Style = Style::new().fg(Color::Blue);
-    pub static NAPTR: Style = Style::new().fg(Color::Red).bold();
-    pub static OPENPGPKEY: Style = Style::new().fg(Color::Magenta).bold();
-    pub static SOA: Style = Style::new().fg(Color::Green);
-    pub static SRV: Style = Style::new().fg(Color::Red);
-    pub static SSHFP: Style = Style::new().fg(Color::Blue).bold();
-    pub static SVCB: Style = Style::new().fg(Color::Cyan).bold();
-    pub static TLSA: Style = Style::new().fg(Color::Cyan).bold();
-    pub static TXT: Style = Style::new().fg(Color::Magenta);
-}
+use crate::app::common::styles as styles;

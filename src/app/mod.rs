@@ -6,18 +6,31 @@
 // copied, modified, or distributed except according to those terms.
 
 //! `mhost` command line app to query, discover and lint DNS.
+
+pub mod common;
+
+#[cfg(feature = "app")]
 pub mod app_config;
+#[cfg(feature = "app")]
 pub mod cli_parser;
+#[cfg(feature = "app")]
 pub mod console;
+#[cfg(feature = "app")]
 pub mod logging;
+#[cfg(feature = "app")]
 pub mod modules;
+#[cfg(feature = "app")]
 pub mod output;
+#[cfg(feature = "app")]
 pub mod resolver;
+#[cfg(feature = "app")]
 pub mod utils;
 
+#[cfg(feature = "app")]
 pub use app_config::AppConfig;
 
 /// `ExitStatus` represents the exit states that will be return to the OS after termination
+#[cfg(feature = "app")]
 #[derive(Debug, Clone)]
 pub enum ExitStatus {
     /// All fine.
