@@ -34,32 +34,23 @@
 - Full module-level documentation, `cargo doc --no-deps` builds clean
 </details>
 
+<details>
+<summary>mdive TUI</summary>
+
+- **WHOIS panel** — Press `w` to fetch and display WHOIS data (network, ASN, organization, geo-location) for all unique IPs in current results. Cached per query, scrollable popup with j/k navigation.
+- **Discovery strategies** — Press `d` to open interactive discovery panel with 5 strategies: CT Logs, Wordlist (424 entries with wildcard filtering), SRV Probing (22 probes), TXT Mining (SPF/DMARC extraction), and Permutation. Run individually or all at once with `a`. Results stream into the main table in real time with per-strategy status indicators.
+- **Lints / health checks** — Press `c` to show DNS health checks popup. Runs 9 lint categories (CNAME, NS, MX, HTTPS/SVCB, SPF, DMARC, CAA, TTL, DNSSEC) synchronously from existing lookup data. Color-coded results (green OK, yellow warning, red failed), scrollable with j/k.
+- **Summary / stats panel** — Press `S` to toggle a 2-line panel showing record type distribution, unique record count, query health breakdown (OK/NX/errors), responding server count, response time range, and DNSSEC status badge.
+- **Per-server response times** — Press `s` to open servers popup showing a per-server stats table with protocol, OK/error counts, and min/avg/max latency. Sorted by average response time.
+- **DNSSEC status indicator** — Stats panel shows a color-coded DNSSEC badge (signed/partial/broken/unsigned) derived from the existing lint infrastructure.
+- **Drill-down and query history** — Enter drills into subdomain names, `l`/`→` drills into hostname targets (CNAME, MX, NS, SRV, SOA, SVCB/HTTPS, NAPTR, PTR). Full state snapshots pushed to a history stack. `←`/`Backspace` restores previous state instantly.
+- **Free-text filter / search** — `/` enters search mode with case-insensitive regex matching across name, type, value, and human-readable columns.
+- **Grouping modes** — Press `Tab` to cycle between four grouping modes: Category (default), Type, Name, and Server. Mode preserved in drill-down history.
+</details>
+
 ---
 
 ## Up next
-
-### mdive TUI enhancements
-
-#### Surface existing mhost capabilities
-
-- ~~**WHOIS panel**~~ — Done. Press `w` to fetch and display WHOIS data (network, ASN, organization, geo-location) for all unique IPs in current results. Cached per query, scrollable popup with j/k navigation.
-- ~~**Discovery strategies**~~ — Done. Press `d` to open interactive discovery panel with 5 strategies: CT Logs, Wordlist (424 entries with wildcard filtering), SRV Probing (22 probes), TXT Mining (SPF/DMARC extraction), and Permutation. Run individually or all at once with `a`. Results stream into the main table in real time with per-strategy status indicators. Uses `spawn_local` on a shared `LocalSet` for cooperative async scheduling.
-- ~~**Lints / health checks**~~ — Done. Press `c` to show DNS health checks popup. Runs 9 lint categories (CNAME, NS, MX, HTTPS/SVCB, SPF, DMARC, CAA, TTL, DNSSEC) synchronously from existing lookup data. Color-coded results (green OK, yellow warning, red failed), scrollable with j/k. Cached per query.
-- ~~**Summary / stats panel**~~ — Done. Press `S` to toggle a 2-line collapsible panel showing record type distribution with colored labels, unique record count, query health breakdown (OK/NX/errors with timeout, refused, servfail detail), responding server count, and response time range. Updates incrementally as batches arrive, clears on new query.
-
-#### Diagnostic depth
-
-- ~~**Per-server response times**~~ — Done. Press `s` to open servers popup showing a per-server stats table with protocol, OK/error counts, and min/avg/max latency. Sorted by average response time (fastest first), error-only servers last.
-- ~~**DNSSEC status indicator**~~ — Done. Stats panel (`S`) shows a color-coded DNSSEC badge (signed/partial/broken/unsigned) derived from the existing lint infrastructure. Green for fully signed, yellow for partial, red for broken chain, gray for unsigned.
-
-#### Navigation and workflow
-
-- ~~**Drill-down and query history**~~ — Done. Enter drills into a record's subdomain name, `l`/`→` drills into hostname targets (CNAME, MX exchange, NS, SRV target, SOA mname, SVCB/HTTPS, NAPTR replacement, PTR). Full state snapshots (rows, lookups, stats, whois, lints, discovery, categories, filter, scroll position) are pushed to a history stack. `←`/`Backspace` restores previous state instantly without re-querying. Manual queries via input mode clear history. Title bar shows breadcrumb depth, status bar shows back hint, detail line shows drill target. `o` opens record detail popup (was Enter).
-- ~~**Free-text filter / search**~~ — Done. `/` enters search mode with case-insensitive regex matching across name, type, value, and human-readable columns. `C` or `Esc` clears the filter.
-
-#### Visual and analytical
-
-- ~~**Grouping modes**~~ — Done. Press `Tab` to cycle between four grouping modes: Category (default), Type, Name, and Server. Current mode shown in the category toggles line. Grouping mode preserved in drill-down history.
 
 ### DNS zone file verification
 
