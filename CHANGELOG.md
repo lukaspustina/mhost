@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.7.0
+
+### New features
+
+- `dnssec` command — DNSSEC trust chain visualization: walks delegation from root to target zone, renders color-coded tree with key roles, algorithm strength, signature expiry, and DS→DNSKEY linkage
+- `diff --left-from-file` / `--right-from-file` — compare saved JSON snapshots against live DNS or other snapshots for migration validation and change tracking
+- Full `Deserialize` support on all DNS types (`Record`, `RData`, `RecordType`, `Lookups`, etc.) enabling JSON round-trip for snapshots
+- DNSSEC chain validation checks added to `check` command lints
+- Human-readable DNSSEC record output with typed structs (DNSKEY, DS, RRSIG, NSEC, NSEC3, NSEC3PARAM)
+
+### Bug fixes
+
+- Fix diff command not accepting domain name after `--left`/`--right` flags
+- Fix lit test failures from typed DNSSEC record changes
+- Use dual-stack root servers by default in trace command
+
+### Documentation
+
+- Rename TODO.md to ROADMAP.md and consolidate content
+- Reorganize roadmap priorities
+
 ## v0.6.0
 
 ### New commands
