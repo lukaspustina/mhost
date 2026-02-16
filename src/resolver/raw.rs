@@ -151,10 +151,12 @@ pub async fn raw_query(
     record_type: RecordType,
     timeout: Duration,
 ) -> RawResult<RawResponse> {
-    let response = udp_query(server, name, record_type, timeout).await?;
+    let msg = build_query_message(name, record_type);
+    let response = send_udp(server, &msg, timeout).await?;
     if response.is_truncated() {
         debug!("UDP response from {} truncated, retrying over TCP", server);
-        tcp_query(server, name, record_type, timeout).await
+        let msg = build_query_message(name, record_type);
+        send_tcp(server, &msg, timeout).await
     } else {
         Ok(response)
     }
@@ -182,7 +184,56 @@ pub async fn parallel_raw_queries(
         .await
 }
 
+/// Send a non-recursive DNS query with the DNSSEC OK (DO) bit set, requesting
+/// RRSIG and other DNSSEC records in responses.
+pub async fn raw_dnssec_query(
+    server: SocketAddr,
+    name: &Name,
+    record_type: RecordType,
+    timeout: Duration,
+) -> RawResult<RawResponse> {
+    let msg = build_dnssec_query_message(name, record_type);
+    let response = send_udp(server, &msg, timeout).await?;
+    if response.is_truncated() {
+        debug!("UDP DNSSEC response from {} truncated, retrying over TCP", server);
+        let msg = build_dnssec_query_message(name, record_type);
+        send_tcp(server, &msg, timeout).await
+    } else {
+        Ok(response)
+    }
+}
+
+/// Send non-recursive DNS queries with the DNSSEC OK (DO) bit to multiple servers in parallel.
+pub async fn parallel_raw_dnssec_queries(
+    servers: &[SocketAddr],
+    name: &Name,
+    record_type: RecordType,
+    timeout: Duration,
+    max_concurrent: usize,
+) -> Vec<RawQueryResult> {
+    let futures = servers.iter().map(|&server| {
+        let name = name.clone();
+        async move {
+            let result = raw_dnssec_query(server, &name, record_type, timeout).await;
+            RawQueryResult { server, result }
+        }
+    });
+
+    stream::iter(futures)
+        .buffer_unordered(max_concurrent)
+        .collect()
+        .await
+}
+
 fn build_query_message(name: &Name, record_type: RecordType) -> Message {
+    build_query_message_opts(name, record_type, false)
+}
+
+fn build_dnssec_query_message(name: &Name, record_type: RecordType) -> Message {
+    build_query_message_opts(name, record_type, true)
+}
+
+fn build_query_message_opts(name: &Name, record_type: RecordType, dnssec_ok: bool) -> Message {
     let mut msg = Message::new();
     msg.set_id(rand::random());
     msg.set_message_type(MessageType::Query);
@@ -193,16 +244,20 @@ fn build_query_message(name: &Name, record_type: RecordType) -> Message {
     query.set_query_type(record_type);
     query.set_query_class(DNSClass::IN);
     msg.add_query(query);
+    if dnssec_ok {
+        let mut edns = hickory_resolver::proto::op::Edns::new();
+        edns.set_dnssec_ok(true);
+        edns.set_max_payload(4096);
+        msg.set_edns(edns);
+    }
     msg
 }
 
-async fn udp_query(
+async fn send_udp(
     server: SocketAddr,
-    name: &Name,
-    record_type: RecordType,
+    msg: &Message,
     timeout: Duration,
 ) -> RawResult<RawResponse> {
-    let msg = build_query_message(name, record_type);
     let msg_bytes = msg.to_vec().map_err(|e| RawError::Decode(e.to_string()))?;
     let expected_id = msg.id();
 
@@ -238,13 +293,11 @@ async fn udp_query(
     })
 }
 
-async fn tcp_query(
+async fn send_tcp(
     server: SocketAddr,
-    name: &Name,
-    record_type: RecordType,
+    msg: &Message,
     timeout: Duration,
 ) -> RawResult<RawResponse> {
-    let msg = build_query_message(name, record_type);
     let msg_bytes = msg.to_vec().map_err(|e| RawError::Decode(e.to_string()))?;
     let expected_id = msg.id();
 

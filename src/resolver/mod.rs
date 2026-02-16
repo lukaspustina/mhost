@@ -41,6 +41,7 @@ use std::fmt::Formatter;
 use std::str::FromStr;
 
 pub mod builder;
+pub mod delegation;
 pub mod error;
 pub mod lookup;
 pub mod predefined;

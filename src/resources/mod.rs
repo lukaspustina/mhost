@@ -24,6 +24,7 @@ use crate::{Error, Name, Result};
 use smallvec::SmallVec;
 use std::num::ParseIntError;
 
+pub mod dnssec_validation;
 pub mod rdata;
 pub mod record;
 pub mod record_type;
