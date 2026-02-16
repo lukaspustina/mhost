@@ -513,20 +513,20 @@ fn diff_subcommand() -> Command {
                 .short('l')
                 .long("left")
                 .required(true)
-                .num_args(1..)
+                .action(ArgAction::Append)
                 .value_name("NAMESERVER")
                 .help("Left nameserver(s) to query")
-                .long_help("Left nameserver(s) to query. Accepts the same nameserver spec format as --nameserver."),
+                .long_help("Left nameserver(s) to query. Repeat for multiple servers or use commas. Accepts the same nameserver spec format as --nameserver."),
         )
         .arg(
             Arg::new("right")
                 .short('r')
                 .long("right")
                 .required(true)
-                .num_args(1..)
+                .action(ArgAction::Append)
                 .value_name("NAMESERVER")
                 .help("Right nameserver(s) to query")
-                .long_help("Right nameserver(s) to query. Accepts the same nameserver spec format as --nameserver."),
+                .long_help("Right nameserver(s) to query. Repeat for multiple servers or use commas. Accepts the same nameserver spec format as --nameserver."),
         )
 }
 
