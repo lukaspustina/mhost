@@ -275,6 +275,77 @@ fn filter_by_family(group: NameServerConfigGroup, config: &AppConfig) -> NameSer
     NameServerConfigGroup::new(filtered)
 }
 
+/// Resolve missing glue records for nameservers that have no IP addresses.
+///
+/// Mutates `ns_servers` in place, filling in IP addresses for entries with empty Vec.
+/// Used by both the trace and dnssec modules for delegation walking.
+pub async fn resolve_missing_glue(app_config: &AppConfig, ns_servers: &mut std::collections::HashMap<String, Vec<std::net::IpAddr>>) {
+    use crate::resolver::lookup::Uniquify;
+
+    let missing_ns: Vec<String> = ns_servers
+        .iter()
+        .filter(|(_, ips)| ips.is_empty())
+        .map(|(name, _)| name.clone())
+        .collect();
+
+    if missing_ns.is_empty() {
+        return;
+    }
+
+    debug!("Resolving {} NS names without glue", missing_ns.len());
+
+    let resolver = match AppResolver::create_resolvers(app_config).await {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!("Failed to create resolver for glue resolution: {}", e);
+            return;
+        }
+    };
+
+    for ns_name in &missing_ns {
+        let name = match hickory_resolver::Name::from_ascii(ns_name) {
+            Ok(n) => n,
+            Err(e) => {
+                tracing::warn!("Failed to parse NS name {}: {}", ns_name, e);
+                continue;
+            }
+        };
+
+        let query_types = match (app_config.ipv4_only, app_config.ipv6_only) {
+            (true, _) => vec![crate::RecordType::A],
+            (_, true) => vec![crate::RecordType::AAAA],
+            _ => vec![crate::RecordType::A, crate::RecordType::AAAA],
+        };
+
+        let query = match MultiQuery::multi_record(name, query_types) {
+            Ok(q) => q,
+            Err(e) => {
+                tracing::warn!("Failed to build query for {}: {}", ns_name, e);
+                continue;
+            }
+        };
+
+        match resolver.lookup(query).await {
+            Ok(lookups) => {
+                let entry = ns_servers.entry(ns_name.clone()).or_default();
+                if !app_config.ipv6_only {
+                    for ip in lookups.a().unique().to_owned() {
+                        entry.push(std::net::IpAddr::V4(ip));
+                    }
+                }
+                if !app_config.ipv4_only {
+                    for ip in lookups.aaaa().unique().to_owned() {
+                        entry.push(std::net::IpAddr::V6(ip));
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!("Failed to resolve NS {}: {}", ns_name, e);
+            }
+        }
+    }
+}
+
 pub fn load_system_nameservers(config: &AppConfig) -> Result<NameServerConfigGroup> {
     let mut system_nameserver_group = NameServerConfigGroup::new(Vec::new());
 

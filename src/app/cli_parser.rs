@@ -357,6 +357,7 @@ fn subcommands() -> Vec<Command> {
         check_subcommand(),
         diff_subcommand(),
         discover_subcommand(),
+        dnssec_subcommand(),
         domain_lookup_subcommand(),
         info_subcommand(),
         lookup_subcommand(),
@@ -621,6 +622,39 @@ By default, queries ~40 well-known subdomain/record-type combinations. Use --all
                 .long("all")
                 .action(ArgAction::SetTrue)
                 .help("Includes extended well-known subdomains (Tier 3+4)"),
+        )
+}
+
+fn dnssec_subcommand() -> Command {
+    Command::new("dnssec")
+        .about("Visualizes the DNSSEC trust chain from root to the target domain")
+        .long_about(
+            r#"Walks the DNS delegation chain from root servers to the target domain, querying DNSKEY, DS, and RRSIG records at each level. Validates algorithm strength, key bindings, and signature expiration, rendering a tree with color-coded status.
+
+Unlike `mhost check --dnssec` which validates the zone's own DNSSEC records, this command visualizes the complete chain of trust across all delegation levels."#,
+        )
+        .arg(
+            Arg::new("domain name")
+                .required(true)
+                .index(1)
+                .value_name("DOMAIN NAME")
+                .help("domain name to validate")
+                .long_help("* DOMAIN NAME may be any valid DNS name, e.g., example.com"),
+        )
+        .arg(
+            Arg::new("max-hops")
+                .long("max-hops")
+                .value_name("NUMBER")
+                .default_value("10")
+                .value_parser(usize_range(1, 20))
+                .help("Sets maximum number of delegation hops"),
+        )
+        .arg(
+            Arg::new("partial-results")
+                .short('p')
+                .long("show-partial-results")
+                .action(ArgAction::SetTrue)
+                .help("Shows results as each delegation level completes"),
         )
 }
 

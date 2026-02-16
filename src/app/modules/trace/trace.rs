@@ -19,11 +19,10 @@ use crate::app::modules::{AppModule, Environment, PartialResult, RunInfo};
 use crate::app::output::summary::{Rendering, SummaryFormatter, SummaryOptions};
 use crate::app::output::styles as output_styles;
 use crate::app::output::OutputType;
-use crate::app::resolver::AppResolver;
+use crate::app::resolver;
 use crate::app::{output, AppConfig, ExitStatus};
-use crate::resolver::lookup::Uniquify;
-use crate::resolver::raw::{self, RawQueryResult, ROOT_SERVERS};
-use crate::resolver::MultiQuery;
+use crate::resolver::delegation;
+use crate::resolver::raw::{self, RawQueryResult};
 use crate::resources::Record;
 use crate::RecordType;
 
@@ -133,21 +132,10 @@ impl<'a> TraceRun<'a> {
 
         // Start with root servers based on IP version flags:
         //   -4 → IPv4 roots only, -6 → IPv6 roots only, default → both
-        let mut current_servers: Vec<(SocketAddr, Option<String>)> = Vec::new();
-        if !self.env.app_config.ipv6_only {
-            current_servers.extend(
-                ROOT_SERVERS
-                    .iter()
-                    .map(|ip| (SocketAddr::new(IpAddr::V4(*ip), 53), None)),
-            );
-        }
-        if !self.env.app_config.ipv4_only {
-            current_servers.extend(
-                raw::ROOT_SERVERS_V6
-                    .iter()
-                    .map(|ip| (SocketAddr::new(IpAddr::V6(*ip), 53), None)),
-            );
-        }
+        let mut current_servers = delegation::root_server_addrs(
+            self.env.app_config.ipv4_only,
+            self.env.app_config.ipv6_only,
+        );
 
         let mut current_zone = ".".to_string();
 
@@ -246,44 +234,19 @@ impl<'a> TraceRun<'a> {
                 }
             }
 
-            // Resolve glue if needed — collect NS names that lack IPs
+            // Resolve glue if needed and build next hop server list
             let mut resolved_servers = next_servers.clone();
-            let missing_ns: Vec<String> = next_servers
-                .iter()
-                .filter(|(_, ips)| ips.is_empty())
-                .map(|(name, _)| name.clone())
-                .collect();
-
-            if !missing_ns.is_empty() {
-                debug!("Resolving {} NS names without glue", missing_ns.len());
-                let glue_ips = self.resolve_glue(&missing_ns).await;
-                for (ns_name, ips) in glue_ips {
-                    resolved_servers
-                        .entry(ns_name)
-                        .or_default()
-                        .extend(ips);
-                }
-            }
+            resolver::resolve_missing_glue(self.env.app_config, &mut resolved_servers).await;
 
             // Build next hop server list, filtering by address family
             let mut next_zone = current_zone.clone();
-            current_servers = Vec::new();
-            for (ns_name, ips) in &resolved_servers {
-                let filtered_ips: Vec<&IpAddr> = ips
-                    .iter()
-                    .filter(|ip| self.env.app_config.ip_allowed(**ip))
-                    .collect();
-                if filtered_ips.is_empty() {
-                    warn!("No matching addresses for NS {}", ns_name);
-                    continue;
-                }
-                for ip in filtered_ips {
-                    current_servers.push((
-                        SocketAddr::new(*ip, 53),
-                        Some(ns_name.clone()),
-                    ));
-                }
-            }
+            let referral = delegation::Referral {
+                zone_name: current_zone.clone(),
+                ns_servers: resolved_servers,
+            };
+            current_servers = delegation::build_server_list(&referral, |ip| {
+                self.env.app_config.ip_allowed(ip)
+            });
 
             // Determine next zone from the first referral's authority section
             if let Some(hop) = hops.last() {
@@ -427,67 +390,6 @@ fn process_hop_results(
         }
 
         (server_results, next_servers, is_final)
-}
-
-impl<'a> TraceRun<'a> {
-    async fn resolve_glue(&self, ns_names: &[String]) -> Vec<(String, Vec<IpAddr>)> {
-        let mut results = Vec::new();
-
-        // Use system resolvers for glue resolution
-        let resolver = match AppResolver::create_resolvers(self.env.app_config).await {
-            Ok(r) => r,
-            Err(e) => {
-                warn!("Failed to create resolver for glue resolution: {}", e);
-                return results;
-            }
-        };
-
-        for ns_name in ns_names {
-            let name = match hickory_resolver::Name::from_ascii(ns_name) {
-                Ok(n) => n,
-                Err(e) => {
-                    warn!("Failed to parse NS name {}: {}", ns_name, e);
-                    continue;
-                }
-            };
-
-            let query_types = match (self.env.app_config.ipv4_only, self.env.app_config.ipv6_only) {
-                (true, _) => vec![RecordType::A],
-                (_, true) => vec![RecordType::AAAA],
-                _ => vec![RecordType::A, RecordType::AAAA],
-            };
-
-            let query = match MultiQuery::multi_record(name, query_types) {
-                Ok(q) => q,
-                Err(e) => {
-                    warn!("Failed to build query for {}: {}", ns_name, e);
-                    continue;
-                }
-            };
-
-            match resolver.lookup(query).await {
-                Ok(lookups) => {
-                    let mut ips = Vec::new();
-                    if !self.env.app_config.ipv6_only {
-                        for ip in lookups.a().unique().to_owned() {
-                            ips.push(IpAddr::V4(ip));
-                        }
-                    }
-                    if !self.env.app_config.ipv4_only {
-                        for ip in lookups.aaaa().unique().to_owned() {
-                            ips.push(IpAddr::V6(ip));
-                        }
-                    }
-                    results.push((ns_name.clone(), ips));
-                }
-                Err(e) => {
-                    warn!("Failed to resolve NS {}: {}", ns_name, e);
-                }
-            }
-        }
-
-        results
-    }
 }
 
 /// Convert a hickory-proto Record to mhost Record.

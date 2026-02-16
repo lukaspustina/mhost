@@ -5,14 +5,12 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::collections::HashSet;
-
 use crate::app::modules::check::config::CheckConfig;
 use crate::app::modules::check::lints::axfr::Axfr;
 use crate::app::modules::check::lints::{CheckResult, CheckResults};
 use crate::app::modules::{Environment, PartialResult};
 use crate::app::resolver::AppResolver;
-use crate::resources::rdata::{DnssecAlgorithm, DNSKEY, DS, RRSIG};
+use crate::resources::dnssec_validation::{self, Finding, Severity};
 use crate::Name;
 
 struct DnssecCounts {
@@ -143,205 +141,64 @@ impl<'a> DnssecCheck<'a> {
         }
     }
 
-    fn check_ksk_present(dnskeys: &[&DNSKEY], results: &mut Vec<CheckResult>) {
-        if dnskeys.is_empty() {
-            return;
-        }
-
-        let mut ksk_count = 0;
-        let mut zsk_count = 0;
-        for key in dnskeys {
-            if key.is_secure_entry_point() {
-                ksk_count += 1;
-            } else if key.is_zone_key() {
-                zsk_count += 1;
-            }
-            if key.is_revoked() {
-                if let Some(tag) = key.key_tag() {
-                    results.push(CheckResult::Warning(format!(
-                        "DNSKEY key tag {} is revoked",
-                        tag
-                    )));
-                } else {
-                    results.push(CheckResult::Warning("DNSKEY is revoked".to_string()));
-                }
-            }
-        }
-
-        if ksk_count == 0 {
-            results.push(CheckResult::Warning(
-                "No KSK (secure entry point) found among DNSKEY records".to_string(),
-            ));
-        } else {
-            results.push(CheckResult::Ok(format!(
-                "Found {} KSK(s) and {} ZSK(s)",
-                ksk_count, zsk_count
-            )));
-        }
+    fn check_ksk_present(dnskeys: &[&crate::resources::rdata::DNSKEY], results: &mut Vec<CheckResult>) {
+        results.extend(dnssec_validation::validate_ksk_present(dnskeys).into_iter().map(finding_to_check_result));
     }
 
-    fn check_ds_dnskey_binding(ds_records: &[&DS], dnskeys: &[&DNSKEY], results: &mut Vec<CheckResult>) {
-        if ds_records.is_empty() {
-            return;
-        }
+    fn check_ds_dnskey_binding(ds_records: &[&crate::resources::rdata::DS], dnskeys: &[&crate::resources::rdata::DNSKEY], results: &mut Vec<CheckResult>) {
+        results.extend(dnssec_validation::validate_ds_dnskey_binding(ds_records, dnskeys).into_iter().map(finding_to_check_result));
+    }
 
-        if dnskeys.is_empty() {
-            results.push(CheckResult::Failed(
-                "DS records exist but no DNSKEY records found: DNSSEC chain of trust is broken".to_string(),
-            ));
-            return;
-        }
+    fn check_rrsig_dnskey_binding(rrsigs: &[&crate::resources::rdata::RRSIG], dnskeys: &[&crate::resources::rdata::DNSKEY], results: &mut Vec<CheckResult>) {
+        results.extend(dnssec_validation::validate_rrsig_dnskey_binding(rrsigs, dnskeys).into_iter().map(finding_to_check_result));
+    }
 
-        for ds in ds_records {
-            let ds_tag = ds.key_tag();
-            let matching_key = dnskeys.iter().find(|k| k.key_tag() == Some(ds_tag));
-
-            match matching_key {
-                Some(key) => {
-                    if key.algorithm() != ds.algorithm() {
-                        results.push(CheckResult::Warning(format!(
-                            "DS key tag {} matches DNSKEY but algorithm mismatch: DS has {}, DNSKEY has {}",
-                            ds_tag,
-                            ds.algorithm(),
-                            key.algorithm()
-                        )));
-                    } else {
+    fn check_rrsig_expiration(rrsigs: &[&crate::resources::rdata::RRSIG], now: u32, results: &mut Vec<CheckResult>) {
+        // The lint keeps only DNSKEY RRSIG "valid" messages (not all valid RRSIGs)
+        let findings = dnssec_validation::validate_rrsig_expiration(rrsigs, now);
+        for (finding, rrsig) in findings.into_iter().zip(rrsigs.iter()) {
+            match finding.severity {
+                Severity::Ok => {
+                    // Only report valid status for DNSKEY-covering RRSIGs
+                    if rrsig.type_covered() == "DNSKEY" {
+                        let remaining_secs = rrsig.expiration() - now;
+                        let remaining_days = remaining_secs / 86400;
                         results.push(CheckResult::Ok(format!(
-                            "DS key tag {} matches DNSKEY ({})",
-                            ds_tag,
-                            key.algorithm()
+                            "DNSKEY RRSIG valid, expires in {} day(s) (key tag {})",
+                            remaining_days,
+                            rrsig.key_tag()
                         )));
                     }
                 }
-                None => {
-                    results.push(CheckResult::Failed(format!(
-                        "DS key tag {} has no matching DNSKEY: chain of trust is broken",
-                        ds_tag
-                    )));
-                }
+                _ => results.push(finding_to_check_result(finding)),
             }
         }
     }
 
-    fn check_rrsig_dnskey_binding(rrsigs: &[&RRSIG], dnskeys: &[&DNSKEY], results: &mut Vec<CheckResult>) {
-        if rrsigs.is_empty() || dnskeys.is_empty() {
-            return;
-        }
-
-        let dnskey_tags: HashSet<u16> = dnskeys.iter().filter_map(|k| k.key_tag()).collect();
-
-        // Deduplicate: report each orphaned (type_covered, key_tag) pair once
-        let mut reported: HashSet<(String, u16)> = HashSet::new();
-        for rrsig in rrsigs {
-            let tag = rrsig.key_tag();
-            if !dnskey_tags.contains(&tag) {
-                let key = (rrsig.type_covered().to_string(), tag);
-                if reported.insert(key) {
-                    results.push(CheckResult::Warning(format!(
-                        "RRSIG covering {} references key tag {} not found in DNSKEY set",
-                        rrsig.type_covered(),
-                        tag
-                    )));
-                }
-            }
-        }
-    }
-
-    fn check_rrsig_expiration(rrsigs: &[&RRSIG], now: u32, results: &mut Vec<CheckResult>) {
-        const SEVEN_DAYS: u32 = 604800;
-
-        for rrsig in rrsigs {
-            let expiration = rrsig.expiration();
-            let inception = rrsig.inception();
-
-            if inception > now {
-                results.push(CheckResult::Warning(format!(
-                    "RRSIG covering {} has inception in the future (key tag {})",
-                    rrsig.type_covered(),
-                    rrsig.key_tag()
-                )));
-            }
-
-            if expiration < now {
-                results.push(CheckResult::Failed(format!(
-                    "RRSIG covering {} has expired (key tag {})",
-                    rrsig.type_covered(),
-                    rrsig.key_tag()
-                )));
-            } else if expiration < now.saturating_add(SEVEN_DAYS) {
-                let remaining_secs = expiration - now;
-                let remaining_days = remaining_secs / 86400;
-                results.push(CheckResult::Warning(format!(
-                    "RRSIG covering {} expiring in {} day(s) (key tag {})",
-                    rrsig.type_covered(),
-                    remaining_days,
-                    rrsig.key_tag()
-                )));
-            } else if rrsig.type_covered() == "DNSKEY" {
-                let remaining_secs = expiration - now;
-                let remaining_days = remaining_secs / 86400;
-                results.push(CheckResult::Ok(format!(
-                    "DNSKEY RRSIG valid, expires in {} day(s) (key tag {})",
-                    remaining_days,
-                    rrsig.key_tag()
-                )));
-            }
-        }
-    }
-
-    fn check_algorithm_strength(dnskeys: &[&DNSKEY], rrsigs: &[&RRSIG], results: &mut Vec<CheckResult>) {
-        let mut seen: HashSet<DnssecAlgorithm> = HashSet::new();
-
+    fn check_algorithm_strength(dnskeys: &[&crate::resources::rdata::DNSKEY], rrsigs: &[&crate::resources::rdata::RRSIG], results: &mut Vec<CheckResult>) {
+        let mut seen = std::collections::HashSet::new();
         for key in dnskeys {
             seen.insert(key.algorithm());
         }
         for rrsig in rrsigs {
             seen.insert(rrsig.algorithm());
         }
+        results.extend(dnssec_validation::validate_algorithm_strength(&seen).into_iter().map(finding_to_check_result));
+    }
+}
 
-        for algo in &seen {
-            match algo {
-                DnssecAlgorithm::RsaMd5 => {
-                    results.push(CheckResult::Failed(format!(
-                        "Algorithm {} is deprecated and insecure (RFC 6725)",
-                        algo
-                    )));
-                }
-                DnssecAlgorithm::Dsa => {
-                    results.push(CheckResult::Failed(format!(
-                        "Algorithm {} is deprecated and insecure",
-                        algo
-                    )));
-                }
-                DnssecAlgorithm::RsaSha1 | DnssecAlgorithm::RsaSha1Nsec3Sha1 => {
-                    results.push(CheckResult::Warning(format!(
-                        "Algorithm {}: SHA-1 is deprecated, consider upgrading",
-                        algo
-                    )));
-                }
-                DnssecAlgorithm::RsaSha256
-                | DnssecAlgorithm::RsaSha512
-                | DnssecAlgorithm::EcdsaP256Sha256
-                | DnssecAlgorithm::EcdsaP384Sha384
-                | DnssecAlgorithm::Ed25519
-                | DnssecAlgorithm::Ed448 => {
-                    results.push(CheckResult::Ok(format!("Algorithm {} is secure", algo)));
-                }
-                DnssecAlgorithm::Unassigned(n) => {
-                    results.push(CheckResult::Warning(format!(
-                        "Unknown DNSSEC algorithm {}",
-                        n
-                    )));
-                }
-            }
-        }
+fn finding_to_check_result(finding: Finding) -> CheckResult {
+    match finding.severity {
+        Severity::Ok => CheckResult::Ok(finding.message),
+        Severity::Warning => CheckResult::Warning(finding.message),
+        Severity::Failed => CheckResult::Failed(finding.message),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::resources::rdata::{DigestType, DnssecAlgorithm};
+    use crate::resources::rdata::{DigestType, DnssecAlgorithm, DNSKEY, DS, RRSIG};
     use std::str::FromStr;
 
     fn counts(dnskey: usize, ds: usize, rrsig: usize, nsec: usize, nsec3: usize, nsec3param: usize) -> DnssecCounts {

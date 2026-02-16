@@ -126,80 +126,62 @@ Added `ResolverGroupBuilder` with fluent API and `PredefinedProvider` enum.
 - [x] Updated `lib.rs` doc example to use the builder
 </details>
 
+<details>
+<summary>5. Refactor RecordType::DNSSEC into individual types ✅ (v0.6.0)</summary>
+
+Replaced `RecordType::DNSSEC` with individual variants (DNSKEY, DS, RRSIG, NSEC, NSEC3, NSEC3PARAM). Each has typed rdata structs with parsed fields (key_tag, algorithm, expiration, etc.), per-type `Lookups` accessors, and human-readable output formatting.
+
+- [x] `RecordType` has individual variants: `DNSKEY`, `DS`, `RRSIG`, `NSEC`, `NSEC3`, `NSEC3PARAM`
+- [x] `RecordType::from_str("DNSKEY")` etc. all work
+- [x] `RecordType::all()` includes the new variants
+- [x] `display_round_trip` test passes for all new variants
+- [x] `Lookups` has `.dnskey()`, `.ds()`, `.rrsig()` etc. accessors
+- [x] Old `RecordType::DNSSEC` removed
+- [x] `cargo test --lib` passes
+- [x] `cargo clippy` clean
+</details>
+
+<details>
+<summary>6. DNSSEC chain validation ✅ (v0.6.0)</summary>
+
+Extended the DNSSEC lint with 5 semantic chain validation checks using the typed DNSSEC record fields. No cryptographic signature verification — validates structural chain integrity, algorithm strength, and signature time validity.
+
+- [x] DS → DNSKEY binding (key tag match, algorithm consistency, broken-chain detection including DS-without-DNSKEY)
+- [x] RRSIG → DNSKEY binding (orphaned signature detection with deduplication)
+- [x] RRSIG expiration (expired → Failed, <7 days → Warning, valid DNSKEY RRSIG → Ok with days remaining, future inception → Warning)
+- [x] Algorithm strength (RSA/MD5, DSA → Failed; RSA/SHA-1 → Warning; RSA/SHA-256+, ECDSA, EdDSA → Ok; deduplicated across DNSKEY+RRSIG)
+- [x] KSK presence (secure entry point validation, revoked key detection, KSK/ZSK count)
+- [x] Correctly detects broken DNSSEC (e.g., dnssec-failed.org: DS without DNSKEY)
+- [x] 27 unit tests covering all check functions
+- [x] `cargo test --lib` passes
+- [x] `cargo clippy` clean
+</details>
+
+<details>
+<summary>7. DNSSEC trust chain visualization ✅ (v0.6.0)</summary>
+
+Added `mhost dnssec` subcommand that walks the DNSSEC delegation chain from root servers to the target zone and renders a color-coded trust chain tree.
+
+**Architecture**: Extracted shared code into reusable library-layer modules:
+- `src/resources/dnssec_validation.rs` — Shared `Severity`/`Finding` types, per-record classification helpers (`classify_algorithm`, `classify_rrsig_expiration`, `classify_ds_binding`), and collection-level validators
+- `src/resolver/delegation.rs` — Shared delegation utilities (`Referral`, `root_server_addrs`, `extract_referral`, `build_server_list`)
+- `src/app/resolver.rs` — Extracted `resolve_missing_glue` free function (shared with trace)
+- Refactored `trace.rs` and `dnssec_lint.rs` to use shared modules (no code duplication)
+
+- [x] `mhost dnssec example.com` renders delegation-level trust chain from root to target zone
+- [x] Each node shows: record type, key tag, algorithm name, validity status
+- [x] Color-coded: green (valid), red (broken/expired), yellow (weak algo or expiring within 7 days)
+- [x] Works with `--ascii` flag (no Unicode box-drawing)
+- [x] JSON output includes structured chain data (`--output json`)
+- [x] Partial results mode (`-p`) for streaming output
+- [x] `--max-hops` flag (default 10, range 1-20)
+- [x] `cargo test --lib` passes (385 tests)
+- [x] `cargo clippy` clean
+</details>
+
 ---
 
 ## Remaining
-
-### 5. Refactor `RecordType::DNSSEC` into individual types
-
-**Context**: `src/resources/record_type.rs:49` has a TODO comment: `// TODO: DNSSEC(DNSSECRecordType)`. Currently all DNSSEC record types (DNSKEY, DS, RRSIG, NSEC, NSEC3, NSEC3PARAM, KEY, SIG) collapse into a single `RecordType::DNSSEC` variant. The corresponding rdata type `DNSSEC` in `src/resources/rdata/mod.rs` stores the sub-type as a string.
-
-**Files**:
-- `src/resources/record_type.rs` — `RecordType` enum, `FromStr`, `Display`, `all()`, conversions
-- `src/resources/rdata/mod.rs` — `RData` enum, accessor methods
-- `src/resolver/lookup.rs` — `Lookups` accessor `.dnssec()` and any per-type accessors
-- `src/app/modules/check/lints/dnssec_lint.rs` — uses `DNSSEC` rdata type, checks `sub_type()` strings
-- `src/app/output/records.rs` — display formatting for DNSSEC records
-
-**Task**: Replace `RecordType::DNSSEC` with individual variants: `DNSKEY`, `DS`, `RRSIG`, `NSEC`, `NSEC3`, `NSEC3PARAM`. Create corresponding rdata structs (or at minimum a typed enum `DNSSECRecordType`) so that each type can be queried and filtered independently.
-
-**Acceptance criteria**:
-- [ ] `RecordType` has individual variants: `DNSKEY`, `DS`, `RRSIG`, `NSEC`, `NSEC3`, `NSEC3PARAM`
-- [ ] `RecordType::from_str("DNSKEY")` etc. all work
-- [ ] `RecordType::all()` includes the new variants
-- [ ] `display_round_trip` test passes for all new variants
-- [ ] `Lookups` has `.dnskey()`, `.ds()`, `.rrsig()` etc. accessors (or at minimum type-filtered access)
-- [ ] Existing DNSSEC lint still works (updated to use typed variants instead of string matching)
-- [ ] Old `RecordType::DNSSEC` is removed (no backward compat shim)
-- [ ] `cargo test --lib` passes
-- [ ] `cargo clippy` clean
-
----
-
-### 6. DNSSEC chain validation
-
-**Context**: After task 5, individual DNSSEC record types are available. The current DNSSEC lint (`src/app/modules/check/lints/dnssec_lint.rs`) only checks **presence** of DNSKEY and RRSIG records. It does not validate the cryptographic chain: DS (from parent) → DNSKEY (in zone) → RRSIG (signatures on records).
-
-**Files**:
-- `src/app/modules/check/lints/dnssec_lint.rs` — expand this lint
-- `src/resources/rdata/` — may need new rdata parsers for DNSKEY fields (algorithm, key tag, public key)
-- `Cargo.toml` — may need a crypto dependency (e.g., `ring`) for signature verification
-
-**Task**: Extend the DNSSEC lint to perform actual chain validation:
-1. Query parent zone for DS record
-2. Query zone for DNSKEY records
-3. Verify DS record matches a DNSKEY (key tag + digest)
-4. Verify RRSIG signatures are valid against the DNSKEY
-5. Check signature expiration dates
-
-**Acceptance criteria**:
-- [ ] Lint validates DS → DNSKEY binding (key tag and digest match)
-- [ ] Lint checks RRSIG expiration (warn if expiring within 7 days, fail if expired)
-- [ ] Lint checks DNSKEY algorithm strength (warn on weak algorithms like RSAMD5)
-- [ ] `CheckResult::Ok` when full chain validates
-- [ ] `CheckResult::Failed` when chain is broken
-- [ ] `CheckResult::Warning` for weak algorithms or near-expiry signatures
-- [ ] Unit tests with known-good and known-bad DNSSEC data
-- [ ] `cargo test --lib` passes
-
-### 7. DNSSEC trust chain visualization
-
-**Context**: After tasks 5+6, mhost can validate the DNSSEC chain cryptographically. This task adds a visual representation of the trust chain in the terminal, making DNSSEC debugging accessible and intuitive. No existing CLI tool does this well.
-
-**Task**: Add a `--visualize` flag to the DNSSEC check lint (or a standalone `mhost dnssec` subcommand) that renders the full trust chain:
-1. Query root → TLD → zone for DS, DNSKEY, and RRSIG records at each level
-2. Render a tree showing: root KSK → TLD DS → TLD DNSKEY → zone DS → zone DNSKEY → RRSIG
-3. Color-code each link: green for valid, red for broken, yellow for warnings (weak algo, near-expiry)
-4. Show key tags, algorithms, and expiration dates inline
-
-**Acceptance criteria**:
-- [ ] Renders a delegation-level trust chain from root to target zone
-- [ ] Each node shows: record type, key tag, algorithm name, validity status
-- [ ] Color-coded: green (valid), red (broken/expired), yellow (weak algo or expiring within 7 days)
-- [ ] Works with `--ascii` flag (no Unicode box-drawing)
-- [ ] JSON output includes structured chain data
-- [ ] `cargo test --lib` passes
-- [ ] `cargo clippy` clean
 
 ---
 
