@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span, Text};
@@ -125,6 +127,11 @@ fn draw_table(f: &mut Frame, app: &App, area: Rect) {
             let type_str: &'static str = r.record_type.into();
             let line_num = Cell::from(format!("{}", idx + 1))
                 .style(Style::default().fg(Color::DarkGray));
+            let ttl_str = if app.human_view {
+                format_ttl(r.ttl)
+            } else {
+                r.ttl.to_string()
+            };
             if app.human_view {
                 let human = format_rdata_human(r);
                 let value_lines: Vec<Line> = human
@@ -148,7 +155,7 @@ fn draw_table(f: &mut Frame, app: &App, area: Rect) {
                     line_num,
                     Cell::from(r.name.as_str()),
                     Cell::from(type_str).style(type_style),
-                    Cell::from(r.ttl.to_string()).style(Style::default().fg(Color::Gray)),
+                    Cell::from(ttl_str).style(Style::default().fg(Color::Gray)),
                     Cell::from(Text::from(value_lines)),
                 ])
                 .height(height)
@@ -157,7 +164,7 @@ fn draw_table(f: &mut Frame, app: &App, area: Rect) {
                     line_num,
                     Cell::from(r.name.as_str()),
                     Cell::from(type_str).style(type_style),
-                    Cell::from(r.ttl.to_string()).style(Style::default().fg(Color::Gray)),
+                    Cell::from(ttl_str).style(Style::default().fg(Color::Gray)),
                     Cell::from(r.value.as_str()),
                 ])
             }
@@ -371,7 +378,7 @@ fn draw_record_popup(f: &mut Frame, app: &App) {
         ]),
         Line::from(vec![
             Span::styled("TTL: ", Style::default().fg(Color::Gray)),
-            Span::raw(row.ttl.to_string()),
+            Span::raw(format_ttl(row.ttl)),
         ]),
         Line::raw(""),
     ];
@@ -662,6 +669,10 @@ fn to_ratatui_style(rt: RecordType) -> Style {
         style = style.add_modifier(Modifier::BOLD);
     }
     style
+}
+
+fn format_ttl(ttl: u32) -> String {
+    humantime::format_duration(Duration::from_secs(ttl as u64)).to_string()
 }
 
 /// Extract the subdomain prefix from a full record name given the queried domain.
