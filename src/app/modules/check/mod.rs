@@ -16,7 +16,7 @@ use crate::app::ExitStatus;
 
 pub mod config;
 #[allow(clippy::module_inception)]
-mod lints;
+pub mod lints;
 
 use config::CheckConfig;
 use lints::Check;

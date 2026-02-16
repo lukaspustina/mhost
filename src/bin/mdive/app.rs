@@ -12,6 +12,8 @@ use mhost::{Name, RecordType};
 use ratatui::widgets::TableState;
 use regex::RegexBuilder;
 
+use crate::lints::{self, LintSection};
+
 /// All categories available for toggling, in display order.
 /// Keys 1-9 map to indices 0-8, key 0 maps to index 9.
 pub const TOGGLEABLE_CATEGORIES: &[Category] = &[
@@ -114,6 +116,7 @@ pub enum Popup {
     Help,
     Servers,
     Whois,
+    Lints,
 }
 
 pub enum Action {
@@ -145,6 +148,7 @@ pub enum Action {
     OpenHelp,
     OpenServers,
     OpenWhois,
+    OpenLints,
     ClosePopup,
     PopupScrollUp,
     PopupScrollDown,
@@ -193,6 +197,9 @@ pub struct App {
     /// Tracks which query generation a pending/completed WHOIS fetch belongs to,
     /// so stale results from a previous query can be discarded.
     pub(crate) whois_generation: u64,
+    pub lint_results: Option<Vec<LintSection>>,
+    pub lint_scroll: u16,
+    pub lint_line_count: u16,
 }
 
 impl App {
@@ -224,6 +231,9 @@ impl App {
             whois_line_count: 0,
             whois_loading: false,
             whois_generation: 0,
+            lint_results: None,
+            lint_scroll: 0,
+            lint_line_count: 0,
         }
     }
 
@@ -324,6 +334,7 @@ impl App {
                     self.whois_data = None;
                     self.whois_error = None;
                     self.whois_loading = false;
+                    self.lint_results = None;
                 }
             }
 
@@ -496,6 +507,15 @@ impl App {
                 self.popup = Popup::Whois;
                 self.whois_scroll = 0;
             }
+            Action::OpenLints => {
+                self.popup = Popup::Lints;
+                self.lint_scroll = 0;
+                if self.lint_results.is_none() {
+                    if let Some(ref lookups) = self.lookups {
+                        self.lint_results = Some(lints::run_lints(lookups));
+                    }
+                }
+            }
             Action::WhoisResult { generation, data } => {
                 if generation == self.query_generation {
                     self.whois_data = Some(data);
@@ -513,24 +533,40 @@ impl App {
                 self.popup = Popup::None;
             }
             Action::PopupScrollUp => {
-                self.whois_scroll = self.whois_scroll.saturating_sub(1);
+                match self.popup {
+                    Popup::Lints => self.lint_scroll = self.lint_scroll.saturating_sub(1),
+                    _ => self.whois_scroll = self.whois_scroll.saturating_sub(1),
+                }
             }
             Action::PopupScrollDown => {
-                self.whois_scroll = self.whois_scroll.saturating_add(1)
-                    .min(self.whois_line_count);
+                match self.popup {
+                    Popup::Lints => self.lint_scroll = self.lint_scroll.saturating_add(1).min(self.lint_line_count),
+                    _ => self.whois_scroll = self.whois_scroll.saturating_add(1).min(self.whois_line_count),
+                }
             }
             Action::PopupScrollPageUp => {
-                self.whois_scroll = self.whois_scroll.saturating_sub(10);
+                match self.popup {
+                    Popup::Lints => self.lint_scroll = self.lint_scroll.saturating_sub(10),
+                    _ => self.whois_scroll = self.whois_scroll.saturating_sub(10),
+                }
             }
             Action::PopupScrollPageDown => {
-                self.whois_scroll = self.whois_scroll.saturating_add(10)
-                    .min(self.whois_line_count);
+                match self.popup {
+                    Popup::Lints => self.lint_scroll = self.lint_scroll.saturating_add(10).min(self.lint_line_count),
+                    _ => self.whois_scroll = self.whois_scroll.saturating_add(10).min(self.whois_line_count),
+                }
             }
             Action::PopupScrollHome => {
-                self.whois_scroll = 0;
+                match self.popup {
+                    Popup::Lints => self.lint_scroll = 0,
+                    _ => self.whois_scroll = 0,
+                }
             }
             Action::PopupScrollEnd => {
-                self.whois_scroll = self.whois_line_count;
+                match self.popup {
+                    Popup::Lints => self.lint_scroll = self.lint_line_count,
+                    _ => self.whois_scroll = self.whois_line_count,
+                }
             }
 
             Action::DnsBatch { generation, lookups, completed, total } => {

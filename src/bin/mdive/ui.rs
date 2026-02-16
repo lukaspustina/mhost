@@ -11,6 +11,7 @@ use ratatui::Frame;
 
 use mhost::app::common::styles::{record_type_color, record_type_is_bold};
 use mhost::app::common::reference_data;
+use mhost::app::modules::check::lints::CheckResult;
 use mhost::services::whois::WhoisResponse;
 use mhost::RecordType;
 
@@ -40,12 +41,13 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         Popup::Help => draw_help_popup(f),
         Popup::Servers => draw_servers_popup(f, app),
         Popup::Whois => draw_whois_popup(f, app),
+        Popup::Lints => draw_lints_popup(f, app),
         Popup::None => {}
     }
 }
 
 fn draw_input(f: &mut Frame, app: &App, area: Rect) {
-    let title_right = " [?]help [/]filter [C]lear [i]nput [r]re-run [s]ervers [w]hois [h]uman [a]ll [n]one [q]uit ";
+    let title_right = " [?]help [/]filter [C]lear [i]nput [r]re-run [s]ervers [w]hois [c]heck [h]uman [a]ll [n]one [q]uit ";
 
     let title_left: Line = if let Some(ref filter) = app.filter {
         Line::from(vec![
@@ -559,6 +561,7 @@ fn draw_help_popup(f: &mut Frame) {
         help_line("h", "Toggle human-readable view"),
         help_line("s", "Show servers used"),
         help_line("w", "Show WHOIS for result IPs"),
+        help_line("c", "Show DNS health checks"),
         Line::raw(""),
         Line::from(Span::styled(
             "Query",
@@ -796,6 +799,105 @@ fn draw_whois_popup(f: &mut Frame, app: &mut App) {
         .block(
             Block::default()
                 .title(" WHOIS ")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan)),
+        );
+
+    f.render_widget(Clear, popup_area);
+    f.render_widget(popup, popup_area);
+
+    // Scrollbar
+    if max_scroll > 0 {
+        let mut scrollbar_state = ScrollbarState::new(max_scroll as usize)
+            .position(scroll as usize);
+        let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
+            .begin_symbol(None)
+            .end_symbol(None);
+        let scrollbar_area = Rect {
+            x: popup_area.x,
+            y: popup_area.y + 1,
+            width: popup_area.width,
+            height: popup_area.height.saturating_sub(2),
+        };
+        f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
+    }
+}
+
+fn draw_lints_popup(f: &mut Frame, app: &mut App) {
+    let dim = Style::default().fg(Color::Gray);
+
+    let mut lines: Vec<Line> = vec![Line::raw("")];
+
+    if let Some(ref sections) = app.lint_results {
+        if sections.is_empty() {
+            lines.push(Line::from(Span::styled(
+                " No lint results available",
+                dim,
+            )));
+        } else {
+            for (i, section) in sections.iter().enumerate() {
+                if i > 0 {
+                    lines.push(Line::raw(""));
+                }
+                lines.push(Line::from(Span::styled(
+                    format!(" {}", section.name),
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                )));
+
+                for result in &section.results {
+                    let (icon, style, msg): (&str, Style, &str) = match result {
+                        CheckResult::Ok(msg) => (
+                            "\u{2713}",
+                            Style::default().fg(Color::Green),
+                            msg.as_str(),
+                        ),
+                        CheckResult::Warning(msg) => (
+                            "!",
+                            Style::default().fg(Color::Yellow),
+                            msg.as_str(),
+                        ),
+                        CheckResult::Failed(msg) => (
+                            "\u{2717}",
+                            Style::default().fg(Color::Red),
+                            msg.as_str(),
+                        ),
+                        CheckResult::NotFound() => continue,
+                    };
+                    lines.push(Line::from(vec![
+                        Span::styled(format!("   {icon} "), style),
+                        Span::raw(msg.to_string()),
+                    ]));
+                }
+            }
+        }
+    } else {
+        lines.push(Line::from(Span::styled(
+            " No query results yet",
+            dim,
+        )));
+    }
+
+    lines.push(Line::raw(""));
+    lines.push(
+        Line::from(Span::styled("[Esc] close  [j/k] scroll", dim)).right_aligned(),
+    );
+
+    let area = f.area();
+    let popup_area = centered_rect(area, 60, 80, 50, 90);
+    let inner_height = popup_area.height.saturating_sub(2);
+    let total_lines = lines.len() as u16;
+    let max_scroll = total_lines.saturating_sub(inner_height);
+    app.lint_line_count = max_scroll;
+    let scroll = app.lint_scroll.min(max_scroll);
+
+    let popup = Paragraph::new(lines)
+        .wrap(Wrap { trim: false })
+        .scroll((scroll, 0))
+        .block(
+            Block::default()
+                .title(" DNS Health Checks ")
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan)),
         );

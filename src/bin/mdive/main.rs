@@ -1,5 +1,6 @@
 mod app;
 mod dns;
+mod lints;
 mod ui;
 
 use std::io;
@@ -198,17 +199,17 @@ fn map_key(key: KeyEvent, app: &App) -> Option<Action> {
     if app.popup != Popup::None {
         return match key.code {
             KeyCode::Enter | KeyCode::Esc | KeyCode::Char('q') => Some(Action::ClosePopup),
-            // Scrolling in WHOIS popup
-            KeyCode::Char('j') | KeyCode::Down if app.popup == Popup::Whois => {
+            // Scrolling in scrollable popups (WHOIS, Lints)
+            KeyCode::Char('j') | KeyCode::Down if app.popup == Popup::Whois || app.popup == Popup::Lints => {
                 Some(Action::PopupScrollDown)
             }
-            KeyCode::Char('k') | KeyCode::Up if app.popup == Popup::Whois => {
+            KeyCode::Char('k') | KeyCode::Up if app.popup == Popup::Whois || app.popup == Popup::Lints => {
                 Some(Action::PopupScrollUp)
             }
-            KeyCode::PageDown if app.popup == Popup::Whois => Some(Action::PopupScrollPageDown),
-            KeyCode::PageUp if app.popup == Popup::Whois => Some(Action::PopupScrollPageUp),
-            KeyCode::Char('g') if app.popup == Popup::Whois => Some(Action::PopupScrollHome),
-            KeyCode::Char('G') if app.popup == Popup::Whois => Some(Action::PopupScrollEnd),
+            KeyCode::PageDown if app.popup == Popup::Whois || app.popup == Popup::Lints => Some(Action::PopupScrollPageDown),
+            KeyCode::PageUp if app.popup == Popup::Whois || app.popup == Popup::Lints => Some(Action::PopupScrollPageUp),
+            KeyCode::Char('g') if app.popup == Popup::Whois || app.popup == Popup::Lints => Some(Action::PopupScrollHome),
+            KeyCode::Char('G') if app.popup == Popup::Whois || app.popup == Popup::Lints => Some(Action::PopupScrollEnd),
             _ => None,
         };
     }
@@ -282,6 +283,7 @@ fn map_normal_key(key: KeyEvent, app: &App) -> Option<Action> {
         KeyCode::Char('r') => Some(Action::SubmitQuery),
         KeyCode::Char('s') => Some(Action::OpenServers),
         KeyCode::Char('w') => Some(Action::OpenWhois),
+        KeyCode::Char('c') => Some(Action::OpenLints),
         KeyCode::Char('?') => Some(Action::OpenHelp),
         KeyCode::Char('h') => Some(Action::ToggleHumanView),
         KeyCode::Char('a') => Some(Action::SelectAll),

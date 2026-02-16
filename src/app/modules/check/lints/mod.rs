@@ -93,6 +93,17 @@ pub mod soa;
 pub mod spf;
 pub mod ttl;
 
+// Re-export shared lint functions for mdive
+pub use caa::check_caa;
+pub use cnames::check_cname_apex;
+pub use dmarc::{check_dmarc_records, is_dmarc};
+pub use dnssec_lint::check_dnssec;
+pub use https_svcb::check_https_svcb_mode;
+pub use mx::check_mx_sync;
+pub use ns::check_ns_count;
+pub use spf::check_spf;
+pub use ttl::check_ttl;
+
 #[derive(Debug, Serialize)]
 pub struct CheckResults {
     lookups: Lookups,

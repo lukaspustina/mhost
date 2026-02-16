@@ -17,8 +17,27 @@ use crate::app::modules::{Environment, PartialResult};
 use crate::app::resolver::AppResolver;
 use crate::app::utils::time;
 use crate::resolver::lookup::Uniquify;
-use crate::resolver::MultiQuery;
+use crate::resolver::{Lookups, MultiQuery};
 use crate::{Name, RecordType};
+
+/// Run synchronous CNAME apex lint check against the given lookups.
+pub fn check_cname_apex(lookups: &Lookups) -> Vec<CheckResult> {
+    let mut results = Vec::new();
+    let is_apex = !lookups.soa().is_empty();
+    if is_apex {
+        if lookups.cname().is_empty() {
+            results.push(CheckResult::Ok("Apex zone without CNAME".to_string()));
+        } else {
+            results.push(CheckResult::Failed(
+                "Apex zone with CNAME: apex zones must not have CNAME records; cf. RFC 1034, section 3.6.2"
+                    .to_string(),
+            ));
+        }
+    } else {
+        results.push(CheckResult::Ok("Not apex zone".to_string()));
+    }
+    results
+}
 
 macro_rules! record_lint {
     ($record:ident, $mapper:expr, $level:ident, $msg:literal) => {
@@ -80,9 +99,8 @@ impl<'a> Cnames<'a> {
         if self.env.console.show_partial_headers() {
             self.env.console.caption("Checking CNAME lints");
         }
-        let mut results = Vec::new();
+        let mut results = check_cname_apex(&self.check_results.lookups);
 
-        self.apex(&mut results)?;
         self.mx(&mut results).await?;
         self.srv(&mut results).await?;
         self.cname(&mut results).await?;
@@ -91,34 +109,6 @@ impl<'a> Cnames<'a> {
         print_check_results!(self, results, "No records found.");
 
         Ok(results)
-    }
-
-    // This lint should never fail, because even a specific DNS server implementation may allow configurations of
-    // CNAMEs on APEX zones, it should never deliver these RR as answers, since this would be in violation of the DNS RFC.
-    // cf. https://www.isc.org/blogs/cname-at-the-apex-of-a-zone/ for a easy to understand explanation.
-    #[allow(clippy::unnecessary_wraps)]
-    fn apex(&self, results: &mut Vec<CheckResult>) -> Result<()> {
-        if self.env.console.show_partial_headers() {
-            self.env.console.itemize("Apex");
-        }
-
-        let lookups = &self.check_results.lookups;
-        let is_apex = !lookups.soa().is_empty();
-
-        if is_apex {
-            if lookups.cname().is_empty() {
-                results.push(CheckResult::Ok("Apex zone without CNAME".to_string()));
-            } else {
-                results.push(CheckResult::Failed(
-                    "Apex zone with CNAME: apex zones must not have CNAME records; cf. RFC 1034, section 3.6.2"
-                        .to_string(),
-                ));
-            }
-        } else {
-            results.push(CheckResult::Ok("Not apex zone".to_string()));
-        }
-
-        Ok(())
     }
 
     record_lint!(

@@ -18,8 +18,29 @@ use crate::app::resolver::AppResolver;
 use crate::app::utils::time;
 use crate::nameserver::NameServerConfig;
 use crate::resolver::lookup::Uniquify;
-use crate::resolver::{MultiQuery, ResolverConfig};
+use crate::resolver::{Lookups, MultiQuery, ResolverConfig};
 use crate::{Name, RecordType};
+
+/// Run synchronous NS count lint check against the given lookups.
+pub fn check_ns_count(lookups: &Lookups) -> Vec<CheckResult> {
+    let ns_names: Vec<Name> = lookups.ns().unique().to_owned().into_iter().collect();
+    let mut results = Vec::new();
+    check_minimum_ns_count(&ns_names, &mut results);
+    results
+}
+
+fn check_minimum_ns_count(ns_names: &[Name], results: &mut Vec<CheckResult>) {
+    match ns_names.len() {
+        0 => results.push(CheckResult::NotFound()),
+        1 => results.push(CheckResult::Warning(
+            "Only 1 NS record found: RFC 1035 recommends at least 2 nameservers for redundancy".to_string(),
+        )),
+        n => results.push(CheckResult::Ok(format!(
+            "Found {} NS records, meeting minimum redundancy requirement",
+            n
+        ))),
+    }
+}
 
 pub struct Ns<'a> {
     pub env: Environment<'a, CheckConfig>,
@@ -49,7 +70,8 @@ impl<'a> Ns<'a> {
         if self.env.console.show_partial_headers() {
             self.env.console.caption("Checking NS delegation lints");
         }
-        let mut results = Vec::new();
+
+        let mut results = check_ns_count(&self.check_results.lookups);
 
         let ns_names: Vec<Name> = self
             .check_results
@@ -60,8 +82,6 @@ impl<'a> Ns<'a> {
             .into_iter()
             .collect();
 
-        Self::check_minimum_ns_count(&ns_names, &mut results);
-
         if !ns_names.is_empty() {
             self.check_delegation_and_diversity(&ns_names, &mut results).await?;
         }
@@ -69,19 +89,6 @@ impl<'a> Ns<'a> {
         print_check_results!(self, results, "No NS records found.");
 
         Ok(results)
-    }
-
-    fn check_minimum_ns_count(ns_names: &[Name], results: &mut Vec<CheckResult>) {
-        match ns_names.len() {
-            0 => results.push(CheckResult::NotFound()),
-            1 => results.push(CheckResult::Warning(
-                "Only 1 NS record found: RFC 1035 recommends at least 2 nameservers for redundancy".to_string(),
-            )),
-            n => results.push(CheckResult::Ok(format!(
-                "Found {} NS records, meeting minimum redundancy requirement",
-                n
-            ))),
-        }
     }
 
     async fn check_delegation_and_diversity(
@@ -234,7 +241,7 @@ mod tests {
     #[test]
     fn check_minimum_ns_count_zero() {
         let mut results = Vec::new();
-        Ns::check_minimum_ns_count(&[], &mut results);
+        check_minimum_ns_count(&[], &mut results);
         assert_eq!(results.len(), 1);
         assert!(matches!(&results[0], CheckResult::NotFound()));
     }
@@ -243,7 +250,7 @@ mod tests {
     fn check_minimum_ns_count_one() {
         let mut results = Vec::new();
         let names = vec![Name::from_ascii("ns1.example.com.").unwrap()];
-        Ns::check_minimum_ns_count(&names, &mut results);
+        check_minimum_ns_count(&names, &mut results);
         assert_eq!(results.len(), 1);
         assert!(matches!(&results[0], CheckResult::Warning(_)));
     }
@@ -255,7 +262,7 @@ mod tests {
             Name::from_ascii("ns1.example.com.").unwrap(),
             Name::from_ascii("ns2.example.com.").unwrap(),
         ];
-        Ns::check_minimum_ns_count(&names, &mut results);
+        check_minimum_ns_count(&names, &mut results);
         assert_eq!(results.len(), 1);
         assert!(matches!(&results[0], CheckResult::Ok(_)));
     }
