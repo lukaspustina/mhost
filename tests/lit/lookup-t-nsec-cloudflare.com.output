@@ -1,6 +1,5 @@
 RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color lookup -t NSEC cloudflare.com
 
 CHECK: > Running lookups.
-CHECK: * NSEC:  next domain
-CHECK: types:
+CHECK: * NSEC:  next domain [[.*]]types:
 CHECK: + Finished.
