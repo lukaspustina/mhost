@@ -7,6 +7,7 @@ use mhost::app::common::rdata_format::{format_rdata, format_rdata_human};
 use mhost::app::common::resolver_args::ResolverArgs;
 use mhost::app::common::subdomain_spec::{default_entries, Category};
 use mhost::resolver::lookup::Lookups;
+use mhost::services::whois::WhoisResponses;
 use mhost::{Name, RecordType};
 use ratatui::widgets::TableState;
 use regex::RegexBuilder;
@@ -112,6 +113,7 @@ pub enum Popup {
     RecordDetail(usize),
     Help,
     Servers,
+    Whois,
 }
 
 pub enum Action {
@@ -142,7 +144,16 @@ pub enum Action {
     OpenPopup,
     OpenHelp,
     OpenServers,
+    OpenWhois,
     ClosePopup,
+    PopupScrollUp,
+    PopupScrollDown,
+    PopupScrollPageUp,
+    PopupScrollPageDown,
+    PopupScrollHome,
+    PopupScrollEnd,
+    WhoisResult { generation: u64, data: WhoisResponses },
+    WhoisError { generation: u64, message: String },
     DigitPress(char),
     PressG,
     PressCapG,
@@ -173,6 +184,15 @@ pub struct App {
     pub(crate) lookups: Option<Lookups>,
     /// Monotonically increasing query generation; used to discard stale DNS results.
     pub(crate) query_generation: u64,
+    pub whois_data: Option<WhoisResponses>,
+    pub whois_error: Option<String>,
+    pub whois_scroll: u16,
+    pub whois_line_count: u16,
+    /// True while a WHOIS fetch is in progress.
+    pub(crate) whois_loading: bool,
+    /// Tracks which query generation a pending/completed WHOIS fetch belongs to,
+    /// so stale results from a previous query can be discarded.
+    pub(crate) whois_generation: u64,
 }
 
 impl App {
@@ -198,6 +218,12 @@ impl App {
             pending_g: false,
             lookups: None,
             query_generation: 0,
+            whois_data: None,
+            whois_error: None,
+            whois_scroll: 0,
+            whois_line_count: 0,
+            whois_loading: false,
+            whois_generation: 0,
         }
     }
 
@@ -295,6 +321,9 @@ impl App {
                     self.filter_error = false;
                     self.filter_input.clear();
                     self.filter_cursor_pos = 0;
+                    self.whois_data = None;
+                    self.whois_error = None;
+                    self.whois_loading = false;
                 }
             }
 
@@ -463,8 +492,45 @@ impl App {
             Action::OpenServers => {
                 self.popup = Popup::Servers;
             }
+            Action::OpenWhois => {
+                self.popup = Popup::Whois;
+                self.whois_scroll = 0;
+            }
+            Action::WhoisResult { generation, data } => {
+                if generation == self.query_generation {
+                    self.whois_data = Some(data);
+                    self.whois_error = None;
+                    self.whois_loading = false;
+                }
+            }
+            Action::WhoisError { generation, message } => {
+                if generation == self.query_generation {
+                    self.whois_error = Some(message);
+                    self.whois_loading = false;
+                }
+            }
             Action::ClosePopup => {
                 self.popup = Popup::None;
+            }
+            Action::PopupScrollUp => {
+                self.whois_scroll = self.whois_scroll.saturating_sub(1);
+            }
+            Action::PopupScrollDown => {
+                self.whois_scroll = self.whois_scroll.saturating_add(1)
+                    .min(self.whois_line_count);
+            }
+            Action::PopupScrollPageUp => {
+                self.whois_scroll = self.whois_scroll.saturating_sub(10);
+            }
+            Action::PopupScrollPageDown => {
+                self.whois_scroll = self.whois_scroll.saturating_add(10)
+                    .min(self.whois_line_count);
+            }
+            Action::PopupScrollHome => {
+                self.whois_scroll = 0;
+            }
+            Action::PopupScrollEnd => {
+                self.whois_scroll = self.whois_line_count;
             }
 
             Action::DnsBatch { generation, lookups, completed, total } => {
@@ -527,6 +593,15 @@ impl App {
                 self.batch_progress = (0, 0);
             }
         }
+    }
+
+    /// Returns true if the WHOIS popup is open and data needs to be fetched.
+    pub fn needs_whois_fetch(&self) -> bool {
+        self.popup == Popup::Whois
+            && self.whois_data.is_none()
+            && self.whois_error.is_none()
+            && !self.whois_loading
+            && self.lookups.is_some()
     }
 
     pub fn current_domain(&self) -> &str {

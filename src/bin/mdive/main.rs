@@ -148,6 +148,21 @@ async fn run(
             dns::spawn_domain_query(domain, resolver_args, tx, generation);
         }
 
+        // If WHOIS popup is open and data needs fetching, spawn the WHOIS query
+        if app.needs_whois_fetch() {
+            if let Some(ref lookups) = app.lookups {
+                let ips = dns::ips_from_lookups(lookups);
+                if ips.is_empty() {
+                    app.whois_error = Some("No IP addresses found in results".to_string());
+                } else {
+                    let generation = app.query_generation;
+                    dns::spawn_whois_query(ips, tx.clone(), generation);
+                    app.whois_loading = true;
+                    app.whois_generation = generation;
+                }
+            }
+        }
+
         tokio::select! {
             Some(event_result) = event_stream.next() => {
                 match event_result {
@@ -179,10 +194,21 @@ fn map_key(key: KeyEvent, app: &App) -> Option<Action> {
         return Some(Action::Quit);
     }
 
-    // When any popup is open, only allow closing it
+    // When any popup is open, handle close + scrolling for scrollable popups
     if app.popup != Popup::None {
         return match key.code {
             KeyCode::Enter | KeyCode::Esc | KeyCode::Char('q') => Some(Action::ClosePopup),
+            // Scrolling in WHOIS popup
+            KeyCode::Char('j') | KeyCode::Down if app.popup == Popup::Whois => {
+                Some(Action::PopupScrollDown)
+            }
+            KeyCode::Char('k') | KeyCode::Up if app.popup == Popup::Whois => {
+                Some(Action::PopupScrollUp)
+            }
+            KeyCode::PageDown if app.popup == Popup::Whois => Some(Action::PopupScrollPageDown),
+            KeyCode::PageUp if app.popup == Popup::Whois => Some(Action::PopupScrollPageUp),
+            KeyCode::Char('g') if app.popup == Popup::Whois => Some(Action::PopupScrollHome),
+            KeyCode::Char('G') if app.popup == Popup::Whois => Some(Action::PopupScrollEnd),
             _ => None,
         };
     }
@@ -236,7 +262,7 @@ fn map_normal_key(key: KeyEvent, app: &App) -> Option<Action> {
         KeyCode::Char('q') => Some(Action::Quit),
         KeyCode::Char('i') => Some(Action::EnterInputMode),
         KeyCode::Char('/') => Some(Action::EnterSearchMode),
-        KeyCode::Char('F') if app.filter.is_some() => Some(Action::ClearFilter),
+        KeyCode::Char('C') if app.filter.is_some() => Some(Action::ClearFilter),
         KeyCode::Esc if app.filter.is_some() => Some(Action::ClearFilter),
         KeyCode::Enter => {
             if app.table_state.selected().is_some() {
@@ -255,6 +281,7 @@ fn map_normal_key(key: KeyEvent, app: &App) -> Option<Action> {
         KeyCode::PageDown => Some(Action::PageDown),
         KeyCode::Char('r') => Some(Action::SubmitQuery),
         KeyCode::Char('s') => Some(Action::OpenServers),
+        KeyCode::Char('w') => Some(Action::OpenWhois),
         KeyCode::Char('?') => Some(Action::OpenHelp),
         KeyCode::Char('h') => Some(Action::ToggleHumanView),
         KeyCode::Char('a') => Some(Action::SelectAll),

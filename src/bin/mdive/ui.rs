@@ -11,6 +11,7 @@ use ratatui::Frame;
 
 use mhost::app::common::styles::{record_type_color, record_type_is_bold};
 use mhost::app::common::reference_data;
+use mhost::services::whois::WhoisResponse;
 use mhost::RecordType;
 
 use crate::app::{
@@ -38,12 +39,13 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         Popup::RecordDetail(_) => draw_record_popup(f, app),
         Popup::Help => draw_help_popup(f),
         Popup::Servers => draw_servers_popup(f, app),
+        Popup::Whois => draw_whois_popup(f, app),
         Popup::None => {}
     }
 }
 
 fn draw_input(f: &mut Frame, app: &App, area: Rect) {
-    let title_right = " [?]help [/]filter [F]clear [i]nput [r]re-run [s]ervers [h]uman [a]ll [n]one [q]uit ";
+    let title_right = " [?]help [/]filter [C]lear [i]nput [r]re-run [s]ervers [w]hois [h]uman [a]ll [n]one [q]uit ";
 
     let title_left: Line = if let Some(ref filter) = app.filter {
         Line::from(vec![
@@ -556,6 +558,7 @@ fn draw_help_popup(f: &mut Frame) {
         help_line("Enter", "Show record details"),
         help_line("h", "Toggle human-readable view"),
         help_line("s", "Show servers used"),
+        help_line("w", "Show WHOIS for result IPs"),
         Line::raw(""),
         Line::from(Span::styled(
             "Query",
@@ -563,7 +566,7 @@ fn draw_help_popup(f: &mut Frame) {
         )),
         help_line("i", "Enter domain input mode"),
         help_line("/", "Filter results"),
-        help_line("F", "Clear active filter"),
+        help_line("C", "Clear active filter"),
         help_line("r", "Re-run current query"),
         Line::raw(""),
         Line::from(Span::styled(
@@ -666,6 +669,155 @@ fn draw_servers_popup(f: &mut Frame, app: &App) {
 
     f.render_widget(Clear, popup_area);
     f.render_widget(popup, popup_area);
+}
+
+fn draw_whois_popup(f: &mut Frame, app: &mut App) {
+    let dim = Style::default().fg(Color::Gray);
+
+    let mut lines: Vec<Line> = vec![Line::raw("")];
+
+    if let Some(ref error) = app.whois_error {
+        lines.push(Line::from(Span::styled(
+            format!(" Error: {error}"),
+            Style::default().fg(Color::Red),
+        )));
+    } else if let Some(ref responses) = app.whois_data {
+        // Group responses by IP
+        let mut ip_order: Vec<ipnetwork::IpNetwork> = Vec::new();
+        let mut by_ip: std::collections::HashMap<ipnetwork::IpNetwork, Vec<&WhoisResponse>> =
+            std::collections::HashMap::new();
+        for resp in responses.iter() {
+            let ip = *resp.resource();
+            by_ip.entry(ip).or_default().push(resp);
+            if !ip_order.contains(&ip) {
+                ip_order.push(ip);
+            }
+        }
+
+        for (i, ip) in ip_order.iter().enumerate() {
+            if i > 0 {
+                lines.push(Line::raw(""));
+            }
+            lines.push(Line::from(Span::styled(
+                format!(" {ip}"),
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )));
+
+            if let Some(resps) = by_ip.get(ip) {
+                for resp in resps {
+                    match resp {
+                        WhoisResponse::NetworkInfo { network_info, .. } => {
+                            let asns = network_info.asns().join(", ");
+                            let prefix = network_info.prefix();
+                            lines.push(Line::from(vec![
+                                Span::styled("   Network: ", dim),
+                                Span::raw(format!("AS {asns}, Prefix {prefix}")),
+                            ]));
+                        }
+                        WhoisResponse::Whois { whois, .. } => {
+                            if let Some(net_name) = whois.net_name() {
+                                lines.push(Line::from(vec![
+                                    Span::styled("   Net name: ", dim),
+                                    Span::raw(net_name.to_string()),
+                                ]));
+                            }
+                            if let Some(org) = whois.organization() {
+                                lines.push(Line::from(vec![
+                                    Span::styled("   Organization: ", dim),
+                                    Span::raw(org.to_string()),
+                                ]));
+                            }
+                            if let Some(country) = whois.country() {
+                                lines.push(Line::from(vec![
+                                    Span::styled("   Country: ", dim),
+                                    Span::raw(country.to_string()),
+                                ]));
+                            }
+                            if let Some(authority) = whois.source() {
+                                lines.push(Line::from(vec![
+                                    Span::styled("   Authority: ", dim),
+                                    Span::raw(format!("{authority}")),
+                                ]));
+                            }
+                        }
+                        WhoisResponse::GeoLocation { geo_location, .. } => {
+                            for resource in geo_location.located_resources() {
+                                for loc in resource.locations() {
+                                    lines.push(Line::from(vec![
+                                        Span::styled("   Location: ", dim),
+                                        Span::raw(format!("{}, {}", loc.city(), loc.country())),
+                                    ]));
+                                }
+                            }
+                        }
+                        WhoisResponse::Error { err, .. } => {
+                            lines.push(Line::from(vec![
+                                Span::styled("   Error: ", Style::default().fg(Color::Red)),
+                                Span::raw(format!("{err}")),
+                            ]));
+                        }
+                    }
+                }
+            }
+        }
+
+        if ip_order.is_empty() {
+            lines.push(Line::from(Span::styled(
+                " No WHOIS data available",
+                dim,
+            )));
+        }
+    } else {
+        lines.push(Line::from(Span::styled(
+            " Loading WHOIS data...",
+            Style::default().fg(Color::Yellow),
+        )));
+    }
+
+    lines.push(Line::raw(""));
+    lines.push(
+        Line::from(Span::styled("[Esc] close  [j/k] scroll", dim)).right_aligned(),
+    );
+
+    let area = f.area();
+    let popup_area = centered_rect(area, 60, 80, 50, 90);
+    // Inner height = popup height - 2 (top + bottom border)
+    let inner_height = popup_area.height.saturating_sub(2);
+    let total_lines = lines.len() as u16;
+    let max_scroll = total_lines.saturating_sub(inner_height);
+    app.whois_line_count = max_scroll;
+    let scroll = app.whois_scroll.min(max_scroll);
+
+    let popup = Paragraph::new(lines)
+        .wrap(Wrap { trim: false })
+        .scroll((scroll, 0))
+        .block(
+            Block::default()
+                .title(" WHOIS ")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan)),
+        );
+
+    f.render_widget(Clear, popup_area);
+    f.render_widget(popup, popup_area);
+
+    // Scrollbar
+    if max_scroll > 0 {
+        let mut scrollbar_state = ScrollbarState::new(max_scroll as usize)
+            .position(scroll as usize);
+        let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
+            .begin_symbol(None)
+            .end_symbol(None);
+        let scrollbar_area = Rect {
+            x: popup_area.x,
+            y: popup_area.y + 1,
+            width: popup_area.width,
+            height: popup_area.height.saturating_sub(2),
+        };
+        f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
+    }
 }
 
 /// Returns a centered `Rect` using percentage of the outer area, clamped to min/max width.

@@ -1,11 +1,15 @@
+use std::collections::HashSet;
+use std::net::IpAddr;
 use std::str::FromStr;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use futures::stream::{FuturesUnordered, StreamExt};
+use ipnetwork::IpNetwork;
 use mhost::app::common::resolver_args::ResolverArgs;
 use mhost::app::common::subdomain_spec::default_entries;
 use mhost::resolver::lookup::Lookups;
 use mhost::resolver::MultiQuery;
+use mhost::services::whois::{self, WhoisClient, WhoisClientOpts, QueryType};
 use mhost::{Name, RecordType};
 use tokio::sync::mpsc;
 
@@ -121,4 +125,74 @@ async fn run_domain_query(
     }
 
     Ok(())
+}
+
+/// Extract unique IP addresses from A and AAAA records in the lookups.
+pub fn ips_from_lookups(lookups: &Lookups) -> Vec<IpNetwork> {
+    let mut seen = HashSet::new();
+    let mut ips = Vec::new();
+
+    for lookup in lookups.iter() {
+        for record in lookup.records() {
+            if let Some(ipv4) = record.data().a() {
+                let ip = IpNetwork::from(IpAddr::V4(*ipv4));
+                if seen.insert(ip) {
+                    ips.push(ip);
+                }
+            }
+            if let Some(ipv6) = record.data().aaaa() {
+                let ip = IpNetwork::from(IpAddr::V6(*ipv6));
+                if seen.insert(ip) {
+                    ips.push(ip);
+                }
+            }
+        }
+    }
+
+    ips
+}
+
+/// Spawns a WHOIS query on a background OS thread with its own tokio runtime.
+///
+/// Queries GeoLocation, NetworkInfo, and Whois data for each unique IP found in the lookups.
+/// The `generation` tag is attached so the main loop can discard stale results.
+pub fn spawn_whois_query(
+    ips: Vec<IpNetwork>,
+    tx: mpsc::Sender<Action>,
+    generation: u64,
+) {
+    std::thread::spawn(move || {
+        let rt = match tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+        {
+            Ok(rt) => rt,
+            Err(e) => {
+                let _ = tx.blocking_send(Action::WhoisError {
+                    generation,
+                    message: format!("failed to build WHOIS runtime: {e}"),
+                });
+                return;
+            }
+        };
+
+        rt.block_on(async {
+            let query_types = vec![QueryType::NetworkInfo, QueryType::GeoLocation, QueryType::Whois];
+            let query = whois::MultiQuery::new(ips, query_types);
+            let opts = WhoisClientOpts::new(8, Duration::from_secs(5), false);
+            let client = WhoisClient::new(opts);
+
+            match client.query(query).await {
+                Ok(responses) => {
+                    let _ = tx.send(Action::WhoisResult { generation, data: responses }).await;
+                }
+                Err(e) => {
+                    let _ = tx.send(Action::WhoisError {
+                        generation,
+                        message: format!("{e:#}"),
+                    }).await;
+                }
+            }
+        });
+    });
 }
