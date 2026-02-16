@@ -42,10 +42,10 @@
 
 #### Surface existing mhost capabilities
 
-- **WHOIS panel** — Show registrar, expiry date, and nameserver delegation alongside DNS records using the existing RIPEStats integration.
+- ~~**WHOIS panel**~~ — Done. Press `w` to fetch and display WHOIS data (network, ASN, organization, geo-location) for all unique IPs in current results. Cached per query, scrollable popup with j/k navigation.
 - **Discovery strategies** — Let the user interactively kick off CT log lookups, NSEC walking, wordlist expansion, TXT mining, SRV probing and watch subdomains appear in real time.
-- **Lints / health checks** — Surface the 13 `check` lints in the TUI. Show diagnostic badges per record or a dedicated diagnostics panel. Transforms mdive from a viewer into an advisor.
-- **Summary / stats panel** — Collapsible top section: total unique records, record type distribution, server count, anomalies detected.
+- ~~**Lints / health checks**~~ — Done. Press `c` to show DNS health checks popup. Runs 9 lint categories (CNAME, NS, MX, HTTPS/SVCB, SPF, DMARC, CAA, TTL, DNSSEC) synchronously from existing lookup data. Color-coded results (green OK, yellow warning, red failed), scrollable with j/k. Cached per query.
+- ~~**Summary / stats panel**~~ — Done. Press `S` to toggle a 2-line collapsible panel showing record type distribution with colored labels, unique record count, query health breakdown (OK/NX/errors with timeout, refused, servfail detail), responding server count, and response time range. Updates incrementally as batches arrive, clears on new query.
 - **Propagation view** — Query the same records across all 84 predefined servers and show agreement/disagreement. Flag inconsistencies inline or in a dedicated panel.
 - **DNS trace visualization** — Show full resolution path from root → TLD → authoritative, with referrals. Interactive `dig +trace`. Use mhost trace functionality 
 
@@ -60,7 +60,7 @@
 #### Navigation and workflow
 
 - **Drill-down** — Press Enter on a subdomain to re-query it as a new domain. Follow CNAME targets or MX hostnames. Browse DNS like a hyperlinked document.
-- ~~**Free-text filter / search**~~ — Done. `/` enters search mode with case-insensitive regex matching across name, type, value, and human-readable columns. `F` or `Esc` clears the filter.
+- ~~**Free-text filter / search**~~ — Done. `/` enters search mode with case-insensitive regex matching across name, type, value, and human-readable columns. `C` or `Esc` clears the filter.
 - **Query history** — Keep a list of domains queried in this session. Flip back to previous results without re-querying. Tab or stack-based navigation.
 
 #### Visual and analytical
