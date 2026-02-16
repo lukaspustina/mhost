@@ -43,7 +43,7 @@
 #### Surface existing mhost capabilities
 
 - ~~**WHOIS panel**~~ — Done. Press `w` to fetch and display WHOIS data (network, ASN, organization, geo-location) for all unique IPs in current results. Cached per query, scrollable popup with j/k navigation.
-- **Discovery strategies** — Let the user interactively kick off CT log lookups, NSEC walking, wordlist expansion, TXT mining, SRV probing and watch subdomains appear in real time.
+- ~~**Discovery strategies**~~ — Done. Press `d` to open interactive discovery panel with 5 strategies: CT Logs, Wordlist (424 entries with wildcard filtering), SRV Probing (22 probes), TXT Mining (SPF/DMARC extraction), and Permutation. Run individually or all at once with `a`. Results stream into the main table in real time with per-strategy status indicators. Uses `spawn_local` on a shared `LocalSet` for cooperative async scheduling.
 - ~~**Lints / health checks**~~ — Done. Press `c` to show DNS health checks popup. Runs 9 lint categories (CNAME, NS, MX, HTTPS/SVCB, SPF, DMARC, CAA, TTL, DNSSEC) synchronously from existing lookup data. Color-coded results (green OK, yellow warning, red failed), scrollable with j/k. Cached per query.
 - ~~**Summary / stats panel**~~ — Done. Press `S` to toggle a 2-line collapsible panel showing record type distribution with colored labels, unique record count, query health breakdown (OK/NX/errors with timeout, refused, servfail detail), responding server count, and response time range. Updates incrementally as batches arrive, clears on new query.
 - **Propagation view** — Query the same records across all 84 predefined servers and show agreement/disagreement. Flag inconsistencies inline or in a dedicated panel.
