@@ -569,7 +569,7 @@ pub fn format_rdata_human(row: &RecordRow) -> String {
             if parts.len() == 2 {
                 format!("Priority: {}\nExchange: {}", parts[0], parts[1])
             } else {
-                format!("Value: {value}")
+                value.to_string()
             }
         }
         RecordType::SOA => {
@@ -580,7 +580,7 @@ pub fn format_rdata_human(row: &RecordRow) -> String {
                     parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], parts[6]
                 )
             } else {
-                format!("Value: {value}")
+                value.to_string()
             }
         }
         RecordType::SRV => {
@@ -591,7 +591,7 @@ pub fn format_rdata_human(row: &RecordRow) -> String {
                     parts[0], parts[1], parts[2], parts[3]
                 )
             } else {
-                format!("Value: {value}")
+                value.to_string()
             }
         }
         RecordType::CAA => {
@@ -611,19 +611,34 @@ pub fn format_rdata_human(row: &RecordRow) -> String {
                 };
                 format!("Policy: {description}{critical_suffix}")
             } else {
-                format!("Value: {value}")
+                value.to_string()
             }
         }
         RecordType::SVCB | RecordType::HTTPS => {
             let parts: Vec<&str> = value.splitn(3, ' ').collect();
             if parts.len() >= 2 {
-                let mut s = format!("Priority: {}\nTarget: {}", parts[0], parts[1]);
-                if parts.len() == 3 {
-                    s.push_str(&format!("\nParams: {}", parts[2]));
+                let priority: u16 = parts[0].parse().unwrap_or(0);
+                let mut lines = Vec::new();
+                if priority == 0 {
+                    lines.push("Mode: Alias".to_string());
+                    lines.push(format!("Target: {}", parts[1]));
+                } else {
+                    lines.push("Mode: Service".to_string());
+                    lines.push(format!("Priority: {}", parts[0]));
+                    lines.push(format!("Target: {}", parts[1]));
                 }
-                s
+                if parts.len() == 3 {
+                    for param in parts[2].split_whitespace() {
+                        if let Some((key, val)) = param.split_once('=') {
+                            lines.push(format!("{key}: {val}"));
+                        } else {
+                            lines.push(param.to_string());
+                        }
+                    }
+                }
+                lines.join("\n")
             } else {
-                format!("Value: {value}")
+                value.to_string()
             }
         }
         RecordType::TLSA => {
@@ -634,7 +649,7 @@ pub fn format_rdata_human(row: &RecordRow) -> String {
                     parts[0], parts[1], parts[2], parts[3]
                 )
             } else {
-                format!("Value: {value}")
+                value.to_string()
             }
         }
         RecordType::SSHFP => {
@@ -645,7 +660,7 @@ pub fn format_rdata_human(row: &RecordRow) -> String {
                     parts[0], parts[1], parts[2]
                 )
             } else {
-                format!("Value: {value}")
+                value.to_string()
             }
         }
         RecordType::NAPTR => {
@@ -656,7 +671,7 @@ pub fn format_rdata_human(row: &RecordRow) -> String {
                     parts[0], parts[1], parts[2], parts[3], parts[4], parts[5]
                 )
             } else {
-                format!("Value: {value}")
+                value.to_string()
             }
         }
         RecordType::TXT => match ParsedTxt::from_str(value) {
@@ -740,10 +755,10 @@ pub fn format_rdata_human(row: &RecordRow) -> String {
             Ok(ParsedTxt::DomainVerification(dv)) => {
                 format!("Type: Verification\nVerifier: {}\nScope: {}\nID: {}", dv.verifier(), dv.scope(), dv.id())
             }
-            Err(_) => format!("Value: {value}"),
+            Err(_) => value.to_string(),
         }
         RecordType::HINFO => {
-            format!("Value: {value}")
+            value.to_string()
         }
         RecordType::DNSKEY => {
             let mut tag = "";
@@ -784,10 +799,10 @@ pub fn format_rdata_human(row: &RecordRow) -> String {
                     parts[0], parts[1], tag
                 )
             } else {
-                format!("Value: {value}")
+                value.to_string()
             }
         }
-        _ => format!("Value: {value}"),
+        _ => value.to_string(),
     }
 }
 
