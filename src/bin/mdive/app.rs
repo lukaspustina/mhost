@@ -4,6 +4,7 @@ use std::time::Duration;
 use mhost::app::common::ordinal::Ordinal;
 use mhost::app::common::rdata_format::format_rdata;
 use mhost::resolver::lookup::Lookups;
+use mhost::resources::rdata::parsed_txt::{Mechanism, Modifier, ParsedTxt, Qualifier, Word};
 use mhost::RecordType;
 use ratatui::widgets::TableState;
 
@@ -435,10 +436,22 @@ pub fn format_rdata_human(row: &RecordRow) -> String {
             }
         }
         RecordType::CAA => {
-            // format: "0 issue \"letsencrypt.org\""
+            // format: "128 issue \"letsencrypt.org\""
             let parts: Vec<&str> = value.splitn(3, ' ').collect();
             if parts.len() == 3 {
-                format!("Flags: {}\nTag: {}\nValue: {}", parts[0], parts[1], parts[2])
+                let critical = parts[0] == "128";
+                let tag = parts[1];
+                let raw_value = parts[2].trim_matches('"');
+                let critical_suffix = if critical { " (critical)" } else { "" };
+                let description = match (tag, raw_value) {
+                    ("issue", v) if v.is_empty() || v == ";" => "no CA is allowed to issue certificates".to_string(),
+                    ("issue", v) => format!("allow {v} to issue certificates"),
+                    ("issuewild", v) if v.is_empty() || v == ";" => "no CA is allowed to issue wildcard certificates".to_string(),
+                    ("issuewild", v) => format!("allow {v} to issue wildcard certificates"),
+                    ("iodef", v) => format!("report policy violations to {v}"),
+                    (t, v) => format!("{t} {v}"),
+                };
+                format!("Policy: {description}{critical_suffix}")
             } else {
                 format!("Value: {value}")
             }
@@ -491,6 +504,89 @@ pub fn format_rdata_human(row: &RecordRow) -> String {
                 format!("Value: {value}")
             }
         }
+        RecordType::TXT => match ParsedTxt::from_str(value) {
+            Ok(ParsedTxt::Spf(spf)) => {
+                let mut lines = vec![
+                    format!("Type: SPF"),
+                    format!("Version: {}", spf.version()),
+                ];
+                for word in spf.words() {
+                    match word {
+                        Word::Word(q, mechanism) => {
+                            let qualifier = match q {
+                                Qualifier::Pass => "Pass",
+                                Qualifier::Neutral => "Neutral",
+                                Qualifier::Softfail => "Softfail",
+                                Qualifier::Fail => "Fail",
+                            };
+                            let mechanism_str = match mechanism {
+                                Mechanism::All => "all".to_string(),
+                                Mechanism::A { domain_spec, cidr_len } => {
+                                    let mut s = "a".to_string();
+                                    if let Some(d) = domain_spec { s = format!("a:{d}"); }
+                                    if let Some(c) = cidr_len { s = format!("{s}/{c}"); }
+                                    s
+                                }
+                                Mechanism::IPv4(ip) => format!("ip4:{ip}"),
+                                Mechanism::IPv6(ip) => format!("ip6:{ip}"),
+                                Mechanism::MX { domain_spec, cidr_len } => {
+                                    let mut s = "mx".to_string();
+                                    if let Some(d) = domain_spec { s = format!("mx:{d}"); }
+                                    if let Some(c) = cidr_len { s = format!("{s}/{c}"); }
+                                    s
+                                }
+                                Mechanism::PTR(d) => match d {
+                                    Some(d) => format!("ptr:{d}"),
+                                    None => "ptr".to_string(),
+                                },
+                                Mechanism::Exists(d) => format!("exists:{d}"),
+                                Mechanism::Include(d) => format!("include:{d}"),
+                            };
+                            lines.push(format!("{qualifier}: {mechanism_str}"));
+                        }
+                        Word::Modifier(modifier) => match modifier {
+                            Modifier::Redirect(d) => lines.push(format!("Redirect: {d}")),
+                            Modifier::Exp(d) => lines.push(format!("Exp: {d}")),
+                        },
+                    }
+                }
+                lines.join("\n")
+            }
+            Ok(ParsedTxt::Dmarc(dmarc)) => {
+                let mut lines = vec![
+                    format!("Type: DMARC"),
+                    format!("Policy: {}", dmarc.policy()),
+                ];
+                if let Some(sp) = dmarc.subdomain_policy() { lines.push(format!("Subdomain Policy: {sp}")); }
+                if let Some(rua) = dmarc.rua() { lines.push(format!("RUA: {rua}")); }
+                if let Some(ruf) = dmarc.ruf() { lines.push(format!("RUF: {ruf}")); }
+                if let Some(adkim) = dmarc.adkim() { lines.push(format!("DKIM Alignment: {adkim}")); }
+                if let Some(aspf) = dmarc.aspf() { lines.push(format!("SPF Alignment: {aspf}")); }
+                if let Some(pct) = dmarc.pct() { lines.push(format!("Percentage: {pct}")); }
+                if let Some(fo) = dmarc.fo() { lines.push(format!("Failure Options: {fo}")); }
+                if let Some(ri) = dmarc.ri() { lines.push(format!("Report Interval: {ri}")); }
+                lines.join("\n")
+            }
+            Ok(ParsedTxt::MtaSts(mta_sts)) => {
+                format!("Type: MTA-STS\nVersion: {}\nID: {}", mta_sts.version(), mta_sts.id())
+            }
+            Ok(ParsedTxt::TlsRpt(tls_rpt)) => {
+                format!("Type: TLS-RPT\nVersion: {}\nRUA: {}", tls_rpt.version(), tls_rpt.rua())
+            }
+            Ok(ParsedTxt::Bimi(bimi)) => {
+                let mut lines = vec![
+                    format!("Type: BIMI"),
+                    format!("Version: {}", bimi.version()),
+                ];
+                if let Some(logo) = bimi.logo() { lines.push(format!("Logo: {logo}")); }
+                if let Some(authority) = bimi.authority() { lines.push(format!("Authority: {authority}")); }
+                lines.join("\n")
+            }
+            Ok(ParsedTxt::DomainVerification(dv)) => {
+                format!("Type: Verification\nVerifier: {}\nScope: {}\nID: {}", dv.verifier(), dv.scope(), dv.id())
+            }
+            Err(_) => format!("Value: {value}"),
+        }
         RecordType::HINFO => {
             format!("Value: {value}")
         }
@@ -539,6 +635,31 @@ pub fn format_rdata_human(row: &RecordRow) -> String {
             }
         }
         _ => format!("Value: {value}"),
+    }
+}
+
+/// Format a raw nameserver string like `udp:8.8.8.8:53,name=Google` into
+/// a human-friendly form like `Google (udp, 8.8.8.8)`.
+pub fn format_nameserver_human(raw: &str) -> String {
+    // Split off key=value options after first comma
+    let (addr_part, opts) = raw.split_once(',').unwrap_or((raw, ""));
+    let name = opts
+        .split(',')
+        .find_map(|kv| kv.strip_prefix("name="))
+        .unwrap_or("");
+
+    // addr_part is like "udp:8.8.8.8:53" or "https:dns.google:443"
+    let parts: Vec<&str> = addr_part.splitn(3, ':').collect();
+    let (protocol, host) = if parts.len() >= 2 {
+        (parts[0], parts[1])
+    } else {
+        return raw.to_string();
+    };
+
+    if name.is_empty() {
+        format!("{host} ({protocol})")
+    } else {
+        format!("{name} ({protocol}, {host})")
     }
 }
 

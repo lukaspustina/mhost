@@ -7,7 +7,7 @@ use ratatui::Frame;
 use mhost::app::common::styles::{record_type_color, record_type_is_bold};
 use mhost::RecordType;
 
-use crate::app::{format_rdata_human, record_type_info, App, Mode, Popup, QueryState, TOGGLEABLE_TYPES};
+use crate::app::{format_nameserver_human, format_rdata_human, record_type_info, App, Mode, Popup, QueryState, TOGGLEABLE_TYPES};
 
 pub fn draw(f: &mut Frame, app: &App) {
     let chunks = Layout::vertical([
@@ -44,7 +44,7 @@ fn draw_input(f: &mut Frame, app: &App, area: Rect) {
         });
 
     let input_line = Line::from(vec![
-        Span::styled("Domain: ", Style::default().fg(Color::DarkGray)),
+        Span::styled("Domain: ", Style::default().fg(Color::Gray)),
         Span::raw(&app.input),
     ]);
 
@@ -91,7 +91,7 @@ fn draw_type_toggles(f: &mut Frame, app: &App, area: Rect) {
         } else {
             spans.push(Span::styled(
                 format!("{key} {label} "),
-                Style::default().fg(Color::DarkGray),
+                Style::default().fg(Color::Gray),
             ));
         }
     }
@@ -101,10 +101,10 @@ fn draw_type_toggles(f: &mut Frame, app: &App, area: Rect) {
 
 fn draw_table(f: &mut Frame, app: &App, area: Rect) {
     let header = Row::new(vec![
-        Cell::from("Name").style(Style::default().fg(Color::DarkGray)),
-        Cell::from("Type").style(Style::default().fg(Color::DarkGray)),
-        Cell::from("TTL").style(Style::default().fg(Color::DarkGray)),
-        Cell::from("Value").style(Style::default().fg(Color::DarkGray)),
+        Cell::from("Name").style(Style::default().fg(Color::Gray)),
+        Cell::from("Type").style(Style::default().fg(Color::Gray)),
+        Cell::from("TTL").style(Style::default().fg(Color::Gray)),
+        Cell::from("Value").style(Style::default().fg(Color::Gray)),
     ])
     .bottom_margin(0);
 
@@ -123,7 +123,7 @@ fn draw_table(f: &mut Frame, app: &App, area: Rect) {
                             Line::from(vec![
                                 Span::styled(
                                     format!("{label}: "),
-                                    Style::default().fg(Color::DarkGray),
+                                    Style::default().fg(Color::Gray),
                                 ),
                                 Span::raw(value.to_string()),
                             ])
@@ -136,7 +136,7 @@ fn draw_table(f: &mut Frame, app: &App, area: Rect) {
                 Row::new(vec![
                     Cell::from(r.name.as_str()),
                     Cell::from(type_str).style(type_style),
-                    Cell::from(r.ttl.to_string()).style(Style::default().fg(Color::DarkGray)),
+                    Cell::from(r.ttl.to_string()).style(Style::default().fg(Color::Gray)),
                     Cell::from(Text::from(value_lines)),
                 ])
                 .height(height)
@@ -144,7 +144,7 @@ fn draw_table(f: &mut Frame, app: &App, area: Rect) {
                 Row::new(vec![
                     Cell::from(r.name.as_str()),
                     Cell::from(type_str).style(type_style),
-                    Cell::from(r.ttl.to_string()).style(Style::default().fg(Color::DarkGray)),
+                    Cell::from(r.ttl.to_string()).style(Style::default().fg(Color::Gray)),
                     Cell::from(r.value.as_str()),
                 ])
             }
@@ -168,7 +168,7 @@ fn draw_table(f: &mut Frame, app: &App, area: Rect) {
         .row_highlight_style(
             Style::default()
                 .add_modifier(Modifier::BOLD)
-                .bg(Color::DarkGray),
+                .bg(Color::Indexed(236)),
         )
         .highlight_symbol("▸ ");
 
@@ -179,8 +179,8 @@ fn draw_detail(f: &mut Frame, app: &App, area: Rect) {
     let detail = if let Some(idx) = app.table_state.selected() {
         if let Some(row) = app.rows.get(idx) {
             Line::from(vec![
-                Span::styled(" server: ", Style::default().fg(Color::DarkGray)),
-                Span::styled(&row.nameserver, Style::default().fg(Color::Yellow)),
+                Span::styled(" server: ", Style::default().fg(Color::Gray)),
+                Span::styled(format_nameserver_human(&row.nameserver), Style::default().fg(Color::Yellow)),
             ])
         } else {
             Line::raw("")
@@ -236,7 +236,7 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
     let status_color = match &app.query_state {
         QueryState::Error { .. } => Color::Red,
         QueryState::Loading { .. } | QueryState::Querying { .. } => Color::Yellow,
-        _ => Color::DarkGray,
+        _ => Color::Gray,
     };
 
     let line = Line::from(vec![
@@ -270,7 +270,7 @@ fn draw_record_popup(f: &mut Frame, app: &App) {
             Style::default().add_modifier(Modifier::BOLD),
         )),
         Line::from(vec![
-            Span::styled("TTL: ", Style::default().fg(Color::DarkGray)),
+            Span::styled("TTL: ", Style::default().fg(Color::Gray)),
             Span::raw(row.ttl.to_string()),
         ]),
         Line::raw(""),
@@ -279,7 +279,7 @@ fn draw_record_popup(f: &mut Frame, app: &App) {
     for field_line in human.lines() {
         if let Some((label, value)) = field_line.split_once(": ") {
             lines.push(Line::from(vec![
-                Span::styled(format!("{label}: "), Style::default().fg(Color::DarkGray)),
+                Span::styled(format!("{label}: "), Style::default().fg(Color::Gray)),
                 Span::raw(value.to_string()),
             ]));
         } else {
@@ -289,8 +289,8 @@ fn draw_record_popup(f: &mut Frame, app: &App) {
 
     lines.push(Line::raw(""));
     lines.push(Line::from(vec![
-        Span::styled("Server: ", Style::default().fg(Color::DarkGray)),
-        Span::styled(&row.nameserver, Style::default().fg(Color::Yellow)),
+        Span::styled("Server: ", Style::default().fg(Color::Gray)),
+        Span::styled(format_nameserver_human(&row.nameserver), Style::default().fg(Color::Yellow)),
     ]));
 
     if !detail.is_empty() {
@@ -302,13 +302,13 @@ fn draw_record_popup(f: &mut Frame, app: &App) {
         lines.push(Line::raw(""));
         lines.push(Line::from(Span::styled(
             rfc,
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(Color::Gray),
         )));
     }
 
     lines.push(Line::raw(""));
     lines.push(Line::from(
-        Span::styled("[Esc] close", Style::default().fg(Color::DarkGray)),
+        Span::styled("[Esc] close", Style::default().fg(Color::Gray)),
     ).right_aligned());
 
     // Build title
@@ -335,7 +335,7 @@ fn draw_record_popup(f: &mut Frame, app: &App) {
 }
 
 fn draw_help_popup(f: &mut Frame) {
-    let dim = Style::default().fg(Color::DarkGray);
+    let dim = Style::default().fg(Color::Gray);
     let key_style = Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD);
 
     let help_line = |key: &str, desc: &str| -> Line<'static> {
