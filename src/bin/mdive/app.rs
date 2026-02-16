@@ -618,25 +618,36 @@ pub fn format_rdata_human(row: &RecordRow) -> String {
             let parts: Vec<&str> = value.splitn(3, ' ').collect();
             if parts.len() >= 2 {
                 let priority: u16 = parts[0].parse().unwrap_or(0);
-                let mut lines = Vec::new();
                 if priority == 0 {
-                    lines.push("Mode: Alias".to_string());
-                    lines.push(format!("Target: {}", parts[1]));
+                    // Alias mode — mhost: "alias to <target>"
+                    format!("alias to {}", parts[1])
                 } else {
-                    lines.push("Mode: Service".to_string());
-                    lines.push(format!("Priority: {}", parts[0]));
-                    lines.push(format!("Target: {}", parts[1]));
-                }
-                if parts.len() == 3 {
-                    for param in parts[2].split_whitespace() {
-                        if let Some((key, val)) = param.split_once('=') {
-                            lines.push(format!("{key}: {val}"));
-                        } else {
-                            lines.push(param.to_string());
+                    let mut lines = vec![format!(
+                        "priority {}, target {}",
+                        parts[0], parts[1]
+                    )];
+                    if parts.len() == 3 {
+                        for param in parts[2].split_whitespace() {
+                            if let Some((key, val)) = param.split_once('=') {
+                                let clean = val.trim_end_matches(',');
+                                let formatted = match key {
+                                    "alpn" => format!("protocols: {clean}"),
+                                    "no-default-alpn" => "no default protocols".to_string(),
+                                    "port" => format!("port: {clean}"),
+                                    "ipv4hint" => format!("IPv4 hints: {clean}"),
+                                    "ipv6hint" => format!("IPv6 hints: {clean}"),
+                                    "ech" => {
+                                        let byte_count = clean.len() * 3 / 4;
+                                        format!("encrypted client hello: ({byte_count} bytes)")
+                                    }
+                                    _ => format!("{key}: {clean}"),
+                                };
+                                lines.push(formatted);
+                            }
                         }
                     }
+                    lines.join("\n")
                 }
-                lines.join("\n")
             } else {
                 value.to_string()
             }
