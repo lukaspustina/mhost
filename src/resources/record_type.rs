@@ -10,7 +10,7 @@
 
 use crate::{Error, Result};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
 
@@ -21,7 +21,7 @@ use std::str::FromStr;
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Copy, Clone)]
 #[allow(dead_code)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub enum RecordType {
     A,
     AAAA,

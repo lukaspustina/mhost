@@ -10,7 +10,7 @@
 
 use std::net::{Ipv4Addr, Ipv6Addr};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub use caa::CAA;
 pub use dnssec::{DigestType, DnssecAlgorithm, DNSKEY, DS, NSEC, NSEC3, NSEC3PARAM, RRSIG};
@@ -37,7 +37,7 @@ macro_rules! iana_enum {
         }
     ) => {
         $(#[$meta])*
-        #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone, Serialize)]
+        #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone, Serialize, Deserialize)]
         pub enum $name {
             $( $(#[$vmeta])* $variant, )+
             Unassigned(u8),
@@ -84,7 +84,7 @@ mod unknown;
 /// Use the typed accessor methods (`.a()`, `.mx()`, `.txt()`, etc.) to extract
 /// the inner data for a specific type. Each accessor returns `Option<&T>`,
 /// returning `None` if the variant doesn't match.
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum RData {
     A(Ipv4Addr),

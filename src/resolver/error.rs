@@ -15,11 +15,11 @@
 use hickory_resolver::proto::op::ResponseCode;
 use hickory_resolver::proto::{ProtoError, ProtoErrorKind};
 use hickory_resolver::{ResolveError, ResolveErrorKind};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::task::JoinError;
 
-#[derive(Debug, Clone, Error, Serialize)]
+#[derive(Debug, Clone, Error, Serialize, Deserialize)]
 pub enum Error {
     #[error("nameserver refused query")]
     QueryRefused,

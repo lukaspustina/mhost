@@ -9,9 +9,9 @@
 // copied, modified, or distributed except according to those terms.
 
 use crate::resources::rdata::NULL;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Default, Debug, PartialEq, Eq, Hash, Clone, Serialize)]
+#[derive(Default, Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 #[allow(clippy::upper_case_acronyms)]
 pub struct UNKNOWN {
     code: u16,

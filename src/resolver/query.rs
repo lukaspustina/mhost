@@ -13,7 +13,7 @@
 
 use hickory_resolver::IntoName;
 use hickory_resolver::Name;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::resolver::{Error, ResolverResult};
 use crate::RecordType;
@@ -21,7 +21,7 @@ use crate::RecordType;
 /// A single DNS query: one name and one record type.
 ///
 /// Cloning is cheap because `Name` labels are reference-counted.
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 pub struct UniQuery {
     pub(crate) name: Name,
     pub(crate) record_type: RecordType,

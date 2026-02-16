@@ -9,7 +9,7 @@ use std::collections::HashSet;
 use std::io::Write;
 
 use anyhow::{Context, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
 
 use crate::app::modules::diff::config::DiffConfig;
@@ -20,6 +20,7 @@ use crate::app::resolver::AppResolver;
 use crate::app::utils::time;
 use crate::app::{output, AppConfig, ExitStatus};
 use crate::nameserver::NameServerConfig;
+use crate::resolver::lookup::Lookup;
 use crate::resolver::{Lookups, MultiQuery, ResolverConfig};
 use crate::resources::Record;
 use crate::RecordType;
@@ -28,29 +29,93 @@ pub struct Diff {}
 
 impl AppModule<DiffConfig> for Diff {}
 
+#[derive(Deserialize)]
+struct SnapshotFile {
+    lookups: Vec<Lookup>,
+}
+
+fn load_lookups_from_file(path: &str) -> Result<Lookups> {
+    let content =
+        std::fs::read_to_string(path).with_context(|| format!("Failed to read snapshot file '{}'", path))?;
+    let snapshot: SnapshotFile =
+        serde_json::from_str(&content).with_context(|| format!("Failed to parse snapshot file '{}'", path))?;
+    Ok(Lookups::new(snapshot.lookups))
+}
+
 impl Diff {
-    pub async fn init<'a>(app_config: &'a AppConfig, config: &'a DiffConfig) -> PartialResult<DnsLookups<'a>> {
+    pub async fn init<'a>(app_config: &'a AppConfig, config: &'a DiffConfig) -> PartialResult<DiffCompute<'a>> {
         let env = Self::init_env(app_config, config)?;
 
-        let domain_name = env.name_builder.from_str(&config.domain_name)?;
-        let query =
-            MultiQuery::multi_record(domain_name, config.record_types.clone()).context("Failed to build query")?;
-        debug!("Querying: {:?}", query);
+        let left_lookups = match &config.left_file {
+            Some(file) => {
+                env.console.caption(format!("Loading left from {}", file));
+                info!("Loading left lookups from file: {}", file);
+                load_lookups_from_file(file)?
+            }
+            None => {
+                let domain_name = env.name_builder.from_str(&config.domain_name)?;
+                let query = MultiQuery::multi_record(domain_name, config.record_types.clone())
+                    .context("Failed to build query")?;
+                debug!("Querying left: {:?}", query);
 
-        let left_configs: Vec<ResolverConfig> = parse_nameserver_specs(&config.left)?;
-        let right_configs: Vec<ResolverConfig> = parse_nameserver_specs(&config.right)?;
+                let left_configs: Vec<ResolverConfig> = parse_nameserver_specs(&config.left)?;
+                let left_resolver = AppResolver::from_configs(left_configs, app_config).await?;
 
-        let left_resolver = AppResolver::from_configs(left_configs, app_config).await?;
-        let right_resolver = AppResolver::from_configs(right_configs, app_config).await?;
+                env.console
+                    .print_resolver_opts(left_resolver.resolver_group_opts(), left_resolver.resolver_opts());
+                env.console
+                    .print_partial_headers("Running left lookups.", left_resolver.resolvers(), &query);
 
-        env.console
-            .print_resolver_opts(left_resolver.resolver_group_opts(), left_resolver.resolver_opts());
+                info!("Running left lookups");
+                let (lookups, left_time) = time(left_resolver.lookup(query)).await?;
+                info!("Finished left lookups in {:?}.", left_time);
 
-        Ok(DnsLookups {
+                if env.console.not_quiet() {
+                    env.console
+                        .info(format!("Left: {} lookups in {:.1?}", lookups.len(), left_time));
+                }
+                lookups
+            }
+        };
+
+        let right_lookups = match &config.right_file {
+            Some(file) => {
+                env.console.caption(format!("Loading right from {}", file));
+                info!("Loading right lookups from file: {}", file);
+                load_lookups_from_file(file)?
+            }
+            None => {
+                let domain_name = env.name_builder.from_str(&config.domain_name)?;
+                let query = MultiQuery::multi_record(domain_name, config.record_types.clone())
+                    .context("Failed to build query")?;
+                debug!("Querying right: {:?}", query);
+
+                let right_configs: Vec<ResolverConfig> = parse_nameserver_specs(&config.right)?;
+                let right_resolver = AppResolver::from_configs(right_configs, app_config).await?;
+
+                if config.left_file.is_some() {
+                    env.console
+                        .print_resolver_opts(right_resolver.resolver_group_opts(), right_resolver.resolver_opts());
+                }
+                env.console
+                    .print_partial_headers("Running right lookups.", right_resolver.resolvers(), &query);
+
+                info!("Running right lookups");
+                let (lookups, right_time) = time(right_resolver.lookup(query)).await?;
+                info!("Finished right lookups in {:?}.", right_time);
+
+                if env.console.not_quiet() {
+                    env.console
+                        .info(format!("Right: {} lookups in {:.1?}", lookups.len(), right_time));
+                }
+                lookups
+            }
+        };
+
+        Ok(DiffCompute {
             env,
-            query,
-            left_resolver,
-            right_resolver,
+            left_lookups,
+            right_lookups,
         })
     }
 }
@@ -67,52 +132,6 @@ fn parse_nameserver_specs(specs: &[String]) -> Result<Vec<ResolverConfig>> {
         .collect()
 }
 
-pub struct DnsLookups<'a> {
-    env: Environment<'a, DiffConfig>,
-    query: MultiQuery,
-    left_resolver: AppResolver,
-    right_resolver: AppResolver,
-}
-
-impl<'a> DnsLookups<'a> {
-    pub async fn lookups(self) -> PartialResult<DiffCompute<'a>> {
-        self.env.console.print_partial_headers(
-            "Running left lookups.",
-            self.left_resolver.resolvers(),
-            &self.query,
-        );
-        info!("Running left lookups");
-        let left_query = self.query.clone();
-        let (left_lookups, left_time) = time(self.left_resolver.lookup(left_query)).await?;
-        info!("Finished left lookups in {:?}.", left_time);
-
-        self.env.console.print_partial_headers(
-            "Running right lookups.",
-            self.right_resolver.resolvers(),
-            &self.query,
-        );
-        info!("Running right lookups");
-        let (right_lookups, right_time) = time(self.right_resolver.lookup(self.query)).await?;
-        info!("Finished right lookups in {:?}.", right_time);
-
-        if self.env.console.not_quiet() {
-            self.env.console.info(format!(
-                "Left: {} lookups in {:.1?}, Right: {} lookups in {:.1?}",
-                left_lookups.len(),
-                left_time,
-                right_lookups.len(),
-                right_time,
-            ));
-        }
-
-        Ok(DiffCompute {
-            env: self.env,
-            left_lookups,
-            right_lookups,
-        })
-    }
-}
-
 pub struct DiffCompute<'a> {
     env: Environment<'a, DiffConfig>,
     left_lookups: Lookups,
@@ -121,16 +140,14 @@ pub struct DiffCompute<'a> {
 
 impl<'a> DiffCompute<'a> {
     pub fn compute(self) -> DiffOutput<'a> {
-        let left_servers: Vec<String> = self
-            .env
-            .mod_config
-            .left
-            .clone();
-        let right_servers: Vec<String> = self
-            .env
-            .mod_config
-            .right
-            .clone();
+        let left_servers: Vec<String> = match &self.env.mod_config.left_file {
+            Some(file) => vec![file.clone()],
+            None => self.env.mod_config.left.clone(),
+        };
+        let right_servers: Vec<String> = match &self.env.mod_config.right_file {
+            Some(file) => vec![file.clone()],
+            None => self.env.mod_config.right.clone(),
+        };
 
         let mut all_types: HashSet<RecordType> = self.left_lookups.record_types();
         all_types.extend(self.right_lookups.record_types());
@@ -373,6 +390,58 @@ mod tests {
         let result = parse_nameserver_specs(&specs);
         assert!(result.is_ok());
         assert!(result.unwrap().is_empty());
+    }
+
+    #[test]
+    fn load_lookups_from_file_missing_file() {
+        let result = load_lookups_from_file("/nonexistent/path/to/file.json");
+        assert!(result.is_err());
+        let err = format!("{:#}", result.unwrap_err());
+        assert!(err.contains("Failed to read snapshot file"));
+    }
+
+    #[test]
+    fn load_lookups_from_file_malformed_json() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("mhost_test_malformed.json");
+        std::fs::write(&path, "not valid json").unwrap();
+        let result = load_lookups_from_file(path.to_str().unwrap());
+        assert!(result.is_err());
+        let err = format!("{:#}", result.unwrap_err());
+        assert!(err.contains("Failed to parse snapshot file"));
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn load_lookups_from_file_valid_snapshot() {
+        let json = r#"{
+            "info": {"start_time": "2024-01-15T10:30:00Z", "command_line": "test", "version": "0.6.0"},
+            "lookups": [
+                {
+                    "query": {"name": "example.com.", "record_type": "A"},
+                    "name_server": "udp:8.8.8.8:53",
+                    "result": {
+                        "Response": {
+                            "records": [
+                                {"name": "example.com.", "type": "A", "ttl": 300, "data": {"A": "1.2.3.4"}}
+                            ],
+                            "response_time": {"secs": 0, "nanos": 45000000},
+                            "valid_until": "2024-01-15T10:35:00Z"
+                        }
+                    }
+                }
+            ]
+        }"#;
+        let dir = std::env::temp_dir();
+        let path = dir.join("mhost_test_valid_snapshot.json");
+        std::fs::write(&path, json).unwrap();
+        let result = load_lookups_from_file(path.to_str().unwrap());
+        assert!(result.is_ok());
+        let lookups = result.unwrap();
+        assert_eq!(lookups.len(), 1);
+        assert_eq!(lookups.a().len(), 1);
+        assert_eq!(*lookups.a()[0], Ipv4Addr::new(1, 2, 3, 4));
+        std::fs::remove_file(&path).ok();
     }
 
     #[test]

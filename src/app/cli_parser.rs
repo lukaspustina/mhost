@@ -482,7 +482,7 @@ fn check_subcommand() -> Command {
 
 fn diff_subcommand() -> Command {
     Command::new("diff")
-        .about("Compares DNS records from two different nameserver sets")
+        .about("Compares DNS records from two different nameserver sets or snapshot files")
         .arg(
             Arg::new("domain name")
                 .required(true)
@@ -512,21 +512,35 @@ fn diff_subcommand() -> Command {
             Arg::new("left")
                 .short('l')
                 .long("left")
-                .required(true)
+                .required_unless_present("left-from-file")
                 .action(ArgAction::Append)
                 .value_name("NAMESERVER")
                 .help("Left nameserver(s) to query")
                 .long_help("Left nameserver(s) to query. Repeat for multiple servers or use commas. Accepts the same nameserver spec format as --nameserver."),
         )
         .arg(
+            Arg::new("left-from-file")
+                .long("left-from-file")
+                .value_name("FILE")
+                .help("Load left side from a JSON snapshot file (from lookup --output json)")
+                .conflicts_with("left"),
+        )
+        .arg(
             Arg::new("right")
                 .short('r')
                 .long("right")
-                .required(true)
+                .required_unless_present("right-from-file")
                 .action(ArgAction::Append)
                 .value_name("NAMESERVER")
                 .help("Right nameserver(s) to query")
                 .long_help("Right nameserver(s) to query. Repeat for multiple servers or use commas. Accepts the same nameserver spec format as --nameserver."),
+        )
+        .arg(
+            Arg::new("right-from-file")
+                .long("right-from-file")
+                .value_name("FILE")
+                .help("Load right side from a JSON snapshot file (from lookup --output json)")
+                .conflicts_with("right"),
         )
 }
 

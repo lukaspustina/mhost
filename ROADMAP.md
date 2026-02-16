@@ -10,7 +10,7 @@
 - **discover** — Subdomain discovery via 10+ strategies (wordlists, CT logs, SRV probing, TXT mining, AXFR, NSEC walking, permutation, reverse DNS, recursive)
 - **check** — DNS configuration validation with 13 lints (SOA, NS, CNAME chain depth, MX, SPF, DMARC, CAA, TTL, DNSSEC chain validation, HTTPS/SVCB, AXFR exposure, open resolver, delegation consistency)
 - **propagation** — DNS propagation checking across predefined public resolvers with divergence detection
-- **diff** — Compare DNS records between two nameserver sets
+- **diff** — Compare DNS records between two nameserver sets, JSON snapshots, or a mix of both
 - **trace** — Parallel iterative resolution from root servers with per-server latency and referral divergence detection
 - **dnssec** — DNSSEC trust chain visualization: walks delegation from root to target zone, renders color-coded tree with key roles, algorithm strength, signature expiry, and DS→DNSKEY linkage
 - **info** — DNS record type and well-known subdomain documentation
@@ -29,6 +29,7 @@
 - Semantic resolver error types (Timeout, QueryRefused, ServerFailure, etc.)
 - Summary and JSON output for all commands
 - 84 predefined unfiltered DNS server configurations across 6 providers
+- Full `Serialize` + `Deserialize` on all DNS types — JSON round-trip for snapshots
 - Full module-level documentation, `cargo doc --no-deps` builds clean
 </details>
 
@@ -40,10 +41,15 @@
 
 Save a domain's full DNS profile to disk and diff against it later — useful for migration validation, provider switches, and change tracking.
 
-- `mhost snapshot example.com` — save all record types + per-server results as timestamped JSON
-- `mhost snapshot example.com --output before.json` — save to a specific file
-- `mhost diff --snapshot before.json example.com` — compare snapshot against live DNS
-- `mhost diff --snapshot before.json --snapshot after.json` — compare two snapshots offline
+**Done:**
+- `mhost lookup -s 8.8.8.8 -q -t A,AAAA,MX example.com --output json > before.json` — snapshot via existing lookup JSON output
+- `mhost diff --left-from-file before.json --right 1.1.1.1 example.com` — compare snapshot against live DNS
+- `mhost diff --left-from-file before.json --right-from-file after.json example.com` — compare two snapshots offline
+- Full `Deserialize` support for the entire `Lookups` serialization chain (round-trip JSON)
+
+**Remaining:**
+- `mhost watch` / monitoring mode (see below)
+- Dedicated `mhost snapshot` convenience command (optional — lookup + json already works)
 
 ### DNS monitoring / watch mode
 

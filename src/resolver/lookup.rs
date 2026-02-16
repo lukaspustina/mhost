@@ -23,7 +23,7 @@ use chrono::{DateTime, Utc};
 use futures::stream::{self, StreamExt};
 use futures::Future;
 use hickory_resolver::ResolveError;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tokio::task;
 use tracing::{debug, field, info, instrument, trace, Span};
 
@@ -36,7 +36,7 @@ use crate::resources::rdata::{
 };
 use crate::resources::{RData, Record};
 use crate::utils::buffer_unordered_with_breaker::StreamExtBufferUnorderedWithBreaker;
-use crate::utils::serialize::ser_arc_nameserver_config;
+use crate::utils::serialize::{deser_arc_nameserver_config, ser_arc_nameserver_config};
 use crate::RecordType;
 use std::fmt::Debug;
 use tracing_futures::Instrument;
@@ -46,7 +46,7 @@ use tracing_futures::Instrument;
 /// Provides typed accessors for each record type (e.g., `.a()`, `.mx()`, `.txt()`)
 /// that return references into the contained records. Use the [`Uniquify`] trait
 /// on accessor results to deduplicate across nameservers.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Lookups {
     #[serde(rename = "lookups")]
     inner: Vec<Lookup>,
@@ -316,10 +316,10 @@ impl From<Vec<Lookup>> for Lookups {
 ///
 /// Contains the original [`UniQuery`], the [`NameServerConfig`] that was queried,
 /// and the [`LookupResult`] (response, NxDomain, or error).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Lookup {
     query: UniQuery,
-    #[serde(serialize_with = "ser_arc_nameserver_config")]
+    #[serde(serialize_with = "ser_arc_nameserver_config", deserialize_with = "deser_arc_nameserver_config")]
     name_server: Arc<NameServerConfig>,
     result: LookupResult,
 }
@@ -460,7 +460,7 @@ impl Lookup {
 }
 
 /// The outcome of a single DNS lookup: a successful response, an NxDomain, or an error.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum LookupResult {
     /// The nameserver returned DNS records.
     Response(Response),
@@ -521,7 +521,7 @@ impl LookupResult {
 }
 
 /// A successful DNS response containing records, timing, and cache validity.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Response {
     records: Vec<Record>,
     response_time: Duration,
@@ -554,7 +554,7 @@ impl Response {
 }
 
 /// An NxDomain response indicating the queried name does not exist.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NxDomain {
     response_time: Duration,
 }
@@ -686,4 +686,160 @@ fn instant_to_utc(valid_until: Instant) -> DateTime<Utc> {
     };
 
     Utc::now() + chrono::Duration::from_std(duration).unwrap() // Safe, because I know this is a valid duration
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::nameserver::NameServerConfig;
+    use crate::resources::rdata::{MX, TXT};
+    use crate::resources::{RData, Record, RecordType};
+    use std::net::Ipv4Addr;
+
+    fn make_test_lookup(query_name: &str, record_type: RecordType, ns: &str, result: LookupResult) -> Lookup {
+        Lookup {
+            query: UniQuery::new(query_name, record_type).unwrap(),
+            name_server: Arc::new(NameServerConfig::from_str(ns).unwrap()),
+            result,
+        }
+    }
+
+    fn make_response(records: Vec<Record>) -> LookupResult {
+        LookupResult::Response(Response {
+            records,
+            response_time: Duration::from_millis(45),
+            valid_until: chrono::DateTime::parse_from_rfc3339("2024-01-15T10:35:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
+        })
+    }
+
+    #[test]
+    fn serde_round_trip_response_a_record() {
+        let record = Record::new_for_test(
+            Name::from_utf8("example.com.").unwrap(),
+            RecordType::A,
+            300,
+            RData::A(Ipv4Addr::new(1, 2, 3, 4)),
+        );
+        let lookup = make_test_lookup("example.com.", RecordType::A, "udp:8.8.8.8:53", make_response(vec![record]));
+        let lookups = Lookups::new(vec![lookup]);
+
+        let json = serde_json::to_string(&lookups).expect("serialize");
+        let deserialized: Lookups = serde_json::from_str(&json).expect("deserialize");
+
+        assert_eq!(deserialized.len(), 1);
+        assert_eq!(deserialized.a().len(), 1);
+        assert_eq!(*deserialized.a()[0], Ipv4Addr::new(1, 2, 3, 4));
+    }
+
+    #[test]
+    fn serde_round_trip_multiple_record_types() {
+        let a_record = Record::new_for_test(
+            Name::from_utf8("example.com.").unwrap(),
+            RecordType::A,
+            300,
+            RData::A(Ipv4Addr::new(1, 2, 3, 4)),
+        );
+        let mx_record = Record::new_for_test(
+            Name::from_utf8("example.com.").unwrap(),
+            RecordType::MX,
+            300,
+            RData::MX(MX::new(10, Name::from_utf8("mail.example.com.").unwrap())),
+        );
+        let txt_record = Record::new_for_test(
+            Name::from_utf8("example.com.").unwrap(),
+            RecordType::TXT,
+            300,
+            RData::TXT(TXT::new(vec!["v=spf1 include:example.com -all".to_string()])),
+        );
+        let lookup_a = make_test_lookup(
+            "example.com.",
+            RecordType::A,
+            "udp:8.8.8.8:53",
+            make_response(vec![a_record]),
+        );
+        let lookup_mx = make_test_lookup(
+            "example.com.",
+            RecordType::MX,
+            "udp:8.8.8.8:53",
+            make_response(vec![mx_record]),
+        );
+        let lookup_txt = make_test_lookup(
+            "example.com.",
+            RecordType::TXT,
+            "udp:8.8.8.8:53",
+            make_response(vec![txt_record]),
+        );
+        let lookups = Lookups::new(vec![lookup_a, lookup_mx, lookup_txt]);
+
+        let json = serde_json::to_string(&lookups).expect("serialize");
+        let deserialized: Lookups = serde_json::from_str(&json).expect("deserialize");
+
+        assert_eq!(deserialized.len(), 3);
+        assert_eq!(deserialized.a().len(), 1);
+        assert_eq!(deserialized.mx().len(), 1);
+        assert_eq!(deserialized.txt().len(), 1);
+    }
+
+    #[test]
+    fn serde_round_trip_nxdomain() {
+        let lookup = make_test_lookup(
+            "nonexistent.example.com.",
+            RecordType::A,
+            "udp:8.8.8.8:53",
+            LookupResult::NxDomain(NxDomain {
+                response_time: Duration::from_millis(30),
+            }),
+        );
+        let lookups = Lookups::new(vec![lookup]);
+
+        let json = serde_json::to_string(&lookups).expect("serialize");
+        let deserialized: Lookups = serde_json::from_str(&json).expect("deserialize");
+
+        assert_eq!(deserialized.len(), 1);
+        assert!(deserialized.iter().next().unwrap().result().is_nxdomain());
+    }
+
+    #[test]
+    fn serde_round_trip_error() {
+        let lookup = make_test_lookup(
+            "example.com.",
+            RecordType::A,
+            "udp:8.8.8.8:53",
+            LookupResult::Error(Error::Timeout),
+        );
+        let lookups = Lookups::new(vec![lookup]);
+
+        let json = serde_json::to_string(&lookups).expect("serialize");
+        let deserialized: Lookups = serde_json::from_str(&json).expect("deserialize");
+
+        assert_eq!(deserialized.len(), 1);
+        assert!(deserialized.iter().next().unwrap().result().is_err());
+    }
+
+    #[test]
+    fn serde_round_trip_nameserver_config() {
+        let configs = vec![
+            "udp:8.8.8.8:53",
+            "tcp:1.1.1.1:53",
+            "tls:8.8.8.8:853,tls_auth_name=dns.google",
+        ];
+        for ns_str in configs {
+            let lookup = make_test_lookup(
+                "example.com.",
+                RecordType::A,
+                ns_str,
+                make_response(vec![]),
+            );
+            let lookups = Lookups::new(vec![lookup]);
+
+            let json = serde_json::to_string(&lookups).expect("serialize");
+            let deserialized: Lookups = serde_json::from_str(&json).expect("deserialize");
+
+            let original_ns = deserialized.iter().next().unwrap().name_server();
+            let expected_ns = NameServerConfig::from_str(ns_str).unwrap();
+            assert_eq!(original_ns.to_string(), expected_ns.to_string(), "round-trip failed for {}", ns_str);
+        }
+    }
 }
