@@ -69,6 +69,10 @@
 - **Tree view** — Show the subdomain hierarchy as a tree with record counts per node.
 - **Side-by-side domain comparison** — Split screen to compare two domains or the same domain at two points in time.
 
+### DNS zone file verification
+
+Verify that live DNS matches a source-of-truth BIND zone file. `mhost verify zone.db` parses the zone file, performs live lookups for each (name, type) pair, and reports matches, mismatches, missing records, and extras. Non-zero exit code on mismatch for CI/CD integration. See [design document](docs/verify.sdd.md) for full details.
+
 ### Geolocation-aware propagation
 
 Group propagation results by geographic region (Americas, Europe, Asia-Pacific) using provider metadata.
@@ -92,7 +96,7 @@ Longer-term possibilities — not prioritized, may require significant design wo
 
 - **DNS-over-QUIC (DoQ)** — RFC 9250 transport support alongside UDP/TCP/DoT/DoH. Depends on hickory-dns DoQ maturity.
 
-- **Zone file import and pre-deployment validation** — Parse BIND-style zone files and validate with the existing check lints *before* deploying. Shift-left DNS validation.
+- ~~**Zone file import and pre-deployment validation**~~ — Promoted to planned: see [DNS zone file verification](#dns-zone-file-verification) above and [design document](docs/verify.sdd.md).
 
 - **Configuration profiles** — `~/.config/mhost/profiles.toml` with named resolver sets, default options, and per-domain overrides for managing multiple environments.
 
