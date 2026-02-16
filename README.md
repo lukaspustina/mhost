@@ -6,12 +6,15 @@
 
 mhost queries many DNS servers in parallel and aggregates their answers. It supports UDP, TCP, DNS-over-TLS, and DNS-over-HTTPS, understands 20 record types, and ships with 84 pre-configured public resolvers. Beyond simple lookups it can profile an entire domain, discover subdomains, trace the delegation chain, validate your DNS configuration, check propagation, and diff records across nameservers -- all from a single binary.
 
+**Two ways to use it:** `mhost` is a powerful CLI for scripts, pipelines, and quick one-liners. `mdive` is an interactive TUI that lets you explore DNS like a file manager -- drill into subdomains, discover hidden records, and chase references across domains, all without leaving your terminal.
+
 ## Quick Start
 
 ```sh
 # Install (pick one)
 brew install lukaspustina/mhost/mhost          # macOS
-cargo install --features app mhost             # Rust toolchain
+cargo install --features app mhost             # Rust toolchain (CLI only)
+cargo install --features tui mhost             # Rust toolchain (CLI + TUI)
 docker run lukaspustina/mhost:latest mhost l github.com   # Try without installing
 
 # Look up github.com using your system nameservers
@@ -26,6 +29,9 @@ mhost -p l --all -w github.com
 # Pipe to jq for scripting
 mhost -q -p --output json l --all github.com \
   | jq '.lookups[] | .result.Response.records[]? | select(.type == "A") | .data.A'
+
+# Or just dive in interactively
+mdive github.com
 ```
 
 ![Multi lookup for all available records of github.com.](docs/images/multi-lookup-all-records-github.png)
@@ -46,6 +52,7 @@ mhost -q -p --output json l --all github.com \
 | [`info`](#info) | -- | Built-in reference for record types, TXT sub-types, and well-known subdomains |
 | `server-lists` | -- | Download public nameserver lists for large-scale queries |
 | `completions` | -- | Generate shell completions (bash, zsh, fish) |
+| **[`mdive`](#mdive--interactive-tui)** | -- | **Interactive TUI for exploring DNS -- drill down, discover, and investigate** |
 
 ---
 
@@ -218,6 +225,100 @@ Built-in reference with summaries, details, and RFC references for every support
 
 ---
 
+## mdive -- Interactive TUI
+
+While `mhost` is built for scripts and one-liners, `mdive` is built for humans. It's an interactive terminal UI that turns DNS exploration into something that actually feels good -- think "file manager for DNS." Type a domain, watch records stream in from multiple servers in real time, then drill into anything interesting.
+
+```sh
+mdive example.com                        # Dive right in
+mdive -p example.com                     # Use 84 public resolvers for broader coverage
+mdive -s 8.8.8.8 -s 1.1.1.1 example.com # Pick your own nameservers
+```
+
+### What You Get
+
+**A live, sortable record table.** All DNS records for a domain -- apex plus dozens of well-known subdomains across 10 categories (email auth, TLS/DANE, SRV services, infrastructure, and more). Results stream in progressively as servers respond, with a real-time progress bar in the status line. Toggle between raw DNS wire format and human-readable values with a single keypress.
+
+**Drill-down navigation.** See a CNAME pointing somewhere interesting? Press `l` to follow it. Found a subdomain in the results? Hit Enter to dive in. Every query is pushed onto a history stack, so Backspace takes you right back. It's like `cd` and `cd ..` but for DNS.
+
+**Five discovery strategies, one keypress away.** Press `d` to open the discovery panel, then launch any combination:
+
+| Key | Strategy | What it does |
+|-----|----------|--------------|
+| `c` | CT Logs | Search Certificate Transparency logs via crt.sh |
+| `w` | Wordlist | Brute-force 424 common subdomain names (with automatic wildcard filtering) |
+| `s` | SRV Probing | Probe 22 well-known SRV service records |
+| `t` | TXT Mining | Extract referenced domains from SPF includes and DMARC URIs |
+| `p` | Permutation | Generate variations of already-discovered labels (dev-, staging-, -prod, ...) |
+| `a` | All | Run everything at once |
+
+Discovered subdomains appear in the main table as they're found. Wildcard detection runs automatically to filter false positives.
+
+**Built-in DNS health checks.** Press `c` to run best-practice lints against the current domain -- CNAME-at-apex detection, NS redundancy, SPF/DMARC validation, DNSSEC chain verification, HTTPS/SVCB mode checks, CAA coverage, TTL sanity, and more. Each result shows pass/warning/fail with a clear explanation.
+
+**WHOIS and geolocation.** Press `w` and mdive fetches WHOIS data for every IP in your results -- AS numbers, network prefixes, organizations, countries, and geolocations. Handy for understanding where a domain's infrastructure actually lives.
+
+**Server response dashboard.** Press `s` to see every nameserver that responded, sorted by latency -- protocol, response counts, error counts, and min/avg/max timing. The stats panel (`S`) shows a compact summary right in the status bar: record type distribution, query health, DNSSEC status, and response time ranges.
+
+**Regex filtering.** Press `/` and type a pattern. Matches against record names, types, and values in real time. Quickly zero in on that one TXT record in a sea of results.
+
+### Keybindings
+
+mdive uses vi-style navigation with a few extras:
+
+| Key | Action | Key | Action |
+|-----|--------|-----|--------|
+| `j`/`k` | Move down/up | `i` | Enter domain query |
+| `gg`/`G` | First/last row | `/` | Filter (regex) |
+| `22gg` | Jump to line 22 | `C` | Clear filter |
+| PgUp/PgDn | Scroll by 10 | `r` | Re-run query |
+| Enter | Drill into subdomain | `h` | Toggle human view |
+| `l`/Right | Follow value target | `S` | Toggle stats |
+| Left/BS | Go back in history | Tab | Cycle grouping |
+| `1`-`0` | Toggle categories | `a`/`n` | All/none categories |
+| `o` | Record detail popup | `?` | Help |
+
+### Category Toggles
+
+Records are organized into 10 categories. Toggle any with number keys, or press `a` for all / `n` for none:
+
+| Key | Category | Key | Category |
+|-----|----------|-----|----------|
+| `1` | Email Auth (DMARC, SPF, ...) | `6` | Infrastructure (LDAP, Kerberos) |
+| `2` | Email Services (IMAP, SMTP) | `7` | Modern Protocols (STUN, TURN) |
+| `3` | TLS / DANE | `8` | Verification & Metadata |
+| `4` | Communication (SIP, XMPP, Matrix) | `9` | Legacy |
+| `5` | Calendar & Contacts (CalDAV) | `0` | Gaming |
+
+Cycle the grouping mode with Tab: **Category** (default) -> **Record Type** -> **Name** -> **Server**.
+
+### CLI Options
+
+```
+mdive [OPTIONS] [DOMAIN]
+
+Options:
+  -s, --nameserver <SPEC>          Add a nameserver (repeatable)
+  -p, --predefined                 Add 84 predefined public nameservers
+      --predefined-filter <PROTO>  Filter predefined by protocol [udp, tcp, tls, https]
+  -S, --no-system-lookups          Skip system nameservers
+  -t, --timeout <SECS>             Query timeout [default: 5] (1-30)
+  -4, --ipv4-only                  IPv4 only
+  -6, --ipv6-only                  IPv6 only
+  -h, --help                       Print help
+```
+
+### Building mdive
+
+mdive lives behind the `tui` feature flag to keep the default build lean:
+
+```sh
+cargo build --features tui         # Build both mhost and mdive
+cargo run --bin mdive --features tui -- example.com
+```
+
+---
+
 ## Installation
 
 ### Homebrew (macOS)
@@ -251,7 +352,8 @@ rpm -i mhost.rpm
 ### Cargo (Rust developers)
 
 ```sh
-cargo install --features app mhost
+cargo install --features app mhost       # CLI only
+cargo install --features tui mhost       # CLI + interactive TUI (mdive)
 ```
 
 ### From Source
@@ -259,7 +361,8 @@ cargo install --features app mhost
 ```sh
 git clone https://github.com/lukaspustina/mhost
 cd mhost
-make install
+make install                             # CLI only
+cargo install --features tui --path .    # CLI + TUI
 ```
 
 ---
