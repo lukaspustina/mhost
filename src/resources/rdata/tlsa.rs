@@ -5,10 +5,10 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 #[allow(clippy::upper_case_acronyms)]
 pub struct TLSA {
     cert_usage: CertUsage,

@@ -6,7 +6,7 @@
 
 ## Project Overview
 
-**mhost** (v0.5.0) is a modern, high-performance DNS lookup utility written in Rust. It is both a CLI tool and a reusable library. Think of it as an advanced replacement for the classic `host` / `dig` commands.
+**mhost** (v0.6.0) is a modern, high-performance DNS lookup utility written in Rust. It is both a CLI tool and a reusable library. Think of it as an advanced replacement for the classic `host` / `dig` commands.
 
 - **Author**: Lukas Pustina
 - **License**: MIT / Apache-2.0
@@ -22,7 +22,8 @@
 - DNS configuration validation with 13 lints (SOA, NS, CNAME, MX, SPF, DMARC, CAA, TTL, DNSSEC, HTTPS/SVCB, AXFR, open resolver, delegation)
 - Domain lookup command for full DNS profile in one operation (~40-65 well-known subdomain/record combinations)
 - WHOIS integration (via RIPEStats API)
-- Output as human-readable summary tables or JSON
+- Output as human-readable summary tables or JSON (full `Serialize` + `Deserialize` round-trip on all types)
+- DNS snapshot and timeline diff: save lookup JSON, diff against live DNS or another snapshot via `--left-from-file` / `--right-from-file`
 - Predefined unfiltered DNS servers: 84 configurations across 6 providers (Cloudflare, Google, Quad9, Mullvad, Wikimedia, DNS4EU)
 - Built-in wordlist of 424 subdomain entries for discovery
 - Info command for DNS record type and well-known subdomain documentation
@@ -33,7 +34,7 @@
 cargo build                # Build everything (default feature = "app")
 cargo build --lib          # Build library only
 cargo check                # Type-check without full compilation
-cargo test --lib           # Run library unit tests (224 tests, fast, no network needed)
+cargo test --lib           # Run library unit tests (393 tests, fast, no network needed)
 cargo test                 # Run all tests including CLI integration tests (slower, needs network)
 cargo clippy               # Lint
 cargo fmt                  # Format
@@ -41,7 +42,7 @@ cargo fmt                  # Format
 
 ### Test guidelines
 
-- **`cargo test --lib`** is the reliable quick check — 224 unit tests, no network needed.
+- **`cargo test --lib`** is the reliable quick check — 393 unit tests, no network needed.
 - **`cargo test`** also runs lit-based CLI integration tests (`tests/cli_output_tests.rs`) that make real DNS queries via `8.8.8.8`. These may fail due to DNS timeouts or changed records.
 - **Every new rdata type or RecordType variant must have unit tests.** Each rdata module has a `#[cfg(test)] mod tests` block covering constructor/accessor round-trips and any enum conversions (`From<u8>`, `Display`).
 - **`RecordType::from_str` must cover all variants.** If you add a new `RecordType` variant, add it to `FromStr`, `all()`, and the `from_str_all_standard_types` test. The `display_round_trip` test will catch omissions.
@@ -129,7 +130,7 @@ src/
 ├── system_config.rs         # Parse /etc/resolv.conf
 ├── estimate.rs              # Estimation utilities
 ├── diff.rs                  # Diff utilities
-└── utils/                   # Helpers (serialize, deserialize, buffer_unordered_with_breaker)
+└── utils/                   # Helpers (serialize/deserialize incl. NameServerConfig serde, buffer_unordered_with_breaker)
 ```
 
 ## CLI Commands
@@ -141,7 +142,7 @@ src/
 | `discover` | `d` | Discover host names and subdomains using 10+ strategies |
 | `check` | `c` | Validate DNS configuration using 13 lints |
 | `propagation` | `prop` | Check DNS propagation across predefined public resolvers |
-| `diff` | -- | Compare DNS records between two nameserver sets |
+| `diff` | -- | Compare DNS records between two nameserver sets or JSON snapshots |
 | `info` | -- | Show information about DNS record types and well-known subdomains |
 | `completions` | -- | Generate shell completions for bash, zsh, or fish |
 | `server-lists` | -- | Download public nameserver lists |

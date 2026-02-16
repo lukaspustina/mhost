@@ -6,10 +6,10 @@
 // copied, modified, or distributed except according to those terms.
 
 use hickory_resolver::Name;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// Shared data type for both SVCB and HTTPS record types (RFC 9460).
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 #[allow(clippy::upper_case_acronyms)]
 pub struct SVCB {
     svc_priority: u16,
@@ -17,7 +17,7 @@ pub struct SVCB {
     svc_params: Vec<SvcParam>,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 pub struct SvcParam {
     key: String,
     value: String,

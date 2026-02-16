@@ -20,6 +20,8 @@ pub struct DiffConfig {
     pub record_types: Vec<RecordType>,
     pub left: Vec<String>,
     pub right: Vec<String>,
+    pub left_file: Option<String>,
+    pub right_file: Option<String>,
 }
 
 impl ModConfig for DiffConfig {
@@ -32,6 +34,9 @@ impl TryFrom<&ArgMatches> for DiffConfig {
     type Error = anyhow::Error;
 
     fn try_from(args: &ArgMatches) -> std::result::Result<Self, Self::Error> {
+        let left_file = args.get_one::<String>("left-from-file").cloned();
+        let right_file = args.get_one::<String>("right-from-file").cloned();
+
         let config = DiffConfig {
             domain_name: args
                 .get_one::<String>("domain name")
@@ -40,14 +45,14 @@ impl TryFrom<&ArgMatches> for DiffConfig {
             record_types: record_types(args)?,
             left: args
                 .get_many::<String>("left")
-                .context("No left nameservers specified")?
-                .map(ToString::to_string)
-                .collect(),
+                .map(|v| v.map(ToString::to_string).collect())
+                .unwrap_or_default(),
             right: args
                 .get_many::<String>("right")
-                .context("No right nameservers specified")?
-                .map(ToString::to_string)
-                .collect(),
+                .map(|v| v.map(ToString::to_string).collect())
+                .unwrap_or_default(),
+            left_file,
+            right_file,
         };
 
         Ok(config)

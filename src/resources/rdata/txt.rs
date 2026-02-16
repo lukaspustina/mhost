@@ -10,9 +10,9 @@
 
 use std::slice::Iter;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 #[allow(clippy::upper_case_acronyms)]
 pub struct TXT {
     txt_data: Box<[Box<[u8]>]>,

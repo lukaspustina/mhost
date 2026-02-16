@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 use super::Name;
@@ -36,7 +36,7 @@ iana_enum! {
 }
 
 /// DNSKEY record data: public key used for DNSSEC validation.
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 #[allow(clippy::upper_case_acronyms)]
 pub struct DNSKEY {
     flags: u16,
@@ -107,7 +107,7 @@ impl DNSKEY {
 }
 
 /// DS (Delegation Signer) record data: hash of a child zone's DNSKEY.
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 #[allow(clippy::upper_case_acronyms)]
 pub struct DS {
     key_tag: u16,
@@ -144,7 +144,7 @@ impl DS {
 }
 
 /// RRSIG record data: signature over a DNS record set.
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 #[allow(clippy::upper_case_acronyms)]
 pub struct RRSIG {
     type_covered: String,
@@ -222,7 +222,7 @@ impl RRSIG {
 }
 
 /// NSEC record data: authenticated denial of existence (lists next name and types).
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 #[allow(clippy::upper_case_acronyms)]
 pub struct NSEC {
     next_domain_name: Name,
@@ -247,7 +247,7 @@ impl NSEC {
 }
 
 /// NSEC3 record data: hashed authenticated denial of existence.
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 #[allow(clippy::upper_case_acronyms)]
 pub struct NSEC3 {
     hash_algorithm: String,
@@ -303,7 +303,7 @@ impl NSEC3 {
 }
 
 /// NSEC3PARAM record data: parameters for NSEC3 hashing.
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 #[allow(clippy::upper_case_acronyms)]
 pub struct NSEC3PARAM {
     hash_algorithm: String,

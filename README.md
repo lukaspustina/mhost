@@ -42,7 +42,7 @@ mhost -q -p --output json l --all github.com \
 | [`check`](#check) | `c` | Validate DNS configuration against 13 lints (SOA, NS, SPF, DMARC, DNSSEC, ...) |
 | [`trace`](#trace) | `t` | Trace the delegation path from root servers, querying all servers at each hop |
 | [`propagation`](#propagation) | `prop` | Check whether a DNS change has propagated across public resolvers |
-| [`diff`](#diff) | -- | Compare DNS records between two sets of nameservers |
+| [`diff`](#diff) | -- | Compare DNS records between nameservers or JSON snapshots |
 | [`info`](#info) | -- | Built-in reference for record types, TXT sub-types, and well-known subdomains |
 | `server-lists` | -- | Download public nameserver lists for large-scale queries |
 | `completions` | -- | Generate shell completions (bash, zsh, fish) |
@@ -191,6 +191,19 @@ mhost diff --left 8.8.8.8 --right 1.1.1.1 --all example.com
 ```
 
 Compare what two different nameserver sets return for the same domain. Useful for debugging inconsistencies or verifying migrations.
+
+You can also diff against saved JSON snapshots for migration validation and change tracking:
+
+```sh
+# Save a snapshot
+mhost lookup -s 8.8.8.8 -q -t A,AAAA,MX example.com --output json > before.json
+
+# Later, diff snapshot against live DNS
+mhost diff --left-from-file before.json --right 1.1.1.1 example.com
+
+# Or compare two snapshots offline
+mhost diff --left-from-file before.json --right-from-file after.json example.com
+```
 
 ### Look Up Record Type Info
 
@@ -395,15 +408,19 @@ mhost -p propagation [OPTIONS] <DOMAIN>
 ### Diff
 
 ```sh
-mhost diff [OPTIONS] --left <SERVER> --right <SERVER> <DOMAIN>
+mhost diff [OPTIONS] <DOMAIN>
 ```
 
 ```
       --left <SERVER>            Left nameserver(s) (repeatable)
       --right <SERVER>           Right nameserver(s) (repeatable)
+      --left-from-file <FILE>    Load left side from a JSON snapshot file (from lookup --output json)
+      --right-from-file <FILE>   Load right side from a JSON snapshot file (from lookup --output json)
   -t, --record-type <TYPE>       Record types [default: A,AAAA,CNAME,MX,NS,SOA,TXT]
       --all                      Compare all record types
 ```
+
+Each side requires either `--left`/`--right` (live query) or `--left-from-file`/`--right-from-file` (snapshot). You can mix: one side live, the other from file.
 
 ---
 

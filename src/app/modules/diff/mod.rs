@@ -29,8 +29,6 @@ pub async fn run(args: &ArgMatches, app_config: &AppConfig) -> Result<ExitStatus
 
     Diff::init(app_config, &config)
         .await?
-        .lookups()
-        .await?
         .compute()
         .output()
         .into_result()

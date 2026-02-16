@@ -10,14 +10,14 @@
 
 use crate::resources::{RData, RecordType};
 use hickory_resolver::Name;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
 /// A DNS resource record with name, type, TTL, and record data.
 ///
 /// Equality and hashing ignore the TTL field, so two records with different TTLs
 /// but the same name, type, and data are considered equal.
-#[derive(Debug, Eq, Clone, Serialize)]
+#[derive(Debug, Eq, Clone, Serialize, Deserialize)]
 pub struct Record {
     name: Name,
     #[serde(rename = "type")]
