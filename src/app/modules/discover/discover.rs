@@ -436,7 +436,7 @@ impl<'a> WildcardCheck<'a> {
         })
     }
 
-    fn rnd_names(number: usize, len: usize) -> Vec<String> {
+    pub fn rnd_names(number: usize, len: usize) -> Vec<String> {
         info!(
             "Generating {} number of random domain names with length {}",
             number, len
@@ -1166,7 +1166,7 @@ impl OutputDiscoverResult<'_> {
 // ---------------------------------------------------------------------------
 
 /// Filter lookups that match wildcard resolutions.
-fn filter_wildcard_responses(wildcard_lookups: &Option<Lookups>, lookups: Lookups) -> Lookups {
+pub fn filter_wildcard_responses(wildcard_lookups: &Option<Lookups>, lookups: Lookups) -> Lookups {
     if let Some(ref wildcards) = wildcard_lookups {
         let wildcard_records = wildcards.records();
         let wildcard_resolutions = wildcard_records.iter().unique().iter().map(|x| x.data()).collect();

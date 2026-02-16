@@ -55,6 +55,7 @@ pub fn category_short_label(cat: Category) -> &'static str {
         Category::Legacy => "Legacy",
         Category::Gaming => "Gaming",
         Category::Apex => "Apex",
+        Category::Discovered => "Disc",
     }
 }
 
@@ -71,6 +72,7 @@ fn category_ordinal(cat: Category) -> u8 {
         Category::VerificationMetadata => 8,
         Category::Legacy => 9,
         Category::Gaming => 10,
+        Category::Discovered => 11,
     }
 }
 
@@ -197,6 +199,100 @@ pub struct RecordRow {
     pub category: Category,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DiscoveryStrategy {
+    CtLogs,
+    Wordlist,
+    SrvProbing,
+    TxtMining,
+    Permutation,
+}
+
+impl DiscoveryStrategy {
+    pub fn all() -> &'static [DiscoveryStrategy] {
+        &[
+            DiscoveryStrategy::CtLogs,
+            DiscoveryStrategy::Wordlist,
+            DiscoveryStrategy::SrvProbing,
+            DiscoveryStrategy::TxtMining,
+            DiscoveryStrategy::Permutation,
+        ]
+    }
+
+    pub fn key(self) -> char {
+        match self {
+            DiscoveryStrategy::CtLogs => 'c',
+            DiscoveryStrategy::Wordlist => 'w',
+            DiscoveryStrategy::SrvProbing => 's',
+            DiscoveryStrategy::TxtMining => 't',
+            DiscoveryStrategy::Permutation => 'p',
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            DiscoveryStrategy::CtLogs => "CT Logs",
+            DiscoveryStrategy::Wordlist => "Wordlist",
+            DiscoveryStrategy::SrvProbing => "SRV Probing",
+            DiscoveryStrategy::TxtMining => "TXT Mining",
+            DiscoveryStrategy::Permutation => "Permutation",
+        }
+    }
+
+    pub fn description(self) -> &'static str {
+        match self {
+            DiscoveryStrategy::CtLogs => "Search Certificate Transparency logs (crt.sh) for historically issued certificates, revealing subdomains that may not be publicly linked",
+            DiscoveryStrategy::Wordlist => "Brute-force 424 common subdomain names (api, mail, cdn, staging, ...) with wildcard filtering to suppress false positives",
+            DiscoveryStrategy::SrvProbing => "Probe 22 well-known SRV service records (IMAP, XMPP, SIP, LDAP, CalDAV, Matrix, STUN/TURN, ...)",
+            DiscoveryStrategy::TxtMining => "Extract referenced domains from SPF includes/redirects and DMARC rua/ruf mailto URIs in existing TXT records",
+            DiscoveryStrategy::Permutation => "Generate variations of discovered subdomain labels with common prefixes/suffixes (dev-, staging-, -test, -prod, -v2, ...)",
+        }
+    }
+
+    pub fn from_key(c: char) -> Option<DiscoveryStrategy> {
+        match c {
+            'c' => Some(DiscoveryStrategy::CtLogs),
+            'w' => Some(DiscoveryStrategy::Wordlist),
+            's' => Some(DiscoveryStrategy::SrvProbing),
+            't' => Some(DiscoveryStrategy::TxtMining),
+            'p' => Some(DiscoveryStrategy::Permutation),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum StrategyStatus {
+    Idle,
+    Running { completed: usize, total: usize },
+    Done { found: usize, elapsed: Duration },
+    Error(String),
+}
+
+pub struct DiscoveryState {
+    pub statuses: HashMap<DiscoveryStrategy, StrategyStatus>,
+    pub wildcard_lookups: Option<Lookups>,
+    pub wildcard_checked: bool,
+    pub wildcard_running: bool,
+    pub generation: u64,
+}
+
+impl DiscoveryState {
+    fn new(generation: u64) -> Self {
+        let mut statuses = HashMap::new();
+        for s in DiscoveryStrategy::all() {
+            statuses.insert(*s, StrategyStatus::Idle);
+        }
+        DiscoveryState {
+            statuses,
+            wildcard_lookups: None,
+            wildcard_checked: false,
+            wildcard_running: false,
+            generation,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Popup {
     None,
@@ -205,6 +301,7 @@ pub enum Popup {
     Servers,
     Whois,
     Lints,
+    Discovery,
 }
 
 pub enum Action {
@@ -253,6 +350,13 @@ pub enum Action {
     DnsBatch { generation: u64, lookups: Lookups, completed: usize, total: usize },
     DnsComplete { generation: u64, elapsed: Duration },
     DnsError { generation: u64, message: String },
+    OpenDiscovery,
+    RunStrategy(DiscoveryStrategy),
+    RunAllStrategies,
+    DiscoveryBatch { generation: u64, strategy: DiscoveryStrategy, lookups: Lookups, completed: usize, total: usize },
+    DiscoveryComplete { generation: u64, strategy: DiscoveryStrategy, found: usize, elapsed: Duration },
+    DiscoveryError { generation: u64, strategy: DiscoveryStrategy, message: String },
+    WildcardComplete { generation: u64, wildcard_lookups: Option<Lookups> },
 }
 
 pub struct App {
@@ -291,6 +395,10 @@ pub struct App {
     pub lint_line_count: u16,
     pub show_stats: bool,
     pub stats_data: Option<StatsData>,
+    pub discovery_state: Option<DiscoveryState>,
+    pub discovery_scroll: u16,
+    pub discovery_line_count: u16,
+    pub(crate) pending_strategy_spawns: Vec<DiscoveryStrategy>,
 }
 
 impl App {
@@ -327,6 +435,10 @@ impl App {
             lint_line_count: 0,
             show_stats: false,
             stats_data: None,
+            discovery_state: None,
+            discovery_scroll: 0,
+            discovery_line_count: 0,
+            pending_strategy_spawns: Vec::new(),
         }
     }
 
@@ -429,6 +541,7 @@ impl App {
                     self.whois_loading = false;
                     self.lint_results = None;
                     self.stats_data = None;
+                    self.discovery_state = None;
                 }
             }
 
@@ -632,37 +745,111 @@ impl App {
             Action::PopupScrollUp => {
                 match self.popup {
                     Popup::Lints => self.lint_scroll = self.lint_scroll.saturating_sub(1),
+                    Popup::Discovery => self.discovery_scroll = self.discovery_scroll.saturating_sub(1),
                     _ => self.whois_scroll = self.whois_scroll.saturating_sub(1),
                 }
             }
             Action::PopupScrollDown => {
                 match self.popup {
                     Popup::Lints => self.lint_scroll = self.lint_scroll.saturating_add(1).min(self.lint_line_count),
+                    Popup::Discovery => self.discovery_scroll = self.discovery_scroll.saturating_add(1).min(self.discovery_line_count),
                     _ => self.whois_scroll = self.whois_scroll.saturating_add(1).min(self.whois_line_count),
                 }
             }
             Action::PopupScrollPageUp => {
                 match self.popup {
                     Popup::Lints => self.lint_scroll = self.lint_scroll.saturating_sub(10),
+                    Popup::Discovery => self.discovery_scroll = self.discovery_scroll.saturating_sub(10),
                     _ => self.whois_scroll = self.whois_scroll.saturating_sub(10),
                 }
             }
             Action::PopupScrollPageDown => {
                 match self.popup {
                     Popup::Lints => self.lint_scroll = self.lint_scroll.saturating_add(10).min(self.lint_line_count),
+                    Popup::Discovery => self.discovery_scroll = self.discovery_scroll.saturating_add(10).min(self.discovery_line_count),
                     _ => self.whois_scroll = self.whois_scroll.saturating_add(10).min(self.whois_line_count),
                 }
             }
             Action::PopupScrollHome => {
                 match self.popup {
                     Popup::Lints => self.lint_scroll = 0,
+                    Popup::Discovery => self.discovery_scroll = 0,
                     _ => self.whois_scroll = 0,
                 }
             }
             Action::PopupScrollEnd => {
                 match self.popup {
                     Popup::Lints => self.lint_scroll = self.lint_line_count,
+                    Popup::Discovery => self.discovery_scroll = self.discovery_line_count,
                     _ => self.whois_scroll = self.whois_line_count,
+                }
+            }
+
+            Action::OpenDiscovery => {
+                if self.lookups.is_some() {
+                    self.popup = Popup::Discovery;
+                    self.discovery_scroll = 0;
+                    if self.discovery_state.is_none() {
+                        self.discovery_state = Some(DiscoveryState::new(self.query_generation));
+                    }
+                }
+            }
+            Action::RunStrategy(strategy) => {
+                if let Some(ref mut state) = self.discovery_state {
+                    if matches!(state.statuses.get(&strategy), Some(StrategyStatus::Running { .. })) {
+                        return; // already running
+                    }
+                    state.statuses.insert(strategy, StrategyStatus::Running { completed: 0, total: 0 });
+                    self.pending_strategy_spawns.push(strategy);
+                }
+            }
+            Action::RunAllStrategies => {
+                if let Some(ref mut state) = self.discovery_state {
+                    for &strategy in DiscoveryStrategy::all() {
+                        if !matches!(state.statuses.get(&strategy), Some(StrategyStatus::Running { .. })) {
+                            state.statuses.insert(strategy, StrategyStatus::Running { completed: 0, total: 0 });
+                            self.pending_strategy_spawns.push(strategy);
+                        }
+                    }
+                }
+            }
+            Action::DiscoveryBatch { generation, strategy, lookups, completed, total } => {
+                let state = match self.discovery_state {
+                    Some(ref mut s) if s.generation == generation => s,
+                    _ => return,
+                };
+                state.statuses.insert(strategy, StrategyStatus::Running { completed, total });
+                match self.lookups.take() {
+                    Some(existing) => self.lookups = Some(existing.merge(lookups)),
+                    None => self.lookups = Some(lookups),
+                }
+                self.stats_data = self.lookups.as_ref().map(compute_stats);
+                self.rebuild_rows();
+                if !self.rows.is_empty() && self.table_state.selected().is_none() {
+                    self.table_state.select(Some(0));
+                }
+            }
+            Action::DiscoveryComplete { generation, strategy, found, elapsed } => {
+                if let Some(ref mut state) = self.discovery_state {
+                    if state.generation == generation {
+                        state.statuses.insert(strategy, StrategyStatus::Done { found, elapsed });
+                    }
+                }
+            }
+            Action::DiscoveryError { generation, strategy, message } => {
+                if let Some(ref mut state) = self.discovery_state {
+                    if state.generation == generation {
+                        state.statuses.insert(strategy, StrategyStatus::Error(message));
+                    }
+                }
+            }
+            Action::WildcardComplete { generation, wildcard_lookups } => {
+                if let Some(ref mut state) = self.discovery_state {
+                    if state.generation == generation {
+                        state.wildcard_lookups = wildcard_lookups;
+                        state.wildcard_checked = true;
+                        state.wildcard_running = false;
+                    }
                 }
             }
 
@@ -758,7 +945,9 @@ impl App {
         }
 
         // Build lookup table: (full_name, record_type) -> category
-        let domain_name = match Name::from_str(&domain) {
+        // Ensure FQDN so to_string() matches DNS response names (which are always FQDN)
+        let fqdn = if domain.ends_with('.') { domain.clone() } else { format!("{domain}.") };
+        let domain_name = match Name::from_str(&fqdn) {
             Ok(n) => n,
             Err(_) => return,
         };
@@ -788,10 +977,21 @@ impl App {
                 let category = category_map
                     .get(&(name_str.clone(), rt))
                     .copied()
-                    .unwrap_or(Category::Apex);
+                    .unwrap_or_else(|| {
+                        // Check if this is a subdomain of the queried domain (discovered record)
+                        if let Ok(record_name) = Name::from_str(&name_str) {
+                            if domain_name.zone_of(&record_name) && record_name != domain_name {
+                                return Category::Discovered;
+                            }
+                        }
+                        Category::Apex
+                    });
 
-                // Apex always included; non-Apex filtered by active categories
-                if category != Category::Apex && !self.active_categories.contains(&category) {
+                // Apex and Discovered always included; others filtered by active categories
+                if category != Category::Apex
+                    && category != Category::Discovered
+                    && !self.active_categories.contains(&category)
+                {
                     continue;
                 }
 

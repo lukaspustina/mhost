@@ -15,13 +15,13 @@ use crate::app::AppConfig;
 use crate::app::ExitStatus;
 
 pub mod config;
-mod ct_logs;
+pub mod ct_logs;
 #[allow(clippy::module_inception)]
-mod discover;
-mod permutation;
-mod srv_probing;
-mod txt_mining;
-mod wordlist;
+pub mod discover;
+pub mod permutation;
+pub mod srv_probing;
+pub mod txt_mining;
+pub mod wordlist;
 
 use config::DiscoverConfig;
 use discover::Discover;

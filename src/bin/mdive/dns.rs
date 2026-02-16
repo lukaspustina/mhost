@@ -15,7 +15,7 @@ use tokio::sync::mpsc;
 
 use crate::app::Action;
 
-/// Spawns a domain-lookup query on a background OS thread with its own tokio runtime.
+/// Spawns a domain-lookup query as a tokio task on the shared runtime.
 ///
 /// Sends partial results after each completed query so the TUI can display records progressively.
 /// The `generation` tag is attached to every action sent back so the main loop can discard
@@ -26,34 +26,18 @@ pub fn spawn_domain_query(
     tx: mpsc::Sender<Action>,
     generation: u64,
 ) {
-    std::thread::spawn(move || {
-        let rt = match tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-        {
-            Ok(rt) => rt,
-            Err(e) => {
-                let _ = tx.blocking_send(Action::DnsError {
-                    generation,
-                    message: format!("failed to build DNS runtime: {e}"),
-                });
-                return;
-            }
-        };
-
-        rt.block_on(async {
-            let start = Instant::now();
-            if let Err(msg) = run_domain_query(&domain, &resolver_args, &tx, generation).await {
-                let _ = tx.send(Action::DnsError { generation, message: msg }).await;
-                return;
-            }
-            let _ = tx
-                .send(Action::DnsComplete {
-                    generation,
-                    elapsed: start.elapsed(),
-                })
-                .await;
-        });
+    tokio::task::spawn_local(async move {
+        let start = Instant::now();
+        if let Err(msg) = run_domain_query(&domain, &resolver_args, &tx, generation).await {
+            let _ = tx.send(Action::DnsError { generation, message: msg }).await;
+            return;
+        }
+        let _ = tx
+            .send(Action::DnsComplete {
+                generation,
+                elapsed: start.elapsed(),
+            })
+            .await;
     });
 }
 
@@ -152,7 +136,7 @@ pub fn ips_from_lookups(lookups: &Lookups) -> Vec<IpNetwork> {
     ips
 }
 
-/// Spawns a WHOIS query on a background OS thread with its own tokio runtime.
+/// Spawns a WHOIS query as a tokio task on the shared runtime.
 ///
 /// Queries GeoLocation, NetworkInfo, and Whois data for each unique IP found in the lookups.
 /// The `generation` tag is attached so the main loop can discard stale results.
@@ -161,38 +145,22 @@ pub fn spawn_whois_query(
     tx: mpsc::Sender<Action>,
     generation: u64,
 ) {
-    std::thread::spawn(move || {
-        let rt = match tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-        {
-            Ok(rt) => rt,
+    tokio::task::spawn_local(async move {
+        let query_types = vec![QueryType::NetworkInfo, QueryType::GeoLocation, QueryType::Whois];
+        let query = whois::MultiQuery::new(ips, query_types);
+        let opts = WhoisClientOpts::new(8, Duration::from_secs(5), false);
+        let client = WhoisClient::new(opts);
+
+        match client.query(query).await {
+            Ok(responses) => {
+                let _ = tx.send(Action::WhoisResult { generation, data: responses }).await;
+            }
             Err(e) => {
-                let _ = tx.blocking_send(Action::WhoisError {
+                let _ = tx.send(Action::WhoisError {
                     generation,
-                    message: format!("failed to build WHOIS runtime: {e}"),
-                });
-                return;
+                    message: format!("{e:#}"),
+                }).await;
             }
-        };
-
-        rt.block_on(async {
-            let query_types = vec![QueryType::NetworkInfo, QueryType::GeoLocation, QueryType::Whois];
-            let query = whois::MultiQuery::new(ips, query_types);
-            let opts = WhoisClientOpts::new(8, Duration::from_secs(5), false);
-            let client = WhoisClient::new(opts);
-
-            match client.query(query).await {
-                Ok(responses) => {
-                    let _ = tx.send(Action::WhoisResult { generation, data: responses }).await;
-                }
-                Err(e) => {
-                    let _ = tx.send(Action::WhoisError {
-                        generation,
-                        message: format!("{e:#}"),
-                    }).await;
-                }
-            }
-        });
+        }
     });
 }

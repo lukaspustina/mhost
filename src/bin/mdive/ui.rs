@@ -16,8 +16,8 @@ use mhost::services::whois::WhoisResponse;
 use mhost::RecordType;
 
 use crate::app::{
-    category_short_label, format_nameserver_human, record_type_info, App, Mode,
-    Popup, QueryState, TOGGLEABLE_CATEGORIES,
+    category_short_label, format_nameserver_human, record_type_info, App, DiscoveryStrategy,
+    Mode, Popup, QueryState, StrategyStatus, TOGGLEABLE_CATEGORIES,
 };
 
 pub fn draw(f: &mut Frame, app: &mut App) {
@@ -47,12 +47,13 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         Popup::Servers => draw_servers_popup(f, app),
         Popup::Whois => draw_whois_popup(f, app),
         Popup::Lints => draw_lints_popup(f, app),
+        Popup::Discovery => draw_discovery_popup(f, app),
         Popup::None => {}
     }
 }
 
 fn draw_input(f: &mut Frame, app: &App, area: Rect) {
-    let title_right = " [?]help [/]filter [C]lear [i]nput [r]re-run [s]ervers [w]hois [c]heck [S]tats [h]uman [a]ll [n]one [q]uit ";
+    let title_right = " [?]help [/]filter [C]lear [i]nput [r]re-run [d]iscover [s]ervers [w]hois [c]heck [S]tats [h]uman [a]ll [n]one [q]uit ";
 
     let title_left: Line = if let Some(ref filter) = app.filter {
         Line::from(vec![
@@ -642,6 +643,7 @@ fn draw_help_popup(f: &mut Frame) {
         help_line("w", "Show WHOIS for result IPs"),
         help_line("c", "Show DNS health checks"),
         help_line("S", "Toggle stats panel"),
+        help_line("d", "Open discovery panel"),
         Line::raw(""),
         Line::from(Span::styled(
             "Query",
@@ -989,6 +991,166 @@ fn draw_lints_popup(f: &mut Frame, app: &mut App) {
     if max_scroll > 0 {
         let mut scrollbar_state = ScrollbarState::new(max_scroll as usize)
             .position(scroll as usize);
+        let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
+            .begin_symbol(None)
+            .end_symbol(None);
+        let scrollbar_area = Rect {
+            x: popup_area.x,
+            y: popup_area.y + 1,
+            width: popup_area.width,
+            height: popup_area.height.saturating_sub(2),
+        };
+        f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
+    }
+}
+
+fn draw_discovery_popup(f: &mut Frame, app: &mut App) {
+    let dim = Style::default().fg(Color::Gray);
+
+    let mut lines: Vec<Line> = vec![Line::raw("")];
+
+    // Wildcard status
+    if let Some(ref state) = app.discovery_state {
+        let wildcard_line = if state.wildcard_running {
+            Line::from(vec![
+                Span::styled("  Wildcard: ", dim),
+                Span::styled("detecting...", Style::default().fg(Color::Yellow)),
+            ])
+        } else if state.wildcard_checked {
+            if state.wildcard_lookups.is_some() {
+                Line::from(vec![
+                    Span::styled("  Wildcard: ", dim),
+                    Span::styled(
+                        "detected (filtering enabled)",
+                        Style::default().fg(Color::Yellow),
+                    ),
+                ])
+            } else {
+                Line::from(vec![
+                    Span::styled("  Wildcard: ", dim),
+                    Span::styled("none detected", Style::default().fg(Color::Green)),
+                ])
+            }
+        } else {
+            Line::from(vec![
+                Span::styled("  Wildcard: ", dim),
+                Span::styled(
+                    "not checked (runs automatically with Wordlist/Permutation)",
+                    dim,
+                ),
+            ])
+        };
+        lines.push(wildcard_line);
+        lines.push(Line::raw(""));
+
+        // Strategy blocks
+        for strategy in DiscoveryStrategy::all() {
+            let status = state
+                .statuses
+                .get(strategy)
+                .cloned()
+                .unwrap_or(StrategyStatus::Idle);
+
+            let (icon, status_style, status_text) = match &status {
+                StrategyStatus::Idle => (
+                    "\u{25CB}",
+                    Style::default().fg(Color::DarkGray),
+                    "idle".to_string(),
+                ),
+                StrategyStatus::Running { completed, total } => {
+                    if *total > 0 {
+                        (
+                            "\u{25D4}",
+                            Style::default().fg(Color::Yellow),
+                            format!("running {completed}/{total}"),
+                        )
+                    } else {
+                        (
+                            "\u{25D4}",
+                            Style::default().fg(Color::Yellow),
+                            "running...".to_string(),
+                        )
+                    }
+                }
+                StrategyStatus::Done { found, elapsed } => {
+                    let secs = elapsed.as_secs_f64();
+                    (
+                        "\u{25CF}",
+                        Style::default().fg(Color::Green),
+                        format!("done \u{2014} {found} found ({secs:.1}s)"),
+                    )
+                }
+                StrategyStatus::Error(msg) => (
+                    "\u{2717}",
+                    Style::default().fg(Color::Red),
+                    format!("error: {msg}"),
+                ),
+            };
+
+            // Trigger line: [key] Label    status_icon status_text
+            lines.push(Line::from(vec![
+                Span::styled(
+                    format!("  [{}] ", strategy.key()),
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    format!("{:<14}", strategy.label()),
+                    Style::default().add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(format!("{icon} "), status_style),
+                Span::styled(status_text, status_style),
+            ]));
+
+            // Description line (dimmed, indented)
+            lines.push(Line::from(Span::styled(
+                format!("      {}", strategy.description()),
+                dim,
+            )));
+            lines.push(Line::raw(""));
+        }
+    } else {
+        lines.push(Line::from(Span::styled(
+            " No query results yet \u{2014} run a query first",
+            dim,
+        )));
+        lines.push(Line::raw(""));
+    }
+
+    lines.push(
+        Line::from(Span::styled(
+            "[Esc] close  [j/k] scroll  [c/w/s/t/p] run strategy  [a] run all",
+            dim,
+        ))
+        .right_aligned(),
+    );
+
+    let area = f.area();
+    let popup_area = centered_rect(area, 65, 80, 60, 100);
+    let inner_height = popup_area.height.saturating_sub(2);
+    let total_lines = lines.len() as u16;
+    let max_scroll = total_lines.saturating_sub(inner_height);
+    app.discovery_line_count = max_scroll;
+    let scroll = app.discovery_scroll.min(max_scroll);
+
+    let popup = Paragraph::new(lines)
+        .wrap(Wrap { trim: false })
+        .scroll((scroll, 0))
+        .block(
+            Block::default()
+                .title(" Discovery ")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan)),
+        );
+
+    f.render_widget(Clear, popup_area);
+    f.render_widget(popup, popup_area);
+
+    // Scrollbar
+    if max_scroll > 0 {
+        let mut scrollbar_state =
+            ScrollbarState::new(max_scroll as usize).position(scroll as usize);
         let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
             .begin_symbol(None)
             .end_symbol(None);
