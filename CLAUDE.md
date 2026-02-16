@@ -33,11 +33,16 @@
 ```sh
 cargo build                # Build everything (default feature = "app")
 cargo build --lib          # Build library only
+cargo build --features tui # Build with TUI (mdive binary)
 cargo check                # Type-check without full compilation
-cargo test --lib           # Run library unit tests (393 tests, fast, no network needed)
+cargo test --lib           # Run library unit tests (397 tests, fast, no network needed)
 cargo test                 # Run all tests including CLI integration tests (slower, needs network)
 cargo clippy               # Lint
 cargo fmt                  # Format
+
+# mdive TUI
+cargo run --bin mdive --features tui -- example.com
+cargo build --bin mdive --features tui --no-default-features  # TUI-only (pulls in app via dependency)
 ```
 
 ### Test guidelines
@@ -54,6 +59,14 @@ cargo fmt                  # Format
 ```
 src/
 ├── bin/mhost.rs              # CLI entry point
+├── bin/mdive/                # TUI interactive DNS explorer (behind "tui" feature flag)
+│   ├── main.rs              #   TUI entry point, event loop, key mapping
+│   ├── app.rs               #   App state, Action enum, update logic
+│   ├── ui.rs                #   Ratatui rendering (main table, popups, status bar)
+│   ├── dns.rs               #   DNS query spawning (domain lookup, WHOIS)
+│   ├── discovery.rs         #   Discovery strategy spawning (CT logs, wordlist, SRV, TXT mining, permutation)
+│   └── lints.rs             #   DNS health check integration for TUI
+│
 ├── lib.rs                    # Library root, public API exports
 ├── error.rs                  # Top-level Error type (thiserror)
 │
@@ -101,6 +114,15 @@ src/
 │   ├── resolver.rs         #   App-level resolver setup
 │   ├── console.rs          #   User console output
 │   ├── logging.rs          #   tracing/logging setup
+│   ├── common/             #   Shared utilities used by both mhost CLI and mdive TUI
+│   │   ├── mod.rs          #     Module exports
+│   │   ├── ordinal.rs      #     Ordinal trait for record type ordering
+│   │   ├── rdata_format.rs #     Record data formatting (format_rdata, format_rdata_human)
+│   │   ├── record_type_info.rs #  Record type info lookup
+│   │   ├── reference_data.rs #   Reference data for record types, subdomains, TXT sub-types
+│   │   ├── resolver_args.rs #    ResolverArgs: CLI-to-resolver config bridge
+│   │   ├── styles.rs       #     Record type colors/bold (shared by CLI and TUI)
+│   │   └── subdomain_spec.rs #   SubdomainEntry, Category, default_entries()
 │   ├── output/             #   Output formatting
 │   │   ├── mod.rs          #     OutputConfig, OutputFormat, Output, Ordinal trait
 │   │   ├── json.rs         #     JSON output formatter
@@ -164,10 +186,13 @@ src/
 | `tracing` | Structured logging |
 | `rand` 0.9 | Random name generation for wildcard detection |
 | `ipnetwork` 0.21 | IP network/CIDR handling |
+| `ratatui` 0.30 | Terminal UI framework (tui feature only) |
+| `crossterm` 0.28 | Cross-platform terminal manipulation (tui feature only) |
 
 ## Feature Flags
 
 - **`app`** (default): Enables the CLI binary and pulls in clap, anyhow, tabwriter, tracing-subscriber, etc.
+- **`tui`**: Enables the `mdive` interactive TUI binary. Depends on `app` and additionally pulls in `ratatui`, `crossterm`, and `regex`.
 - Without `app`: Library-only build with minimal dependencies.
 
 ## Release Process
@@ -209,6 +234,29 @@ The `app/output/` module has a layered design separating shared concerns from co
 **Key rule**: DNS record rendering (`impl Rendering for X`) belongs in `records.rs`, not in command-specific files. Command files should only contain `SummaryFormatter` impls and command-specific presentation logic.
 
 **Visibility note**: `records.rs` is a sibling of `summary/` (both children of `output/`), so it accesses `SummaryOptions` fields via their public accessor methods (`opts.human()`, `opts.condensed()`), not direct field access.
+
+**TUI rendering**: The mdive TUI uses `app/common/rdata_format.rs` for record data formatting and `app/common/styles.rs` for record type colors, rather than the summary-specific `Rendering` trait in `records.rs`.
+
+## mdive — Interactive TUI
+
+`mdive` is an interactive terminal UI for DNS exploration, built with `ratatui` and `crossterm` behind the `tui` feature flag.
+
+**Binary**: `src/bin/mdive/main.rs` — separate from `mhost` CLI but shares the library and `app/common/` modules.
+
+**Module structure**:
+- `main.rs` — Entry point, tokio event loop, key-to-action mapping, task spawning orchestration
+- `app.rs` — `App` state struct, `Action` enum (30+ variants), `update()` state machine, `Popup` enum, `RecordRow`, `DiscoveryState`
+- `ui.rs` — All ratatui rendering: main table, input bar, category toggles, stats panel, status bar, 6 popup types (Record Detail, Help, Servers, WHOIS, Lints, Discovery), `render_scrollable_popup` helper
+- `dns.rs` — Spawns domain lookup and WHOIS queries as `spawn_local` tasks; accepts `Arc<ResolverGroup>`
+- `discovery.rs` — Spawns 5 discovery strategies (CT Logs, Wordlist, SRV Probing, TXT Mining, Permutation) + wildcard check; accepts `Arc<ResolverGroup>`
+- `lints.rs` — Runs DNS health check lints against accumulated lookups
+
+**Key design decisions**:
+- **Generation-tagged actions**: Every DNS/discovery action carries a `generation: u64` tag. Stale results from previous queries are silently discarded.
+- **Shared ResolverGroup via Arc**: Built once per query, stored in `App`, shared across domain lookup and all discovery tasks. Eliminates redundant resolver construction.
+- **Task cancellation**: DNS and discovery task `JoinHandle`s are stored in `App` and `.abort()`ed when a new query starts.
+- **Progressive results**: DNS and discovery queries send `Batch` actions as results arrive, so the table populates incrementally.
+- **Vi-style navigation**: `j/k` movement, `gg`/`G` jumps, digit-prefixed commands, count buffer with 1s timeout.
 
 ## Common Patterns
 

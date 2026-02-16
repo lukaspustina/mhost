@@ -1,17 +1,20 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::str::FromStr;
-use std::time::Duration;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use mhost::app::common::ordinal::Ordinal;
 use mhost::app::common::rdata_format::{format_rdata, format_rdata_human};
 use mhost::app::common::resolver_args::ResolverArgs;
-use mhost::app::common::subdomain_spec::{default_entries, Category};
+use mhost::app::common::subdomain_spec::{default_entries, Category, SubdomainEntry};
 use mhost::resolver::lookup::{LookupResult, Lookups};
+use mhost::resolver::ResolverGroup;
 use mhost::resolver::Error as ResolverError;
 use mhost::services::whois::WhoisResponses;
 use mhost::{Name, RecordType};
 use ratatui::widgets::TableState;
 use regex::RegexBuilder;
+use tokio::task::JoinHandle;
 
 use crate::lints::{self, LintSection};
 
@@ -293,10 +296,14 @@ impl DiscoveryState {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Popup {
     None,
-    RecordDetail(usize),
+    RecordDetail {
+        name: String,
+        record_type: RecordType,
+        value: String,
+    },
     Help,
     Servers,
     Whois,
@@ -367,7 +374,7 @@ pub struct App {
     pub filter_input: String,
     pub filter_cursor_pos: usize,
     pub filter: Option<regex::Regex>,
-    pub filter_error: bool,
+    pub filter_error: Option<String>,
     pub active_categories: HashSet<Category>,
     pub query_state: QueryState,
     pub rows: Vec<RecordRow>,
@@ -377,14 +384,14 @@ pub struct App {
     pub human_view: bool,
     pub batch_progress: (usize, usize),
     pub count_buffer: String,
-    pub pending_g: bool,
+    pub pending_g: Option<Instant>,
+    pub quit_confirm: bool,
     pub(crate) lookups: Option<Lookups>,
     /// Monotonically increasing query generation; used to discard stale DNS results.
     pub(crate) query_generation: u64,
     pub whois_data: Option<WhoisResponses>,
     pub whois_error: Option<String>,
     pub whois_scroll: u16,
-    pub whois_line_count: u16,
     /// True while a WHOIS fetch is in progress.
     pub(crate) whois_loading: bool,
     /// Tracks which query generation a pending/completed WHOIS fetch belongs to,
@@ -392,13 +399,23 @@ pub struct App {
     pub(crate) whois_generation: u64,
     pub lint_results: Option<Vec<LintSection>>,
     pub lint_scroll: u16,
-    pub lint_line_count: u16,
     pub show_stats: bool,
     pub stats_data: Option<StatsData>,
     pub discovery_state: Option<DiscoveryState>,
     pub discovery_scroll: u16,
-    pub discovery_line_count: u16,
+    pub record_detail_scroll: u16,
+    pub servers_scroll: u16,
     pub(crate) pending_strategy_spawns: Vec<DiscoveryStrategy>,
+    /// Shared resolver group, built once per query.
+    pub(crate) resolver_group: Option<Arc<ResolverGroup>>,
+    /// Handle for the active DNS query task (aborted on new query).
+    pub(crate) dns_task: Option<JoinHandle<()>>,
+    /// Handles for active discovery tasks (aborted on new query).
+    pub(crate) discovery_tasks: Vec<JoinHandle<()>>,
+    /// Cached category lookup map, rebuilt per query domain.
+    category_map: HashMap<(String, RecordType), Category>,
+    /// Cached default entries (allocated once).
+    default_entries: Vec<SubdomainEntry>,
 }
 
 impl App {
@@ -411,7 +428,7 @@ impl App {
             filter_input: String::new(),
             filter_cursor_pos: 0,
             filter: None,
-            filter_error: false,
+            filter_error: None,
             active_categories: DEFAULT_CATEGORIES.iter().copied().collect(),
             query_state: QueryState::Idle,
             rows: Vec::new(),
@@ -421,24 +438,29 @@ impl App {
             human_view: false,
             batch_progress: (0, 0),
             count_buffer: String::new(),
-            pending_g: false,
+            pending_g: None,
+            quit_confirm: false,
             lookups: None,
             query_generation: 0,
             whois_data: None,
             whois_error: None,
             whois_scroll: 0,
-            whois_line_count: 0,
             whois_loading: false,
             whois_generation: 0,
             lint_results: None,
             lint_scroll: 0,
-            lint_line_count: 0,
             show_stats: false,
             stats_data: None,
             discovery_state: None,
             discovery_scroll: 0,
-            discovery_line_count: 0,
+            record_detail_scroll: 0,
+            servers_scroll: 0,
             pending_strategy_spawns: Vec::new(),
+            resolver_group: None,
+            dns_task: None,
+            discovery_tasks: Vec::new(),
+            category_map: HashMap::new(),
+            default_entries: default_entries(),
         }
     }
 
@@ -452,12 +474,25 @@ impl App {
     }
 
     pub fn update(&mut self, action: Action) {
+        // Clear pending_g after 1 second timeout
+        if let Some(t) = self.pending_g {
+            if t.elapsed() > Duration::from_secs(1) {
+                self.pending_g = None;
+                self.count_buffer.clear();
+            }
+        }
+
+        // Reset quit confirmation on any non-Quit action
+        if !matches!(action, Action::Quit) {
+            self.quit_confirm = false;
+        }
+
         // Vi-count bookkeeping: on non-count actions, flush a single-digit buffer
         // as a category toggle, then clear state.
         match &action {
             Action::DigitPress(_) | Action::PressG | Action::PressCapG => {}
             _ => {
-                if self.count_buffer.len() == 1 && !self.pending_g {
+                if self.count_buffer.len() == 1 && self.pending_g.is_none() {
                     let c = self.count_buffer.chars().next().unwrap();
                     let idx = if c == '0' { 9 } else { (c as usize) - ('1' as usize) };
                     if let Some(cat) = TOGGLEABLE_CATEGORIES.get(idx) {
@@ -470,12 +505,19 @@ impl App {
                     }
                 }
                 self.count_buffer.clear();
-                self.pending_g = false;
+                self.pending_g = None;
             }
         }
 
         match action {
-            Action::Quit => self.should_quit = true,
+            Action::Quit => {
+                let has_results = self.lookups.is_some();
+                if has_results && !self.quit_confirm {
+                    self.quit_confirm = true;
+                } else {
+                    self.should_quit = true;
+                }
+            }
 
             Action::EnterInputMode => {
                 self.mode = Mode::Input;
@@ -486,26 +528,31 @@ impl App {
             Action::EnterSearchMode => {
                 self.filter_input = self.filter.as_ref().map_or(String::new(), |r| r.as_str().to_string());
                 self.filter_cursor_pos = self.filter_input.len();
-                self.filter_error = false;
+                self.filter_error = None;
                 self.mode = Mode::Search;
             }
             Action::ExitSearchMode => {
-                self.filter_error = false;
+                self.filter_error = None;
                 self.mode = Mode::Normal;
             }
             Action::ApplyFilter => {
                 let trimmed = self.filter_input.trim().to_string();
                 if trimmed.is_empty() {
                     self.filter = None;
-                    self.filter_error = false;
+                    self.filter_error = None;
                 } else {
-                    match RegexBuilder::new(&trimmed).case_insensitive(true).build() {
+                    match RegexBuilder::new(&trimmed)
+                        .case_insensitive(true)
+                        .size_limit(10 * (1 << 20))
+                        .dfa_size_limit(10 * (1 << 20))
+                        .build()
+                    {
                         Ok(re) => {
                             self.filter = Some(re);
-                            self.filter_error = false;
+                            self.filter_error = None;
                         }
-                        Err(_) => {
-                            self.filter_error = true;
+                        Err(e) => {
+                            self.filter_error = Some(e.to_string());
                             return;
                         }
                     }
@@ -515,7 +562,7 @@ impl App {
             }
             Action::ClearFilter => {
                 self.filter = None;
-                self.filter_error = false;
+                self.filter_error = None;
                 self.filter_input.clear();
                 self.filter_cursor_pos = 0;
                 self.rebuild_rows();
@@ -523,6 +570,15 @@ impl App {
             Action::SubmitQuery => {
                 let domain = self.input.trim().to_string();
                 if !domain.is_empty() {
+                    // Abort existing tasks before starting new query
+                    if let Some(handle) = self.dns_task.take() {
+                        handle.abort();
+                    }
+                    for handle in self.discovery_tasks.drain(..) {
+                        handle.abort();
+                    }
+                    self.resolver_group = None;
+
                     self.mode = Mode::Normal;
                     self.query_generation += 1;
                     self.query_state = QueryState::Loading {
@@ -533,7 +589,7 @@ impl App {
                     self.batch_progress = (0, 0);
                     self.table_state.select(None);
                     self.filter = None;
-                    self.filter_error = false;
+                    self.filter_error = None;
                     self.filter_input.clear();
                     self.filter_cursor_pos = 0;
                     self.whois_data = None;
@@ -542,6 +598,7 @@ impl App {
                     self.lint_results = None;
                     self.stats_data = None;
                     self.discovery_state = None;
+                    self.category_map.clear();
                 }
             }
 
@@ -668,12 +725,14 @@ impl App {
             }
 
             Action::DigitPress(c) => {
-                self.count_buffer.push(c);
+                if self.count_buffer.len() < 6 {
+                    self.count_buffer.push(c);
+                }
             }
             Action::PressG => {
-                if self.pending_g {
+                if self.pending_g.is_some() {
                     // Second g: jump to line N or top
-                    self.pending_g = false;
+                    self.pending_g = None;
                     let line = self.count_buffer.parse::<usize>().unwrap_or(0);
                     self.count_buffer.clear();
                     if !self.rows.is_empty() {
@@ -685,11 +744,11 @@ impl App {
                         }
                     }
                 } else {
-                    self.pending_g = true;
+                    self.pending_g = Some(Instant::now());
                 }
             }
             Action::PressCapG => {
-                self.pending_g = false;
+                self.pending_g = None;
                 let line = self.count_buffer.parse::<usize>().unwrap_or(0);
                 self.count_buffer.clear();
                 if !self.rows.is_empty() {
@@ -704,7 +763,14 @@ impl App {
 
             Action::OpenPopup => {
                 if let Some(idx) = self.table_state.selected() {
-                    self.popup = Popup::RecordDetail(idx);
+                    if let Some(row) = self.rows.get(idx) {
+                        self.record_detail_scroll = 0;
+                        self.popup = Popup::RecordDetail {
+                            name: row.name.clone(),
+                            record_type: row.record_type,
+                            value: row.value.clone(),
+                        };
+                    }
                 }
             }
             Action::OpenHelp => {
@@ -712,6 +778,7 @@ impl App {
             }
             Action::OpenServers => {
                 self.popup = Popup::Servers;
+                self.servers_scroll = 0;
             }
             Action::OpenWhois => {
                 self.popup = Popup::Whois;
@@ -743,46 +810,22 @@ impl App {
                 self.popup = Popup::None;
             }
             Action::PopupScrollUp => {
-                match self.popup {
-                    Popup::Lints => self.lint_scroll = self.lint_scroll.saturating_sub(1),
-                    Popup::Discovery => self.discovery_scroll = self.discovery_scroll.saturating_sub(1),
-                    _ => self.whois_scroll = self.whois_scroll.saturating_sub(1),
-                }
+                self.popup_scroll_mut(|s| *s = s.saturating_sub(1));
             }
             Action::PopupScrollDown => {
-                match self.popup {
-                    Popup::Lints => self.lint_scroll = self.lint_scroll.saturating_add(1).min(self.lint_line_count),
-                    Popup::Discovery => self.discovery_scroll = self.discovery_scroll.saturating_add(1).min(self.discovery_line_count),
-                    _ => self.whois_scroll = self.whois_scroll.saturating_add(1).min(self.whois_line_count),
-                }
+                self.popup_scroll_mut(|s| *s = s.saturating_add(1));
             }
             Action::PopupScrollPageUp => {
-                match self.popup {
-                    Popup::Lints => self.lint_scroll = self.lint_scroll.saturating_sub(10),
-                    Popup::Discovery => self.discovery_scroll = self.discovery_scroll.saturating_sub(10),
-                    _ => self.whois_scroll = self.whois_scroll.saturating_sub(10),
-                }
+                self.popup_scroll_mut(|s| *s = s.saturating_sub(10));
             }
             Action::PopupScrollPageDown => {
-                match self.popup {
-                    Popup::Lints => self.lint_scroll = self.lint_scroll.saturating_add(10).min(self.lint_line_count),
-                    Popup::Discovery => self.discovery_scroll = self.discovery_scroll.saturating_add(10).min(self.discovery_line_count),
-                    _ => self.whois_scroll = self.whois_scroll.saturating_add(10).min(self.whois_line_count),
-                }
+                self.popup_scroll_mut(|s| *s = s.saturating_add(10));
             }
             Action::PopupScrollHome => {
-                match self.popup {
-                    Popup::Lints => self.lint_scroll = 0,
-                    Popup::Discovery => self.discovery_scroll = 0,
-                    _ => self.whois_scroll = 0,
-                }
+                self.popup_scroll_mut(|s| *s = 0);
             }
             Action::PopupScrollEnd => {
-                match self.popup {
-                    Popup::Lints => self.lint_scroll = self.lint_line_count,
-                    Popup::Discovery => self.discovery_scroll = self.discovery_line_count,
-                    _ => self.whois_scroll = self.whois_line_count,
-                }
+                self.popup_scroll_mut(|s| *s = u16::MAX);
             }
 
             Action::OpenDiscovery => {
@@ -925,6 +968,19 @@ impl App {
             && self.lookups.is_some()
     }
 
+    /// Returns a mutable reference to the scroll position for the current popup.
+    fn popup_scroll_mut(&mut self, f: impl FnOnce(&mut u16)) {
+        let scroll = match self.popup {
+            Popup::Whois => &mut self.whois_scroll,
+            Popup::Lints => &mut self.lint_scroll,
+            Popup::Discovery => &mut self.discovery_scroll,
+            Popup::RecordDetail { .. } => &mut self.record_detail_scroll,
+            Popup::Servers => &mut self.servers_scroll,
+            _ => return,
+        };
+        f(scroll);
+    }
+
     pub fn current_domain(&self) -> &str {
         match &self.query_state {
             QueryState::Loading { domain }
@@ -935,10 +991,24 @@ impl App {
         }
     }
 
+    /// Rebuild the category map when the domain changes.
+    fn rebuild_category_map(&mut self, domain_name: &Name) {
+        self.category_map.clear();
+        for entry in &self.default_entries {
+            if entry.subdomain.is_empty() {
+                self.category_map.insert((domain_name.to_string(), entry.record_type), Category::Apex);
+            } else if let Ok(sub) = Name::from_str(entry.subdomain) {
+                if let Ok(full) = sub.append_domain(domain_name) {
+                    self.category_map.insert((full.to_string(), entry.record_type), entry.category);
+                }
+            }
+        }
+    }
+
     fn rebuild_rows(&mut self) {
-        let Some(lookups) = &self.lookups else {
+        if self.lookups.is_none() {
             return;
-        };
+        }
         let domain = self.current_domain().to_string();
         if domain.is_empty() {
             return;
@@ -951,18 +1021,13 @@ impl App {
             Ok(n) => n,
             Err(_) => return,
         };
-        let entries = default_entries();
-        let mut category_map: HashMap<(String, RecordType), Category> = HashMap::new();
-        for entry in &entries {
-            if entry.subdomain.is_empty() {
-                // Apex: key is the domain itself
-                category_map.insert((domain_name.to_string(), entry.record_type), Category::Apex);
-            } else if let Ok(sub) = Name::from_str(entry.subdomain) {
-                if let Ok(full) = sub.append_domain(&domain_name) {
-                    category_map.insert((full.to_string(), entry.record_type), entry.category);
-                }
-            }
+
+        // Rebuild category map only if it's empty (new domain)
+        if self.category_map.is_empty() {
+            self.rebuild_category_map(&domain_name);
         }
+
+        let lookups = self.lookups.as_ref().unwrap();
 
         let mut seen = HashSet::new();
         let mut rows = Vec::new();
@@ -974,7 +1039,7 @@ impl App {
                 let rt = record.record_type();
 
                 // Look up category for this record
-                let category = category_map
+                let category = self.category_map
                     .get(&(name_str.clone(), rt))
                     .copied()
                     .unwrap_or_else(|| {

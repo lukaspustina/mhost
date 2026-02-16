@@ -42,7 +42,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     draw_status(f, app, chunks[5]);
 
     match app.popup {
-        Popup::RecordDetail(_) => draw_record_popup(f, app),
+        Popup::RecordDetail { .. } => draw_record_popup(f, app),
         Popup::Help => draw_help_popup(f),
         Popup::Servers => draw_servers_popup(f, app),
         Popup::Whois => draw_whois_popup(f, app),
@@ -53,7 +53,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
 }
 
 fn draw_input(f: &mut Frame, app: &App, area: Rect) {
-    let title_right = " [?]help [/]filter [C]lear [i]nput [r]re-run [d]iscover [s]ervers [w]hois [c]heck [S]tats [h]uman [a]ll [n]one [q]uit ";
+    let title_right = " [?]help [/]search [i]nput [r]run [d]iscover [s]ervers [w]hois [c]heck [h]uman [q]uit ";
 
     let title_left: Line = if let Some(ref filter) = app.filter {
         Line::from(vec![
@@ -67,7 +67,7 @@ fn draw_input(f: &mut Frame, app: &App, area: Rect) {
         Line::from(" mdive ")
     };
 
-    let search_border_color = if app.filter_error { Color::Red } else { Color::Green };
+    let search_border_color = if app.filter_error.is_some() { Color::Red } else { Color::Green };
 
     let block = Block::default()
         .title(title_left)
@@ -84,18 +84,28 @@ fn draw_input(f: &mut Frame, app: &App, area: Rect) {
         _ => ("Domain: ", app.input.as_str(), app.cursor_pos),
     };
 
-    let prompt_style = if app.mode == Mode::Search && app.filter_error {
+    let prompt_style = if app.mode == Mode::Search && app.filter_error.is_some() {
         Style::default().fg(Color::Red)
     } else {
         Style::default().fg(Color::Gray)
     };
 
-    let input_line = Line::from(vec![
+    let mut lines = vec![Line::from(vec![
         Span::styled(prompt, prompt_style),
         Span::raw(text),
-    ]);
+    ])];
 
-    let paragraph = Paragraph::new(input_line).block(block);
+    // Show regex error message below the input
+    if app.mode == Mode::Search {
+        if let Some(ref err) = app.filter_error {
+            lines.push(Line::from(Span::styled(
+                format!("  {err}"),
+                Style::default().fg(Color::Red),
+            )));
+        }
+    }
+
+    let paragraph = Paragraph::new(lines).block(block);
     f.render_widget(paragraph, area);
 
     if app.mode == Mode::Input || app.mode == Mode::Search {
@@ -285,7 +295,7 @@ fn draw_table(f: &mut Frame, app: &mut App, area: Rect) {
         Constraint::Length(5),
         Constraint::Min(20),
         Constraint::Length(10),
-        Constraint::Length(7),
+        Constraint::Length(10),
         Constraint::Percentage(60),
     ];
 
@@ -382,10 +392,22 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
 
     let mut spans = vec![mode_span];
 
+    // Show quit confirmation
+    if app.quit_confirm {
+        spans.push(Span::styled(
+            " Press q again to quit",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ));
+        f.render_widget(Paragraph::new(Line::from(spans)), area);
+        return;
+    }
+
     // Show vi count buffer when active
-    if !app.count_buffer.is_empty() || app.pending_g {
+    if !app.count_buffer.is_empty() || app.pending_g.is_some() {
         let mut buf = app.count_buffer.clone();
-        if app.pending_g {
+        if app.pending_g.is_some() {
             buf.push('g');
         }
         spans.push(Span::styled(
@@ -467,12 +489,12 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(Paragraph::new(Line::from(spans)), area);
 }
 
-fn draw_record_popup(f: &mut Frame, app: &App) {
-    let idx = match app.popup {
-        Popup::RecordDetail(i) => i,
+fn draw_record_popup(f: &mut Frame, app: &mut App) {
+    let (ref_name, ref_rt, ref_value) = match &app.popup {
+        Popup::RecordDetail { name, record_type, value } => (name.clone(), *record_type, value.clone()),
         _ => return,
     };
-    let row = match app.rows.get(idx) {
+    let row = match app.rows.iter().find(|r| r.name == ref_name && r.record_type == ref_rt && r.value == ref_value) {
         Some(r) => r,
         None => return,
     };
@@ -585,7 +607,7 @@ fn draw_record_popup(f: &mut Frame, app: &App) {
 
     lines.push(Line::raw(""));
     lines.push(
-        Line::from(Span::styled("[Esc] close", Style::default().fg(Color::Gray)))
+        Line::from(Span::styled("[Esc] close  [j/k] scroll", Style::default().fg(Color::Gray)))
             .right_aligned(),
     );
 
@@ -598,18 +620,7 @@ fn draw_record_popup(f: &mut Frame, app: &App) {
 
     let area = f.area();
     let popup_area = centered_rect(area, 60, 70, 40, 80);
-
-    let popup = Paragraph::new(lines)
-        .wrap(Wrap { trim: false })
-        .block(
-            Block::default()
-                .title(title)
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan)),
-        );
-
-    f.render_widget(Clear, popup_area);
-    f.render_widget(popup, popup_area);
+    render_scrollable_popup(f, popup_area, &title, lines, &mut app.record_detail_scroll);
 }
 
 fn draw_help_popup(f: &mut Frame) {
@@ -698,7 +709,7 @@ fn draw_help_popup(f: &mut Frame) {
     f.render_widget(popup, popup_area);
 }
 
-fn draw_servers_popup(f: &mut Frame, app: &App) {
+fn draw_servers_popup(f: &mut Frame, app: &mut App) {
     let dim = Style::default().fg(Color::Gray);
 
     let mut lines: Vec<Line> = vec![Line::raw("")];
@@ -737,23 +748,12 @@ fn draw_servers_popup(f: &mut Frame, app: &App) {
 
     lines.push(Line::raw(""));
     lines.push(
-        Line::from(Span::styled("[Esc] close", dim)).right_aligned(),
+        Line::from(Span::styled("[Esc] close  [j/k] scroll", dim)).right_aligned(),
     );
 
     let area = f.area();
     let popup_area = centered_rect(area, 50, 70, 40, 70);
-
-    let popup = Paragraph::new(lines)
-        .wrap(Wrap { trim: false })
-        .block(
-            Block::default()
-                .title(" Servers ")
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan)),
-        );
-
-    f.render_widget(Clear, popup_area);
-    f.render_widget(popup, popup_area);
+    render_scrollable_popup(f, popup_area, " Servers ", lines, &mut app.servers_scroll);
 }
 
 fn draw_whois_popup(f: &mut Frame, app: &mut App) {
@@ -868,41 +868,7 @@ fn draw_whois_popup(f: &mut Frame, app: &mut App) {
 
     let area = f.area();
     let popup_area = centered_rect(area, 60, 80, 50, 90);
-    // Inner height = popup height - 2 (top + bottom border)
-    let inner_height = popup_area.height.saturating_sub(2);
-    let total_lines = lines.len() as u16;
-    let max_scroll = total_lines.saturating_sub(inner_height);
-    app.whois_line_count = max_scroll;
-    let scroll = app.whois_scroll.min(max_scroll);
-
-    let popup = Paragraph::new(lines)
-        .wrap(Wrap { trim: false })
-        .scroll((scroll, 0))
-        .block(
-            Block::default()
-                .title(" WHOIS ")
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan)),
-        );
-
-    f.render_widget(Clear, popup_area);
-    f.render_widget(popup, popup_area);
-
-    // Scrollbar
-    if max_scroll > 0 {
-        let mut scrollbar_state = ScrollbarState::new(max_scroll as usize)
-            .position(scroll as usize);
-        let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
-            .begin_symbol(None)
-            .end_symbol(None);
-        let scrollbar_area = Rect {
-            x: popup_area.x,
-            y: popup_area.y + 1,
-            width: popup_area.width,
-            height: popup_area.height.saturating_sub(2),
-        };
-        f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
-    }
+    render_scrollable_popup(f, popup_area, " WHOIS ", lines, &mut app.whois_scroll);
 }
 
 fn draw_lints_popup(f: &mut Frame, app: &mut App) {
@@ -968,40 +934,7 @@ fn draw_lints_popup(f: &mut Frame, app: &mut App) {
 
     let area = f.area();
     let popup_area = centered_rect(area, 60, 80, 50, 90);
-    let inner_height = popup_area.height.saturating_sub(2);
-    let total_lines = lines.len() as u16;
-    let max_scroll = total_lines.saturating_sub(inner_height);
-    app.lint_line_count = max_scroll;
-    let scroll = app.lint_scroll.min(max_scroll);
-
-    let popup = Paragraph::new(lines)
-        .wrap(Wrap { trim: false })
-        .scroll((scroll, 0))
-        .block(
-            Block::default()
-                .title(" DNS Health Checks ")
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan)),
-        );
-
-    f.render_widget(Clear, popup_area);
-    f.render_widget(popup, popup_area);
-
-    // Scrollbar
-    if max_scroll > 0 {
-        let mut scrollbar_state = ScrollbarState::new(max_scroll as usize)
-            .position(scroll as usize);
-        let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
-            .begin_symbol(None)
-            .end_symbol(None);
-        let scrollbar_area = Rect {
-            x: popup_area.x,
-            y: popup_area.y + 1,
-            width: popup_area.width,
-            height: popup_area.height.saturating_sub(2),
-        };
-        f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
-    }
+    render_scrollable_popup(f, popup_area, " DNS Health Checks ", lines, &mut app.lint_scroll);
 }
 
 fn draw_discovery_popup(f: &mut Frame, app: &mut App) {
@@ -1128,18 +1061,29 @@ fn draw_discovery_popup(f: &mut Frame, app: &mut App) {
 
     let area = f.area();
     let popup_area = centered_rect(area, 65, 80, 60, 100);
+    render_scrollable_popup(f, popup_area, " Discovery ", lines, &mut app.discovery_scroll);
+}
+
+/// Render a scrollable popup with title, lines, and an optional scrollbar.
+/// The `scroll` parameter is clamped to the valid range and updated in place.
+fn render_scrollable_popup(
+    f: &mut Frame,
+    popup_area: Rect,
+    title: &str,
+    lines: Vec<Line<'_>>,
+    scroll: &mut u16,
+) {
     let inner_height = popup_area.height.saturating_sub(2);
     let total_lines = lines.len() as u16;
     let max_scroll = total_lines.saturating_sub(inner_height);
-    app.discovery_line_count = max_scroll;
-    let scroll = app.discovery_scroll.min(max_scroll);
+    *scroll = (*scroll).min(max_scroll);
 
     let popup = Paragraph::new(lines)
         .wrap(Wrap { trim: false })
-        .scroll((scroll, 0))
+        .scroll((*scroll, 0))
         .block(
             Block::default()
-                .title(" Discovery ")
+                .title(title)
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan)),
         );
@@ -1147,10 +1091,9 @@ fn draw_discovery_popup(f: &mut Frame, app: &mut App) {
     f.render_widget(Clear, popup_area);
     f.render_widget(popup, popup_area);
 
-    // Scrollbar
     if max_scroll > 0 {
-        let mut scrollbar_state =
-            ScrollbarState::new(max_scroll as usize).position(scroll as usize);
+        let mut scrollbar_state = ScrollbarState::new(max_scroll as usize)
+            .position(*scroll as usize);
         let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
             .begin_symbol(None)
             .end_symbol(None);

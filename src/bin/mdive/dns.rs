@@ -1,17 +1,18 @@
 use std::collections::HashSet;
 use std::net::IpAddr;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use futures::stream::{FuturesUnordered, StreamExt};
 use ipnetwork::IpNetwork;
-use mhost::app::common::resolver_args::ResolverArgs;
 use mhost::app::common::subdomain_spec::default_entries;
 use mhost::resolver::lookup::Lookups;
-use mhost::resolver::MultiQuery;
+use mhost::resolver::{MultiQuery, ResolverGroup};
 use mhost::services::whois::{self, WhoisClient, WhoisClientOpts, QueryType};
 use mhost::{Name, RecordType};
 use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
 
 use crate::app::Action;
 
@@ -22,13 +23,13 @@ use crate::app::Action;
 /// stale results when the user starts a new query.
 pub fn spawn_domain_query(
     domain: String,
-    resolver_args: ResolverArgs,
+    resolvers: Arc<ResolverGroup>,
     tx: mpsc::Sender<Action>,
     generation: u64,
-) {
+) -> JoinHandle<()> {
     tokio::task::spawn_local(async move {
         let start = Instant::now();
-        if let Err(msg) = run_domain_query(&domain, &resolver_args, &tx, generation).await {
+        if let Err(msg) = run_domain_query(&domain, &resolvers, &tx, generation).await {
             let _ = tx.send(Action::DnsError { generation, message: msg }).await;
             return;
         }
@@ -38,17 +39,15 @@ pub fn spawn_domain_query(
                 elapsed: start.elapsed(),
             })
             .await;
-    });
+    })
 }
 
 async fn run_domain_query(
     domain: &str,
-    resolver_args: &ResolverArgs,
+    resolvers: &ResolverGroup,
     tx: &mpsc::Sender<Action>,
     generation: u64,
 ) -> Result<(), String> {
-    let resolvers = resolver_args.build_resolver_group().await?;
-
     let domain_name = Name::from_str(domain).map_err(|e| format!("{e:#}"))?;
     let entries = default_entries();
 

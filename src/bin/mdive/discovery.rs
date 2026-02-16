@@ -1,26 +1,49 @@
 use std::collections::HashSet;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Instant;
 
 use futures::stream::{FuturesUnordered, StreamExt};
-use mhost::app::common::resolver_args::ResolverArgs;
 use mhost::app::modules::discover::{
     ct_logs, discover, permutation, srv_probing, txt_mining, wordlist::Wordlist,
 };
 use mhost::resolver::lookup::Lookups;
-use mhost::resolver::MultiQuery;
+use mhost::resolver::{MultiQuery, ResolverGroup};
 use mhost::{Name, RecordType};
 use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
 
 use crate::app::{Action, DiscoveryStrategy};
+
+/// Parse domain and return the Name, or send an error action and return None.
+async fn parse_domain(
+    domain: &str,
+    strategy: DiscoveryStrategy,
+    tx: &mpsc::Sender<Action>,
+    generation: u64,
+) -> Option<Name> {
+    match Name::from_str(domain) {
+        Ok(n) => Some(n),
+        Err(e) => {
+            let _ = tx
+                .send(Action::DiscoveryError {
+                    generation,
+                    strategy,
+                    message: format!("{e:#}"),
+                })
+                .await;
+            None
+        }
+    }
+}
 
 /// Spawn CT Logs discovery as a tokio task on the shared runtime.
 pub fn spawn_ct_logs(
     domain: String,
-    resolver_args: ResolverArgs,
+    resolvers: Arc<ResolverGroup>,
     tx: mpsc::Sender<Action>,
     generation: u64,
-) {
+) -> JoinHandle<()> {
     tokio::task::spawn_local(async move {
         let start = Instant::now();
         let domain_trimmed = domain.trim_end_matches('.').to_string();
@@ -52,21 +75,6 @@ pub fn spawn_ct_logs(
             return;
         }
 
-        // Resolve discovered names
-        let resolvers = match resolver_args.build_resolver_group().await {
-            Ok(r) => r,
-            Err(msg) => {
-                let _ = tx
-                    .send(Action::DiscoveryError {
-                        generation,
-                        strategy: DiscoveryStrategy::CtLogs,
-                        message: msg,
-                    })
-                    .await;
-                return;
-            }
-        };
-
         let names: Vec<Name> = ct_names.iter().filter_map(|n| Name::from_str(n).ok()).collect();
 
         // Build one query per name for maximum concurrency
@@ -81,7 +89,7 @@ pub fn spawn_ct_logs(
         let mut futs: FuturesUnordered<_> = queries
             .into_iter()
             .map(|q| {
-                let r = &resolvers;
+                let r = &*resolvers;
                 async move { r.lookup(q).await }
             })
             .collect();
@@ -117,30 +125,17 @@ pub fn spawn_ct_logs(
                 elapsed: start.elapsed(),
             })
             .await;
-    });
+    })
 }
 
 /// Spawn wildcard detection as a tokio task on the shared runtime.
 pub fn spawn_wildcard_check(
     domain: String,
-    resolver_args: ResolverArgs,
+    resolvers: Arc<ResolverGroup>,
     tx: mpsc::Sender<Action>,
     generation: u64,
-) {
+) -> JoinHandle<()> {
     tokio::task::spawn_local(async move {
-        let resolvers = match resolver_args.build_resolver_group().await {
-            Ok(r) => r,
-            Err(_) => {
-                let _ = tx
-                    .send(Action::WildcardComplete {
-                        generation,
-                        wildcard_lookups: None,
-                    })
-                    .await;
-                return;
-            }
-        };
-
         let domain_name = match Name::from_str(&domain) {
             Ok(n) => n,
             Err(_) => {
@@ -186,46 +181,23 @@ pub fn spawn_wildcard_check(
                 wildcard_lookups,
             })
             .await;
-    });
+    })
 }
 
 /// Spawn Wordlist discovery as a tokio task on the shared runtime.
 pub fn spawn_wordlist(
     domain: String,
-    resolver_args: ResolverArgs,
+    resolvers: Arc<ResolverGroup>,
     wildcard_lookups: Option<Lookups>,
     tx: mpsc::Sender<Action>,
     generation: u64,
-) {
+) -> JoinHandle<()> {
     tokio::task::spawn_local(async move {
         let start = Instant::now();
 
-        let resolvers = match resolver_args.build_resolver_group().await {
-            Ok(r) => r,
-            Err(msg) => {
-                let _ = tx
-                    .send(Action::DiscoveryError {
-                        generation,
-                        strategy: DiscoveryStrategy::Wordlist,
-                        message: msg,
-                    })
-                    .await;
-                return;
-            }
-        };
-
-        let domain_name = match Name::from_str(&domain) {
-            Ok(n) => n,
-            Err(e) => {
-                let _ = tx
-                    .send(Action::DiscoveryError {
-                        generation,
-                        strategy: DiscoveryStrategy::Wordlist,
-                        message: format!("{e:#}"),
-                    })
-                    .await;
-                return;
-            }
+        let domain_name = match parse_domain(&domain, DiscoveryStrategy::Wordlist, &tx, generation).await {
+            Some(n) => n,
+            None => return,
         };
 
         // Load default wordlist
@@ -266,7 +238,7 @@ pub fn spawn_wordlist(
         let mut futs: FuturesUnordered<_> = queries
             .into_iter()
             .map(|q| {
-                let r = &resolvers;
+                let r = &*resolvers;
                 async move { r.lookup(q).await }
             })
             .collect();
@@ -305,45 +277,22 @@ pub fn spawn_wordlist(
                 elapsed: start.elapsed(),
             })
             .await;
-    });
+    })
 }
 
 /// Spawn SRV Probing discovery as a tokio task on the shared runtime.
 pub fn spawn_srv_probing(
     domain: String,
-    resolver_args: ResolverArgs,
+    resolvers: Arc<ResolverGroup>,
     tx: mpsc::Sender<Action>,
     generation: u64,
-) {
+) -> JoinHandle<()> {
     tokio::task::spawn_local(async move {
         let start = Instant::now();
 
-        let resolvers = match resolver_args.build_resolver_group().await {
-            Ok(r) => r,
-            Err(msg) => {
-                let _ = tx
-                    .send(Action::DiscoveryError {
-                        generation,
-                        strategy: DiscoveryStrategy::SrvProbing,
-                        message: msg,
-                    })
-                    .await;
-                return;
-            }
-        };
-
-        let domain_name = match Name::from_str(&domain) {
-            Ok(n) => n,
-            Err(e) => {
-                let _ = tx
-                    .send(Action::DiscoveryError {
-                        generation,
-                        strategy: DiscoveryStrategy::SrvProbing,
-                        message: format!("{e:#}"),
-                    })
-                    .await;
-                return;
-            }
+        let domain_name = match parse_domain(&domain, DiscoveryStrategy::SrvProbing, &tx, generation).await {
+            Some(n) => n,
+            None => return,
         };
 
         let probes = srv_probing::well_known_srv_probes();
@@ -374,7 +323,7 @@ pub fn spawn_srv_probing(
         let mut futs: FuturesUnordered<_> = srv_names
             .into_iter()
             .map(|name| {
-                let r = &resolvers;
+                let r = &*resolvers;
                 async move {
                     match MultiQuery::multi_record(name, vec![RecordType::SRV]) {
                         Ok(q) => r.lookup(q).await.ok(),
@@ -411,46 +360,23 @@ pub fn spawn_srv_probing(
                 elapsed: start.elapsed(),
             })
             .await;
-    });
+    })
 }
 
 /// Spawn TXT Mining discovery as a tokio task on the shared runtime.
 pub fn spawn_txt_mining(
     domain: String,
-    resolver_args: ResolverArgs,
+    resolvers: Arc<ResolverGroup>,
     existing_lookups: Lookups,
     tx: mpsc::Sender<Action>,
     generation: u64,
-) {
+) -> JoinHandle<()> {
     tokio::task::spawn_local(async move {
         let start = Instant::now();
 
-        let resolvers = match resolver_args.build_resolver_group().await {
-            Ok(r) => r,
-            Err(msg) => {
-                let _ = tx
-                    .send(Action::DiscoveryError {
-                        generation,
-                        strategy: DiscoveryStrategy::TxtMining,
-                        message: msg,
-                    })
-                    .await;
-                return;
-            }
-        };
-
-        let domain_name = match Name::from_str(&domain) {
-            Ok(n) => n,
-            Err(e) => {
-                let _ = tx
-                    .send(Action::DiscoveryError {
-                        generation,
-                        strategy: DiscoveryStrategy::TxtMining,
-                        message: format!("{e:#}"),
-                    })
-                    .await;
-                return;
-            }
+        let domain_name = match parse_domain(&domain, DiscoveryStrategy::TxtMining, &tx, generation).await {
+            Some(n) => n,
+            None => return,
         };
 
         // Extract domains from SPF and DMARC TXT records
@@ -525,47 +451,24 @@ pub fn spawn_txt_mining(
                 elapsed: start.elapsed(),
             })
             .await;
-    });
+    })
 }
 
 /// Spawn Permutation discovery as a tokio task on the shared runtime.
 pub fn spawn_permutation(
     domain: String,
-    resolver_args: ResolverArgs,
+    resolvers: Arc<ResolverGroup>,
     existing_lookups: Lookups,
     wildcard_lookups: Option<Lookups>,
     tx: mpsc::Sender<Action>,
     generation: u64,
-) {
+) -> JoinHandle<()> {
     tokio::task::spawn_local(async move {
         let start = Instant::now();
 
-        let resolvers = match resolver_args.build_resolver_group().await {
-            Ok(r) => r,
-            Err(msg) => {
-                let _ = tx
-                    .send(Action::DiscoveryError {
-                        generation,
-                        strategy: DiscoveryStrategy::Permutation,
-                        message: msg,
-                    })
-                    .await;
-                return;
-            }
-        };
-
-        let domain_name = match Name::from_str(&domain) {
-            Ok(n) => n,
-            Err(e) => {
-                let _ = tx
-                    .send(Action::DiscoveryError {
-                        generation,
-                        strategy: DiscoveryStrategy::Permutation,
-                        message: format!("{e:#}"),
-                    })
-                    .await;
-                return;
-            }
+        let domain_name = match parse_domain(&domain, DiscoveryStrategy::Permutation, &tx, generation).await {
+            Some(n) => n,
+            None => return,
         };
 
         // Extract first-level labels from existing lookups
@@ -633,7 +536,7 @@ pub fn spawn_permutation(
         let mut futs: FuturesUnordered<_> = queries
             .into_iter()
             .map(|q| {
-                let r = &resolvers;
+                let r = &*resolvers;
                 async move { r.lookup(q).await }
             })
             .collect();
@@ -672,5 +575,5 @@ pub fn spawn_permutation(
                 elapsed: start.elapsed(),
             })
             .await;
-    });
+    })
 }

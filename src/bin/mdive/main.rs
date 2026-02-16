@@ -5,6 +5,7 @@ mod lints;
 mod ui;
 
 use std::io;
+use std::sync::Arc;
 
 use clap::{Arg, ArgAction, Command};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
@@ -133,22 +134,36 @@ async fn run(
         app.input = domain.clone();
         app.query_state = QueryState::Loading { domain };
     }
-    let (tx, mut rx) = mpsc::channel::<Action>(16);
+    let (tx, mut rx) = mpsc::channel::<Action>(128);
     let mut event_stream = EventStream::new();
 
     loop {
         terminal.draw(|f| ui::draw(f, &mut app))?;
 
-        // If Loading, spawn a domain query task and transition to Querying
+        // If Loading, build resolver group (once) and spawn a domain query task
         if let QueryState::Loading { ref domain } = app.query_state {
             let domain = domain.clone();
             let tx = tx.clone();
-            let resolver_args = app.resolver_args.clone();
             let generation = app.query_generation;
             app.query_state = QueryState::Querying {
                 domain: domain.clone(),
             };
-            dns::spawn_domain_query(domain, resolver_args, tx, generation);
+
+            // Build resolver group once and cache it
+            if app.resolver_group.is_none() {
+                match app.resolver_args.build_resolver_group().await {
+                    Ok(rg) => {
+                        app.resolver_group = Some(Arc::new(rg));
+                    }
+                    Err(msg) => {
+                        app.query_state = QueryState::Error { domain, message: msg };
+                        continue;
+                    }
+                }
+            }
+            let resolver_group = app.resolver_group.clone().unwrap();
+            let handle = dns::spawn_domain_query(domain, resolver_group, tx, generation);
+            app.dns_task = Some(handle);
         }
 
         // If WHOIS popup is open and data needs fetching, spawn the WHOIS query
@@ -189,9 +204,27 @@ async fn run(
             let domain = app.current_domain().to_string();
             let generation = app.discovery_state.as_ref().map_or(0, |s| s.generation);
 
+            // Build resolver group if not yet available
+            if app.resolver_group.is_none() {
+                match app.resolver_args.build_resolver_group().await {
+                    Ok(rg) => {
+                        app.resolver_group = Some(Arc::new(rg));
+                    }
+                    Err(msg) => {
+                        if let Some(ref mut state) = app.discovery_state {
+                            for &strategy in &pending {
+                                state.statuses.insert(strategy, StrategyStatus::Error(msg.clone()));
+                            }
+                        }
+                        continue;
+                    }
+                }
+            }
+            let resolver_group = app.resolver_group.clone().unwrap();
+
             // Check wildcard state once upfront — multiple strategies may need it
-            let wildcard_checked = app.discovery_state.as_ref().map_or(false, |s| s.wildcard_checked);
-            let wildcard_running = app.discovery_state.as_ref().map_or(false, |s| s.wildcard_running);
+            let wildcard_checked = app.discovery_state.as_ref().is_some_and(|s| s.wildcard_checked);
+            let wildcard_running = app.discovery_state.as_ref().is_some_and(|s| s.wildcard_running);
             let wildcard_lookups = app.discovery_state.as_ref().and_then(|s| s.wildcard_lookups.clone());
             let needs_wildcard = pending.iter().any(|s| matches!(s, DiscoveryStrategy::Wordlist | DiscoveryStrategy::Permutation));
 
@@ -199,38 +232,39 @@ async fn run(
                 if let Some(ref mut state) = app.discovery_state {
                     state.wildcard_running = true;
                 }
-                discovery::spawn_wildcard_check(
+                let handle = discovery::spawn_wildcard_check(
                     domain.clone(),
-                    app.resolver_args.clone(),
+                    Arc::clone(&resolver_group),
                     tx.clone(),
                     generation,
                 );
+                app.discovery_tasks.push(handle);
             }
 
             for strategy in pending {
-                let resolver_args = app.resolver_args.clone();
+                let rg = Arc::clone(&resolver_group);
                 let tx = tx.clone();
                 let domain = domain.clone();
 
-                match strategy {
+                let handle = match strategy {
                     DiscoveryStrategy::CtLogs => {
-                        discovery::spawn_ct_logs(domain, resolver_args, tx, generation);
+                        discovery::spawn_ct_logs(domain, rg, tx, generation)
                     }
                     DiscoveryStrategy::Wordlist => {
-                        discovery::spawn_wordlist(domain, resolver_args, wildcard_lookups.clone(), tx, generation);
+                        discovery::spawn_wordlist(domain, rg, wildcard_lookups.clone(), tx, generation)
                     }
                     DiscoveryStrategy::SrvProbing => {
-                        discovery::spawn_srv_probing(domain, resolver_args, tx, generation);
+                        discovery::spawn_srv_probing(domain, rg, tx, generation)
                     }
                     DiscoveryStrategy::TxtMining => {
                         if let Some(ref lookups) = app.lookups {
                             discovery::spawn_txt_mining(
                                 domain,
-                                resolver_args,
+                                rg,
                                 lookups.clone(),
                                 tx,
                                 generation,
-                            );
+                            )
                         } else {
                             if let Some(ref mut state) = app.discovery_state {
                                 state.statuses.insert(
@@ -238,18 +272,19 @@ async fn run(
                                     StrategyStatus::Error("No lookup results available yet".to_string()),
                                 );
                             }
+                            continue;
                         }
                     }
                     DiscoveryStrategy::Permutation => {
                         if let Some(ref lookups) = app.lookups {
                             discovery::spawn_permutation(
                                 domain,
-                                resolver_args,
+                                rg,
                                 lookups.clone(),
                                 wildcard_lookups.clone(),
                                 tx,
                                 generation,
-                            );
+                            )
                         } else {
                             if let Some(ref mut state) = app.discovery_state {
                                 state.statuses.insert(
@@ -257,9 +292,11 @@ async fn run(
                                     StrategyStatus::Error("No lookup results available yet".to_string()),
                                 );
                             }
+                            continue;
                         }
                     }
-                }
+                };
+                app.discovery_tasks.push(handle);
             }
         }
 
@@ -279,7 +316,10 @@ fn map_key(key: KeyEvent, app: &App) -> Option<Action> {
 
     // When any popup is open, handle close + scrolling for scrollable popups
     if app.popup != Popup::None {
-        let scrollable = matches!(app.popup, Popup::Whois | Popup::Lints | Popup::Discovery);
+        let scrollable = matches!(
+            app.popup,
+            Popup::Whois | Popup::Lints | Popup::Discovery | Popup::RecordDetail { .. } | Popup::Servers
+        );
 
         // Discovery popup: strategy keys trigger runs, Esc closes
         if app.popup == Popup::Discovery {
@@ -295,7 +335,7 @@ fn map_key(key: KeyEvent, app: &App) -> Option<Action> {
 
         return match key.code {
             KeyCode::Esc | KeyCode::Char('q') => Some(Action::ClosePopup),
-            KeyCode::Enter if app.popup != Popup::Discovery => Some(Action::ClosePopup),
+            KeyCode::Enter if !matches!(app.popup, Popup::Discovery) => Some(Action::ClosePopup),
             KeyCode::Char('j') | KeyCode::Down if scrollable => Some(Action::PopupScrollDown),
             KeyCode::Char('k') | KeyCode::Up if scrollable => Some(Action::PopupScrollUp),
             KeyCode::PageDown if scrollable => Some(Action::PopupScrollPageDown),
