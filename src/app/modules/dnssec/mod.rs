@@ -5,6 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::collections::HashSet;
 use std::convert::TryInto;
 use std::io::Write;
 
@@ -266,6 +267,19 @@ fn write_level<W: Write>(
     let has_ds_link = next_ds.is_some_and(|ds| !ds.is_empty());
     let total_items = level.dnskeys.len() + level.rrsigs.len();
 
+    // Collect chain-link tag sets to highlight only tags that connect records
+    let rrsig_tags: HashSet<u16> = level
+        .rrsigs
+        .iter()
+        .filter(|r| r.type_covered() == "DNSKEY")
+        .map(|r| r.key_tag())
+        .collect();
+    let parent_ds_tags: HashSet<u16> = level.ds_records.iter().map(|ds| ds.key_tag()).collect();
+    let dnskey_tags: HashSet<u16> = level.dnskeys.iter().filter_map(|k| k.key_tag()).collect();
+    let child_dnskey_tags: HashSet<u16> = next_dnskeys
+        .map(|keys| keys.iter().filter_map(|k| k.key_tag()).collect())
+        .unwrap_or_default();
+
     // DNSKEY records
     for (j, key) in level.dnskeys.iter().enumerate() {
         let is_last_item = !has_ds_link && j + level.rrsigs.len() == total_items - 1 && is_last;
@@ -289,12 +303,16 @@ fn write_level<W: Write>(
         let algo_finding = dnssec_validation::classify_algorithm(key.algorithm());
         let status = format_finding_inline(&algo_finding);
 
+        let is_linked = key
+            .key_tag()
+            .is_some_and(|t| rrsig_tags.contains(&t) || parent_ds_tags.contains(&t));
+
         writeln!(
             writer,
             "  {} DNSKEY  {}  {}  {}{}",
             prefix,
             role,
-            tag_str,
+            style_chain_tag(&tag_str, is_linked),
             key.algorithm(),
             status,
         )?;
@@ -315,11 +333,13 @@ fn write_level<W: Write>(
         let expiry_text = format_rrsig_expiry(rrsig, now);
         let status = format_finding_inline(&exp_finding);
 
+        let is_linked = dnskey_tags.contains(&rrsig.key_tag());
+
         writeln!(
             writer,
-            "  {} RRSIG   covers DNSKEY  tag={}  {}{}",
+            "  {} RRSIG   covers DNSKEY  {}  {}{}",
             prefix,
-            rrsig.key_tag(),
+            style_chain_tag(&format!("tag={}", rrsig.key_tag()), is_linked),
             expiry_text,
             status,
         )?;
@@ -363,12 +383,13 @@ fn write_level<W: Write>(
                 };
 
                 let status = format_finding_inline(&binding);
+                let is_linked = child_dnskey_tags.contains(&ds.key_tag());
 
                 writeln!(
                     writer,
-                    "  {} DS  tag={}  {}  {}{}{}",
+                    "  {} DS  {}  {}  {}{}{}",
                     prefix,
-                    ds.key_tag(),
+                    style_chain_tag(&format!("tag={}", ds.key_tag()), is_linked),
                     ds.algorithm(),
                     ds.digest_type(),
                     status,
@@ -440,6 +461,14 @@ fn tree_continuation() -> &'static str {
         "|"
     } else {
         "\u{2502}"
+    }
+}
+
+fn style_chain_tag(tag: &str, linked: bool) -> String {
+    if linked {
+        tag.cyan().bold().to_string()
+    } else {
+        tag.to_string()
     }
 }
 

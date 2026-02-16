@@ -26,6 +26,12 @@ path = "src/bin/mhost.rs"
 doc = false
 required-features = ["app"]
 
+[[bin]]
+name = "mdive"
+path = "src/bin/mdive/main.rs"
+doc = false
+required-features = ["tui"]
+
 [lib]
 name = "mhost"
 path = "src/lib.rs"
@@ -47,7 +53,7 @@ rand = "0.9"
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "query", "hickory-dns"] }
 pin-project = "1"
 resolv-conf = "0.7"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "fs", "io-util", "net"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "fs", "io-util", "net", "sync"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 smallvec = "1"
@@ -59,6 +65,8 @@ tracing-log = { version = "0.2", optional = true }
 tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"], optional = true }
 hickory-resolver = { version = "0.25", features = ["tokio", "tls-ring", "https-ring", "dnssec-ring", "system-config", "serde"] }
 yansi = "1.0"
+ratatui = { version = "0.30", optional = true, default-features = false, features = ["crossterm"] }
+crossterm = { version = "0.28", optional = true, features = ["event-stream"] }
 
 [build-dependencies]
 clap = { version = "4", default-features = false, features = ["suggestions"] }
@@ -73,6 +81,7 @@ spectral = "0.6"
 [features]
 default = ["app"]
 app = ["anyhow", "clap", "clap_complete", "hostname", "humantime", "tabwriter", "tracing-log", "tracing-subscriber"]
+tui = ["ratatui", "crossterm"]
 
 [profile.release]
 lto = true

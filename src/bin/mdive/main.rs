@@ -33,7 +33,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let result = run(&mut terminal).await;
+    let domain = std::env::args().nth(1);
+    let result = run(&mut terminal, domain).await;
 
     // Restore terminal
     terminal::disable_raw_mode()?;
@@ -43,8 +44,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     result
 }
 
-async fn run(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<(), Box<dyn std::error::Error>> {
+async fn run(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, domain: Option<String>) -> Result<(), Box<dyn std::error::Error>> {
     let mut app = App::new();
+    if let Some(domain) = domain {
+        app.cursor_pos = domain.len();
+        app.input = domain.clone();
+        app.query_state = QueryState::Loading { domain };
+    }
     let (tx, mut rx) = mpsc::channel::<Action>(16);
     let mut event_stream = EventStream::new();
 

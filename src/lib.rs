@@ -82,7 +82,7 @@
 //! # }
 //! ```
 
-#[cfg(feature = "app")]
+#[cfg(any(feature = "app", feature = "tui"))]
 pub mod app;
 pub mod diff;
 pub mod error;
