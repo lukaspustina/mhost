@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -6,7 +6,8 @@ use mhost::app::common::ordinal::Ordinal;
 use mhost::app::common::rdata_format::{format_rdata, format_rdata_human};
 use mhost::app::common::resolver_args::ResolverArgs;
 use mhost::app::common::subdomain_spec::{default_entries, Category};
-use mhost::resolver::lookup::Lookups;
+use mhost::resolver::lookup::{LookupResult, Lookups};
+use mhost::resolver::Error as ResolverError;
 use mhost::services::whois::WhoisResponses;
 use mhost::{Name, RecordType};
 use ratatui::widgets::TableState;
@@ -70,6 +71,93 @@ fn category_ordinal(cat: Category) -> u8 {
         Category::VerificationMetadata => 8,
         Category::Legacy => 9,
         Category::Gaming => 10,
+    }
+}
+
+pub struct StatsData {
+    pub rr_type_counts: BTreeMap<RecordType, usize>,
+    pub total_unique: usize,
+    pub responses: usize,
+    pub nxdomains: usize,
+    pub timeout_errors: usize,
+    pub refuse_errors: usize,
+    pub servfail_errors: usize,
+    pub total_errors: usize,
+    pub responding_servers: usize,
+    pub min_time_ms: Option<u128>,
+    pub max_time_ms: Option<u128>,
+}
+
+fn compute_stats(lookups: &Lookups) -> StatsData {
+    // Unique record type counts (deduped by name+type+value)
+    let mut seen = HashSet::new();
+    let mut rr_type_counts = BTreeMap::new();
+    for lookup in lookups.iter() {
+        for record in lookup.records() {
+            let key = (
+                record.name().to_string(),
+                record.record_type(),
+                format_rdata(record.data()),
+            );
+            if seen.insert(key) {
+                *rr_type_counts.entry(record.record_type()).or_insert(0usize) += 1;
+            }
+        }
+    }
+    let total_unique: usize = rr_type_counts.values().sum();
+
+    // Query health counts
+    let (mut responses, mut nxdomains, mut timeout_errors, mut refuse_errors, mut servfail_errors, mut total_errors) =
+        (0, 0, 0, 0, 0, 0);
+    for l in lookups.iter() {
+        match l.result() {
+            LookupResult::Response { .. } => responses += 1,
+            LookupResult::NxDomain { .. } => nxdomains += 1,
+            LookupResult::Error(ResolverError::Timeout) => {
+                timeout_errors += 1;
+                total_errors += 1;
+            }
+            LookupResult::Error(ResolverError::QueryRefused) => {
+                refuse_errors += 1;
+                total_errors += 1;
+            }
+            LookupResult::Error(ResolverError::ServerFailure) => {
+                servfail_errors += 1;
+                total_errors += 1;
+            }
+            LookupResult::Error { .. } => total_errors += 1,
+        }
+    }
+
+    // Responding servers
+    let responding_servers = lookups
+        .iter()
+        .filter(|x| x.result().is_response())
+        .map(|x| x.name_server().to_string())
+        .collect::<HashSet<_>>()
+        .len();
+
+    // Response times
+    let times: Vec<u128> = lookups
+        .iter()
+        .filter_map(|x| x.result().response())
+        .map(|x| x.response_time().as_millis())
+        .collect();
+    let min_time_ms = times.iter().min().copied();
+    let max_time_ms = times.iter().max().copied();
+
+    StatsData {
+        rr_type_counts,
+        total_unique,
+        responses,
+        nxdomains,
+        timeout_errors,
+        refuse_errors,
+        servfail_errors,
+        total_errors,
+        responding_servers,
+        min_time_ms,
+        max_time_ms,
     }
 }
 
@@ -138,6 +226,7 @@ pub enum Action {
     SelectAll,
     SelectNone,
     ToggleHumanView,
+    ToggleStats,
     MoveUp,
     MoveDown,
     PageUp,
@@ -200,6 +289,8 @@ pub struct App {
     pub lint_results: Option<Vec<LintSection>>,
     pub lint_scroll: u16,
     pub lint_line_count: u16,
+    pub show_stats: bool,
+    pub stats_data: Option<StatsData>,
 }
 
 impl App {
@@ -234,6 +325,8 @@ impl App {
             lint_results: None,
             lint_scroll: 0,
             lint_line_count: 0,
+            show_stats: false,
+            stats_data: None,
         }
     }
 
@@ -335,6 +428,7 @@ impl App {
                     self.whois_error = None;
                     self.whois_loading = false;
                     self.lint_results = None;
+                    self.stats_data = None;
                 }
             }
 
@@ -408,6 +502,9 @@ impl App {
             }
             Action::ToggleHumanView => {
                 self.human_view = !self.human_view;
+            }
+            Action::ToggleStats => {
+                self.show_stats = !self.show_stats;
             }
 
             Action::MoveUp => {
@@ -578,6 +675,7 @@ impl App {
                     Some(existing) => self.lookups = Some(existing.merge(lookups)),
                     None => self.lookups = Some(lookups),
                 }
+                self.stats_data = self.lookups.as_ref().map(compute_stats);
                 self.rebuild_rows();
                 if !self.rows.is_empty() && self.table_state.selected().is_none() {
                     self.table_state.select(Some(0));

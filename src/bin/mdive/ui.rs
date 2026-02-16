@@ -21,20 +21,25 @@ use crate::app::{
 };
 
 pub fn draw(f: &mut Frame, app: &mut App) {
+    let stats_height = if app.show_stats && app.stats_data.is_some() { 2 } else { 0 };
     let chunks = Layout::vertical([
-        Constraint::Length(3), // title + input
-        Constraint::Length(1), // category toggles
-        Constraint::Min(5),    // results table
-        Constraint::Length(1), // detail line
-        Constraint::Length(1), // status bar
+        Constraint::Length(3),            // title + input
+        Constraint::Length(1),            // category toggles
+        Constraint::Length(stats_height), // stats panel (0 or 2)
+        Constraint::Min(5),              // results table
+        Constraint::Length(1),            // detail line
+        Constraint::Length(1),            // status bar
     ])
     .split(f.area());
 
     draw_input(f, app, chunks[0]);
     draw_category_toggles(f, app, chunks[1]);
-    draw_table(f, app, chunks[2]);
-    draw_detail(f, app, chunks[3]);
-    draw_status(f, app, chunks[4]);
+    if stats_height > 0 {
+        draw_stats(f, app, chunks[2]);
+    }
+    draw_table(f, app, chunks[3]);
+    draw_detail(f, app, chunks[4]);
+    draw_status(f, app, chunks[5]);
 
     match app.popup {
         Popup::RecordDetail(_) => draw_record_popup(f, app),
@@ -47,7 +52,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
 }
 
 fn draw_input(f: &mut Frame, app: &App, area: Rect) {
-    let title_right = " [?]help [/]filter [C]lear [i]nput [r]re-run [s]ervers [w]hois [c]heck [h]uman [a]ll [n]one [q]uit ";
+    let title_right = " [?]help [/]filter [C]lear [i]nput [r]re-run [s]ervers [w]hois [c]heck [S]tats [h]uman [a]ll [n]one [q]uit ";
 
     let title_left: Line = if let Some(ref filter) = app.filter {
         Line::from(vec![
@@ -137,6 +142,80 @@ fn draw_category_toggles(f: &mut Frame, app: &App, area: Rect) {
     }
 
     f.render_widget(Paragraph::new(Line::from(spans)), area);
+}
+
+fn draw_stats(f: &mut Frame, app: &App, area: Rect) {
+    let stats = match &app.stats_data {
+        Some(s) => s,
+        None => return,
+    };
+
+    // Line 1: Record type distribution
+    let mut line1_spans = vec![Span::styled(
+        " Records  ",
+        Style::default().add_modifier(Modifier::BOLD),
+    )];
+    for (rt, count) in &stats.rr_type_counts {
+        let type_str: &'static str = (*rt).into();
+        line1_spans.push(Span::styled(
+            format!("{type_str}:{count}"),
+            to_ratatui_style(*rt),
+        ));
+        line1_spans.push(Span::raw("  "));
+    }
+    line1_spans.push(Span::styled(
+        format!("({} unique)", stats.total_unique),
+        Style::default().fg(Color::DarkGray),
+    ));
+
+    // Line 2: Query health
+    let mut line2_spans = vec![Span::styled(
+        " Queries  ",
+        Style::default().add_modifier(Modifier::BOLD),
+    )];
+    line2_spans.push(Span::styled(
+        format!("{} OK", stats.responses),
+        Style::default().fg(Color::Green),
+    ));
+    line2_spans.push(Span::raw("  "));
+    line2_spans.push(Span::styled(
+        format!("{} NX", stats.nxdomains),
+        if stats.nxdomains > 0 {
+            Style::default().fg(Color::Yellow)
+        } else {
+            Style::default().fg(Color::DarkGray)
+        },
+    ));
+    line2_spans.push(Span::raw("  "));
+    let err_style = if stats.total_errors > 0 {
+        Style::default().fg(Color::Red)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+    line2_spans.push(Span::styled(format!("{} err", stats.total_errors), err_style));
+    line2_spans.push(Span::styled(
+        format!(
+            " [{} TO, {} QR, {} SF]",
+            stats.timeout_errors, stats.refuse_errors, stats.servfail_errors
+        ),
+        err_style,
+    ));
+    line2_spans.push(Span::raw("  "));
+    line2_spans.push(Span::styled(
+        format!("{} servers", stats.responding_servers),
+        Style::default().fg(Color::Gray),
+    ));
+    line2_spans.push(Span::raw("  "));
+    let time_str = match (stats.min_time_ms, stats.max_time_ms) {
+        (Some(min), Some(max)) if min == max => format!("{min}ms"),
+        (Some(min), Some(max)) => format!("{min}\u{2013}{max}ms"),
+        _ => "\u{2013}".to_string(),
+    };
+    line2_spans.push(Span::styled(time_str, Style::default().fg(Color::Gray)));
+
+    let rows = Layout::vertical([Constraint::Length(1), Constraint::Length(1)]).split(area);
+    f.render_widget(Paragraph::new(Line::from(line1_spans)), rows[0]);
+    f.render_widget(Paragraph::new(Line::from(line2_spans)), rows[1]);
 }
 
 fn draw_table(f: &mut Frame, app: &mut App, area: Rect) {
@@ -562,6 +641,7 @@ fn draw_help_popup(f: &mut Frame) {
         help_line("s", "Show servers used"),
         help_line("w", "Show WHOIS for result IPs"),
         help_line("c", "Show DNS health checks"),
+        help_line("S", "Toggle stats panel"),
         Line::raw(""),
         Line::from(Span::styled(
             "Query",

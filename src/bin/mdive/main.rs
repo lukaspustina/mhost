@@ -286,6 +286,7 @@ fn map_normal_key(key: KeyEvent, app: &App) -> Option<Action> {
         KeyCode::Char('c') => Some(Action::OpenLints),
         KeyCode::Char('?') => Some(Action::OpenHelp),
         KeyCode::Char('h') => Some(Action::ToggleHumanView),
+        KeyCode::Char('S') => Some(Action::ToggleStats),
         KeyCode::Char('a') => Some(Action::SelectAll),
         KeyCode::Char('n') => Some(Action::SelectNone),
         KeyCode::Char(c @ '0'..='9') => Some(Action::DigitPress(c)),
