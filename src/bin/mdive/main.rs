@@ -318,7 +318,7 @@ fn map_key(key: KeyEvent, app: &App) -> Option<Action> {
     if app.popup != Popup::None {
         let scrollable = matches!(
             app.popup,
-            Popup::Whois | Popup::Lints | Popup::Discovery | Popup::RecordDetail { .. } | Popup::Servers
+            Popup::Whois | Popup::Lints | Popup::Discovery | Popup::RecordDetail { .. } | Popup::Servers | Popup::Help
         );
 
         // Discovery popup: strategy keys trigger runs, Esc closes
@@ -431,6 +431,7 @@ fn map_normal_key(key: KeyEvent, app: &App) -> Option<Action> {
         KeyCode::Char('S') => Some(Action::ToggleStats),
         KeyCode::Char('a') => Some(Action::SelectAll),
         KeyCode::Char('n') => Some(Action::SelectNone),
+        KeyCode::Tab => Some(Action::CycleGroupMode),
         KeyCode::Char(c @ '0'..='9') => Some(Action::DigitPress(c)),
         _ => None,
     }

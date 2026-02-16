@@ -16,8 +16,8 @@ use mhost::services::whois::WhoisResponse;
 use mhost::RecordType;
 
 use crate::app::{
-    category_short_label, format_nameserver_human, record_type_info, App, DiscoveryStrategy,
-    Mode, Popup, QueryState, StrategyStatus, TOGGLEABLE_CATEGORIES,
+    category_short_label, format_nameserver_human, record_type_info, App, DnssecStatus,
+    DiscoveryStrategy, Mode, Popup, QueryState, StrategyStatus, TOGGLEABLE_CATEGORIES,
 };
 
 pub fn draw(f: &mut Frame, app: &mut App) {
@@ -43,7 +43,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
 
     match app.popup {
         Popup::RecordDetail { .. } => draw_record_popup(f, app),
-        Popup::Help => draw_help_popup(f),
+        Popup::Help => draw_help_popup(f, app),
         Popup::Servers => draw_servers_popup(f, app),
         Popup::Whois => draw_whois_popup(f, app),
         Popup::Lints => draw_lints_popup(f, app),
@@ -125,7 +125,17 @@ fn draw_input(f: &mut Frame, app: &App, area: Rect) {
 
 fn draw_category_toggles(f: &mut Frame, app: &App, area: Rect) {
     let mut spans = Vec::new();
-    spans.push(Span::raw(" "));
+    spans.push(Span::styled(
+        " [Tab] ",
+        Style::default().fg(Color::DarkGray),
+    ));
+    spans.push(Span::styled(
+        format!("\u{25B8}{}", app.group_mode.label()),
+        Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD),
+    ));
+    spans.push(Span::raw("  "));
 
     for (i, cat) in TOGGLEABLE_CATEGORIES.iter().enumerate() {
         let key = if i < 9 {
@@ -229,6 +239,16 @@ fn draw_stats(f: &mut Frame, app: &App, area: Rect) {
         _ => "\u{2013}".to_string(),
     };
     line2_spans.push(Span::styled(time_str, Style::default().fg(Color::Gray)));
+
+    // DNSSEC badge
+    line2_spans.push(Span::raw("  "));
+    let (dnssec_label, dnssec_color) = match stats.dnssec_status {
+        DnssecStatus::Signed => ("DNSSEC:signed", Color::Green),
+        DnssecStatus::Partial => ("DNSSEC:partial", Color::Yellow),
+        DnssecStatus::Broken => ("DNSSEC:broken", Color::Red),
+        DnssecStatus::Unsigned => ("DNSSEC:unsigned", Color::DarkGray),
+    };
+    line2_spans.push(Span::styled(dnssec_label, Style::default().fg(dnssec_color)));
 
     let rows = Layout::vertical([Constraint::Length(1), Constraint::Length(1)]).split(area);
     f.render_widget(Paragraph::new(Line::from(line1_spans)), rows[0]);
@@ -643,7 +663,7 @@ fn draw_record_popup(f: &mut Frame, app: &mut App) {
     render_scrollable_popup(f, popup_area, &title, lines, &mut app.record_detail_scroll);
 }
 
-fn draw_help_popup(f: &mut Frame) {
+fn draw_help_popup(f: &mut Frame, app: &mut App) {
     let dim = Style::default().fg(Color::Gray);
     let key_style = Style::default()
         .fg(Color::Cyan)
@@ -677,6 +697,7 @@ fn draw_help_popup(f: &mut Frame) {
         help_line("w", "Show WHOIS for result IPs"),
         help_line("c", "Show DNS health checks"),
         help_line("S", "Toggle stats panel"),
+        help_line("Tab", "Cycle grouping mode"),
         help_line("d", "Open discovery panel"),
         Line::raw(""),
         Line::from(Span::styled(
@@ -713,23 +734,12 @@ fn draw_help_popup(f: &mut Frame) {
         help_line("Esc", "Back to normal mode"),
         help_line("Ctrl+W", "Delete word"),
         Line::raw(""),
-        Line::from(Span::styled("[Esc] close", dim)).right_aligned(),
+        Line::from(Span::styled("[Esc] close  [j/k] scroll", dim)).right_aligned(),
     ];
 
     let area = f.area();
     let popup_area = centered_rect(area, 50, 70, 38, 60);
-
-    let popup = Paragraph::new(lines)
-        .wrap(Wrap { trim: false })
-        .block(
-            Block::default()
-                .title(" Help ")
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan)),
-        );
-
-    f.render_widget(Clear, popup_area);
-    f.render_widget(popup, popup_area);
+    render_scrollable_popup(f, popup_area, " Help ", lines, &mut app.help_scroll);
 }
 
 fn draw_servers_popup(f: &mut Frame, app: &mut App) {
@@ -738,28 +748,130 @@ fn draw_servers_popup(f: &mut Frame, app: &mut App) {
     let mut lines: Vec<Line> = vec![Line::raw("")];
 
     if let Some(lookups) = &app.lookups {
-        // Collect unique servers and sort for stable display
-        let mut servers: Vec<String> = Vec::new();
-        let mut seen = std::collections::HashSet::new();
+        // Build per-server stats
+        struct ServerStats {
+            name: String,
+            protocol: String,
+            responses: usize,
+            errors: usize,
+            min_ms: Option<u128>,
+            max_ms: Option<u128>,
+            total_ms: u128,
+            time_count: usize,
+        }
+
+        let mut server_map: std::collections::HashMap<String, ServerStats> =
+            std::collections::HashMap::new();
+        let mut server_order: Vec<String> = Vec::new();
+
         for lookup in lookups.iter() {
             let raw = lookup.name_server().to_string();
-            if seen.insert(raw.clone()) {
-                servers.push(raw);
+            let entry = server_map.entry(raw.clone()).or_insert_with(|| {
+                server_order.push(raw.clone());
+                let ns = lookup.name_server();
+                let protocol = format!("{:?}", ns.protocol()).to_lowercase();
+                let name = format_nameserver_human(&raw);
+                ServerStats {
+                    name,
+                    protocol,
+                    responses: 0,
+                    errors: 0,
+                    min_ms: None,
+                    max_ms: None,
+                    total_ms: 0,
+                    time_count: 0,
+                }
+            });
+
+            if lookup.result().is_err() {
+                entry.errors += 1;
+            } else {
+                entry.responses += 1;
+            }
+
+            if let Some(duration) = lookup.result().response_time() {
+                let ms = duration.as_millis();
+                entry.min_ms = Some(entry.min_ms.map_or(ms, |m: u128| m.min(ms)));
+                entry.max_ms = Some(entry.max_ms.map_or(ms, |m: u128| m.max(ms)));
+                entry.total_ms += ms;
+                entry.time_count += 1;
             }
         }
-        servers.sort();
+
+        // Sort: by avg latency (fastest first), errors-only last
+        server_order.sort_by(|a, b| {
+            let sa = &server_map[a];
+            let sb = &server_map[b];
+            let a_has_time = sa.time_count > 0;
+            let b_has_time = sb.time_count > 0;
+            // Servers with no response times (all errors) sort last
+            b_has_time.cmp(&a_has_time).then_with(|| {
+                let avg_a = if sa.time_count > 0 { sa.total_ms / sa.time_count as u128 } else { u128::MAX };
+                let avg_b = if sb.time_count > 0 { sb.total_ms / sb.time_count as u128 } else { u128::MAX };
+                avg_a.cmp(&avg_b)
+            })
+        });
 
         lines.push(Line::from(Span::styled(
-            format!(" {} servers used", servers.len()),
+            format!(" {} servers used", server_order.len()),
             Style::default().add_modifier(Modifier::BOLD),
         )));
         lines.push(Line::raw(""));
 
-        for (i, raw) in servers.iter().enumerate() {
-            let human = format_nameserver_human(raw);
+        // Header
+        lines.push(Line::from(vec![
+            Span::styled(format!("  {:<3}", "#"), dim),
+            Span::styled(format!("{:<28}", "Server"), dim),
+            Span::styled(format!("{:<7}", "Proto"), dim),
+            Span::styled(format!("{:>4}", "OK"), dim),
+            Span::styled(format!("{:>5}", "Err"), dim),
+            Span::styled(format!("{:>8}", "Avg"), dim),
+            Span::styled(format!("{:>8}", "Min"), dim),
+            Span::styled(format!("{:>8}", "Max"), dim),
+        ]));
+
+        for (i, key) in server_order.iter().enumerate() {
+            let s = &server_map[key];
+            let avg_ms = if s.time_count > 0 {
+                Some(s.total_ms / s.time_count as u128)
+            } else {
+                None
+            };
+
+            let err_style = if s.errors > 0 {
+                Style::default().fg(Color::Red)
+            } else {
+                Style::default().fg(Color::DarkGray)
+            };
+
+            let ok_style = Style::default().fg(Color::Green);
+
+            let fmt_ms = |v: Option<u128>| -> String {
+                match v {
+                    Some(ms) => format!("{ms}ms"),
+                    None => "\u{2013}".to_string(),
+                }
+            };
+
+            // Truncate server name to fit
+            let name_display = if s.name.len() > 26 {
+                format!("{}..", &s.name[..24])
+            } else {
+                s.name.clone()
+            };
+
             lines.push(Line::from(vec![
-                Span::styled(format!("  {:>2}  ", i + 1), dim),
-                Span::styled(human, Style::default().fg(Color::Yellow)),
+                Span::styled(format!("  {:<3}", i + 1), dim),
+                Span::styled(
+                    format!("{:<28}", name_display),
+                    Style::default().fg(Color::Yellow),
+                ),
+                Span::styled(format!("{:<7}", s.protocol), dim),
+                Span::styled(format!("{:>4}", s.responses), ok_style),
+                Span::styled(format!("{:>5}", s.errors), err_style),
+                Span::styled(format!("{:>8}", fmt_ms(avg_ms)), Style::default().fg(Color::Cyan)),
+                Span::styled(format!("{:>8}", fmt_ms(s.min_ms)), dim),
+                Span::styled(format!("{:>8}", fmt_ms(s.max_ms)), dim),
             ]));
         }
     } else {
@@ -775,7 +887,7 @@ fn draw_servers_popup(f: &mut Frame, app: &mut App) {
     );
 
     let area = f.area();
-    let popup_area = centered_rect(area, 50, 70, 40, 70);
+    let popup_area = centered_rect(area, 70, 70, 60, 100);
     render_scrollable_popup(f, popup_area, " Servers ", lines, &mut app.servers_scroll);
 }
 

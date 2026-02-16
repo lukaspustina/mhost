@@ -46,16 +46,11 @@
 - ~~**Discovery strategies**~~ — Done. Press `d` to open interactive discovery panel with 5 strategies: CT Logs, Wordlist (424 entries with wildcard filtering), SRV Probing (22 probes), TXT Mining (SPF/DMARC extraction), and Permutation. Run individually or all at once with `a`. Results stream into the main table in real time with per-strategy status indicators. Uses `spawn_local` on a shared `LocalSet` for cooperative async scheduling.
 - ~~**Lints / health checks**~~ — Done. Press `c` to show DNS health checks popup. Runs 9 lint categories (CNAME, NS, MX, HTTPS/SVCB, SPF, DMARC, CAA, TTL, DNSSEC) synchronously from existing lookup data. Color-coded results (green OK, yellow warning, red failed), scrollable with j/k. Cached per query.
 - ~~**Summary / stats panel**~~ — Done. Press `S` to toggle a 2-line collapsible panel showing record type distribution with colored labels, unique record count, query health breakdown (OK/NX/errors with timeout, refused, servfail detail), responding server count, and response time range. Updates incrementally as batches arrive, clears on new query.
-- **Propagation view** — Query the same records across all 84 predefined servers and show agreement/disagreement. Flag inconsistencies inline or in a dedicated panel.
-- **DNS trace visualization** — Show full resolution path from root → TLD → authoritative, with referrals. Interactive `dig +trace`. Use mhost trace functionality 
 
 #### Diagnostic depth
 
-- **Per-server response times** — Show latency per server in the servers popup (or upgrade it to a table with latency, success/failure count, protocol).
-- **CNAME chain following** — Automatically resolve and display the full CNAME chain inline. (Manual drill-down via `l`/`→` on CNAME records is already available.)
-- **Discrepancy highlighting** — When different nameservers return different answers for the same query, flag it visually. The single most useful diagnostic signal.
-- **DNSSEC status indicator** — Show whether records were DNSSEC-validated, and if not, why (unsigned zone, broken chain, expired signatures).
-- **TTL countdown / staleness** — Show when records were fetched and how much TTL remains. Indicate when a re-query might give different results.
+- ~~**Per-server response times**~~ — Done. Press `s` to open servers popup showing a per-server stats table with protocol, OK/error counts, and min/avg/max latency. Sorted by average response time (fastest first), error-only servers last.
+- ~~**DNSSEC status indicator**~~ — Done. Stats panel (`S`) shows a color-coded DNSSEC badge (signed/partial/broken/unsigned) derived from the existing lint infrastructure. Green for fully signed, yellow for partial, red for broken chain, gray for unsigned.
 
 #### Navigation and workflow
 
@@ -64,9 +59,7 @@
 
 #### Visual and analytical
 
-- **Grouping modes** — Toggle between grouping by category (current), by subdomain, by record type, or by nameserver.
-- **Tree view** — Show the subdomain hierarchy as a tree with record counts per node.
-- **Side-by-side domain comparison** — Split screen to compare two domains or the same domain at two points in time.
+- ~~**Grouping modes**~~ — Done. Press `Tab` to cycle between four grouping modes: Category (default), Type, Name, and Server. Current mode shown in the category toggles line. Grouping mode preserved in drill-down history.
 
 ### DNS zone file verification
 
@@ -90,6 +83,14 @@ Statistical analysis of resolver latency over many rounds.
 ## Ideas
 
 Longer-term possibilities — not prioritized, may require significant design work.
+
+- **Propagation view** — Query the same records across all 84 predefined servers and show agreement/disagreement. Flag inconsistencies inline or in a dedicated panel.
+- **DNS trace visualization** — Show full resolution path from root → TLD → authoritative, with referrals. Interactive `dig +trace`. Use mhost trace functionality.
+- **CNAME chain following** — Automatically resolve and display the full CNAME chain inline. (Manual drill-down via `l`/`→` on CNAME records is already available.)
+- **Discrepancy highlighting** — When different nameservers return different answers for the same query, flag it visually. The single most useful diagnostic signal.
+- **TTL countdown / staleness** — Show when records were fetched and how much TTL remains. Indicate when a re-query might give different results.
+- **Tree view** — Show the subdomain hierarchy as a tree with record counts per node.
+- **Side-by-side domain comparison** — Split screen to compare two domains or the same domain at two points in time.
 
 - **Export DNS records to infrastructure formats** — Export discovered/looked-up records into formats ready for another provider or IaC tool. `--export zone` (RFC 1035 zone file syntax), `--export terraform` (HCL for `dns_*_record_set` resources). Works with `lookup` and `domain-lookup`.
 

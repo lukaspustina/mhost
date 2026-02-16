@@ -17,6 +17,8 @@ use ratatui::widgets::TableState;
 use regex::RegexBuilder;
 use tokio::task::JoinHandle;
 
+use mhost::app::modules::check::lints::{check_dnssec, CheckResult};
+
 use crate::lints::{self, LintSection};
 
 /// All categories available for toggling, in display order.
@@ -80,6 +82,14 @@ fn category_ordinal(cat: Category) -> u8 {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum DnssecStatus {
+    Signed,
+    Partial,
+    Broken,
+    Unsigned,
+}
+
 #[derive(Clone)]
 pub struct StatsData {
     pub rr_type_counts: BTreeMap<RecordType, usize>,
@@ -93,6 +103,7 @@ pub struct StatsData {
     pub responding_servers: usize,
     pub min_time_ms: Option<u128>,
     pub max_time_ms: Option<u128>,
+    pub dnssec_status: DnssecStatus,
 }
 
 fn compute_stats(lookups: &Lookups) -> StatsData {
@@ -153,6 +164,18 @@ fn compute_stats(lookups: &Lookups) -> StatsData {
     let min_time_ms = times.iter().min().copied();
     let max_time_ms = times.iter().max().copied();
 
+    // DNSSEC status from existing lint infrastructure
+    let dnssec_results = check_dnssec(lookups);
+    let dnssec_status = if dnssec_results.iter().all(|r| matches!(r, CheckResult::Warning(msg) if msg.starts_with("No DNSSEC"))) {
+        DnssecStatus::Unsigned
+    } else if dnssec_results.iter().any(|r| matches!(r, CheckResult::Failed(_))) {
+        DnssecStatus::Broken
+    } else if dnssec_results.iter().any(|r| matches!(r, CheckResult::Warning(_))) {
+        DnssecStatus::Partial
+    } else {
+        DnssecStatus::Signed
+    };
+
     StatsData {
         rr_type_counts,
         total_unique,
@@ -165,6 +188,35 @@ fn compute_stats(lookups: &Lookups) -> StatsData {
         responding_servers,
         min_time_ms,
         max_time_ms,
+        dnssec_status,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GroupMode {
+    Category,
+    RecordType,
+    Name,
+    Server,
+}
+
+impl GroupMode {
+    pub fn next(self) -> GroupMode {
+        match self {
+            GroupMode::Category => GroupMode::RecordType,
+            GroupMode::RecordType => GroupMode::Name,
+            GroupMode::Name => GroupMode::Server,
+            GroupMode::Server => GroupMode::Category,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            GroupMode::Category => "Category",
+            GroupMode::RecordType => "Type",
+            GroupMode::Name => "Name",
+            GroupMode::Server => "Server",
+        }
     }
 }
 
@@ -333,6 +385,7 @@ pub struct HistoryEntry {
     pub filter: Option<regex::Regex>,
     pub filter_input: String,
     pub batch_progress: (usize, usize),
+    pub group_mode: GroupMode,
 }
 
 pub enum Action {
@@ -355,6 +408,7 @@ pub enum Action {
     SelectNone,
     ToggleHumanView,
     ToggleStats,
+    CycleGroupMode,
     MoveUp,
     MoveDown,
     PageUp,
@@ -428,10 +482,12 @@ pub struct App {
     pub lint_scroll: u16,
     pub show_stats: bool,
     pub stats_data: Option<StatsData>,
+    pub group_mode: GroupMode,
     pub discovery_state: Option<DiscoveryState>,
     pub discovery_scroll: u16,
     pub record_detail_scroll: u16,
     pub servers_scroll: u16,
+    pub help_scroll: u16,
     pub(crate) pending_strategy_spawns: Vec<DiscoveryStrategy>,
     /// Shared resolver group, built once per query.
     pub(crate) resolver_group: Option<Arc<ResolverGroup>>,
@@ -480,10 +536,12 @@ impl App {
             lint_scroll: 0,
             show_stats: false,
             stats_data: None,
+            group_mode: GroupMode::Category,
             discovery_state: None,
             discovery_scroll: 0,
             record_detail_scroll: 0,
             servers_scroll: 0,
+            help_scroll: 0,
             pending_strategy_spawns: Vec::new(),
             resolver_group: None,
             dns_task: None,
@@ -709,6 +767,10 @@ impl App {
             Action::ToggleStats => {
                 self.show_stats = !self.show_stats;
             }
+            Action::CycleGroupMode => {
+                self.group_mode = self.group_mode.next();
+                self.rebuild_rows();
+            }
 
             Action::MoveUp => {
                 let i = match self.table_state.selected() {
@@ -849,6 +911,7 @@ impl App {
             }
             Action::OpenHelp => {
                 self.popup = Popup::Help;
+                self.help_scroll = 0;
             }
             Action::OpenServers => {
                 self.popup = Popup::Servers;
@@ -1050,6 +1113,7 @@ impl App {
             Popup::Discovery => &mut self.discovery_scroll,
             Popup::RecordDetail { .. } => &mut self.record_detail_scroll,
             Popup::Servers => &mut self.servers_scroll,
+            Popup::Help => &mut self.help_scroll,
             _ => return,
         };
         f(scroll);
@@ -1097,6 +1161,7 @@ impl App {
             filter: self.filter.clone(),
             filter_input: self.filter_input.clone(),
             batch_progress: self.batch_progress,
+            group_mode: self.group_mode,
         };
         if self.history.len() >= 50 {
             self.history.remove(0);
@@ -1122,6 +1187,7 @@ impl App {
             self.filter_input = entry.filter_input;
             self.filter_cursor_pos = self.filter_input.len();
             self.batch_progress = entry.batch_progress;
+            self.group_mode = entry.group_mode;
             self.table_state.select(entry.selected_index);
         }
     }
@@ -1239,13 +1305,33 @@ impl App {
             }
         }
 
-        rows.sort_by(|a, b| {
-            category_ordinal(a.category)
-                .cmp(&category_ordinal(b.category))
-                .then_with(|| a.record_type.ordinal().cmp(&b.record_type.ordinal()))
-                .then_with(|| a.name.cmp(&b.name))
-                .then_with(|| a.value.cmp(&b.value))
-        });
+        match self.group_mode {
+            GroupMode::Category => rows.sort_by(|a, b| {
+                category_ordinal(a.category)
+                    .cmp(&category_ordinal(b.category))
+                    .then_with(|| a.record_type.ordinal().cmp(&b.record_type.ordinal()))
+                    .then_with(|| a.name.cmp(&b.name))
+                    .then_with(|| a.value.cmp(&b.value))
+            }),
+            GroupMode::RecordType => rows.sort_by(|a, b| {
+                a.record_type.ordinal().cmp(&b.record_type.ordinal())
+                    .then_with(|| a.name.cmp(&b.name))
+                    .then_with(|| category_ordinal(a.category).cmp(&category_ordinal(b.category)))
+                    .then_with(|| a.value.cmp(&b.value))
+            }),
+            GroupMode::Name => rows.sort_by(|a, b| {
+                a.name.cmp(&b.name)
+                    .then_with(|| a.record_type.ordinal().cmp(&b.record_type.ordinal()))
+                    .then_with(|| category_ordinal(a.category).cmp(&category_ordinal(b.category)))
+                    .then_with(|| a.value.cmp(&b.value))
+            }),
+            GroupMode::Server => rows.sort_by(|a, b| {
+                a.nameserver.cmp(&b.nameserver)
+                    .then_with(|| a.name.cmp(&b.name))
+                    .then_with(|| a.record_type.ordinal().cmp(&b.record_type.ordinal()))
+                    .then_with(|| a.value.cmp(&b.value))
+            }),
+        }
 
         // Apply regex filter
         if let Some(ref re) = self.filter {
