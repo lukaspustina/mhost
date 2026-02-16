@@ -154,21 +154,24 @@ impl<'a> DnssecCheck<'a> {
     }
 
     fn check_rrsig_expiration(rrsigs: &[&crate::resources::rdata::RRSIG], now: u32, results: &mut Vec<CheckResult>) {
-        // The lint keeps only DNSKEY RRSIG "valid" messages (not all valid RRSIGs)
-        let findings = dnssec_validation::validate_rrsig_expiration(rrsigs, now);
-        for (finding, rrsig) in findings.into_iter().zip(rrsigs.iter()) {
+        // Only check DNSKEY-covering RRSIGs — other RRSIGs (HINFO, A, etc.)
+        // commonly have short lifetimes and are not relevant to chain integrity.
+        let dnskey_rrsigs: Vec<&crate::resources::rdata::RRSIG> = rrsigs
+            .iter()
+            .filter(|r| r.type_covered() == "DNSKEY")
+            .copied()
+            .collect();
+        let findings = dnssec_validation::validate_rrsig_expiration(&dnskey_rrsigs, now);
+        for (finding, rrsig) in findings.into_iter().zip(dnskey_rrsigs.iter()) {
             match finding.severity {
                 Severity::Ok => {
-                    // Only report valid status for DNSKEY-covering RRSIGs
-                    if rrsig.type_covered() == "DNSKEY" {
-                        let remaining_secs = rrsig.expiration() - now;
-                        let remaining_days = remaining_secs / 86400;
-                        results.push(CheckResult::Ok(format!(
-                            "DNSKEY RRSIG valid, expires in {} day(s) (key tag {})",
-                            remaining_days,
-                            rrsig.key_tag()
-                        )));
-                    }
+                    let remaining_secs = rrsig.expiration() - now;
+                    let remaining_days = remaining_secs / 86400;
+                    results.push(CheckResult::Ok(format!(
+                        "DNSKEY RRSIG valid, expires in {} day(s) (key tag {})",
+                        remaining_days,
+                        rrsig.key_tag()
+                    )));
                 }
                 _ => results.push(finding_to_check_result(finding)),
             }
@@ -454,7 +457,7 @@ mod tests {
     #[test]
     fn check_rrsig_expiration_expired() {
         let now: u32 = 1700000000;
-        let rrsig = make_rrsig("A", DnssecAlgorithm::EcdsaP256Sha256, 2371, now - 100, now - 1000);
+        let rrsig = make_rrsig("DNSKEY", DnssecAlgorithm::EcdsaP256Sha256, 2371, now - 100, now - 1000);
         let rrsigs: Vec<&RRSIG> = vec![&rrsig];
         let mut results = Vec::new();
 
@@ -468,7 +471,7 @@ mod tests {
     fn check_rrsig_expiration_near_expiry() {
         let now: u32 = 1700000000;
         // Expires in 3 days (less than 7 day threshold)
-        let rrsig = make_rrsig("A", DnssecAlgorithm::EcdsaP256Sha256, 2371, now + 259200, now - 100);
+        let rrsig = make_rrsig("DNSKEY", DnssecAlgorithm::EcdsaP256Sha256, 2371, now + 259200, now - 100);
         let rrsigs: Vec<&RRSIG> = vec![&rrsig];
         let mut results = Vec::new();
 
@@ -481,7 +484,7 @@ mod tests {
     #[test]
     fn check_rrsig_expiration_future_inception() {
         let now: u32 = 1700000000;
-        let rrsig = make_rrsig("A", DnssecAlgorithm::EcdsaP256Sha256, 2371, now + 864000, now + 100);
+        let rrsig = make_rrsig("DNSKEY", DnssecAlgorithm::EcdsaP256Sha256, 2371, now + 864000, now + 100);
         let rrsigs: Vec<&RRSIG> = vec![&rrsig];
         let mut results = Vec::new();
 
