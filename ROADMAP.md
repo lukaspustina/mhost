@@ -52,16 +52,15 @@
 #### Diagnostic depth
 
 - **Per-server response times** — Show latency per server in the servers popup (or upgrade it to a table with latency, success/failure count, protocol).
-- **CNAME chain following** — Press Enter on a CNAME to resolve the target and show the full chain inline.
+- **CNAME chain following** — Automatically resolve and display the full CNAME chain inline. (Manual drill-down via `l`/`→` on CNAME records is already available.)
 - **Discrepancy highlighting** — When different nameservers return different answers for the same query, flag it visually. The single most useful diagnostic signal.
 - **DNSSEC status indicator** — Show whether records were DNSSEC-validated, and if not, why (unsigned zone, broken chain, expired signatures).
 - **TTL countdown / staleness** — Show when records were fetched and how much TTL remains. Indicate when a re-query might give different results.
 
 #### Navigation and workflow
 
-- **Drill-down** — Press Enter on a subdomain to re-query it as a new domain. Follow CNAME targets or MX hostnames. Browse DNS like a hyperlinked document.
+- ~~**Drill-down and query history**~~ — Done. Enter drills into a record's subdomain name, `l`/`→` drills into hostname targets (CNAME, MX exchange, NS, SRV target, SOA mname, SVCB/HTTPS, NAPTR replacement, PTR). Full state snapshots (rows, lookups, stats, whois, lints, discovery, categories, filter, scroll position) are pushed to a history stack. `←`/`Backspace` restores previous state instantly without re-querying. Manual queries via input mode clear history. Title bar shows breadcrumb depth, status bar shows back hint, detail line shows drill target. `o` opens record detail popup (was Enter).
 - ~~**Free-text filter / search**~~ — Done. `/` enters search mode with case-insensitive regex matching across name, type, value, and human-readable columns. `C` or `Esc` clears the filter.
-- **Query history** — Keep a list of domains queried in this session. Flip back to previous results without re-querying. Tab or stack-based navigation.
 
 #### Visual and analytical
 
