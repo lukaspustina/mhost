@@ -13,6 +13,7 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use clap::ArgMatches;
 
+use crate::app::common::resolver_args::ResolverArgs;
 use crate::app::output::json::JsonOptions;
 use crate::app::output::summary::SummaryOptions;
 use crate::app::output::{OutputConfig, OutputType};
@@ -75,16 +76,14 @@ impl TryFrom<&ArgMatches> for AppConfig {
             .get_one::<String>("output")
             .map(|x| OutputType::try_from(x.as_str()).context("failed to parse output type"))
             .unwrap()?; // Safe unwrap, because of clap's validation
+        let resolver_args = ResolverArgs::from_matches(args);
         let config = AppConfig {
             list_predefined: args.get_flag("list-predefined"),
             max_concurrent_servers: *args.get_one::<usize>("max-concurrent-servers").unwrap(), // Safe unwrap, because clap's validation
             use_system_resolv_opt: args.get_flag("use-system-resolv-opt"),
             retries: *args.get_one::<usize>("retries").unwrap(), // Safe unwrap, because clap's validation
             max_concurrent_requests: *args.get_one::<usize>("max-concurrent-requests").unwrap(), // Safe unwrap, because clap's validation
-            timeout: {
-                let secs = *args.get_one::<u64>("timeout").unwrap(); // Safe unwrap, because clap's validation
-                Duration::from_secs(secs)
-            },
+            timeout: resolver_args.timeout,
             expects_multiple_responses: args.get_flag("wait-multiple-responses"),
             abort_on_error: !(args.get_flag("continue-on-error") || args.get_flag("continue-on-all-errors")),
             abort_on_timeout: !(args.get_flag("continue-on-timeout") || args.get_flag("continue-on-all-errors")),
@@ -98,14 +97,14 @@ impl TryFrom<&ArgMatches> for AppConfig {
             show_errors: args.get_flag("show-errors"),
             quiet: args.get_flag("quiet"),
             ignore_system_nameservers: args.get_flag("no-system-nameservers"),
-            no_system_lookups: args.get_flag("no-system-lookups"),
-            nameservers: args
-                .get_many::<String>("nameservers")
-                .map(|xs| xs.map(ToString::to_string).collect()),
-            predefined: args.get_flag("predefined"),
-            predefined_filter: args
-                .get_many::<String>("predefined-filter")
-                .map(|xs| xs.map(ToString::to_string).collect()),
+            no_system_lookups: resolver_args.no_system_lookups,
+            nameservers: if resolver_args.nameservers.is_empty() {
+                None
+            } else {
+                Some(resolver_args.nameservers)
+            },
+            predefined: resolver_args.predefined,
+            predefined_filter: Some(resolver_args.predefined_filter),
             nameserver_file_path: args.get_one::<String>("nameservers-from-file").map(ToString::to_string),
             limit: *args.get_one::<usize>("limit").unwrap(), // Safe unwrap, because clap's validation
             system_nameservers: args
@@ -117,8 +116,8 @@ impl TryFrom<&ArgMatches> for AppConfig {
             },
             output_config: output_config(output, args)?,
             output,
-            ipv4_only: args.get_flag("ipv4-only"),
-            ipv6_only: args.get_flag("ipv6-only"),
+            ipv4_only: resolver_args.ipv4_only,
+            ipv6_only: resolver_args.ipv6_only,
             max_worker_threads: args.get_one::<usize>("max-worker-threads").copied(),
         };
 

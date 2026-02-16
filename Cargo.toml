@@ -81,7 +81,7 @@ spectral = "0.6"
 [features]
 default = ["app"]
 app = ["anyhow", "clap", "clap_complete", "hostname", "humantime", "tabwriter", "tracing-log", "tracing-subscriber"]
-tui = ["ratatui", "crossterm"]
+tui = ["ratatui", "crossterm", "clap"]
 
 [profile.release]
 lto = true

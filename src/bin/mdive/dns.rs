@@ -1,11 +1,11 @@
 use std::str::FromStr;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use futures::stream::{FuturesUnordered, StreamExt};
+use mhost::app::common::resolver_args::ResolverArgs;
 use mhost::app::modules::domain_lookup::subdomain_spec::default_entries;
-use mhost::nameserver::predefined::PredefinedProvider;
 use mhost::resolver::lookup::Lookups;
-use mhost::resolver::{MultiQuery, ResolverGroupBuilder};
+use mhost::resolver::MultiQuery;
 use mhost::{Name, RecordType};
 use tokio::sync::mpsc;
 
@@ -14,7 +14,7 @@ use crate::app::Action;
 /// Spawns a domain-lookup query on a background OS thread with its own tokio runtime.
 ///
 /// Sends partial results after each completed query so the TUI can display records progressively.
-pub fn spawn_domain_query(domain: String, tx: mpsc::Sender<Action>) {
+pub fn spawn_domain_query(domain: String, resolver_args: ResolverArgs, tx: mpsc::Sender<Action>) {
     std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -23,7 +23,7 @@ pub fn spawn_domain_query(domain: String, tx: mpsc::Sender<Action>) {
 
         rt.block_on(async {
             let start = Instant::now();
-            if let Err(msg) = run_domain_query(&domain, &tx).await {
+            if let Err(msg) = run_domain_query(&domain, &resolver_args, &tx).await {
                 let _ = tx.send(Action::DnsError(msg)).await;
                 return;
             }
@@ -32,15 +32,12 @@ pub fn spawn_domain_query(domain: String, tx: mpsc::Sender<Action>) {
     });
 }
 
-async fn run_domain_query(domain: &str, tx: &mpsc::Sender<Action>) -> Result<(), String> {
-    let resolvers = ResolverGroupBuilder::new()
-        .system()
-        .predefined(PredefinedProvider::Google)
-        .predefined(PredefinedProvider::Cloudflare)
-        .timeout(Duration::from_secs(3))
-        .build()
-        .await
-        .map_err(|e| format!("{e:#}"))?;
+async fn run_domain_query(
+    domain: &str,
+    resolver_args: &ResolverArgs,
+    tx: &mpsc::Sender<Action>,
+) -> Result<(), String> {
+    let resolvers = resolver_args.build_resolver_group().await?;
 
     let domain_name = Name::from_str(domain).map_err(|e| format!("{e:#}"))?;
     let entries = default_entries();

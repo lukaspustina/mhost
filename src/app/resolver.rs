@@ -5,15 +5,15 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use crate::app::common::resolver_args::filter_predefined_nameservers;
 use crate::app::AppConfig;
-use crate::nameserver::{predefined, NameServerConfig, NameServerConfigGroup, Protocol};
+use crate::nameserver::{NameServerConfig, NameServerConfigGroup};
 use crate::resolver::{
     Lookups, MultiQuery, ResolverConfig, ResolverConfigGroup, ResolverGroup, ResolverGroupOpts, ResolverOpts,
 };
 use crate::{IntoName, Name};
 use anyhow::{anyhow, Context, Result};
 use futures::future::join_all;
-use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::Arc;
 use tracing::{debug, info};
@@ -187,17 +187,9 @@ async fn load_nameservers(config: &AppConfig, system_resolvers: &mut ResolverGro
         nameservers_group.merge(nameservers);
     }
     if config.predefined {
-        let filter: HashSet<Protocol> = config
-            .predefined_filter
-            .as_ref()
-            .unwrap() // safe unwrap, because set by default by clap
-            .iter()
-            .flat_map(|x| Protocol::from_str(x.as_str()))
-            .collect();
-        let nameservers: Vec<_> = predefined::nameserver_configs()
-            .into_iter()
-            .filter(|x| filter.contains(&x.protocol()))
-            .collect();
+        let nameservers = filter_predefined_nameservers(
+            config.predefined_filter.as_ref().unwrap(), // safe unwrap, because set by default by clap
+        );
         let nameservers = NameServerConfigGroup::new(nameservers);
         info!("Loaded {} nameservers.", nameservers.len());
         nameservers_group.merge(nameservers);

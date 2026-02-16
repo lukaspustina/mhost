@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use mhost::app::common::ordinal::Ordinal;
 use mhost::app::common::rdata_format::format_rdata;
+use mhost::app::common::resolver_args::ResolverArgs;
 use mhost::app::modules::domain_lookup::subdomain_spec::{default_entries, Category};
 use mhost::resolver::lookup::Lookups;
 use mhost::resources::rdata::parsed_txt::{Mechanism, Modifier, ParsedTxt, Qualifier, Word};
@@ -147,6 +148,7 @@ pub enum Action {
 }
 
 pub struct App {
+    pub resolver_args: ResolverArgs,
     pub mode: Mode,
     pub input: String,
     pub cursor_pos: usize,
@@ -164,8 +166,9 @@ pub struct App {
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new(resolver_args: ResolverArgs) -> Self {
         Self {
+            resolver_args,
             mode: Mode::Normal,
             input: String::new(),
             cursor_pos: 0,

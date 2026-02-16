@@ -4,6 +4,7 @@ mod ui;
 
 use std::io;
 
+use clap::{Arg, ArgAction, Command};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{self, EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::event::EventStream;
@@ -13,10 +14,85 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use tokio::sync::mpsc;
 
+use mhost::app::common::resolver_args::{u64_range, ResolverArgs};
+
 use app::{Action, App, Mode, Popup, QueryState};
+
+fn create_parser() -> Command {
+    Command::new("mdive")
+        .version(env!("CARGO_PKG_VERSION"))
+        .about("Interactive DNS domain explorer")
+        .arg(
+            Arg::new("domain")
+                .index(1)
+                .value_name("DOMAIN")
+                .help("Domain name to query on launch"),
+        )
+        .arg(
+            Arg::new("nameservers")
+                .short('s')
+                .long("nameserver")
+                .value_name("HOSTNAME | IP ADDR")
+                .action(ArgAction::Append)
+                .help("Adds nameserver for lookups"),
+        )
+        .arg(
+            Arg::new("predefined")
+                .short('p')
+                .long("predefined")
+                .action(ArgAction::SetTrue)
+                .help("Adds predefined nameservers for lookups"),
+        )
+        .arg(
+            Arg::new("predefined-filter")
+                .long("predefined-filter")
+                .value_name("PROTOCOL")
+                .action(ArgAction::Append)
+                .value_delimiter(',')
+                .default_value("udp")
+                .value_parser(["udp", "tcp", "https", "tls"])
+                .help("Filters predefined nameservers by protocol"),
+        )
+        .arg(
+            Arg::new("no-system-lookups")
+                .short('S')
+                .long("no-system-lookups")
+                .action(ArgAction::SetTrue)
+                .help("Don't use system nameservers"),
+        )
+        .arg(
+            Arg::new("timeout")
+                .short('t')
+                .long("timeout")
+                .value_name("SECONDS")
+                .default_value("5")
+                .value_parser(u64_range(1, 30))
+                .help("Sets timeout in seconds for responses"),
+        )
+        .arg(
+            Arg::new("ipv4-only")
+                .short('4')
+                .long("ipv4-only")
+                .action(ArgAction::SetTrue)
+                .conflicts_with("ipv6-only")
+                .help("Only use IPv4 for DNS connections"),
+        )
+        .arg(
+            Arg::new("ipv6-only")
+                .short('6')
+                .long("ipv6-only")
+                .action(ArgAction::SetTrue)
+                .conflicts_with("ipv4-only")
+                .help("Only use IPv6 for DNS connections"),
+        )
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let matches = create_parser().get_matches();
+    let resolver_args = ResolverArgs::from_matches(&matches);
+    let domain = matches.get_one::<String>("domain").cloned();
+
     // Setup terminal
     terminal::enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -33,8 +109,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let domain = std::env::args().nth(1);
-    let result = run(&mut terminal, domain).await;
+    let result = run(&mut terminal, resolver_args, domain).await;
 
     // Restore terminal
     terminal::disable_raw_mode()?;
@@ -44,8 +119,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     result
 }
 
-async fn run(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, domain: Option<String>) -> Result<(), Box<dyn std::error::Error>> {
-    let mut app = App::new();
+async fn run(
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    resolver_args: ResolverArgs,
+    domain: Option<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut app = App::new(resolver_args);
     if let Some(domain) = domain {
         app.cursor_pos = domain.len();
         app.input = domain.clone();
@@ -61,10 +140,11 @@ async fn run(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, domain: Opti
         if let QueryState::Loading { ref domain } = app.query_state {
             let domain = domain.clone();
             let tx = tx.clone();
+            let resolver_args = app.resolver_args.clone();
             app.query_state = QueryState::Querying {
                 domain: domain.clone(),
             };
-            dns::spawn_domain_query(domain, tx);
+            dns::spawn_domain_query(domain, resolver_args, tx);
         }
 
         tokio::select! {
