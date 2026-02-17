@@ -1533,3 +1533,229 @@ pub fn format_nameserver_human(raw: &str) -> String {
         format!("{name} ({protocol}, {host})")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::Ipv4Addr;
+    use mhost::resources::rdata::{MX, SRV, SOA, SVCB, NAPTR};
+
+    fn name(s: &str) -> Name {
+        Name::from_str(s).unwrap()
+    }
+
+    // --- extract_drill_target ---
+
+    #[test]
+    fn drill_target_cname() {
+        let rdata = RData::CNAME(name("example.com."));
+        assert_eq!(extract_drill_target(&rdata), Some("example.com".into()));
+    }
+
+    #[test]
+    fn drill_target_ns() {
+        let rdata = RData::NS(name("ns1.example.com."));
+        assert_eq!(extract_drill_target(&rdata), Some("ns1.example.com".into()));
+    }
+
+    #[test]
+    fn drill_target_mx() {
+        let rdata = RData::MX(MX::new(10, name("mail.example.com.")));
+        assert_eq!(extract_drill_target(&rdata), Some("mail.example.com".into()));
+    }
+
+    #[test]
+    fn drill_target_srv() {
+        let rdata = RData::SRV(SRV::new(10, 5, 443, name("sip.example.com.")));
+        assert_eq!(extract_drill_target(&rdata), Some("sip.example.com".into()));
+    }
+
+    #[test]
+    fn drill_target_soa() {
+        let rdata = RData::SOA(SOA::new(
+            name("ns1.example.com."),
+            name("admin.example.com."),
+            2024010101, 3600, 900, 604800, 86400,
+        ));
+        assert_eq!(extract_drill_target(&rdata), Some("ns1.example.com".into()));
+    }
+
+    #[test]
+    fn drill_target_svcb_root_returns_none() {
+        let rdata = RData::SVCB(SVCB::new(0, name("."), vec![]));
+        assert_eq!(extract_drill_target(&rdata), None);
+    }
+
+    #[test]
+    fn drill_target_svcb_with_target() {
+        let rdata = RData::SVCB(SVCB::new(1, name("cdn.example.com."), vec![]));
+        assert_eq!(extract_drill_target(&rdata), Some("cdn.example.com".into()));
+    }
+
+    #[test]
+    fn drill_target_naptr_root_returns_none() {
+        let rdata = RData::NAPTR(NAPTR::new(
+            100, 10, "s".into(), "SIP+D2U".into(), String::new(), name("."),
+        ));
+        assert_eq!(extract_drill_target(&rdata), None);
+    }
+
+    #[test]
+    fn drill_target_naptr_with_replacement() {
+        let rdata = RData::NAPTR(NAPTR::new(
+            100, 10, "s".into(), "SIP+D2U".into(), String::new(), name("sip.example.com."),
+        ));
+        assert_eq!(extract_drill_target(&rdata), Some("sip.example.com".into()));
+    }
+
+    #[test]
+    fn drill_target_a_returns_none() {
+        let rdata = RData::A(Ipv4Addr::new(1, 2, 3, 4));
+        assert_eq!(extract_drill_target(&rdata), None);
+    }
+
+    #[test]
+    fn drill_target_zero_returns_none() {
+        assert_eq!(extract_drill_target(&RData::ZERO), None);
+    }
+
+    // --- format_nameserver_human ---
+
+    #[test]
+    fn format_ns_full() {
+        assert_eq!(
+            format_nameserver_human("udp:8.8.8.8:53,name=Google"),
+            "Google (udp, 8.8.8.8)"
+        );
+    }
+
+    #[test]
+    fn format_ns_no_name() {
+        assert_eq!(
+            format_nameserver_human("tcp:1.1.1.1:53"),
+            "1.1.1.1 (tcp)"
+        );
+    }
+
+    #[test]
+    fn format_ns_https() {
+        assert_eq!(
+            format_nameserver_human("https:dns.google:443,name=Google"),
+            "Google (https, dns.google)"
+        );
+    }
+
+    #[test]
+    fn format_ns_no_colon_fallback() {
+        assert_eq!(format_nameserver_human("plain"), "plain");
+    }
+
+    // --- category_short_label ---
+
+    #[test]
+    fn category_labels_are_unique() {
+        let labels: Vec<&str> = TOGGLEABLE_CATEGORIES.iter().map(|c| category_short_label(*c)).collect();
+        let unique: HashSet<&str> = labels.iter().copied().collect();
+        assert_eq!(labels.len(), unique.len(), "category labels must be unique");
+    }
+
+    // --- category_ordinal ---
+
+    #[test]
+    fn category_ordinals_are_strictly_increasing() {
+        let all = [
+            Category::Apex,
+            Category::EmailAuthentication,
+            Category::EmailServices,
+            Category::TlsDane,
+            Category::Communication,
+            Category::CalendarContacts,
+            Category::Infrastructure,
+            Category::ModernProtocols,
+            Category::VerificationMetadata,
+            Category::Legacy,
+            Category::Gaming,
+            Category::Discovered,
+        ];
+        for window in all.windows(2) {
+            assert!(
+                category_ordinal(window[0]) < category_ordinal(window[1]),
+                "{:?} should sort before {:?}",
+                window[0], window[1]
+            );
+        }
+    }
+
+    // --- GroupMode ---
+
+    #[test]
+    fn group_mode_next_cycles() {
+        assert_eq!(GroupMode::Category.next(), GroupMode::RecordType);
+        assert_eq!(GroupMode::RecordType.next(), GroupMode::Name);
+        assert_eq!(GroupMode::Name.next(), GroupMode::Server);
+        assert_eq!(GroupMode::Server.next(), GroupMode::Category);
+    }
+
+    #[test]
+    fn group_mode_labels() {
+        assert_eq!(GroupMode::Category.label(), "Category");
+        assert_eq!(GroupMode::RecordType.label(), "Type");
+        assert_eq!(GroupMode::Name.label(), "Name");
+        assert_eq!(GroupMode::Server.label(), "Server");
+    }
+
+    // --- sort_rows ---
+
+    fn make_row(name: &str, rt: RecordType, cat: Category, ns: &str) -> RecordRow {
+        RecordRow {
+            name: name.into(),
+            record_type: rt,
+            ttl: 300,
+            value: String::new(),
+            human_value: String::new(),
+            nameserver: ns.into(),
+            category: cat,
+            drill_target: None,
+        }
+    }
+
+    #[test]
+    fn sort_rows_by_category() {
+        let mut rows = vec![
+            make_row("b.example.com", RecordType::A, Category::Infrastructure, "ns1"),
+            make_row("a.example.com", RecordType::MX, Category::EmailServices, "ns1"),
+            make_row("c.example.com", RecordType::A, Category::Apex, "ns1"),
+        ];
+        // Category sort: Apex(0) < EmailServices(2) < Infrastructure(6)
+        rows.sort_by(|a, b| {
+            category_ordinal(a.category)
+                .cmp(&category_ordinal(b.category))
+                .then_with(|| a.record_type.ordinal().cmp(&b.record_type.ordinal()))
+                .then_with(|| a.name.cmp(&b.name))
+                .then_with(|| a.value.cmp(&b.value))
+        });
+        assert_eq!(rows[0].category, Category::Apex);
+        assert_eq!(rows[1].category, Category::EmailServices);
+        assert_eq!(rows[2].category, Category::Infrastructure);
+    }
+
+    #[test]
+    fn sort_rows_by_server() {
+        let mut rows = vec![
+            make_row("a.example.com", RecordType::A, Category::Apex, "ns2"),
+            make_row("a.example.com", RecordType::A, Category::Apex, "ns1"),
+            make_row("b.example.com", RecordType::A, Category::Apex, "ns1"),
+        ];
+        rows.sort_by(|a, b| {
+            a.nameserver.cmp(&b.nameserver)
+                .then_with(|| a.name.cmp(&b.name))
+                .then_with(|| a.record_type.ordinal().cmp(&b.record_type.ordinal()))
+                .then_with(|| a.value.cmp(&b.value))
+        });
+        assert_eq!(rows[0].nameserver, "ns1");
+        assert_eq!(rows[0].name, "a.example.com");
+        assert_eq!(rows[1].nameserver, "ns1");
+        assert_eq!(rows[1].name, "b.example.com");
+        assert_eq!(rows[2].nameserver, "ns2");
+    }
+}
