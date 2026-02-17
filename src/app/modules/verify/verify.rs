@@ -49,7 +49,21 @@ impl Verify {
 
         let zone = zone::parse(&config.zone_file, origin)?;
         let zone_origin = zone.origin().clone();
-        let zone_records = zone.into_records();
+        let zone_soa = if config.ignore_soa {
+            None
+        } else {
+            zone.soa().cloned()
+        };
+        let mut zone_records = zone.into_records();
+
+        // Apply type filtering
+        if let Some(ref only) = config.only_types {
+            let allowed: HashSet<RecordType> = only.iter().copied().collect();
+            zone_records.retain(|r| allowed.contains(&r.record_type()));
+        } else if let Some(ref ignore) = config.ignore_types {
+            let blocked: HashSet<RecordType> = ignore.iter().copied().collect();
+            zone_records.retain(|r| !blocked.contains(&r.record_type()));
+        }
 
         info!(
             "Parsed {} records from zone file (origin: {})",
@@ -66,6 +80,11 @@ impl Verify {
         let mut query_pairs: HashSet<(Name, RecordType)> = HashSet::new();
         for record in &zone_records {
             query_pairs.insert((record.name().clone(), record.record_type()));
+        }
+
+        // Include SOA query for the zone origin if the zone file has an SOA
+        if zone_soa.is_some() {
+            query_pairs.insert((zone_origin.clone(), RecordType::SOA));
         }
 
         // Build queries: one per unique name with its record types
@@ -91,6 +110,7 @@ impl Verify {
                 env,
                 zone_records,
                 zone_origin,
+                zone_soa,
                 live_records: Vec::new(),
             });
         }
@@ -113,6 +133,7 @@ impl Verify {
             env,
             zone_records,
             zone_origin,
+            zone_soa,
             live_records,
         })
     }
@@ -122,6 +143,7 @@ pub struct VerifyCompare<'a> {
     env: Environment<'a, VerifyConfig>,
     zone_records: Vec<Record>,
     zone_origin: Name,
+    zone_soa: Option<Record>,
     live_records: Vec<Record>,
 }
 
@@ -185,16 +207,36 @@ impl<'a> VerifyCompare<'a> {
 
         // Find extra records: in live DNS but not in zone file
         // Only for (name, type) pairs that appear in the zone file
-        let mut extra = Vec::new();
-        for (key, actual_records) in &actual {
-            if let Some(expected_records) = expected.get(key) {
-                for actual_record in actual_records {
-                    if !expected_records.contains(actual_record) {
-                        extra.push(actual_record.clone());
+        let extra = if self.env.mod_config.ignore_extra {
+            Vec::new()
+        } else {
+            let mut extra = Vec::new();
+            for (key, actual_records) in &actual {
+                if let Some(expected_records) = expected.get(key) {
+                    for actual_record in actual_records {
+                        if !expected_records.contains(actual_record) {
+                            extra.push(actual_record.clone());
+                        }
                     }
                 }
             }
-        }
+            extra
+        };
+
+        // SOA serial comparison
+        let soa_check = self.zone_soa.as_ref().and_then(|zone_soa_record| {
+            let expected_serial = zone_soa_record.data().soa()?.serial();
+            let live_soa = actual
+                .get(&(self.zone_origin.clone(), RecordType::SOA))
+                .and_then(|records| records.iter().next());
+            let actual_serial = live_soa.and_then(|r| r.data().soa()).map(|soa| soa.serial());
+            let match_ = actual_serial == Some(expected_serial);
+            Some(SoaCheck {
+                expected_serial,
+                actual_serial,
+                match_,
+            })
+        });
 
         let results = VerifyResults {
             zone_file: self.env.mod_config.zone_file.display().to_string(),
@@ -203,13 +245,15 @@ impl<'a> VerifyCompare<'a> {
             missing,
             extra,
             ttl_drifts,
+            soa_check,
         };
 
-        debug!("Verify results: {} matched, {} missing, {} extra, {} TTL drifts",
+        debug!("Verify results: {} matched, {} missing, {} extra, {} TTL drifts, SOA check: {:?}",
             results.matches.len(),
             results.missing.len(),
             results.extra.len(),
             results.ttl_drifts.len(),
+            results.soa_check,
         );
 
         VerifyOutput {
@@ -220,6 +264,13 @@ impl<'a> VerifyCompare<'a> {
 }
 
 #[derive(Debug, Serialize)]
+pub struct SoaCheck {
+    pub expected_serial: u32,
+    pub actual_serial: Option<u32>,
+    pub match_: bool,
+}
+
+#[derive(Debug, Serialize)]
 pub struct VerifyResults {
     pub zone_file: String,
     pub origin: String,
@@ -227,6 +278,7 @@ pub struct VerifyResults {
     pub missing: Vec<Record>,
     pub extra: Vec<Record>,
     pub ttl_drifts: Vec<TtlDrift>,
+    pub soa_check: Option<SoaCheck>,
 }
 
 #[derive(Debug, Serialize)]
@@ -238,7 +290,12 @@ pub struct TtlDrift {
 
 impl VerifyResults {
     pub fn has_issues(&self) -> bool {
-        !self.missing.is_empty() || !self.ttl_drifts.is_empty()
+        !self.missing.is_empty()
+            || !self.ttl_drifts.is_empty()
+            || self
+                .soa_check
+                .as_ref()
+                .is_some_and(|check| !check.match_)
     }
 }
 
@@ -336,6 +393,7 @@ mod tests {
             missing: Vec::new(),
             extra: Vec::new(),
             ttl_drifts: Vec::new(),
+            soa_check: None,
         };
 
         assert!(!results.has_issues());
@@ -350,6 +408,7 @@ mod tests {
             missing: vec![make_a_record("example.com.", Ipv4Addr::new(1, 2, 3, 4), 300)],
             extra: Vec::new(),
             ttl_drifts: Vec::new(),
+            soa_check: None,
         };
 
         assert!(results.has_issues());
@@ -368,6 +427,7 @@ mod tests {
                 expected_ttl: 3600,
                 actual_ttl: 300,
             }],
+            soa_check: None,
         };
 
         assert!(results.has_issues());
@@ -382,9 +442,67 @@ mod tests {
             missing: Vec::new(),
             extra: vec![make_a_record("example.com.", Ipv4Addr::new(5, 6, 7, 8), 300)],
             ttl_drifts: Vec::new(),
+            soa_check: None,
         };
 
         assert!(!results.has_issues(), "extra records alone are informational, not issues");
+    }
+
+    #[test]
+    fn verify_results_soa_mismatch_is_issue() {
+        let results = VerifyResults {
+            zone_file: "zone.db".to_string(),
+            origin: "example.com.".to_string(),
+            matches: vec![make_a_record("example.com.", Ipv4Addr::new(1, 2, 3, 4), 300)],
+            missing: Vec::new(),
+            extra: Vec::new(),
+            ttl_drifts: Vec::new(),
+            soa_check: Some(SoaCheck {
+                expected_serial: 2024010102,
+                actual_serial: Some(2024010101),
+                match_: false,
+            }),
+        };
+
+        assert!(results.has_issues());
+    }
+
+    #[test]
+    fn verify_results_soa_match_no_issue() {
+        let results = VerifyResults {
+            zone_file: "zone.db".to_string(),
+            origin: "example.com.".to_string(),
+            matches: vec![make_a_record("example.com.", Ipv4Addr::new(1, 2, 3, 4), 300)],
+            missing: Vec::new(),
+            extra: Vec::new(),
+            ttl_drifts: Vec::new(),
+            soa_check: Some(SoaCheck {
+                expected_serial: 2024010101,
+                actual_serial: Some(2024010101),
+                match_: true,
+            }),
+        };
+
+        assert!(!results.has_issues());
+    }
+
+    #[test]
+    fn verify_results_soa_missing_actual_is_issue() {
+        let results = VerifyResults {
+            zone_file: "zone.db".to_string(),
+            origin: "example.com.".to_string(),
+            matches: Vec::new(),
+            missing: Vec::new(),
+            extra: Vec::new(),
+            ttl_drifts: Vec::new(),
+            soa_check: Some(SoaCheck {
+                expected_serial: 2024010101,
+                actual_serial: None,
+                match_: false,
+            }),
+        };
+
+        assert!(results.has_issues());
     }
 
     #[test]
@@ -396,6 +514,11 @@ mod tests {
             missing: vec![make_mx_record("example.com.", 10, "mail.example.com.", 300)],
             extra: Vec::new(),
             ttl_drifts: Vec::new(),
+            soa_check: Some(SoaCheck {
+                expected_serial: 2024010101,
+                actual_serial: Some(2024010101),
+                match_: true,
+            }),
         };
 
         let json = serde_json::to_string(&results);
@@ -405,6 +528,8 @@ mod tests {
         assert!(json.contains("\"origin\":\"example.com.\""));
         assert!(json.contains("\"missing\""));
         assert!(json.contains("\"matches\""));
+        assert!(json.contains("\"soa_check\""));
+        assert!(json.contains("\"expected_serial\":2024010101"));
     }
 
     #[test]
@@ -419,6 +544,7 @@ mod tests {
             missing: Vec::new(),
             extra: Vec::new(),
             ttl_drifts: Vec::new(),
+            soa_check: None,
         };
 
         let opts = SummaryOptions::default();
@@ -438,6 +564,7 @@ mod tests {
             missing: vec![make_a_record("www.example.com.", Ipv4Addr::new(1, 2, 3, 4), 300)],
             extra: Vec::new(),
             ttl_drifts: Vec::new(),
+            soa_check: None,
         };
 
         let opts = SummaryOptions::default();
@@ -457,6 +584,7 @@ mod tests {
             missing: Vec::new(),
             extra: vec![make_a_record("example.com.", Ipv4Addr::new(5, 6, 7, 8), 300)],
             ttl_drifts: Vec::new(),
+            soa_check: None,
         };
 
         let opts = SummaryOptions::default();
@@ -480,6 +608,7 @@ mod tests {
                 expected_ttl: 3600,
                 actual_ttl: 300,
             }],
+            soa_check: None,
         };
 
         let opts = SummaryOptions::default();
@@ -489,5 +618,54 @@ mod tests {
         assert!(output.contains("TTL"));
         assert!(output.contains("3600"));
         assert!(output.contains("300"));
+    }
+
+    #[test]
+    fn summary_output_with_soa_match() {
+        let results = VerifyResults {
+            zone_file: "zone.db".to_string(),
+            origin: "example.com.".to_string(),
+            matches: vec![make_a_record("example.com.", Ipv4Addr::new(1, 2, 3, 4), 300)],
+            missing: Vec::new(),
+            extra: Vec::new(),
+            ttl_drifts: Vec::new(),
+            soa_check: Some(SoaCheck {
+                expected_serial: 2024010101,
+                actual_serial: Some(2024010101),
+                match_: true,
+            }),
+        };
+
+        let opts = SummaryOptions::default();
+        let mut buf = Vec::new();
+        results.output(&mut buf, &opts).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(output.contains("SOA Serial"));
+        assert!(output.contains("2024010101"));
+    }
+
+    #[test]
+    fn summary_output_with_soa_mismatch() {
+        let results = VerifyResults {
+            zone_file: "zone.db".to_string(),
+            origin: "example.com.".to_string(),
+            matches: vec![make_a_record("example.com.", Ipv4Addr::new(1, 2, 3, 4), 300)],
+            missing: Vec::new(),
+            extra: Vec::new(),
+            ttl_drifts: Vec::new(),
+            soa_check: Some(SoaCheck {
+                expected_serial: 2024010102,
+                actual_serial: Some(2024010101),
+                match_: false,
+            }),
+        };
+
+        let opts = SummaryOptions::default();
+        let mut buf = Vec::new();
+        results.output(&mut buf, &opts).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(output.contains("SOA Serial"));
+        assert!(output.contains("2024010102"));
+        assert!(output.contains("2024010101"));
     }
 }

@@ -20,13 +20,30 @@ impl SummaryFormatter for VerifyResults {
         )?;
         writeln!(writer)?;
 
-        if self.missing.is_empty() && self.extra.is_empty() && self.ttl_drifts.is_empty() {
+        let soa_ok = self
+            .soa_check
+            .as_ref()
+            .is_none_or(|check| check.match_);
+
+        if self.missing.is_empty()
+            && self.extra.is_empty()
+            && self.ttl_drifts.is_empty()
+            && soa_ok
+        {
             writeln!(
                 writer,
                 " {} All {} records verified.",
                 output_styles::ok_prefix().paint(output_styles::OK),
                 self.matches.len()
             )?;
+            if let Some(ref check) = self.soa_check {
+                writeln!(
+                    writer,
+                    " {} SOA Serial: {}",
+                    output_styles::ok_prefix().paint(output_styles::OK),
+                    check.expected_serial,
+                )?;
+            }
             return Ok(());
         }
 
@@ -84,6 +101,31 @@ impl SummaryFormatter for VerifyResults {
                     drift.record.render(opts),
                     drift.expected_ttl,
                     drift.actual_ttl,
+                )?;
+            }
+            writeln!(writer)?;
+        }
+
+        // SOA serial section
+        if let Some(ref check) = self.soa_check {
+            if check.match_ {
+                writeln!(
+                    writer,
+                    " {} SOA Serial: {}",
+                    output_styles::ok_prefix().paint(output_styles::OK),
+                    check.expected_serial,
+                )?;
+            } else {
+                let actual_str = check
+                    .actual_serial
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| "not found".to_string());
+                writeln!(
+                    writer,
+                    " {} SOA Serial: expected {}, actual {}",
+                    output_styles::error_prefix().paint(output_styles::ERROR),
+                    check.expected_serial,
+                    actual_str,
                 )?;
             }
             writeln!(writer)?;

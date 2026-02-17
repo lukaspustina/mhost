@@ -22,6 +22,7 @@ use crate::resources::{Record, RecordType};
 pub struct Zone {
     origin: Name,
     records: Vec<Record>,
+    soa: Option<Record>,
 }
 
 impl Zone {
@@ -31,6 +32,10 @@ impl Zone {
 
     pub fn records(&self) -> &[Record] {
         &self.records
+    }
+
+    pub fn soa(&self) -> Option<&Record> {
+        self.soa.as_ref()
     }
 
     pub fn into_records(self) -> Vec<Record> {
@@ -83,9 +88,14 @@ pub fn parse_str(content: &str, path: Option<&Path>, origin: Option<Name>) -> cr
     })?;
 
     let mut records = Vec::new();
+    let mut soa = None;
     for (_rr_key, record_set) in record_sets {
         for proto_record in record_set.records_without_rrsigs() {
             let record = Record::from(proto_record);
+            // Capture the first SOA record before filtering
+            if record.record_type() == RecordType::SOA && soa.is_none() {
+                soa = Some(record.clone());
+            }
             if is_default_skipped(record.record_type()) {
                 continue;
             }
@@ -99,6 +109,7 @@ pub fn parse_str(content: &str, path: Option<&Path>, origin: Option<Name>) -> cr
     Ok(Zone {
         origin: zone_origin,
         records,
+        soa,
     })
 }
 
@@ -139,8 +150,29 @@ mail    IN A    93.184.216.35
                 .records()
                 .iter()
                 .any(|r| r.record_type() == RecordType::SOA),
-            "SOA records should be filtered out"
+            "SOA records should be filtered out of records()"
         );
+    }
+
+    #[test]
+    fn parse_captures_soa() {
+        let zone = parse_str(MINIMAL_ZONE, None, None).unwrap();
+        let soa = zone.soa().expect("SOA should be captured");
+        assert_eq!(soa.record_type(), RecordType::SOA);
+        let soa_data = soa.data().soa().expect("should have SOA rdata");
+        assert_eq!(soa_data.serial(), 2024010101);
+    }
+
+    #[test]
+    fn parse_no_soa_returns_none() {
+        // A zone without SOA (unusual but possible for partial zone files)
+        let zone_text = r#"
+$ORIGIN example.com.
+$TTL 3600
+www     IN A    1.2.3.4
+"#;
+        let zone = parse_str(zone_text, None, None).unwrap();
+        assert!(zone.soa().is_none());
     }
 
     #[test]

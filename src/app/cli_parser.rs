@@ -905,6 +905,38 @@ By default, SOA records, DNSSEC records (RRSIG, DNSKEY, DS, NSEC, NSEC3, NSEC3PA
                 .action(ArgAction::SetTrue)
                 .help("Report TTL differences as mismatches"),
         )
+        .arg(
+            Arg::new("only-type")
+                .long("only-type")
+                .value_name("TYPE")
+                .action(ArgAction::Append)
+                .value_delimiter(',')
+                .value_parser(SUPPORTED_RECORD_TYPES.to_vec())
+                .conflicts_with("ignore-type")
+                .help("Only verify these record types (repeatable, comma-delimited)"),
+        )
+        .arg(
+            Arg::new("ignore-type")
+                .long("ignore-type")
+                .value_name("TYPE")
+                .action(ArgAction::Append)
+                .value_delimiter(',')
+                .value_parser(SUPPORTED_RECORD_TYPES.to_vec())
+                .conflicts_with("only-type")
+                .help("Skip these record types during verification (repeatable, comma-delimited)"),
+        )
+        .arg(
+            Arg::new("ignore-extra")
+                .long("ignore-extra")
+                .action(ArgAction::SetTrue)
+                .help("Suppress extra-record reporting (live records not in zone file)"),
+        )
+        .arg(
+            Arg::new("ignore-soa")
+                .long("ignore-soa")
+                .action(ArgAction::SetTrue)
+                .help("Skip SOA serial comparison"),
+        )
 }
 
 fn completions_subcommand() -> Command {
