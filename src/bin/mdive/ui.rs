@@ -11,6 +11,7 @@ use ratatui::Frame;
 
 use mhost::app::common::styles::{record_type_color, record_type_is_bold};
 use mhost::app::common::reference_data;
+use mhost::app::output::styles::is_ascii;
 use mhost::app::modules::check::lints::CheckResult;
 use mhost::services::whois::WhoisResponse;
 use mhost::RecordType;
@@ -55,7 +56,7 @@ fn draw_input(f: &mut Frame, app: &App, area: Rect) {
         let mut spans = Vec::new();
         if !app.history.is_empty() {
             spans.push(Span::styled(
-                format!(" \u{2190} [{}] ", app.history.len()),
+                format!(" {} [{}] ", if is_ascii() { "<-" } else { "\u{2190}" }, app.history.len()),
                 Style::default().fg(Color::DarkGray),
             ));
         }
@@ -126,7 +127,7 @@ fn draw_category_toggles(f: &mut Frame, app: &App, area: Rect) {
         Style::default().fg(Color::DarkGray),
     ));
     spans.push(Span::styled(
-        format!("\u{25B8}{}", app.group_mode.label()),
+        format!("{}{}", if is_ascii() { ">" } else { "\u{25B8}" }, app.group_mode.label()),
         Style::default()
             .fg(Color::Yellow)
             .add_modifier(Modifier::BOLD),
@@ -245,8 +246,8 @@ fn draw_stats(f: &mut Frame, app: &App, area: Rect) {
     line2_spans.push(Span::raw("  "));
     let time_str = match (stats.min_time_ms, stats.max_time_ms) {
         (Some(min), Some(max)) if min == max => format!("{min}ms"),
-        (Some(min), Some(max)) => format!("{min}\u{2013}{max}ms"),
-        _ => "\u{2013}".to_string(),
+        (Some(min), Some(max)) => format!("{min}{}{max}ms", if is_ascii() { "-" } else { "\u{2013}" }),
+        _ => if is_ascii() { "-" } else { "\u{2013}" }.to_string(),
     };
     line2_spans.push(Span::styled(time_str, Style::default().fg(Color::Gray)));
 
@@ -353,7 +354,7 @@ fn draw_table(f: &mut Frame, app: &mut App, area: Rect) {
                 .add_modifier(Modifier::BOLD)
                 .bg(Color::Indexed(236)),
         )
-        .highlight_symbol("▸ ");
+        .highlight_symbol(if is_ascii() { "> " } else { "▸ " });
 
     f.render_stateful_widget(table, area, &mut app.table_state);
 
@@ -393,7 +394,7 @@ fn draw_detail(f: &mut Frame, app: &App, area: Rect) {
             if let Some(ref target) = row.drill_target {
                 spans.push(Span::styled(" | ", Style::default().fg(Color::DarkGray)));
                 spans.push(Span::styled(
-                    format!("[\u{2192}] {target}"),
+                    format!("[{}] {target}", if is_ascii() { "->" } else { "\u{2192}" }),
                     Style::default().fg(Color::Green),
                 ));
             }
@@ -491,12 +492,13 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
                     format!(" Querying {domain} "),
                     Style::default().fg(Color::Yellow),
                 ));
+                let (fill_char, empty_char) = if is_ascii() { ("#", "-") } else { ("\u{2588}", "\u{2591}") };
                 spans.push(Span::styled(
-                    "\u{2588}".repeat(filled),
+                    fill_char.repeat(filled),
                     Style::default().fg(Color::Cyan),
                 ));
                 spans.push(Span::styled(
-                    "\u{2591}".repeat(empty),
+                    empty_char.repeat(empty),
                     Style::default().fg(Color::DarkGray),
                 ));
                 spans.push(Span::styled(
@@ -529,7 +531,7 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
             ));
             if let Some(prev) = app.history.last() {
                 spans.push(Span::styled(
-                    format!(" [\u{2190}] back to {}", prev.domain),
+                    format!(" [{}] back to {}", if is_ascii() { "<-" } else { "\u{2190}" }, prev.domain),
                     Style::default().fg(Color::DarkGray),
                 ));
             }
@@ -858,7 +860,7 @@ fn draw_servers_popup(f: &mut Frame, app: &mut App) {
             let fmt_ms = |v: Option<u128>| -> String {
                 match v {
                     Some(ms) => format!("{ms}ms"),
-                    None => "\u{2013}".to_string(),
+                    None => if is_ascii() { "-" } else { "\u{2013}" }.to_string(),
                 }
             };
 
@@ -1041,7 +1043,7 @@ fn draw_lints_popup(f: &mut Frame, app: &mut App) {
                 for result in &section.results {
                     let (icon, style, msg): (&str, Style, &str) = match result {
                         CheckResult::Ok(msg) => (
-                            "\u{2713}",
+                            if is_ascii() { "+" } else { "\u{2713}" },
                             Style::default().fg(Color::Green),
                             msg.as_str(),
                         ),
@@ -1051,7 +1053,7 @@ fn draw_lints_popup(f: &mut Frame, app: &mut App) {
                             msg.as_str(),
                         ),
                         CheckResult::Failed(msg) => (
-                            "\u{2717}",
+                            if is_ascii() { "x" } else { "\u{2717}" },
                             Style::default().fg(Color::Red),
                             msg.as_str(),
                         ),
@@ -1130,20 +1132,20 @@ fn draw_discovery_popup(f: &mut Frame, app: &mut App) {
 
             let (icon, status_style, status_text) = match &status {
                 StrategyStatus::Idle => (
-                    "\u{25CB}",
+                    if is_ascii() { "o" } else { "\u{25CB}" },
                     Style::default().fg(Color::DarkGray),
                     "idle".to_string(),
                 ),
                 StrategyStatus::Running { completed, total } => {
                     if *total > 0 {
                         (
-                            "\u{25D4}",
+                            if is_ascii() { "*" } else { "\u{25D4}" },
                             Style::default().fg(Color::Yellow),
                             format!("running {completed}/{total}"),
                         )
                     } else {
                         (
-                            "\u{25D4}",
+                            if is_ascii() { "*" } else { "\u{25D4}" },
                             Style::default().fg(Color::Yellow),
                             "running...".to_string(),
                         )
@@ -1152,13 +1154,13 @@ fn draw_discovery_popup(f: &mut Frame, app: &mut App) {
                 StrategyStatus::Done { found, elapsed } => {
                     let secs = elapsed.as_secs_f64();
                     (
-                        "\u{25CF}",
+                        if is_ascii() { "@" } else { "\u{25CF}" },
                         Style::default().fg(Color::Green),
-                        format!("done \u{2014} {found} found ({secs:.1}s)"),
+                        format!("done {} {found} found ({secs:.1}s)", if is_ascii() { "--" } else { "\u{2014}" }),
                     )
                 }
                 StrategyStatus::Error(msg) => (
-                    "\u{2717}",
+                    if is_ascii() { "x" } else { "\u{2717}" },
                     Style::default().fg(Color::Red),
                     format!("error: {msg}"),
                 ),
@@ -1189,7 +1191,7 @@ fn draw_discovery_popup(f: &mut Frame, app: &mut App) {
         }
     } else {
         lines.push(Line::from(Span::styled(
-            " No query results yet \u{2014} run a query first",
+            if is_ascii() { " No query results yet -- run a query first" } else { " No query results yet \u{2014} run a query first" },
             dim,
         )));
         lines.push(Line::raw(""));

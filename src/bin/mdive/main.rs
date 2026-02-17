@@ -88,6 +88,12 @@ fn create_parser() -> Command {
                 .conflicts_with("ipv4-only")
                 .help("Only use IPv6 for DNS connections"),
         )
+        .arg(
+            Arg::new("ascii")
+                .long("ascii")
+                .action(ArgAction::SetTrue)
+                .help("Uses only ASCII compatible characters for output"),
+        )
 }
 
 #[tokio::main]
@@ -95,6 +101,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matches = create_parser().get_matches();
     let resolver_args = ResolverArgs::from_matches(&matches);
     let domain = matches.get_one::<String>("domain").cloned();
+
+    if matches.get_flag("ascii") {
+        mhost::app::output::styles::ascii_mode();
+    }
 
     // Setup terminal
     terminal::enable_raw_mode()?;
