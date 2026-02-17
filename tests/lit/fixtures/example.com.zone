@@ -1,0 +1,4 @@
+$ORIGIN example.com.
+$TTL 86400
+@   IN  SOA ns.icann.org. noc.dns.icann.org. 2024010101 7200 3600 1209600 3600
+@   IN  A   93.184.215.14

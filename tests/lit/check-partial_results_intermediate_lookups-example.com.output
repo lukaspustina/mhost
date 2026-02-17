@@ -38,5 +38,5 @@ CHECK: - Received
 CHECK: = Found exactly one DMARC record
 CHECK-NEXT: = Successfully parsed DMARC record
 CHECK: > Checking DNSSEC lints
-CHECK: + Finished.
-CHECK-NEXT: = No issues found.
+CHECK: = No issues found.
+CHECK-NEXT: + Finished.

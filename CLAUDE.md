@@ -125,6 +125,16 @@ Binary entry points: src/bin/mhost.rs, src/bin/mdive.rs
 - **Progressive results**: Queries send `Batch` actions as results arrive, populating the table incrementally.
 - **Vi-style navigation**: `j/k`, `gg`/`G`, digit-prefixed commands, count buffer with 1s timeout.
 
+## Error Handling
+
+The codebase uses a layered error strategy:
+
+- **Library layer** (`src/error.rs`, `src/resolver/error.rs`): `thiserror`-derived enums. Each module defines its own `Error` enum with structured variants and `#[from]` conversions. The top-level `mhost::Error` wraps module-level errors.
+- **App layer** (`app/mhost/`, `app/mdive/`): `anyhow::Result` for ad-hoc context via `.context()`. App code converts library errors into `anyhow` at module boundaries.
+- **`PartialResult` pattern** (`app/mhost/modules/mod.rs`): CLI command modules use `PartialResult<T> = Result<T, PartialError>` where `PartialError::Failed(ExitStatus)` signals a non-fatal command failure (e.g., check found warnings) vs `PartialError::Err(anyhow::Error)` for unexpected errors. `PartialResultExt::into_result()` converts back to `anyhow::Result<ExitStatus>` for the top-level handler in `bin/mhost.rs`.
+
+**Conventions**: Return errors early (fail fast). Use `.context("what failed")` in app code. Don't silently swallow errors — log at `debug!` minimum. Library code never uses `anyhow`.
+
 ## Common Patterns
 
 - `ResolverGroup::from_system_config(opts)` — create resolvers from OS config.

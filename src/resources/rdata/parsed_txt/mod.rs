@@ -104,3 +104,64 @@ mod parser {
         Ok((input, ParsedTxt::DomainVerification(domain_verification)))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dispatch_spf() {
+        let result = ParsedTxt::from_str("v=spf1 -all").unwrap();
+        assert!(matches!(result, ParsedTxt::Spf(_)));
+    }
+
+    #[test]
+    fn dispatch_dmarc() {
+        let result = ParsedTxt::from_str("v=DMARC1; p=none").unwrap();
+        assert!(matches!(result, ParsedTxt::Dmarc(_)));
+    }
+
+    #[test]
+    fn dispatch_mta_sts() {
+        let result = ParsedTxt::from_str("v=STSv1; id=20190429T010101").unwrap();
+        assert!(matches!(result, ParsedTxt::MtaSts(_)));
+    }
+
+    #[test]
+    fn dispatch_tls_rpt() {
+        let result = ParsedTxt::from_str("v=TLSRPTv1; rua=mailto:tlsrpt@example.com").unwrap();
+        assert!(matches!(result, ParsedTxt::TlsRpt(_)));
+    }
+
+    #[test]
+    fn dispatch_bimi() {
+        let result = ParsedTxt::from_str("v=BIMI1; l=https://example.com/logo.svg").unwrap();
+        assert!(matches!(result, ParsedTxt::Bimi(_)));
+    }
+
+    #[test]
+    fn dispatch_domain_verification() {
+        let result = ParsedTxt::from_str("google-site-verification=abc123").unwrap();
+        assert!(matches!(result, ParsedTxt::DomainVerification(_)));
+    }
+
+    #[test]
+    fn dispatch_ms_office_365() {
+        let result = ParsedTxt::from_str("MS=ms86874996").unwrap();
+        assert!(matches!(result, ParsedTxt::DomainVerification(_)));
+    }
+
+    #[test]
+    fn dispatch_unparseable() {
+        let result = ParsedTxt::from_str("random garbage text");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn dmarc_before_domain_verification() {
+        // v=DMARC1 could match domain verification's three-tuple pattern,
+        // but DMARC must be tried first
+        let result = ParsedTxt::from_str("v=DMARC1; p=reject").unwrap();
+        assert!(matches!(result, ParsedTxt::Dmarc(_)));
+    }
+}

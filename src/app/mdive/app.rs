@@ -547,6 +547,8 @@ pub struct App {
     default_entries: Vec<SubdomainEntry>,
     /// Navigation history stack for drill-down (max 50 entries).
     pub history: Vec<HistoryEntry>,
+    /// Number of visible table rows (set by the render pass, used for page up/down).
+    pub visible_table_rows: usize,
 }
 
 impl App {
@@ -597,6 +599,7 @@ impl App {
             responding_servers_set: HashSet::new(),
             default_entries: default_entries(),
             history: Vec::new(),
+            visible_table_rows: 20,
         }
     }
 
@@ -897,8 +900,9 @@ impl App {
                 self.table_state.select(Some(i));
             }
             Action::PageUp => {
+                let page = self.visible_table_rows.max(1);
                 let i = match self.table_state.selected() {
-                    Some(i) => i.saturating_sub(10),
+                    Some(i) => i.saturating_sub(page),
                     None if !self.rows.is_empty() => 0,
                     None => return,
                 };
@@ -908,8 +912,9 @@ impl App {
                 if self.rows.is_empty() {
                     return;
                 }
+                let page = self.visible_table_rows.max(1);
                 let i = match self.table_state.selected() {
-                    Some(i) => (i + 10).min(self.rows.len() - 1),
+                    Some(i) => (i + page).min(self.rows.len() - 1),
                     None => 0,
                 };
                 self.table_state.select(Some(i));

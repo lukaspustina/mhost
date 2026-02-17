@@ -1,5 +1,5 @@
 RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color check example.com --no-ns --no-caa --no-ttl
 
 CHECK: > Options: mode=multi, concurrent nameservers=10, max. nameservers=100, concurrent requests=5, retries=0, timeout=5s, ndots=1, abort on error, abort on timeout
-CHECK-NEXT: + Finished.
 CHECK-NEXT: = No issues found.
+CHECK-NEXT: + Finished.

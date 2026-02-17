@@ -307,17 +307,18 @@ impl OutputCheckResults<'_> {
 
     #[allow(clippy::unnecessary_wraps)]
     fn summary_output(self) -> PartialResult<ExitStatus> {
-        self.env.console.print_finished();
-
-        if self.check_results.has_failures() {
+        let exit = if self.check_results.has_failures() {
             self.env.console.failed("Found failures");
-            Ok(ExitStatus::CheckFailed)
+            ExitStatus::CheckFailed
         } else if self.check_results.has_warnings() {
             self.env.console.attention("Found warnings");
-            Ok(ExitStatus::CheckFailed)
+            ExitStatus::CheckFailed
         } else {
             self.env.console.ok("No issues found.");
-            Ok(ExitStatus::Ok)
-        }
+            ExitStatus::Ok
+        };
+
+        self.env.console.print_finished();
+        Ok(exit)
     }
 }

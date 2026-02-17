@@ -1,0 +1,7 @@
+RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color dnssec cloudflare.com
+
+CHECK: DNSSEC Trust Chain: cloudflare.com
+CHECK: . (root)
+CHECK: DNSKEY
+CHECK: DS
+CHECK: Chain status:

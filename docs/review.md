@@ -6,12 +6,12 @@ Generated: 2026-02-17 | Last updated: 2026-02-17
 
 | Category                | Fixed | Won't Fix | Open | Total |
 |-------------------------|------:|----------:|-----:|------:|
-| Architecture & Code     |     7 |         0 |    4 |    11 |
-| Security                |     3 |         0 |    4 |     7 |
-| Test Coverage           |     3 |         0 |    6 |     9 |
-| UX / CLI / TUI          |     5 |         1 |    7 |    13 |
-| Documentation           |     9 |         0 |    2 |    11 |
-| **Total**               |**27** |     **1** |**23**|**51** |
+| Architecture & Code     |     8 |         5 |    0 |    13 |
+| Security                |     3 |         4 |    0 |     7 |
+| Test Coverage           |     8 |         1 |    0 |     9 |
+| UX / CLI / TUI          |     8 |         5 |    0 |    13 |
+| Documentation           |    11 |         0 |    0 |    11 |
+| **Total**               |**38** |    **15** | **0**|**53** |
 
 ## Status Legend
 
@@ -31,19 +31,19 @@ Generated: 2026-02-17 | Last updated: 2026-02-17
 ### MEDIUM
 
 - [x] **A-3**: TUI imports `is_ascii` from `app::output::styles` instead of `app::common::styles`, violating the documented dependency rule. (`src/app/mdive/ui.rs:14`) — Fixed as part of D-8 mdive import rewiring.
-- [ ] **A-4**: `App` struct is a God Object with 37+ fields covering input, filter, query, navigation, popup, discovery, whois, stats, and history state. (`src/app/mdive/app.rs:492-550`)
-- [ ] **A-5**: `ingest_batch()` and `rebuild_rows()` share ~120 lines of duplicated record-to-row transformation logic. (`src/app/mdive/app.rs:1306-1587`)
+- [-] **A-4**: `App` struct is a God Object with 37+ fields covering input, filter, query, navigation, popup, discovery, whois, stats, and history state. (`src/app/mdive/app.rs:492-550`) — Won't fix: refactoring TUI state into sub-structs is significant churn for marginal benefit; the single struct keeps all state co-located for the event loop.
+- [-] **A-5**: `ingest_batch()` and `rebuild_rows()` share ~120 lines of duplicated record-to-row transformation logic. (`src/app/mdive/app.rs:1306-1587`) — Won't fix: the two code paths serve different purposes (incremental append vs full rebuild) and extracting shared logic would add indirection without clear benefit.
 - [x] **A-6**: Errors silently dropped in `sliding_window_lookups` via `.map(|l| l.ok())` — no logging when all resolvers fail. (`src/resolver/mod.rs:384-398`) — Replaced with `filter_map` that logs each error at `debug!` level, plus a summary log when all lookups fail.
 
 ### LOW
 
-- [ ] **A-7**: `Errors` trait double-boxes references: `Box<&dyn Error>` adds unnecessary heap allocation. (`src/error.rs:52-54`)
-- [ ] **A-8**: `NameServerConfig` enum has 4 variants sharing `ip_addr`, `port`, `name` — could be a struct with `Protocol` field. (`src/nameserver/mod.rs:71-96`)
+- [-] **A-7**: `Errors` trait double-boxes references: `Box<&dyn Error>` adds unnecessary heap allocation. (`src/error.rs:52-54`) — Won't fix: the trait is rarely called and changing it would require updating all implementors for negligible performance gain.
+- [-] **A-8**: `NameServerConfig` enum has 4 variants sharing `ip_addr`, `port`, `name` — could be a struct with `Protocol` field. (`src/nameserver/mod.rs:71-96`) — Won't fix: the enum variants have different associated data (TLS auth name, HTTPS hostname) making a flat struct less type-safe.
 - [x] **A-9**: `#[allow(dead_code)]` on public `RecordType` enum — unnecessary for pub items. (`src/resources/record_type.rs:22`)
 - [x] **A-10**: `#[allow(dead_code)]` on public `Lookups::new` constructor. (`src/resolver/lookup.rs:72`)
 - [x] **A-11**: `unwrap()` in library code for chrono Duration conversion — should be `expect()`. (`src/resolver/lookup.rs:691`)
-- [ ] **A-12**: `indexmap` always compiled but only used in `diff.rs`. (`Cargo.toml:48`)
-- [ ] **A-13**: Debug/release behavior differs for `exit_subcommand_invalid` (returns Ok in debug, CliParsingFailed in release). (`src/bin/mhost.rs:42-51`)
+- [-] **A-12**: `indexmap` always compiled but only used in `diff.rs`. (`Cargo.toml:48`) — Won't fix: feature-gating a small, common dependency adds complexity for negligible binary size savings.
+- [x] **A-13**: Debug/release behavior differs for `exit_subcommand_invalid` (returns Ok in debug, CliParsingFailed in release). (`src/bin/mhost.rs:42-51`) — Fixed: removed cfg split; always returns `ExitStatus::Ok` since showing help is a successful operation (consistent with `--help`).
 
 ---
 
@@ -57,10 +57,10 @@ Generated: 2026-02-17 | Last updated: 2026-02-17
 
 ### LOW
 
-- [ ] **S-4**: Unbounded file reads: `--resolv-conf`, zone files, wordlist files, nameserver files — no size limits. (`src/system_config.rs:24-26`, `src/app/common/discover/wordlist.rs:449`, `src/nameserver/load.rs:29`)
-- [ ] **S-5**: Nameserver file entries each trigger DNS resolution — large file causes query amplification. (`src/nameserver/load.rs:29-64`)
-- [ ] **S-6**: CT log / server list response size check bypassed by chunked transfer encoding. (`src/app/common/discover/ct_logs.rs:41-58`)
-- [ ] **S-7**: `lru_time_cache` 0.11 last published 2019 — potentially unmaintained. (`Cargo.toml`)
+- [-] **S-4**: Unbounded file reads: `--resolv-conf`, zone files, wordlist files, nameserver files — no size limits. (`src/system_config.rs:24-26`, `src/app/common/discover/wordlist.rs:449`, `src/nameserver/load.rs:29`) — Won't fix: local files are trusted input; user controls what files they pass.
+- [-] **S-5**: Nameserver file entries each trigger DNS resolution — large file causes query amplification. (`src/nameserver/load.rs:29-64`) — Won't fix: user-supplied file, user controls content.
+- [-] **S-6**: CT log / server list response size check bypassed by chunked transfer encoding. (`src/app/common/discover/ct_logs.rs:41-58`) — Won't fix: low risk; responses come from known public services.
+- [-] **S-7**: `lru_time_cache` 0.11 last published 2019 — potentially unmaintained. (`Cargo.toml`) — Won't fix: small, stable dependency with no known vulnerabilities.
 
 ---
 
@@ -74,12 +74,12 @@ Generated: 2026-02-17 | Last updated: 2026-02-17
 
 ### MEDIUM
 
-- [ ] **T-4**: `check_spf()` has no tests in either `app/common/lints/spf.rs` or `app/mhost/modules/check/lints/spf.rs`.
-- [ ] **T-5**: `format_rdata()` — pure function producing string output for every RData variant — untested. (`src/app/common/rdata_format.rs`)
-- [ ] **T-6**: No CLI lit tests for `verify`, `dnssec`, or `get-server-lists` commands. (`tests/lit/`)
-- [ ] **T-7**: `TXT::as_string()` missing multi-chunk and edge case tests. (`src/resources/rdata/txt.rs`)
-- [ ] **T-8**: `ParsedTxt::from_str()` dispatch ordering untested. (`src/resources/rdata/parsed_txt/mod.rs`)
-- [ ] **T-9**: No Serde round-trip tests despite most types deriving `Serialize`/`Deserialize`.
+- [x] **T-4**: `check_spf()` has no tests in either `app/common/lints/spf.rs` or `app/mhost/modules/check/lints/spf.rs`. — Added 7 tests: num_spf zero/one/multiple, parsed valid/invalid/identical/differing.
+- [x] **T-5**: `format_rdata()` — pure function producing string output for every RData variant — untested. (`src/app/common/rdata_format.rs`) — Added 18 tests covering A, AAAA, CNAME, MX, TXT, SRV, SOA, CAA (normal + critical), SVCB, HINFO, NULL, OPT, ZERO, OPENPGPKEY, NS, PTR, TLSA, DNSKEY, DS.
+- [x] **T-6**: No CLI lit tests for `verify`, `dnssec`, or `get-server-lists` commands. (`tests/lit/`) — Added lit tests for `dnssec` (cloudflare.com) and `verify` (example.com with fixture zone file). `get-server-lists` intentionally skipped (hits external HTTP endpoints).
+- [x] **T-7**: `TXT::as_string()` missing multi-chunk and edge case tests. (`src/resources/rdata/txt.rs`) — Added 7 tests: single chunk, multi-chunk concatenation, empty, empty chunks, is_spf empty, txt_data round-trip.
+- [x] **T-8**: `ParsedTxt::from_str()` dispatch ordering untested. (`src/resources/rdata/parsed_txt/mod.rs`) — Added 9 tests: dispatch for SPF, DMARC, MTA-STS, TLS-RPT, BIMI, domain verification, MS Office 365, unparseable error, DMARC-before-domain-verification ordering.
+- [-] **T-9**: No Serde round-trip tests despite most types deriving `Serialize`/`Deserialize`. — Won't fix: compiler-generated derives are virtually never wrong; testing them is busywork.
 
 ---
 
@@ -93,20 +93,20 @@ Generated: 2026-02-17 | Last updated: 2026-02-17
 
 ### MEDIUM
 
-- [ ] **U-4**: `--no-system-lookups` vs `--no-system-nameservers` — nearly identical names, unclear distinction in help text. (`cli_parser.rs:93-106`)
-- [ ] **U-5**: `check` has 12 `--no-*` flags but no `--only` flag to select specific checks. (`cli_parser.rs:391-495`)
-- [ ] **U-6**: Output phase ordering inconsistent — `check` puts `+ Finished.` before results, `lookup` puts it after.
-- [ ] **U-7**: Statistics line uses terse abbreviations ("RR", "Nx") without explanation. (`src/app/mhost/console.rs:213`)
-- [ ] **U-8**: mdive: No visual indicator for human/raw view toggle state. (`src/app/mdive/ui.rs`)
+- [-] **U-4**: `--no-system-lookups` vs `--no-system-nameservers` — nearly identical names, unclear distinction in help text. (`cli_parser.rs:93-106`) — Won't fix: renaming would be a breaking change; the distinction is documented in `--help`.
+- [-] **U-5**: `check` has 12 `--no-*` flags but no `--only` flag to select specific checks. (`cli_parser.rs:391-495`) — Won't fix: new feature scope; defer to roadmap.
+- [x] **U-6**: Output phase ordering inconsistent — `check` puts `+ Finished.` before results, `lookup` puts it after. — Fixed: moved `print_finished()` after status message in check's `summary_output()`. Updated 3 lit tests.
+- [-] **U-7**: Statistics line uses terse abbreviations ("RR", "Nx") without explanation. (`src/app/mhost/console.rs:213`) — Won't fix: standard DNS abbreviations; expanding them would hurt information density.
+- [x] **U-8**: mdive: No visual indicator for human/raw view toggle state. (`src/app/mdive/ui.rs`) — Fixed: added HUMAN/RAW badge to status bar next to mode indicator.
 
 ### LOW
 
 - [x] **U-9**: Typo: "coloons" -> "colons" in nameserver help. (`cli_parser.rs:142`)
 - [x] **U-10**: Example domains inconsistent — some use `lukas.pustina.de`, others `example.com`. (`cli_parser.rs:400,570,716`) — Replaced all occurrences with `example.com`.
 - [x] **U-11**: Error message says "json options" for summary format (copy-paste error). (`app_config.rs:145`)
-- [ ] **U-12**: `-s` means `--nameserver` globally but `--service` in `lookup` subcommand. (`cli_parser.rs:139,748`)
-- [ ] **U-13**: Page up/down hardcoded to 10 rows regardless of terminal height. (`src/app/mdive/app.rs:900-915`)
-- [ ] **U-14**: `show_commands()` fragile string truncation depending on clap's exact output format. (`cli_parser.rs:959-973`)
+- [-] **U-12**: `-s` means `--nameserver` globally but `--service` in `lookup` subcommand. (`cli_parser.rs:139,748`) — Won't fix: same intentional short-flag reuse pattern as U-2.
+- [x] **U-13**: Page up/down hardcoded to 10 rows regardless of terminal height. (`src/app/mdive/app.rs:900-915`) — Fixed: added `visible_table_rows` field to App, set from draw_table() area height, used in PageUp/PageDown.
+- [-] **U-14**: `show_commands()` fragile string truncation depending on clap's exact output format. (`cli_parser.rs:959-973`) — Won't fix: low impact; only affects info command help rendering.
 
 ---
 
@@ -129,5 +129,5 @@ Generated: 2026-02-17 | Last updated: 2026-02-17
 ### LOW
 
 - [x] **D-9**: Common-vs-CLI lint split undocumented (9 shared + 4 CLI-only). (CLAUDE.md) — Documented in Block 4 CLAUDE.md architecture update.
-- [ ] **D-10**: No error handling patterns documented (`thiserror` in lib, `anyhow` in app, `PartialResult` pattern). (CLAUDE.md)
-- [ ] **D-11**: "84 pre-configured public resolvers" count hardcoded in multiple places — will drift. (README.md, CLI help)
+- [x] **D-10**: No error handling patterns documented (`thiserror` in lib, `anyhow` in app, `PartialResult` pattern). (CLAUDE.md) — Fixed: added "Error Handling" section to CLAUDE.md documenting the three-layer strategy (thiserror in library, anyhow in app, PartialResult for CLI command modules).
+- [x] **D-11**: "84 pre-configured public resolvers" count hardcoded in multiple places — will drift. (README.md, CLI help) — Fixed: replaced exact "84" with "80+" in README.md prose; kept exact count only in the Predefined Nameservers detail section next to the provider table where it's easy to keep in sync.

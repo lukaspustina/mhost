@@ -269,6 +269,9 @@ fn draw_stats(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_table(f: &mut Frame, app: &mut App, area: Rect) {
+    // Update visible row count for page up/down (subtract 2 for border + header)
+    app.visible_table_rows = area.height.saturating_sub(2) as usize;
+
     let header = Row::new(vec![
         Cell::from("#").style(Style::default().fg(Color::DarkGray)),
         Cell::from("Name").style(Style::default().fg(Color::Gray)),
@@ -432,7 +435,22 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
         ),
     };
 
-    let mut spans = vec![mode_span];
+    let view_span = if app.human_view {
+        Span::styled(
+            " HUMAN ",
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Magenta)
+                .add_modifier(Modifier::BOLD),
+        )
+    } else {
+        Span::styled(
+            " RAW ",
+            Style::default().fg(Color::DarkGray),
+        )
+    };
+
+    let mut spans = vec![mode_span, view_span];
 
     // Show quit confirmation
     if app.quit_confirm {

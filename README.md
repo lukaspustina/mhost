@@ -20,7 +20,7 @@
 
 ![Multi lookup for all available records of github.com.](docs/images/multi-lookup-all-records-github.png)
 
-mhost queries many DNS servers in parallel and aggregates their answers. It supports UDP, TCP, DNS-over-TLS, and DNS-over-HTTPS, understands 20+ record types, and ships with 84 pre-configured public resolvers. Beyond simple lookups it can profile an entire domain, discover subdomains, trace the delegation chain, validate your DNS configuration, check propagation, diff records across nameservers, and verify live DNS against a zone file -- all from a single binary.
+mhost queries many DNS servers in parallel and aggregates their answers. It supports UDP, TCP, DNS-over-TLS, and DNS-over-HTTPS, understands 20+ record types, and ships with 80+ pre-configured public resolvers. Beyond simple lookups it can profile an entire domain, discover subdomains, trace the delegation chain, validate your DNS configuration, check propagation, diff records across nameservers, and verify live DNS against a zone file -- all from a single binary.
 
 **Two binaries, one toolkit:** `mhost` is a powerful CLI for scripts, pipelines, and quick one-liners. [`mdive`](#mdive--interactive-tui) is an interactive TUI that lets you explore DNS like a file manager -- drill into subdomains, discover hidden records, and chase references across domains, all without leaving your terminal.
 
@@ -30,7 +30,7 @@ Most DNS tools do one thing. `dig` does lookups. `subfinder` discovers subdomain
 
 | | dig | dog | doggo | q | subfinder | **mhost** |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
-| Multi-server parallel queries | | | | | | **84 built-in** |
+| Multi-server parallel queries | | | | | | **80+ built-in** |
 | UDP, TCP, DoT, DoH | UDP, TCP | DoT, DoH | DoT, DoH, DoQ | DoT, DoH, DoQ | | **all four** |
 | Subdomain discovery | | | | | passive | **10+ strategies** |
 | DNS configuration linting | | | | | | **13 checks** |
@@ -57,7 +57,7 @@ docker run lukaspustina/mhost:latest mhost l github.com   # Try without installi
 # Look up github.com using your system nameservers
 mhost l github.com
 
-# Add 84 public resolvers from 6 providers for broader results
+# Add 80+ public resolvers from 6 providers for broader results
 mhost -p l github.com
 
 # Get ALL record types + WHOIS info in one shot
@@ -88,7 +88,7 @@ mdive github.com
 
 **DNS administrators** -- Lint your configuration against 13 best-practice checks. Trace the full delegation chain querying all servers at each hop. Compare records across nameserver sets to catch inconsistencies.
 
-**Developers** -- Use mhost as a Rust library with an ergonomic async builder API. JSON output on every command for scripting. 84 built-in resolvers so you never have to hardcode IPs.
+**Developers** -- Use mhost as a Rust library with an ergonomic async builder API. JSON output on every command for scripting. 80+ built-in resolvers so you never have to hardcode IPs.
 
 ## What Can mhost Do?
 
@@ -115,7 +115,7 @@ While `mhost` is built for scripts and one-liners, `mdive` is built for humans. 
 
 ```sh
 mdive example.com                        # Dive right in
-mdive -p example.com                     # Use 84 public resolvers for broader coverage
+mdive -p example.com                     # Use 80+ public resolvers for broader coverage
 mdive -s 8.8.8.8 -s 1.1.1.1 example.com # Pick your own nameservers
 ```
 
@@ -194,7 +194,7 @@ mdive [OPTIONS] [DOMAIN]
 
 Options:
   -s, --nameserver <SPEC>          Add a nameserver (repeatable)
-  -p, --predefined                 Add 84 predefined public nameservers
+  -p, --predefined                 Add predefined public nameservers
       --predefined-filter <PROTO>  Filter predefined by protocol [udp, tcp, tls, https]
   -S, --no-system-lookups          Skip system nameservers
   -t, --timeout <SECS>             Query timeout [default: 5] (1-30)
@@ -239,7 +239,7 @@ mhost -p l github.com
 
 ![Default lookup with predefined servers for github.com.](docs/images/default-lookup-predefined-servers-github.png)
 
-`-p` adds mhost's 84 predefined public nameservers from Cloudflare, Google, Quad9, Mullvad, Wikimedia, and DNS4EU. More servers means more confidence that you're seeing the full picture.
+`-p` adds mhost's predefined public nameservers from Cloudflare, Google, Quad9, Mullvad, Wikimedia, and DNS4EU. More servers means more confidence that you're seeing the full picture.
 
 ### Go Big -- Thousands of Nameservers
 
@@ -558,7 +558,7 @@ mhost has a rich set of options that apply to all commands:
 ```
 Nameserver selection:
   -s, --nameserver <SPEC>           Add a nameserver (IP, or protocol:host:port,...)
-  -p, --predefined                  Add 84 predefined public nameservers
+  -p, --predefined                  Add predefined public nameservers
       --predefined-filter <PROTO>   Filter predefined by protocol [udp, tcp, tls, https]
       --list-predefined             Show all predefined nameservers
   -f, --nameservers-from-file <F>   Load nameservers from file

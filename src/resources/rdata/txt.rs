@@ -87,4 +87,48 @@ mod tests {
 
         asserting("txt record is SPF record").that(&txt.is_spf()).is_false();
     }
+
+    #[test]
+    fn as_string_single_chunk() {
+        let txt = TXT::new(vec!["hello world".to_string()]);
+        assert_eq!(txt.as_string(), "hello world");
+    }
+
+    #[test]
+    fn as_string_multi_chunk() {
+        let txt = TXT::new(vec!["chunk1".to_string(), " chunk2".to_string(), " chunk3".to_string()]);
+        assert_eq!(txt.as_string(), "chunk1 chunk2 chunk3");
+    }
+
+    #[test]
+    fn as_string_empty() {
+        let txt = TXT::new(vec![]);
+        assert_eq!(txt.as_string(), "");
+    }
+
+    #[test]
+    fn as_string_empty_chunks() {
+        let txt = TXT::new(vec!["".to_string(), "".to_string()]);
+        assert_eq!(txt.as_string(), "");
+    }
+
+    #[test]
+    fn as_string_single_empty_chunk() {
+        let txt = TXT::new(vec!["".to_string()]);
+        assert_eq!(txt.as_string(), "");
+    }
+
+    #[test]
+    fn is_spf_empty() {
+        let txt = TXT::new(vec![]);
+        assert!(!txt.is_spf());
+    }
+
+    #[test]
+    fn txt_data_round_trip() {
+        let txt = TXT::new(vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(txt.txt_data().len(), 2);
+        assert_eq!(txt.txt_data()[0].as_ref(), b"a");
+        assert_eq!(txt.txt_data()[1].as_ref(), b"b");
+    }
 }

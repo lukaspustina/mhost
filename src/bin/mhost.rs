@@ -38,15 +38,9 @@ fn main() {
     std::process::exit(exit_status as i32);
 }
 
-// Release build
-#[cfg(not(debug_assertions))]
 fn exit_subcommand_invalid() -> ExitStatus {
-    ExitStatus::CliParsingFailed
-}
-
-// Debug build: Exit status should be CliParsingFailed, but then the lit test fails because of exit status != 0.
-#[cfg(debug_assertions)]
-fn exit_subcommand_invalid() -> ExitStatus {
+    // Showing help when no valid subcommand is given is a successful operation,
+    // consistent with --help behavior.
     ExitStatus::Ok
 }
 

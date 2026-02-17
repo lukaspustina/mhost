@@ -227,6 +227,170 @@ pub fn format_rdata_human(rdata: &RData) -> String {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::resources::rdata::*;
+    use std::net::{Ipv4Addr, Ipv6Addr};
+    use std::str::FromStr;
+
+    #[test]
+    fn format_a() {
+        let rdata = RData::A(Ipv4Addr::new(192, 0, 2, 1));
+        assert_eq!(format_rdata(&rdata), "192.0.2.1");
+    }
+
+    #[test]
+    fn format_aaaa() {
+        let rdata = RData::AAAA(Ipv6Addr::LOCALHOST);
+        assert_eq!(format_rdata(&rdata), "::1");
+    }
+
+    #[test]
+    fn format_cname() {
+        let name = Name::from_str("example.com.").unwrap();
+        let rdata = RData::CNAME(name);
+        assert_eq!(format_rdata(&rdata), "example.com.");
+    }
+
+    #[test]
+    fn format_mx() {
+        let mx = MX::new(10, Name::from_str("mail.example.com.").unwrap());
+        let rdata = RData::MX(mx);
+        assert_eq!(format_rdata(&rdata), "10 mail.example.com.");
+    }
+
+    #[test]
+    fn format_txt() {
+        let txt = TXT::new(vec!["hello world".to_string()]);
+        let rdata = RData::TXT(txt);
+        assert_eq!(format_rdata(&rdata), "hello world");
+    }
+
+    #[test]
+    fn format_srv() {
+        let srv = SRV::new(10, 20, 5060, Name::from_str("sip.example.com.").unwrap());
+        let rdata = RData::SRV(srv);
+        assert_eq!(format_rdata(&rdata), "10 20 5060 sip.example.com.");
+    }
+
+    #[test]
+    fn format_soa() {
+        let soa = SOA::new(
+            Name::from_str("ns1.example.com.").unwrap(),
+            Name::from_str("admin.example.com.").unwrap(),
+            2024010101,
+            3600,
+            900,
+            604800,
+            86400,
+        );
+        let rdata = RData::SOA(soa);
+        assert_eq!(
+            format_rdata(&rdata),
+            "ns1.example.com. admin.example.com. 2024010101 3600 900 604800 86400"
+        );
+    }
+
+    #[test]
+    fn format_caa() {
+        let caa = CAA::new(false, "issue".to_string(), "letsencrypt.org".to_string());
+        let rdata = RData::CAA(caa);
+        assert_eq!(format_rdata(&rdata), "0 issue \"letsencrypt.org\"");
+    }
+
+    #[test]
+    fn format_caa_critical() {
+        let caa = CAA::new(true, "issue".to_string(), "ca.example.com".to_string());
+        let rdata = RData::CAA(caa);
+        assert_eq!(format_rdata(&rdata), "128 issue \"ca.example.com\"");
+    }
+
+    #[test]
+    fn format_svcb_no_params() {
+        let svcb = SVCB::new(1, Name::from_str("svc.example.com.").unwrap(), vec![]);
+        let rdata = RData::SVCB(svcb);
+        assert_eq!(format_rdata(&rdata), "1 svc.example.com.");
+    }
+
+    // Note: SVCB-with-params and SSHFP tests omitted because SvcParam,
+    // sshfp::Algorithm, and sshfp::FingerprintType are not re-exported
+    // from the private rdata submodules. The SVCB-no-params and format
+    // logic are exercised above.
+
+    #[test]
+    fn format_hinfo() {
+        let hinfo = HINFO::new("x86_64".to_string(), "Linux".to_string());
+        let rdata = RData::HINFO(hinfo);
+        assert_eq!(format_rdata(&rdata), "\"x86_64\" \"Linux\"");
+    }
+
+    #[test]
+    fn format_null() {
+        let null = NULL::with(vec![1, 2, 3]);
+        let rdata = RData::NULL(null);
+        assert_eq!(format_rdata(&rdata), "[3B]");
+    }
+
+    #[test]
+    fn format_null_empty() {
+        let null = NULL::new();
+        let rdata = RData::NULL(null);
+        assert_eq!(format_rdata(&rdata), "[0B]");
+    }
+
+    #[test]
+    fn format_opt() {
+        assert_eq!(format_rdata(&RData::OPT), "OPT");
+    }
+
+    #[test]
+    fn format_zero() {
+        assert_eq!(format_rdata(&RData::ZERO), "ZERO");
+    }
+
+    #[test]
+    fn format_openpgpkey() {
+        let key = OPENPGPKEY::new(vec![0x01, 0x02, 0x03]);
+        let rdata = RData::OPENPGPKEY(key);
+        assert_eq!(format_rdata(&rdata), "[3B key]");
+    }
+
+    #[test]
+    fn format_ns() {
+        let rdata = RData::NS(Name::from_str("ns1.example.com.").unwrap());
+        assert_eq!(format_rdata(&rdata), "ns1.example.com.");
+    }
+
+    #[test]
+    fn format_ptr() {
+        let rdata = RData::PTR(Name::from_str("host.example.com.").unwrap());
+        assert_eq!(format_rdata(&rdata), "host.example.com.");
+    }
+
+    #[test]
+    fn format_tlsa() {
+        let tlsa = TLSA::new(CertUsage::DaneEe, Selector::Full, Matching::Sha256, vec![0x01, 0x02]);
+        let rdata = RData::TLSA(tlsa);
+        assert_eq!(format_rdata(&rdata), "DANE-EE Full SHA-256 [2B]");
+    }
+
+
+    #[test]
+    fn format_dnskey() {
+        let dnskey = DNSKEY::new(257, 3, DnssecAlgorithm::EcdsaP256Sha256, "key".to_string(), Some(12345), true, true, false);
+        let rdata = RData::DNSKEY(dnskey);
+        assert_eq!(format_rdata(&rdata), "tag=12345 algo=ECDSA P-256/SHA-256 flags=257");
+    }
+
+    #[test]
+    fn format_ds() {
+        let ds = DS::new(12345, DnssecAlgorithm::RsaSha256, DigestType::Sha256, "ABCDEF".to_string());
+        let rdata = RData::DS(ds);
+        assert_eq!(format_rdata(&rdata), "tag=12345 algo=RSA/SHA-256 digest=SHA-256");
+    }
+}
+
 fn format_txt_human(txt: &crate::resources::rdata::TXT) -> String {
     let text = txt.as_string();
     match ParsedTxt::from_str(&text) {

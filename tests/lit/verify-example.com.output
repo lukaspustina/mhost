@@ -1,0 +1,4 @@
+RUN: @mhost_bin -s 8.8.8.8 --no-system-lookups --ascii --no-color verify tests/lit/fixtures/example.com.zone --origin example.com
+
+CHECK: DNS Verification for example.com
+CHECK: + Finished.
