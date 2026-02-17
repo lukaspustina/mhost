@@ -89,14 +89,14 @@ cargo run --bin mdive --features app-tui -- example.com  # Run mdive
 │  statistics/            │   │    rendering.rs (trait+opts) │   │      summary/             │
 │  diff, estimate, utils  │   │    rdata_format.rs          │   │      json.rs              │
 └─────────────────────────┘   │    name_builder.rs          │   └────────────────────────────┘
-                              │    reference_data.rs        │
-                              │    resolver_args.rs         │   ┌────────────────────────────┐
-                              └────────────────────────────┘   │  TUI (app-tui)             │
-                                        ▲                      │  app/mdive/                │
-                                        └──────────────────────│    app.rs (state + update)  │
-                                                               │    ui.rs  (rendering)       │
-                                                               │    dns.rs (queries)         │
-                                                               │    discovery.rs             │
+                              │    ordinal.rs               │
+                              │    record_type_info.rs      │   ┌────────────────────────────┐
+                              │    reference_data.rs        │   │  TUI (app-tui)             │
+                              │    resolver_args.rs         │   │  app/mdive/                │
+                              │    subdomain_spec.rs        │   │    app.rs (state + update)  │
+                              └────────────────────────────┘   │    ui.rs  (rendering)       │
+                                        ▲                      │    dns.rs (queries)         │
+                                        └──────────────────────│    discovery.rs             │
                                                                │    lints.rs                 │
                                                                └────────────────────────────┘
 
@@ -117,6 +117,10 @@ Binary entry points: src/bin/mhost.rs, src/bin/mdive.rs
 - `summary/{lookups,diff,propagation,verify,whois}.rs` — Per-command `SummaryFormatter` impls containing CLI-specific presentation logic.
 - `json.rs` — JSON output formatting.
 - The `Rendering` trait and `SummaryOptions` are defined in `app/common/rendering.rs`.
+
+**Other re-export stubs** (canonical implementations live in `app/common/`):
+- `app/mhost/modules/domain_lookup/subdomain_spec.rs` → `app/common/subdomain_spec.rs`
+- `app/mhost/modules/info/reference_data.rs` → `app/common/reference_data.rs`
 
 **mdive TUI design**:
 - **Generation-tagged actions**: Every DNS/discovery action carries a `generation: u64` tag. Stale results from previous queries are silently discarded.
