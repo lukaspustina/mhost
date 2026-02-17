@@ -16,6 +16,10 @@ pub fn ascii_mode() {
     ASCII_MODE.store(true, SeqCst);
 }
 
+pub fn is_ascii() -> bool {
+    ASCII_MODE.load(SeqCst)
+}
+
 pub fn no_color_mode() {
     yansi::disable();
 }
@@ -34,7 +38,7 @@ pub fn caption_prefix() -> &'static str {
 }
 
 pub fn error_prefix() -> &'static str {
-    if ASCII_MODE.load(SeqCst) { "!" } else { "⚡︎" }
+    if ASCII_MODE.load(SeqCst) { "x" } else { "⚡︎" }
 }
 
 pub fn info_prefix() -> &'static str {
