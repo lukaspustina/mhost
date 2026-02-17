@@ -178,9 +178,13 @@ impl Console {
 
     pub fn print_error_counts<E: Errors>(&self, results: &E) {
         let mut counts: HashMap<String, usize> = HashMap::new();
+        let mut has_timeout = false;
 
         for err in results.errors() {
-            let key = format!("{:?}", err);
+            let key = format!("{}", err);
+            if key.contains("timed out") {
+                has_timeout = true;
+            }
             let val = counts.entry(key).or_insert(0);
             *val += 1;
         }
@@ -190,7 +194,10 @@ impl Console {
             self.ok("No errors occurred.");
         } else {
             for (k, v) in counts.iter() {
-                self.itemize(format!("Err {} occurred {} times", k, v));
+                self.itemize(format!("{k} ({v} times)"));
+            }
+            if has_timeout {
+                self.attention("Hint: increase timeout with --timeout <SECONDS>");
             }
         }
     }
