@@ -6,6 +6,7 @@ mod ui;
 
 use std::io;
 use std::sync::Arc;
+use std::time::Duration;
 
 use clap::{Arg, ArgAction, Command};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
@@ -146,9 +147,17 @@ async fn run(
     }
     let (tx, mut rx) = mpsc::channel::<Action>(128);
     let mut event_stream = EventStream::new();
+    let mut needs_redraw = true;
+    let render_interval = Duration::from_millis(33); // ~30 fps
+    let mut render_deadline = tokio::time::Instant::now();
 
     loop {
-        terminal.draw(|f| ui::draw(f, &mut app))?;
+        // Throttled rendering: draw at most once per render_interval
+        if needs_redraw && tokio::time::Instant::now() >= render_deadline {
+            terminal.draw(|f| ui::draw(f, &mut app))?;
+            needs_redraw = false;
+            render_deadline = tokio::time::Instant::now() + render_interval;
+        }
 
         // If Loading, build resolver group (once) and spawn a domain query task
         if let QueryState::Loading { ref domain } = app.query_state {
@@ -167,6 +176,7 @@ async fn run(
                     }
                     Err(msg) => {
                         app.query_state = QueryState::Error { domain, message: msg };
+                        needs_redraw = true;
                         continue;
                     }
                 }
@@ -174,6 +184,7 @@ async fn run(
             let resolver_group = app.resolver_group.clone().unwrap();
             let handle = dns::spawn_domain_query(domain, resolver_group, tx, generation);
             app.dns_task = Some(handle);
+            needs_redraw = true;
         }
 
         // If WHOIS popup is open and data needs fetching, spawn the WHOIS query
@@ -197,6 +208,7 @@ async fn run(
                     Ok(Event::Key(key)) => {
                         if let Some(action) = map_key(key, &app) {
                             app.update(action);
+                            needs_redraw = true;
                         }
                     }
                     Ok(_) => {} // ignore mouse, resize, etc.
@@ -205,7 +217,10 @@ async fn run(
             }
             Some(action) = rx.recv() => {
                 app.update(action);
+                needs_redraw = true;
             }
+            // Wake up when render deadline arrives so pending redraws get flushed
+            _ = tokio::time::sleep_until(render_deadline), if needs_redraw => {}
         }
 
         // If discovery strategies were requested, spawn them
