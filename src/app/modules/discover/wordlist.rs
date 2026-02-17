@@ -478,7 +478,7 @@ impl Wordlist {
         line.starts_with("//") || line.starts_with('#')
     }
 
-    pub fn from_str(data: &str) -> Result<Wordlist> {
+    pub fn parse(data: &str) -> Result<Wordlist> {
         let mut words = Vec::new();
 
         for line in data.lines() {
@@ -496,8 +496,8 @@ impl Wordlist {
         Ok(Wordlist { words })
     }
 
-    pub fn default() -> Result<Wordlist> {
-        Wordlist::from_str(DEFAULT_WORD_LIST)
+    pub fn built_in() -> Result<Wordlist> {
+        Wordlist::parse(DEFAULT_WORD_LIST)
     }
 
     #[allow(dead_code)]
@@ -508,6 +508,11 @@ impl Wordlist {
     #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.words.len()
+    }
+
+    #[allow(dead_code)]
+    pub fn is_empty(&self) -> bool {
+        self.words.is_empty()
     }
 }
 
@@ -558,7 +563,7 @@ mod tests {
     #[test]
     fn read_from_string() {
         crate::utils::tests::logging::init();
-        let wordlist = Wordlist::from_str(DEFAULT_WORD_LIST);
+        let wordlist = Wordlist::parse(DEFAULT_WORD_LIST);
 
         asserting("Wordlist with 5000 elements loaded from string")
             .that(&wordlist)

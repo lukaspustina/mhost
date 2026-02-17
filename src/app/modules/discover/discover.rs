@@ -703,7 +703,7 @@ impl<'a> WordlistLookups<'a> {
         let wordlist: Vec<_> = if let Some(ref path) = self.env.mod_config.wordlist_file_path {
             Wordlist::from_file(path).await?
         } else {
-            Wordlist::default()?
+            Wordlist::built_in()?
         }
         .into_iter()
         .map(|x| x.append_domain(append_domain_name))
@@ -896,7 +896,7 @@ impl<'a> RecursiveDepthDiscovery<'a> {
         }
 
         // Use a small subset of the default wordlist for recursive discovery
-        let mini_wordlist = match Wordlist::default() {
+        let mini_wordlist = match Wordlist::built_in() {
             Ok(wl) => wl.into_iter().take(20).collect::<Vec<_>>(),
             Err(_) => {
                 return Ok(ReverseDnsLookups {

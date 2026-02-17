@@ -218,7 +218,7 @@ pub fn spawn_wordlist(
         };
 
         // Load default wordlist
-        let wordlist: Vec<Name> = match Wordlist::default() {
+        let wordlist: Vec<Name> = match Wordlist::built_in() {
             Ok(wl) => wl
                 .into_iter()
                 .filter_map(|w| w.append_domain(&domain_name).ok())
@@ -283,60 +283,9 @@ pub fn spawn_srv_probing(
             })
             .collect();
 
-        let total = srv_names.len();
-        if srv_names.is_empty() {
-            let _ = tx
-                .send(Action::DiscoveryComplete {
-                    generation,
-                    strategy: DiscoveryStrategy::SrvProbing,
-                    found: 0,
-                    elapsed: start.elapsed(),
-                })
-                .await;
-            return;
-        }
+        let queries = build_per_name_queries(srv_names, vec![RecordType::SRV]);
 
-        // Resolve all SRV records
-        let mut futs: FuturesUnordered<_> = srv_names
-            .into_iter()
-            .map(|name| {
-                let r = &*resolvers;
-                async move {
-                    match MultiQuery::multi_record(name, vec![RecordType::SRV]) {
-                        Ok(q) => r.lookup(q).await.ok(),
-                        Err(_) => None,
-                    }
-                }
-            })
-            .collect();
-
-        let mut found = 0usize;
-        let mut completed = 0usize;
-        while let Some(result) = futs.next().await {
-            completed += 1;
-            if let Some(lookups) = result {
-                let batch_found = lookups.iter().filter(|l| l.result().is_response()).count();
-                found += batch_found;
-                let _ = tx
-                    .send(Action::DiscoveryBatch {
-                        generation,
-                        strategy: DiscoveryStrategy::SrvProbing,
-                        lookups,
-                        completed,
-                        total,
-                    })
-                    .await;
-            }
-        }
-
-        let _ = tx
-            .send(Action::DiscoveryComplete {
-                generation,
-                strategy: DiscoveryStrategy::SrvProbing,
-                found,
-                elapsed: start.elapsed(),
-            })
-            .await;
+        run_discovery_queries(queries, &resolvers, &None, DiscoveryStrategy::SrvProbing, &tx, generation, start).await;
     })
 }
 
