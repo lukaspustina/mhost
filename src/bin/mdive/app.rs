@@ -497,6 +497,10 @@ pub struct App {
     pub(crate) discovery_tasks: Vec<JoinHandle<()>>,
     /// Cached category lookup map, rebuilt per query domain.
     category_map: HashMap<(String, RecordType), Category>,
+    /// Persistent dedup set for incremental row building across batches.
+    seen_records: HashSet<(String, RecordType, String)>,
+    /// Persistent set of responding server names for incremental stats.
+    responding_servers_set: HashSet<String>,
     /// Cached default entries (allocated once).
     default_entries: Vec<SubdomainEntry>,
     /// Navigation history stack for drill-down (max 50 entries).
@@ -547,6 +551,8 @@ impl App {
             dns_task: None,
             discovery_tasks: Vec::new(),
             category_map: HashMap::new(),
+            seen_records: HashSet::new(),
+            responding_servers_set: HashSet::new(),
             default_entries: default_entries(),
             history: Vec::new(),
         }
@@ -985,12 +991,12 @@ impl App {
                     _ => return,
                 };
                 state.statuses.insert(strategy, StrategyStatus::Running { completed, total });
+                self.ingest_batch(&lookups);
                 match self.lookups.take() {
                     Some(existing) => self.lookups = Some(existing.merge(lookups)),
                     None => self.lookups = Some(lookups),
                 }
-                self.stats_data = self.lookups.as_ref().map(compute_stats);
-                self.rebuild_rows();
+                self.update_dnssec_status();
                 if !self.rows.is_empty() && self.table_state.selected().is_none() {
                     self.table_state.select(Some(0));
                 }
@@ -1024,12 +1030,12 @@ impl App {
                     return; // discard stale results from a previous query
                 }
                 self.batch_progress = (completed, total);
+                self.ingest_batch(&lookups);
                 match self.lookups.take() {
                     Some(existing) => self.lookups = Some(existing.merge(lookups)),
                     None => self.lookups = Some(lookups),
                 }
-                self.stats_data = self.lookups.as_ref().map(compute_stats);
-                self.rebuild_rows();
+                self.update_dnssec_status();
                 if !self.rows.is_empty() && self.table_state.selected().is_none() {
                     self.table_state.select(Some(0));
                 }
@@ -1216,6 +1222,167 @@ impl App {
         self.stats_data = None;
         self.discovery_state = None;
         self.category_map.clear();
+        self.seen_records.clear();
+        self.responding_servers_set.clear();
+    }
+
+    /// Incrementally ingest a new batch: update stats and append rows without
+    /// reprocessing all previously accumulated lookups.
+    fn ingest_batch(&mut self, batch: &Lookups) {
+        let domain = self.current_domain().to_string();
+        let domain_name = if !domain.is_empty() {
+            let fqdn = if domain.ends_with('.') { domain.clone() } else { format!("{domain}.") };
+            Name::from_str(&fqdn).ok()
+        } else {
+            None
+        };
+
+        // Ensure category map is built
+        if let Some(ref dn) = domain_name {
+            if self.category_map.is_empty() {
+                self.rebuild_category_map(dn);
+            }
+        }
+
+        let stats = self.stats_data.get_or_insert_with(|| StatsData {
+            rr_type_counts: BTreeMap::new(),
+            total_unique: 0,
+            responses: 0,
+            nxdomains: 0,
+            timeout_errors: 0,
+            refuse_errors: 0,
+            servfail_errors: 0,
+            total_errors: 0,
+            responding_servers: 0,
+            min_time_ms: None,
+            max_time_ms: None,
+            dnssec_status: DnssecStatus::Unsigned,
+        });
+
+        let mut new_rows = Vec::new();
+
+        for lookup in batch.iter() {
+            // Update per-lookup stats
+            match lookup.result() {
+                LookupResult::Response { .. } => stats.responses += 1,
+                LookupResult::NxDomain { .. } => stats.nxdomains += 1,
+                LookupResult::Error(ResolverError::Timeout) => {
+                    stats.timeout_errors += 1;
+                    stats.total_errors += 1;
+                }
+                LookupResult::Error(ResolverError::QueryRefused) => {
+                    stats.refuse_errors += 1;
+                    stats.total_errors += 1;
+                }
+                LookupResult::Error(ResolverError::ServerFailure) => {
+                    stats.servfail_errors += 1;
+                    stats.total_errors += 1;
+                }
+                LookupResult::Error { .. } => stats.total_errors += 1,
+            }
+
+            if lookup.result().is_response() {
+                self.responding_servers_set.insert(lookup.name_server().to_string());
+            }
+            if let Some(resp) = lookup.result().response() {
+                let ms = resp.response_time().as_millis();
+                stats.min_time_ms = Some(stats.min_time_ms.map_or(ms, |cur| cur.min(ms)));
+                stats.max_time_ms = Some(stats.max_time_ms.map_or(ms, |cur| cur.max(ms)));
+            }
+
+            // Process records for both stats dedup counting and row building
+            let ns = lookup.name_server().to_string();
+            for record in lookup.records() {
+                let name_str = record.name().to_string();
+                let rt = record.record_type();
+                let value = format_rdata(record.data());
+                let key = (name_str.clone(), rt, value.clone());
+
+                // Dedup: only count and add row if this is a new unique record
+                if !self.seen_records.insert(key) {
+                    continue;
+                }
+
+                *stats.rr_type_counts.entry(rt).or_insert(0usize) += 1;
+                stats.total_unique += 1;
+
+                // Build row if we have a valid domain context
+                if let Some(ref dn) = domain_name {
+                    let category = self.category_map
+                        .get(&(name_str.clone(), rt))
+                        .copied()
+                        .unwrap_or_else(|| {
+                            if let Ok(record_name) = Name::from_str(&name_str) {
+                                if dn.zone_of(&record_name) && record_name != *dn {
+                                    return Category::Discovered;
+                                }
+                            }
+                            Category::Apex
+                        });
+
+                    if category != Category::Apex
+                        && category != Category::Discovered
+                        && !self.active_categories.contains(&category)
+                    {
+                        continue;
+                    }
+
+                    let human_value = format_rdata_human(record.data());
+                    let drill_target = extract_drill_target(record.data());
+                    new_rows.push(RecordRow {
+                        name: name_str,
+                        record_type: rt,
+                        ttl: record.ttl(),
+                        value,
+                        human_value,
+                        nameserver: ns.clone(),
+                        category,
+                        drill_target,
+                    });
+                }
+            }
+        }
+
+        stats.responding_servers = self.responding_servers_set.len();
+
+        if new_rows.is_empty() {
+            return;
+        }
+
+        // Append and re-sort (stable sort on nearly-sorted data is efficient)
+        self.rows.append(&mut new_rows);
+        self.sort_rows();
+
+        // Apply regex filter to newly added rows
+        if let Some(ref re) = self.filter {
+            self.rows.retain(|row| {
+                re.is_match(&row.name)
+                    || re.is_match(&row.record_type.to_string())
+                    || re.is_match(&row.value)
+                    || re.is_match(&row.human_value)
+            });
+        }
+
+        // Update record count in Done state
+        if let QueryState::Done { record_count, .. } = &mut self.query_state {
+            *record_count = self.rows.len();
+        }
+    }
+
+    /// Recompute DNSSEC status from the full accumulated lookups.
+    fn update_dnssec_status(&mut self) {
+        if let (Some(ref mut stats), Some(ref lookups)) = (&mut self.stats_data, &self.lookups) {
+            let dnssec_results = check_dnssec(lookups);
+            stats.dnssec_status = if dnssec_results.iter().all(|r| matches!(r, CheckResult::Warning(msg) if msg.starts_with("No DNSSEC"))) {
+                DnssecStatus::Unsigned
+            } else if dnssec_results.iter().any(|r| matches!(r, CheckResult::Failed(_))) {
+                DnssecStatus::Broken
+            } else if dnssec_results.iter().any(|r| matches!(r, CheckResult::Warning(_))) {
+                DnssecStatus::Partial
+            } else {
+                DnssecStatus::Signed
+            };
+        }
     }
 
     fn rebuild_rows(&mut self) {
@@ -1242,7 +1409,16 @@ impl App {
 
         let lookups = self.lookups.as_ref().unwrap();
 
-        let mut seen = HashSet::new();
+        // Full rebuild: recompute stats and rebuild seen_records from scratch
+        self.stats_data = Some(compute_stats(lookups));
+        self.seen_records.clear();
+        self.responding_servers_set.clear();
+        for l in lookups.iter() {
+            if l.result().is_response() {
+                self.responding_servers_set.insert(l.name_server().to_string());
+            }
+        }
+
         let mut rows = Vec::new();
 
         for lookup in lookups.iter() {
@@ -1276,7 +1452,7 @@ impl App {
                 // Dedup by (name, type, value)
                 let value = format_rdata(record.data());
                 let key = (name_str.clone(), rt, value.clone());
-                if !seen.insert(key) {
+                if !self.seen_records.insert(key) {
                     continue;
                 }
 
@@ -1295,37 +1471,12 @@ impl App {
             }
         }
 
-        match self.group_mode {
-            GroupMode::Category => rows.sort_by(|a, b| {
-                category_ordinal(a.category)
-                    .cmp(&category_ordinal(b.category))
-                    .then_with(|| a.record_type.ordinal().cmp(&b.record_type.ordinal()))
-                    .then_with(|| a.name.cmp(&b.name))
-                    .then_with(|| a.value.cmp(&b.value))
-            }),
-            GroupMode::RecordType => rows.sort_by(|a, b| {
-                a.record_type.ordinal().cmp(&b.record_type.ordinal())
-                    .then_with(|| a.name.cmp(&b.name))
-                    .then_with(|| category_ordinal(a.category).cmp(&category_ordinal(b.category)))
-                    .then_with(|| a.value.cmp(&b.value))
-            }),
-            GroupMode::Name => rows.sort_by(|a, b| {
-                a.name.cmp(&b.name)
-                    .then_with(|| a.record_type.ordinal().cmp(&b.record_type.ordinal()))
-                    .then_with(|| category_ordinal(a.category).cmp(&category_ordinal(b.category)))
-                    .then_with(|| a.value.cmp(&b.value))
-            }),
-            GroupMode::Server => rows.sort_by(|a, b| {
-                a.nameserver.cmp(&b.nameserver)
-                    .then_with(|| a.name.cmp(&b.name))
-                    .then_with(|| a.record_type.ordinal().cmp(&b.record_type.ordinal()))
-                    .then_with(|| a.value.cmp(&b.value))
-            }),
-        }
+        self.rows = rows;
+        self.sort_rows();
 
         // Apply regex filter
         if let Some(ref re) = self.filter {
-            rows.retain(|row| {
+            self.rows.retain(|row| {
                 re.is_match(&row.name)
                     || re.is_match(&row.record_type.to_string())
                     || re.is_match(&row.value)
@@ -1335,7 +1486,6 @@ impl App {
 
         // Preserve selection if possible
         let prev_selected = self.table_state.selected();
-        self.rows = rows;
         if self.rows.is_empty() {
             self.table_state.select(None);
         } else if let Some(i) = prev_selected {
@@ -1346,6 +1496,36 @@ impl App {
         // Update record count in Done state
         if let QueryState::Done { record_count, .. } = &mut self.query_state {
             *record_count = self.rows.len();
+        }
+    }
+
+    fn sort_rows(&mut self) {
+        match self.group_mode {
+            GroupMode::Category => self.rows.sort_by(|a, b| {
+                category_ordinal(a.category)
+                    .cmp(&category_ordinal(b.category))
+                    .then_with(|| a.record_type.ordinal().cmp(&b.record_type.ordinal()))
+                    .then_with(|| a.name.cmp(&b.name))
+                    .then_with(|| a.value.cmp(&b.value))
+            }),
+            GroupMode::RecordType => self.rows.sort_by(|a, b| {
+                a.record_type.ordinal().cmp(&b.record_type.ordinal())
+                    .then_with(|| a.name.cmp(&b.name))
+                    .then_with(|| category_ordinal(a.category).cmp(&category_ordinal(b.category)))
+                    .then_with(|| a.value.cmp(&b.value))
+            }),
+            GroupMode::Name => self.rows.sort_by(|a, b| {
+                a.name.cmp(&b.name)
+                    .then_with(|| a.record_type.ordinal().cmp(&b.record_type.ordinal()))
+                    .then_with(|| category_ordinal(a.category).cmp(&category_ordinal(b.category)))
+                    .then_with(|| a.value.cmp(&b.value))
+            }),
+            GroupMode::Server => self.rows.sort_by(|a, b| {
+                a.nameserver.cmp(&b.nameserver)
+                    .then_with(|| a.name.cmp(&b.name))
+                    .then_with(|| a.record_type.ordinal().cmp(&b.record_type.ordinal()))
+                    .then_with(|| a.value.cmp(&b.value))
+            }),
         }
     }
 }
