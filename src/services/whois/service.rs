@@ -414,6 +414,16 @@ impl RipeStatsClient {
             });
         }
 
+        const MAX_RESPONSE_SIZE: u64 = 5 * 1024 * 1024;
+        if let Some(len) = res.content_length() {
+            if len > MAX_RESPONSE_SIZE {
+                return Err(Error::HttpClientErrorMessage {
+                    why: "response too large",
+                    details: format!("response size {} bytes exceeds limit of {} bytes", len, MAX_RESPONSE_SIZE),
+                });
+            }
+        }
+
         let body = res.text().await.map_err(|e| Error::HttpClientError {
             why: "reading body failed",
             source: e,

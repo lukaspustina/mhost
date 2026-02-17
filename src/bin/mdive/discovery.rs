@@ -37,6 +37,69 @@ async fn parse_domain(
     }
 }
 
+/// Run a batch of discovery queries via FuturesUnordered, sending progressive
+/// DiscoveryBatch actions as results arrive and a final DiscoveryComplete.
+///
+/// Shared by CT logs, wordlist, and permutation discovery strategies.
+async fn run_discovery_queries(
+    queries: Vec<MultiQuery>,
+    resolvers: &ResolverGroup,
+    wildcard_lookups: &Option<Lookups>,
+    strategy: DiscoveryStrategy,
+    tx: &mpsc::Sender<Action>,
+    generation: u64,
+    start: Instant,
+) {
+    let total = queries.len();
+
+    let mut futs: FuturesUnordered<_> = queries
+        .into_iter()
+        .map(|q| async move { resolvers.lookup(q).await })
+        .collect();
+
+    let mut found = 0usize;
+    let mut completed = 0usize;
+    while let Some(result) = futs.next().await {
+        completed += 1;
+        let lookups = match result {
+            Ok(l) => l,
+            Err(_) => continue,
+        };
+
+        let lookups = discover::filter_wildcard_responses(wildcard_lookups, lookups);
+
+        let batch_found = lookups.iter().filter(|l| l.result().is_response()).count();
+        found += batch_found;
+
+        let _ = tx
+            .send(Action::DiscoveryBatch {
+                generation,
+                strategy,
+                lookups,
+                completed,
+                total,
+            })
+            .await;
+    }
+
+    let _ = tx
+        .send(Action::DiscoveryComplete {
+            generation,
+            strategy,
+            found,
+            elapsed: start.elapsed(),
+        })
+        .await;
+}
+
+/// Build one MultiQuery per name for a given set of record types.
+fn build_per_name_queries(names: Vec<Name>, record_types: Vec<RecordType>) -> Vec<MultiQuery> {
+    names
+        .into_iter()
+        .filter_map(|name| MultiQuery::multi_record(name, record_types.clone()).ok())
+        .collect()
+}
+
 /// Spawn CT Logs discovery as a tokio task on the shared runtime.
 pub fn spawn_ct_logs(
     domain: String,
@@ -76,55 +139,9 @@ pub fn spawn_ct_logs(
         }
 
         let names: Vec<Name> = ct_names.iter().filter_map(|n| Name::from_str(n).ok()).collect();
+        let queries = build_per_name_queries(names, vec![RecordType::A, RecordType::AAAA]);
 
-        // Build one query per name for maximum concurrency
-        let mut queries: Vec<MultiQuery> = Vec::new();
-        for name in names {
-            if let Ok(q) = MultiQuery::multi_record(name, vec![RecordType::A, RecordType::AAAA]) {
-                queries.push(q);
-            }
-        }
-        let total = queries.len();
-
-        let mut futs: FuturesUnordered<_> = queries
-            .into_iter()
-            .map(|q| {
-                let r = &*resolvers;
-                async move { r.lookup(q).await }
-            })
-            .collect();
-
-        let mut found = 0usize;
-        let mut completed = 0usize;
-        while let Some(result) = futs.next().await {
-            completed += 1;
-            let lookups = match result {
-                Ok(l) => l,
-                Err(_) => continue,
-            };
-
-            let batch_found = lookups.iter().filter(|l| l.result().is_response()).count();
-            found += batch_found;
-
-            let _ = tx
-                .send(Action::DiscoveryBatch {
-                    generation,
-                    strategy: DiscoveryStrategy::CtLogs,
-                    lookups,
-                    completed,
-                    total,
-                })
-                .await;
-        }
-
-        let _ = tx
-            .send(Action::DiscoveryComplete {
-                generation,
-                strategy: DiscoveryStrategy::CtLogs,
-                found,
-                elapsed: start.elapsed(),
-            })
-            .await;
+        run_discovery_queries(queries, &resolvers, &None, DiscoveryStrategy::CtLogs, &tx, generation, start).await;
     })
 }
 
@@ -225,58 +242,18 @@ pub fn spawn_wordlist(
             RecordType::CNAME,
         ];
 
-        // Build one query per wordlist name for maximum concurrency
-        let mut queries: Vec<MultiQuery> = Vec::new();
-        for name in wordlist {
-            if let Ok(q) = MultiQuery::multi_record(name, record_types.clone()) {
-                queries.push(q);
-            }
-        }
-        let total = queries.len();
+        let queries = build_per_name_queries(wordlist, record_types);
 
-        // Launch ALL queries concurrently via FuturesUnordered
-        let mut futs: FuturesUnordered<_> = queries
-            .into_iter()
-            .map(|q| {
-                let r = &*resolvers;
-                async move { r.lookup(q).await }
-            })
-            .collect();
-
-        let mut found = 0usize;
-        let mut completed = 0usize;
-        while let Some(result) = futs.next().await {
-            completed += 1;
-            let lookups = match result {
-                Ok(l) => l,
-                Err(_) => continue,
-            };
-
-            // Filter wildcard responses
-            let lookups = discover::filter_wildcard_responses(&wildcard_lookups, lookups);
-
-            let batch_found = lookups.iter().filter(|l| l.result().is_response()).count();
-            found += batch_found;
-
-            let _ = tx
-                .send(Action::DiscoveryBatch {
-                    generation,
-                    strategy: DiscoveryStrategy::Wordlist,
-                    lookups,
-                    completed,
-                    total,
-                })
-                .await;
-        }
-
-        let _ = tx
-            .send(Action::DiscoveryComplete {
-                generation,
-                strategy: DiscoveryStrategy::Wordlist,
-                found,
-                elapsed: start.elapsed(),
-            })
-            .await;
+        run_discovery_queries(
+            queries,
+            &resolvers,
+            &wildcard_lookups,
+            DiscoveryStrategy::Wordlist,
+            &tx,
+            generation,
+            start,
+        )
+        .await;
     })
 }
 
@@ -524,56 +501,17 @@ pub fn spawn_permutation(
             })
             .collect();
 
-        // Build one query per name for maximum concurrency
-        let mut queries: Vec<MultiQuery> = Vec::new();
-        for name in perm_names {
-            if let Ok(q) = MultiQuery::multi_record(name, vec![RecordType::A, RecordType::AAAA]) {
-                queries.push(q);
-            }
-        }
-        let total = queries.len();
+        let queries = build_per_name_queries(perm_names, vec![RecordType::A, RecordType::AAAA]);
 
-        let mut futs: FuturesUnordered<_> = queries
-            .into_iter()
-            .map(|q| {
-                let r = &*resolvers;
-                async move { r.lookup(q).await }
-            })
-            .collect();
-
-        let mut found = 0usize;
-        let mut completed = 0usize;
-        while let Some(result) = futs.next().await {
-            completed += 1;
-            let lookups = match result {
-                Ok(l) => l,
-                Err(_) => continue,
-            };
-
-            // Filter wildcard responses
-            let lookups = discover::filter_wildcard_responses(&wildcard_lookups, lookups);
-
-            let batch_found = lookups.iter().filter(|l| l.result().is_response()).count();
-            found += batch_found;
-
-            let _ = tx
-                .send(Action::DiscoveryBatch {
-                    generation,
-                    strategy: DiscoveryStrategy::Permutation,
-                    lookups,
-                    completed,
-                    total,
-                })
-                .await;
-        }
-
-        let _ = tx
-            .send(Action::DiscoveryComplete {
-                generation,
-                strategy: DiscoveryStrategy::Permutation,
-                found,
-                elapsed: start.elapsed(),
-            })
-            .await;
+        run_discovery_queries(
+            queries,
+            &resolvers,
+            &wildcard_lookups,
+            DiscoveryStrategy::Permutation,
+            &tx,
+            generation,
+            start,
+        )
+        .await;
     })
 }

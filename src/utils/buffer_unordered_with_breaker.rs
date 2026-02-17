@@ -71,8 +71,8 @@ where
     }
 }
 
-/// Stops polling all other futures on next poll after first Err is returned. In this way,
-/// we get to see the Err which cased the break.
+/// Stops polling all other futures on next poll after the breaker returns true.
+/// The item that triggered the break is still yielded, then the stream terminates.
 impl<St> Stream for BufferUnorderedWithBreaker<St>
 where
     St: Stream,
@@ -119,5 +119,110 @@ where
         } else {
             Poll::Pending
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures::stream;
+
+    fn ok_future(v: i32) -> futures::future::Ready<Result<i32, &'static str>> {
+        futures::future::ready(Ok(v))
+    }
+
+    fn err_future(e: &'static str) -> futures::future::Ready<Result<i32, &'static str>> {
+        futures::future::ready(Err(e))
+    }
+
+    #[tokio::test]
+    async fn all_futures_complete_without_breaker() {
+        let items: Vec<_> = stream::iter(vec![ok_future(1), ok_future(2), ok_future(3)])
+            .buffered_unordered_with_breaker(10, Box::new(|_| false))
+            .collect()
+            .await;
+
+        assert_eq!(items.len(), 3);
+        let mut values: Vec<i32> = items.into_iter().map(|r: Result<i32, &str>| r.unwrap()).collect();
+        values.sort();
+        assert_eq!(values, vec![1, 2, 3]);
+    }
+
+    #[tokio::test]
+    async fn breaker_stops_stream_on_error() {
+        let items: Vec<_> = stream::iter(vec![
+            ok_future(1),
+            err_future("fail"),
+            ok_future(3),
+            ok_future(4),
+            ok_future(5),
+        ])
+        .buffered_unordered_with_breaker(1, Box::new(|r: &Result<i32, &str>| r.is_err()))
+        .collect()
+        .await;
+
+        // With concurrency=1, we get items in order: Ok(1), then Err("fail") triggers break.
+        // The breaker item is still yielded, then stream terminates.
+        assert!(items.len() <= 3, "breaker should stop the stream early, got {} items", items.len());
+        assert!(
+            items.iter().any(|r: &Result<i32, &str>| r.is_err()),
+            "should contain the error that triggered the break"
+        );
+    }
+
+    #[tokio::test]
+    async fn empty_stream() {
+        let items: Vec<Result<i32, &str>> =
+            stream::iter(Vec::<futures::future::Ready<Result<i32, &str>>>::new())
+                .buffered_unordered_with_breaker(10, Box::new(|_| false))
+                .collect()
+                .await;
+
+        assert!(items.is_empty());
+    }
+
+    #[tokio::test]
+    async fn single_future() {
+        let items: Vec<_> = stream::iter(vec![futures::future::ready(42)])
+            .buffered_unordered_with_breaker(10, Box::new(|_| false))
+            .collect()
+            .await;
+
+        assert_eq!(items, vec![42]);
+    }
+
+    #[tokio::test]
+    async fn concurrency_limit_respected() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+
+        let max_concurrent = Arc::new(AtomicUsize::new(0));
+        let current = Arc::new(AtomicUsize::new(0));
+
+        let futures: Vec<_> = (0..10)
+            .map(|i| {
+                let current = current.clone();
+                let max_concurrent = max_concurrent.clone();
+                async move {
+                    let c = current.fetch_add(1, Ordering::SeqCst) + 1;
+                    max_concurrent.fetch_max(c, Ordering::SeqCst);
+                    tokio::task::yield_now().await;
+                    current.fetch_sub(1, Ordering::SeqCst);
+                    i
+                }
+            })
+            .collect();
+
+        let items: Vec<_> = stream::iter(futures)
+            .buffered_unordered_with_breaker(3, Box::new(|_| false))
+            .collect()
+            .await;
+
+        assert_eq!(items.len(), 10);
+        assert!(
+            max_concurrent.load(Ordering::SeqCst) <= 3,
+            "max concurrent {} exceeded limit of 3",
+            max_concurrent.load(Ordering::SeqCst)
+        );
     }
 }

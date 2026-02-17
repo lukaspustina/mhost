@@ -18,7 +18,6 @@ struct CrtShEntry {
 }
 
 pub async fn query_ct_logs(domain: &str) -> Result<HashSet<String>> {
-    let url = format!("https://crt.sh/?q=%.{domain}&output=json");
     info!("Querying Certificate Transparency logs at crt.sh for '{}'", domain);
 
     let client = reqwest::Client::builder()
@@ -27,7 +26,8 @@ pub async fn query_ct_logs(domain: &str) -> Result<HashSet<String>> {
         .context("Failed to build HTTP client for CT log query")?;
 
     let response = client
-        .get(&url)
+        .get("https://crt.sh/")
+        .query(&[("q", format!("%.{domain}")), ("output", "json".to_string())])
         .header("User-Agent", "mhost DNS discovery tool")
         .send()
         .await
