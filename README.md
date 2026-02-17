@@ -2,7 +2,7 @@
 
 **More than host** -- a modern, high-performance DNS Swiss Army knife and Rust library.
 
-[![CI build](https://github.com/lukaspustina/mhost/workflows/CI%20build/badge.svg)](https://github.com/lukaspustina/mhost/actions/) [![mhost on crates.io](http://meritbadge.herokuapp.com/mhost)](https://crates.io/crates/mhost) [![Documentation on docs.rs](https://docs.rs/mhost/badge.svg)](https://docs.rs/mhost) [![GitHub release](https://img.shields.io/github/release/lukaspustina/mhost.svg)](https://github.com/lukaspustina/mhost/releases) ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg) ![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)
+[![CI build](https://github.com/lukaspustina/mhost/actions/workflows/ci.yml/badge.svg)](https://github.com/lukaspustina/mhost/actions/workflows/ci.yml) [![mhost on crates.io](https://img.shields.io/crates/v/mhost.svg)](https://crates.io/crates/mhost) [![Documentation on docs.rs](https://docs.rs/mhost/badge.svg)](https://docs.rs/mhost) [![GitHub release](https://img.shields.io/github/release/lukaspustina/mhost.svg)](https://github.com/lukaspustina/mhost/releases) ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg) ![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)
 
 mhost queries many DNS servers in parallel and aggregates their answers. It supports UDP, TCP, DNS-over-TLS, and DNS-over-HTTPS, understands 20 record types, and ships with 84 pre-configured public resolvers. Beyond simple lookups it can profile an entire domain, discover subdomains, trace the delegation chain, validate your DNS configuration, check propagation, and diff records across nameservers -- all from a single binary.
 
