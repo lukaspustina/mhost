@@ -12,6 +12,7 @@
 - **propagation** — DNS propagation checking across predefined public resolvers with divergence detection
 - **diff** — Compare DNS records between two nameserver sets, JSON snapshots, or a mix of both
 - **trace** — Parallel iterative resolution from root servers with per-server latency and referral divergence detection
+- **verify** — Zone file verification: parse BIND zone files, compare against live DNS, report matches/mismatches/missing/extra records with non-zero exit for CI/CD
 - **dnssec** — DNSSEC trust chain visualization: walks delegation from root to target zone, renders color-coded tree with key roles, algorithm strength, signature expiry, and DS→DNSKEY linkage
 - **info** — DNS record type and well-known subdomain documentation
 - **completions** — Shell completion generation (bash, zsh, fish)
@@ -59,10 +60,6 @@
 
 ## Up next
 
-### DNS zone file verification
-
-Verify that live DNS matches a source-of-truth BIND zone file. `mhost verify zone.db` parses the zone file, performs live lookups for each (name, type) pair, and reports matches, mismatches, missing records, and extras. Non-zero exit code on mismatch for CI/CD integration. See [design document](docs/verify.sdd.md) for full details.
-
 ### Geolocation-aware propagation
 
 Group propagation results by geographic region (Americas, Europe, Asia-Pacific) using provider metadata.
@@ -94,7 +91,7 @@ Longer-term possibilities — not prioritized, may require significant design wo
 
 - **DNS-over-QUIC (DoQ)** — RFC 9250 transport support alongside UDP/TCP/DoT/DoH. Depends on hickory-dns DoQ maturity.
 
-- ~~**Zone file import and pre-deployment validation**~~ — Promoted to planned: see [DNS zone file verification](#dns-zone-file-verification) above and [design document](docs/verify.sdd.md).
+- ~~**Zone file import and pre-deployment validation**~~ — Done: shipped as `mhost verify`. See [design document](docs/verify.sdd.md).
 
 - **Configuration profiles** — `~/.config/mhost/profiles.toml` with named resolver sets, default options, and per-domain overrides for managing multiple environments.
 

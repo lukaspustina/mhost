@@ -1,12 +1,49 @@
-# ![mhost](docs/images/logo.png) mhost
+<div align="center">
+  <h1><img src="docs/images/logo.png" alt="mhost" /> mhost</h1>
+  <p><strong>More than host</strong> -- a modern, high-performance DNS Swiss Army knife and Rust library.</p>
+  <p>
+    <a href="https://github.com/lukaspustina/mhost/actions/workflows/ci.yml"><img src="https://github.com/lukaspustina/mhost/actions/workflows/ci.yml/badge.svg" alt="CI build" /></a>
+    <a href="https://crates.io/crates/mhost"><img src="https://img.shields.io/crates/v/mhost.svg" alt="mhost on crates.io" /></a>
+    <a href="https://docs.rs/mhost"><img src="https://docs.rs/mhost/badge.svg" alt="Documentation on docs.rs" /></a>
+    <a href="https://github.com/lukaspustina/mhost/releases"><img src="https://img.shields.io/github/release/lukaspustina/mhost.svg" alt="GitHub release" /></a>
+    <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" />
+    <img src="https://img.shields.io/badge/license-Apache_2.0-blue.svg" alt="License: Apache 2.0" />
+  </p>
+  <p>
+    <a href="#why-mhost">Features</a> |
+    <a href="#quick-start">Quick Start</a> |
+    <a href="#mdive--interactive-tui">mdive TUI</a> |
+    <a href="#installation">Installation</a> |
+    <a href="#using-mhost-as-a-rust-library">Library API</a>
+  </p>
+</div>
 
-**More than host** -- a modern, high-performance DNS Swiss Army knife and Rust library.
+![Multi lookup for all available records of github.com.](docs/images/multi-lookup-all-records-github.png)
 
-[![CI build](https://github.com/lukaspustina/mhost/actions/workflows/ci.yml/badge.svg)](https://github.com/lukaspustina/mhost/actions/workflows/ci.yml) [![mhost on crates.io](https://img.shields.io/crates/v/mhost.svg)](https://crates.io/crates/mhost) [![Documentation on docs.rs](https://docs.rs/mhost/badge.svg)](https://docs.rs/mhost) [![GitHub release](https://img.shields.io/github/release/lukaspustina/mhost.svg)](https://github.com/lukaspustina/mhost/releases) ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg) ![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)
+mhost queries many DNS servers in parallel and aggregates their answers. It supports UDP, TCP, DNS-over-TLS, and DNS-over-HTTPS, understands 20+ record types, and ships with 84 pre-configured public resolvers. Beyond simple lookups it can profile an entire domain, discover subdomains, trace the delegation chain, validate your DNS configuration, check propagation, diff records across nameservers, and verify live DNS against a zone file -- all from a single binary.
 
-mhost queries many DNS servers in parallel and aggregates their answers. It supports UDP, TCP, DNS-over-TLS, and DNS-over-HTTPS, understands 20 record types, and ships with 84 pre-configured public resolvers. Beyond simple lookups it can profile an entire domain, discover subdomains, trace the delegation chain, validate your DNS configuration, check propagation, diff records across nameservers, and verify live DNS against a zone file -- all from a single binary.
+**Two binaries, one toolkit:** `mhost` is a powerful CLI for scripts, pipelines, and quick one-liners. [`mdive`](#mdive--interactive-tui) is an interactive TUI that lets you explore DNS like a file manager -- drill into subdomains, discover hidden records, and chase references across domains, all without leaving your terminal.
 
-**Two ways to use it:** `mhost` is a powerful CLI for scripts, pipelines, and quick one-liners. `mdive` is an interactive TUI that lets you explore DNS like a file manager -- drill into subdomains, discover hidden records, and chase references across domains, all without leaving your terminal.
+## Why mhost?
+
+Most DNS tools do one thing. `dig` does lookups. `subfinder` discovers subdomains. `dnschecker.org` checks propagation. `dog` gives you pretty output. **mhost does all of them** -- and they compose, because they share the same resolver engine, output formats, and server configurations.
+
+| | dig | dog | doggo | q | subfinder | **mhost** |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| Multi-server parallel queries | | | | | | **84 built-in** |
+| UDP, TCP, DoT, DoH | UDP, TCP | DoT, DoH | DoT, DoH, DoQ | DoT, DoH, DoQ | | **all four** |
+| Subdomain discovery | | | | | passive | **10+ strategies** |
+| DNS configuration linting | | | | | | **13 checks** |
+| Delegation trace (all servers per hop) | `+trace` (1/hop) | | | | | **parallel, all servers** |
+| Propagation checking | | | | | | **across 6 providers** |
+| Diff between nameservers / snapshots | | | | | | **live, file, or mixed** |
+| Zone file verification (CI-ready) | | | | | | **BIND zone file support** |
+| Interactive TUI | | | | | | **mdive** |
+| JSON output | | | | | | **every command** |
+| Reusable Rust library | | | | | | **async, builder API** |
+| WHOIS / geolocation | | | | | | **IP-level** |
+
+**Pro tip:** `alias host="mhost l"` and never look back.
 
 ## Quick Start
 
@@ -26,6 +63,15 @@ mhost -p l github.com
 # Get ALL record types + WHOIS info in one shot
 mhost -p l --all -w github.com
 
+# Validate your domain's DNS configuration
+mhost -p check example.com
+
+# Discover subdomains (CT logs, wordlists, NSEC walking, ...)
+mhost -p discover example.com
+
+# Verify live DNS matches your zone file (CI-friendly, non-zero on mismatch)
+mhost verify example.com.zone
+
 # Pipe to jq for scripting
 mhost -q -p --output json l --all github.com \
   | jq '.lookups[] | .result.Response.records[]? | select(.type == "A") | .data.A'
@@ -34,9 +80,15 @@ mhost -q -p --output json l --all github.com \
 mdive github.com
 ```
 
-![Multi lookup for all available records of github.com.](docs/images/multi-lookup-all-records-github.png)
+## Who Is This For?
 
-**Pro tip:** `alias host="mhost l"` and never look back.
+**DevOps / SRE** -- Verify DNS changes landed with `mhost verify`, check propagation across public resolvers with `mhost propagation`, diff before/after with JSON snapshots. Non-zero exit codes for CI/CD pipelines.
+
+**Security professionals** -- Discover subdomains via 10+ strategies (CT logs, NSEC walking, AXFR attempts, wordlists, permutation). Validate DNSSEC chains, detect zone transfer exposure, check for open resolvers.
+
+**DNS administrators** -- Lint your configuration against 13 best-practice checks. Trace the full delegation chain querying all servers at each hop. Compare records across nameserver sets to catch inconsistencies.
+
+**Developers** -- Use mhost as a Rust library with an ergonomic async builder API. JSON output on every command for scripting. 84 built-in resolvers so you never have to hardcode IPs.
 
 ## What Can mhost Do?
 
@@ -47,6 +99,7 @@ mdive github.com
 | [`discover`](#discover) | `d` | Find subdomains using 10+ strategies (wordlists, CT logs, AXFR, NSEC walking, ...) |
 | [`check`](#check) | `c` | Validate DNS configuration against 13 lints (SOA, NS, SPF, DMARC, DNSSEC, ...) |
 | [`trace`](#trace) | `t` | Trace the delegation path from root servers, querying all servers at each hop |
+| [`dnssec`](#dnssec) | -- | Visualize the DNSSEC trust chain from root to target domain |
 | [`propagation`](#propagation) | `prop` | Check whether a DNS change has propagated across public resolvers |
 | [`verify`](#verify) | `v` | Verify live DNS matches a BIND zone file -- catch drift before it bites |
 | [`diff`](#diff) | -- | Compare DNS records between nameservers or JSON snapshots |
@@ -54,11 +107,117 @@ mdive github.com
 | `server-lists` | -- | Download public nameserver lists for large-scale queries |
 | `completions` | -- | Generate shell completions (bash, zsh, fish) |
 
-**Looking for a UI?** [`mdive`](#mdive--interactive-tui) is an interactive TUI for exploring DNS -- drill down, discover, and investigate, all without leaving your terminal.
+---
+
+## mdive -- Interactive TUI
+
+While `mhost` is built for scripts and one-liners, `mdive` is built for humans. It's an interactive terminal UI that turns DNS exploration into something that actually feels good -- think "file manager for DNS." Type a domain, watch records stream in from multiple servers in real time, then drill into anything interesting.
+
+```sh
+mdive example.com                        # Dive right in
+mdive -p example.com                     # Use 84 public resolvers for broader coverage
+mdive -s 8.8.8.8 -s 1.1.1.1 example.com # Pick your own nameservers
+```
+
+<!-- TODO: screenshot of mdive main view with populated record table -->
+
+**A live, sortable record table.** All DNS records for a domain -- apex plus dozens of well-known subdomains across 10 categories (email auth, TLS/DANE, SRV services, infrastructure, and more). Results stream in progressively as servers respond, with a real-time progress bar in the status line. Toggle between raw DNS wire format and human-readable values with a single keypress.
+
+**Drill-down navigation.** See a CNAME pointing somewhere interesting? Press `l` to follow it. Found a subdomain in the results? Hit Enter to dive in. Every query is pushed onto a history stack, so Backspace takes you right back. It's like `cd` and `cd ..` but for DNS.
+
+<!-- TODO: screenshot of mdive discovery panel -->
+
+**Five discovery strategies, one keypress away.** Press `d` to open the discovery panel, then launch any combination:
+
+| Key | Strategy | What it does |
+|-----|----------|--------------|
+| `c` | CT Logs | Search Certificate Transparency logs via crt.sh |
+| `w` | Wordlist | Brute-force 424 common subdomain names (with automatic wildcard filtering) |
+| `s` | SRV Probing | Probe 22 well-known SRV service records |
+| `t` | TXT Mining | Extract referenced domains from SPF includes and DMARC URIs |
+| `p` | Permutation | Generate variations of already-discovered labels (dev-, staging-, -prod, ...) |
+| `a` | All | Run everything at once |
+
+Discovered subdomains appear in the main table as they're found. Wildcard detection runs automatically to filter false positives.
+
+**Built-in DNS health checks.** Press `c` to run best-practice lints against the current domain -- CNAME-at-apex detection, NS redundancy, SPF/DMARC validation, DNSSEC chain verification, HTTPS/SVCB mode checks, CAA coverage, TTL sanity, and more. Each result shows pass/warning/fail with a clear explanation.
+
+**WHOIS and geolocation.** Press `w` and mdive fetches WHOIS data for every IP in your results -- AS numbers, network prefixes, organizations, countries, and geolocations. Handy for understanding where a domain's infrastructure actually lives.
+
+**Server response dashboard.** Press `s` to see every nameserver that responded, sorted by latency -- protocol, response counts, error counts, and min/avg/max timing. The stats panel (`S`) shows a compact summary right in the status bar: record type distribution, query health, DNSSEC status, and response time ranges.
+
+**Regex filtering.** Press `/` and type a pattern. Matches against record names, types, and values in real time. Quickly zero in on that one TXT record in a sea of results.
+
+<details>
+<summary><strong>Keybindings</strong></summary>
+
+mdive uses vi-style navigation with a few extras:
+
+| Key | Action | Key | Action |
+|-----|--------|-----|--------|
+| `j`/`k` | Move down/up | `i` | Enter domain query |
+| `gg`/`G` | First/last row | `/` | Filter (regex) |
+| `22gg` | Jump to line 22 | `C` | Clear filter |
+| PgUp/PgDn | Scroll by 10 | `r` | Re-run query |
+| Enter | Drill into subdomain | `h` | Toggle human view |
+| `l`/Right | Follow value target | `S` | Toggle stats |
+| Left/BS | Go back in history | Tab | Cycle grouping |
+| `1`-`0` | Toggle categories | `a`/`n` | All/none categories |
+| `o` | Record detail popup | `?` | Help |
+
+</details>
+
+<details>
+<summary><strong>Category Toggles</strong></summary>
+
+Records are organized into 10 categories. Toggle any with number keys, or press `a` for all / `n` for none:
+
+| Key | Category | Key | Category |
+|-----|----------|-----|----------|
+| `1` | Email Auth (DMARC, SPF, ...) | `6` | Infrastructure (LDAP, Kerberos) |
+| `2` | Email Services (IMAP, SMTP) | `7` | Modern Protocols (STUN, TURN) |
+| `3` | TLS / DANE | `8` | Verification & Metadata |
+| `4` | Communication (SIP, XMPP, Matrix) | `9` | Legacy |
+| `5` | Calendar & Contacts (CalDAV) | `0` | Gaming |
+
+Cycle the grouping mode with Tab: **Category** (default) -> **Record Type** -> **Name** -> **Server**.
+
+</details>
+
+<details>
+<summary><strong>mdive CLI Options</strong></summary>
+
+```
+mdive [OPTIONS] [DOMAIN]
+
+Options:
+  -s, --nameserver <SPEC>          Add a nameserver (repeatable)
+  -p, --predefined                 Add 84 predefined public nameservers
+      --predefined-filter <PROTO>  Filter predefined by protocol [udp, tcp, tls, https]
+  -S, --no-system-lookups          Skip system nameservers
+  -t, --timeout <SECS>             Query timeout [default: 5] (1-30)
+  -4, --ipv4-only                  IPv4 only
+  -6, --ipv6-only                  IPv6 only
+  -h, --help                       Print help
+```
+
+</details>
+
+<details>
+<summary><strong>Building mdive</strong></summary>
+
+mdive lives behind the `tui` feature flag to keep the default build lean:
+
+```sh
+cargo build --features tui         # Build both mhost and mdive
+cargo run --bin mdive --features tui -- example.com
+```
+
+</details>
 
 ---
 
-## Use Cases
+## CLI Use Cases
 
 ### Simple Lookup
 
@@ -181,6 +340,8 @@ mhost trace example.com
 mhost trace -t AAAA --show-all-servers example.com
 ```
 
+<!-- TODO: screenshot of trace output -->
+
 Unlike `dig +trace` which queries one server per hop, mhost's `trace` command queries **all nameservers at each delegation level in parallel**. It detects referral divergence (where different root/TLD servers disagree), reports per-server latency, and resolves missing glue records automatically.
 
 ### Check DNS Propagation
@@ -189,6 +350,8 @@ Unlike `dig +trace` which queries one server per hop, mhost's `trace` command qu
 mhost -p propagation example.com
 mhost -p prop --all example.com
 ```
+
+<!-- TODO: screenshot of propagation output -->
 
 After making a DNS change, check whether it has reached all the major public resolvers. Uses the predefined nameserver set (Cloudflare, Google, Quad9, Mullvad, Wikimedia, DNS4EU).
 
@@ -254,100 +417,6 @@ Built-in reference with summaries, details, and RFC references for every support
 
 ---
 
-## mdive -- Interactive TUI
-
-While `mhost` is built for scripts and one-liners, `mdive` is built for humans. It's an interactive terminal UI that turns DNS exploration into something that actually feels good -- think "file manager for DNS." Type a domain, watch records stream in from multiple servers in real time, then drill into anything interesting.
-
-```sh
-mdive example.com                        # Dive right in
-mdive -p example.com                     # Use 84 public resolvers for broader coverage
-mdive -s 8.8.8.8 -s 1.1.1.1 example.com # Pick your own nameservers
-```
-
-### What You Get
-
-**A live, sortable record table.** All DNS records for a domain -- apex plus dozens of well-known subdomains across 10 categories (email auth, TLS/DANE, SRV services, infrastructure, and more). Results stream in progressively as servers respond, with a real-time progress bar in the status line. Toggle between raw DNS wire format and human-readable values with a single keypress.
-
-**Drill-down navigation.** See a CNAME pointing somewhere interesting? Press `l` to follow it. Found a subdomain in the results? Hit Enter to dive in. Every query is pushed onto a history stack, so Backspace takes you right back. It's like `cd` and `cd ..` but for DNS.
-
-**Five discovery strategies, one keypress away.** Press `d` to open the discovery panel, then launch any combination:
-
-| Key | Strategy | What it does |
-|-----|----------|--------------|
-| `c` | CT Logs | Search Certificate Transparency logs via crt.sh |
-| `w` | Wordlist | Brute-force 424 common subdomain names (with automatic wildcard filtering) |
-| `s` | SRV Probing | Probe 22 well-known SRV service records |
-| `t` | TXT Mining | Extract referenced domains from SPF includes and DMARC URIs |
-| `p` | Permutation | Generate variations of already-discovered labels (dev-, staging-, -prod, ...) |
-| `a` | All | Run everything at once |
-
-Discovered subdomains appear in the main table as they're found. Wildcard detection runs automatically to filter false positives.
-
-**Built-in DNS health checks.** Press `c` to run best-practice lints against the current domain -- CNAME-at-apex detection, NS redundancy, SPF/DMARC validation, DNSSEC chain verification, HTTPS/SVCB mode checks, CAA coverage, TTL sanity, and more. Each result shows pass/warning/fail with a clear explanation.
-
-**WHOIS and geolocation.** Press `w` and mdive fetches WHOIS data for every IP in your results -- AS numbers, network prefixes, organizations, countries, and geolocations. Handy for understanding where a domain's infrastructure actually lives.
-
-**Server response dashboard.** Press `s` to see every nameserver that responded, sorted by latency -- protocol, response counts, error counts, and min/avg/max timing. The stats panel (`S`) shows a compact summary right in the status bar: record type distribution, query health, DNSSEC status, and response time ranges.
-
-**Regex filtering.** Press `/` and type a pattern. Matches against record names, types, and values in real time. Quickly zero in on that one TXT record in a sea of results.
-
-### Keybindings
-
-mdive uses vi-style navigation with a few extras:
-
-| Key | Action | Key | Action |
-|-----|--------|-----|--------|
-| `j`/`k` | Move down/up | `i` | Enter domain query |
-| `gg`/`G` | First/last row | `/` | Filter (regex) |
-| `22gg` | Jump to line 22 | `C` | Clear filter |
-| PgUp/PgDn | Scroll by 10 | `r` | Re-run query |
-| Enter | Drill into subdomain | `h` | Toggle human view |
-| `l`/Right | Follow value target | `S` | Toggle stats |
-| Left/BS | Go back in history | Tab | Cycle grouping |
-| `1`-`0` | Toggle categories | `a`/`n` | All/none categories |
-| `o` | Record detail popup | `?` | Help |
-
-### Category Toggles
-
-Records are organized into 10 categories. Toggle any with number keys, or press `a` for all / `n` for none:
-
-| Key | Category | Key | Category |
-|-----|----------|-----|----------|
-| `1` | Email Auth (DMARC, SPF, ...) | `6` | Infrastructure (LDAP, Kerberos) |
-| `2` | Email Services (IMAP, SMTP) | `7` | Modern Protocols (STUN, TURN) |
-| `3` | TLS / DANE | `8` | Verification & Metadata |
-| `4` | Communication (SIP, XMPP, Matrix) | `9` | Legacy |
-| `5` | Calendar & Contacts (CalDAV) | `0` | Gaming |
-
-Cycle the grouping mode with Tab: **Category** (default) -> **Record Type** -> **Name** -> **Server**.
-
-### CLI Options
-
-```
-mdive [OPTIONS] [DOMAIN]
-
-Options:
-  -s, --nameserver <SPEC>          Add a nameserver (repeatable)
-  -p, --predefined                 Add 84 predefined public nameservers
-      --predefined-filter <PROTO>  Filter predefined by protocol [udp, tcp, tls, https]
-  -S, --no-system-lookups          Skip system nameservers
-  -t, --timeout <SECS>             Query timeout [default: 5] (1-30)
-  -4, --ipv4-only                  IPv4 only
-  -6, --ipv6-only                  IPv6 only
-  -h, --help                       Print help
-```
-
-### Building mdive
-
-mdive lives behind the `tui` feature flag to keep the default build lean:
-
-```sh
-cargo build --features tui         # Build both mhost and mdive
-cargo run --bin mdive --features tui -- example.com
-```
-
----
-
 ## Installation
 
 ### Homebrew (macOS)
@@ -396,7 +465,90 @@ cargo install --features tui --path .    # CLI + TUI
 
 ---
 
-## Global Options
+## Using mhost as a Rust Library
+
+mhost is also a reusable library. Build without the CLI:
+
+```sh
+cargo build --lib   # no CLI dependencies
+```
+
+### Builder API (recommended)
+
+```rust
+use mhost::resolver::{ResolverGroupBuilder, MultiQuery};
+use mhost::resolver::lookup::Uniquify;
+use mhost::nameserver::predefined::PredefinedProvider;
+use mhost::RecordType;
+use std::time::Duration;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let resolvers = ResolverGroupBuilder::new()
+        .system()
+        .predefined(PredefinedProvider::Google)
+        .timeout(Duration::from_secs(3))
+        .build()
+        .await?;
+
+    let query = MultiQuery::multi_record(
+        "example.com",
+        vec![RecordType::A, RecordType::AAAA],
+    )?;
+    let lookups = resolvers.lookup(query).await?;
+    let a_records = lookups.a().unique().to_owned();
+    println!("A records: {:?}", a_records);
+    Ok(())
+}
+```
+
+### Manual Construction
+
+```rust
+use mhost::nameserver::NameServerConfig;
+use mhost::resolver::{MultiQuery, Resolver, ResolverConfig, ResolverGroup};
+use mhost::resolver::lookup::Uniquify;
+use mhost::RecordType;
+use std::net::SocketAddr;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut resolvers = ResolverGroup::from_system_config(Default::default()).await?;
+
+    let sock_addr: SocketAddr = "8.8.8.8:53".parse()?;
+    let config = ResolverConfig::new(NameServerConfig::udp(sock_addr));
+    let google = Resolver::new(config, Default::default()).await?;
+    resolvers.add(google);
+
+    let query = MultiQuery::multi_record(
+        "example.com",
+        vec![RecordType::A, RecordType::AAAA, RecordType::TXT],
+    )?;
+    let lookups = resolvers.lookup(query).await?;
+    let a_records = lookups.a().unique().to_owned();
+    println!("A records: {:?}", a_records);
+    Ok(())
+}
+```
+
+See [docs.rs/mhost](https://docs.rs/mhost) for the full API documentation.
+
+---
+
+## JSON Output
+
+Every command supports `--output json` for machine-readable output. Combine with `-q` (quiet) to suppress status messages:
+
+```sh
+mhost -q --output json l --all example.com | jq .
+mhost -q --output json trace example.com | jq '.hops[] | .zone_name'
+mhost -q --output json c example.com | jq '.results[] | select(.status != "Ok")'
+```
+
+---
+
+<details>
+<summary><strong>Global Options</strong></summary>
 
 mhost has a rich set of options that apply to all commands:
 
@@ -433,7 +585,10 @@ Output:
   -v                                Increase verbosity (repeat for more)
 ```
 
-## Command Reference
+</details>
+
+<details>
+<summary><strong>Command Reference</strong></summary>
 
 ### Lookup
 
@@ -572,9 +727,23 @@ mhost verify [OPTIONS] <ZONE_FILE>
 
 By default, SOA, DNSSEC records (RRSIG, DNSKEY, DS, NSEC, NSEC3, NSEC3PARAM), and apex NS records are skipped. Wildcard records are reported as skipped since they can't be verified via simple lookups. Exit code `0` means all records verified; non-zero means mismatches or missing records.
 
----
+### DNSSEC
 
-## Predefined Nameservers
+```sh
+mhost dnssec [OPTIONS] <DOMAIN>
+```
+
+```
+      --max-hops <N>             Maximum delegation hops [default: 10] (1-20)
+  -p, --show-partial-results     Show each delegation level as it completes
+```
+
+Walks the DNS delegation chain from root servers to the target domain, querying DNSKEY, DS, and RRSIG records at each level. Renders a color-coded trust chain tree showing key roles (KSK/ZSK), algorithm strength, signature expiry, and DS-to-DNSKEY linkage.
+
+</details>
+
+<details>
+<summary><strong>Predefined Nameservers</strong></summary>
 
 mhost ships with 84 configurations across 6 providers. All use **unfiltered endpoints** (no content filtering or blocking). Each provider is available over UDP, TCP, DoT, and DoH.
 
@@ -589,7 +758,10 @@ mhost ships with 84 configurations across 6 providers. All use **unfiltered endp
 
 Use `mhost --list-predefined` to see every configuration.
 
-## Supported Record Types
+</details>
+
+<details>
+<summary><strong>Supported Record Types</strong></summary>
 
 | Type | Description | Type | Description |
 |------|-------------|------|-------------|
@@ -604,87 +776,7 @@ Use `mhost --list-predefined` to see every configuration.
 | MX | Mail exchange | TXT | Text record |
 | NAPTR | Naming Authority Pointer | DNSSEC | DNSKEY, DS, RRSIG, NSEC, ... |
 
----
-
-## Using mhost as a Rust Library
-
-mhost is also a reusable library. Build without the CLI:
-
-```sh
-cargo build --lib   # no CLI dependencies
-```
-
-### Builder API (recommended)
-
-```rust
-use mhost::resolver::{ResolverGroupBuilder, MultiQuery};
-use mhost::resolver::lookup::Uniquify;
-use mhost::nameserver::predefined::PredefinedProvider;
-use mhost::RecordType;
-use std::time::Duration;
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let resolvers = ResolverGroupBuilder::new()
-        .system()
-        .predefined(PredefinedProvider::Google)
-        .timeout(Duration::from_secs(3))
-        .build()
-        .await?;
-
-    let query = MultiQuery::multi_record(
-        "example.com",
-        vec![RecordType::A, RecordType::AAAA],
-    )?;
-    let lookups = resolvers.lookup(query).await?;
-    let a_records = lookups.a().unique().to_owned();
-    println!("A records: {:?}", a_records);
-    Ok(())
-}
-```
-
-### Manual Construction
-
-```rust
-use mhost::nameserver::NameServerConfig;
-use mhost::resolver::{MultiQuery, Resolver, ResolverConfig, ResolverGroup};
-use mhost::resolver::lookup::Uniquify;
-use mhost::RecordType;
-use std::net::SocketAddr;
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut resolvers = ResolverGroup::from_system_config(Default::default()).await?;
-
-    let sock_addr: SocketAddr = "8.8.8.8:53".parse()?;
-    let config = ResolverConfig::new(NameServerConfig::udp(sock_addr));
-    let google = Resolver::new(config, Default::default()).await?;
-    resolvers.add(google);
-
-    let query = MultiQuery::multi_record(
-        "example.com",
-        vec![RecordType::A, RecordType::AAAA, RecordType::TXT],
-    )?;
-    let lookups = resolvers.lookup(query).await?;
-    let a_records = lookups.a().unique().to_owned();
-    println!("A records: {:?}", a_records);
-    Ok(())
-}
-```
-
-See [docs.rs/mhost](https://docs.rs/mhost) for the full API documentation.
-
----
-
-## JSON Output
-
-Every command supports `--output json` for machine-readable output. Combine with `-q` (quiet) to suppress status messages:
-
-```sh
-mhost -q --output json l --all example.com | jq .
-mhost -q --output json trace example.com | jq '.hops[] | .zone_name'
-mhost -q --output json c example.com | jq '.results[] | select(.status != "Ok")'
-```
+</details>
 
 ---
 
