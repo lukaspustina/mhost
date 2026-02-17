@@ -288,7 +288,6 @@ These should be skipped by default, with the ability to include them via `--only
 - `--server` override for authoritative nameserver targeting — already supported via standard mhost resolver options
 - ~~`--ignore-extra` to suppress extra record reporting~~ — implemented
 - ~~`--ignore-soa` to skip SOA serial comparison~~ — implemented
-- Integration with existing `check` lints on the parsed zone — deferred
 - ~~SOA serial comparison (separate from record-by-record verification)~~ — implemented: zone parser captures SOA record before default-skip filtering; live SOA serial compared against zone file serial; mismatch counts as an issue (non-zero exit)
 
 ### Phase 3 — Extended Formats (Optional / Future)
@@ -298,6 +297,7 @@ These are ideas for potential future extension, not committed scope. They should
 - BIND zone export from `lookup` / `domain-lookup` results (`--format zone`)
 - Terraform state JSON import (`terraform show -json | mhost verify --format terraform-state -`)
 - Generic CSV/TSV record format (name, type, value)
+- **Integration with `check` lints on the parsed zone** — Run applicable sync lints (SPF, CAA, CNAME-at-apex, MX preferences, TTL sanity, DMARC) on zone file records before live DNS verification. Would catch zone file mistakes before wasting time on lookups. Requires adapting lint functions to accept zone records (currently take `&Lookups`). Aligns with the web SDD's planned extraction of lint logic to the library layer.
 - **Probe-based wildcard verification** — For each wildcard record in the zone file (e.g., `*.example.com. IN A 1.2.3.4`), generate a random probe subdomain (e.g., `_mhost-probe-{random}.example.com.`), query it, and verify the response rdata matches the wildcard's rdata. This would actively test that wildcard synthesis works, rather than just confirming the wildcard record exists. Challenges: handling NXDOMAIN for zones without the expected wildcard, multi-level wildcards (`*.sub.example.com.`), interaction with explicit records that shadow wildcards, and CNAME wildcards.
 
 ## 10. Risks and Open Questions

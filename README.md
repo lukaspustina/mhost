@@ -4,7 +4,7 @@
 
 [![CI build](https://github.com/lukaspustina/mhost/actions/workflows/ci.yml/badge.svg)](https://github.com/lukaspustina/mhost/actions/workflows/ci.yml) [![mhost on crates.io](https://img.shields.io/crates/v/mhost.svg)](https://crates.io/crates/mhost) [![Documentation on docs.rs](https://docs.rs/mhost/badge.svg)](https://docs.rs/mhost) [![GitHub release](https://img.shields.io/github/release/lukaspustina/mhost.svg)](https://github.com/lukaspustina/mhost/releases) ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg) ![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)
 
-mhost queries many DNS servers in parallel and aggregates their answers. It supports UDP, TCP, DNS-over-TLS, and DNS-over-HTTPS, understands 20 record types, and ships with 84 pre-configured public resolvers. Beyond simple lookups it can profile an entire domain, discover subdomains, trace the delegation chain, validate your DNS configuration, check propagation, and diff records across nameservers -- all from a single binary.
+mhost queries many DNS servers in parallel and aggregates their answers. It supports UDP, TCP, DNS-over-TLS, and DNS-over-HTTPS, understands 20 record types, and ships with 84 pre-configured public resolvers. Beyond simple lookups it can profile an entire domain, discover subdomains, trace the delegation chain, validate your DNS configuration, check propagation, diff records across nameservers, and verify live DNS against a zone file -- all from a single binary.
 
 **Two ways to use it:** `mhost` is a powerful CLI for scripts, pipelines, and quick one-liners. `mdive` is an interactive TUI that lets you explore DNS like a file manager -- drill into subdomains, discover hidden records, and chase references across domains, all without leaving your terminal.
 
@@ -48,11 +48,13 @@ mdive github.com
 | [`check`](#check) | `c` | Validate DNS configuration against 13 lints (SOA, NS, SPF, DMARC, DNSSEC, ...) |
 | [`trace`](#trace) | `t` | Trace the delegation path from root servers, querying all servers at each hop |
 | [`propagation`](#propagation) | `prop` | Check whether a DNS change has propagated across public resolvers |
+| [`verify`](#verify) | `v` | Verify live DNS matches a BIND zone file -- catch drift before it bites |
 | [`diff`](#diff) | -- | Compare DNS records between nameservers or JSON snapshots |
 | [`info`](#info) | -- | Built-in reference for record types, TXT sub-types, and well-known subdomains |
 | `server-lists` | -- | Download public nameserver lists for large-scale queries |
 | `completions` | -- | Generate shell completions (bash, zsh, fish) |
-| **[`mdive`](#mdive--interactive-tui)** | -- | **Interactive TUI for exploring DNS -- drill down, discover, and investigate** |
+
+**Looking for a UI?** [`mdive`](#mdive--interactive-tui) is an interactive TUI for exploring DNS -- drill down, discover, and investigate, all without leaving your terminal.
 
 ---
 
@@ -211,6 +213,33 @@ mhost diff --left-from-file before.json --right 1.1.1.1 example.com
 # Or compare two snapshots offline
 mhost diff --left-from-file before.json --right-from-file after.json example.com
 ```
+
+### Verify DNS Against a Zone File
+
+```sh
+mhost verify example.com.zone
+```
+
+Pushed a DNS change and wondering if it actually landed? `verify` reads a BIND zone file -- the most widely used format for DNS zone specification -- compares every record against live DNS, and tells you exactly what matches, what's missing, and what showed up unexpectedly. Non-zero exit code on mismatch, so it drops straight into CI pipelines.
+
+```sh
+# Verify against your authoritative nameserver
+mhost -s ns1.example.com verify example.com.zone
+
+# Check propagation to public resolvers
+mhost -p verify example.com.zone
+
+# Strict mode: also flag TTL differences
+mhost verify --strict example.com.zone
+
+# Only check mail-related records
+mhost verify --only-type MX,TXT example.com.zone
+
+# CI one-liner
+mhost verify zones/example.com.zone || notify_team "DNS drift detected"
+```
+
+**Don't have a zone file?** BIND zone format is the universal lingua franca of DNS -- almost every DNS provider can export to it, and tools like `dig`, `nsd`, and BIND itself all speak it natively. If your DNS lives in Terraform, Pulumi, CloudFormation, or any other IaC tool, just ask an LLM to convert the state to a BIND zone file. For example, feed `terraform show -json` output to your favorite LLM and ask for a zone file -- it takes seconds and gives you a portable, version-controllable source of truth you can verify against at any time.
 
 ### Look Up Record Type Info
 
@@ -524,6 +553,24 @@ mhost diff [OPTIONS] <DOMAIN>
 ```
 
 Each side requires either `--left`/`--right` (live query) or `--left-from-file`/`--right-from-file` (snapshot). You can mix: one side live, the other from file.
+
+### Verify
+
+```sh
+mhost verify [OPTIONS] <ZONE_FILE>
+```
+
+```
+  <ZONE_FILE>                      Path to BIND zone file (required)
+      --origin <NAME>              Override zone origin ($ORIGIN)
+      --strict                     Report TTL differences as mismatches
+      --only-type <TYPE>           Only verify these record types (repeatable, comma-delimited)
+      --ignore-type <TYPE>         Skip these record types (repeatable, comma-delimited)
+      --ignore-extra               Suppress extra-record reporting (live records not in zone file)
+      --ignore-soa                 Skip SOA serial comparison
+```
+
+By default, SOA, DNSSEC records (RRSIG, DNSKEY, DS, NSEC, NSEC3, NSEC3PARAM), and apex NS records are skipped. Wildcard records are reported as skipped since they can't be verified via simple lookups. Exit code `0` means all records verified; non-zero means mismatches or missing records.
 
 ---
 
