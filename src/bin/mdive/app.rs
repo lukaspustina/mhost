@@ -960,7 +960,6 @@ impl App {
                     Some(existing) => self.lookups = Some(existing.merge(lookups)),
                     None => self.lookups = Some(lookups),
                 }
-                self.update_dnssec_status();
                 if !self.rows.is_empty() && self.table_state.selected().is_none() {
                     self.table_state.select(Some(0));
                 }
@@ -1002,7 +1001,6 @@ impl App {
                     Some(existing) => self.lookups = Some(existing.merge(lookups)),
                     None => self.lookups = Some(lookups),
                 }
-                self.update_dnssec_status();
                 if !self.rows.is_empty() && self.table_state.selected().is_none() {
                     self.table_state.select(Some(0));
                 }
@@ -1021,6 +1019,7 @@ impl App {
                     elapsed,
                 };
                 self.batch_progress = (0, 0);
+                self.update_dnssec_status();
             }
             Action::DnsError { generation, message } => {
                 if generation != self.query_generation { return; }
