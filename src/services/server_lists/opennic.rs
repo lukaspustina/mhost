@@ -72,6 +72,13 @@ pub async fn download(downloader: ServerListDownloader, spec: &OpenNic) -> Resul
         source: e,
     })?;
 
+    if body.len() as u64 > MAX_RESPONSE_SIZE {
+        return Err(Error::HttpClientErrorMessage {
+            why: "response too large",
+            details: format!("response size {} bytes exceeds limit of {} bytes", body.len(), MAX_RESPONSE_SIZE),
+        });
+    }
+
     let servers = serde_json::from_str::<Vec<NameServer>>(&body).map_err(Error::from)?;
     #[allow(clippy::map_flatten)]
     let nameserver_configs: Vec<NameServerConfig> = servers

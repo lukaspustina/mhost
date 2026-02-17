@@ -429,6 +429,13 @@ impl RipeStatsClient {
             source: e,
         })?;
 
+        if body.len() as u64 > MAX_RESPONSE_SIZE {
+            return Err(Error::HttpClientErrorMessage {
+                why: "response too large",
+                details: format!("response size {} bytes exceeds limit of {} bytes", body.len(), MAX_RESPONSE_SIZE),
+            });
+        }
+
         serde_json::from_str::<Response<T>>(&body).map_err(Error::from)
     }
 }
