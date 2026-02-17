@@ -179,6 +179,7 @@ struct VerifyResults {
     missing: Vec<Record>,         // expected but not in live DNS
     extra: Vec<Record>,           // in live DNS but not in zone file (empty when --ignore-extra)
     ttl_drifts: Vec<TtlDrift>,   // only populated in --strict mode
+    skipped_wildcards: Vec<Record>, // wildcard records skipped (not verifiable via simple lookup)
     soa_check: Option<SoaCheck>,  // SOA serial comparison (None when --ignore-soa)
 }
 
@@ -297,6 +298,7 @@ These are ideas for potential future extension, not committed scope. They should
 - BIND zone export from `lookup` / `domain-lookup` results (`--format zone`)
 - Terraform state JSON import (`terraform show -json | mhost verify --format terraform-state -`)
 - Generic CSV/TSV record format (name, type, value)
+- **Probe-based wildcard verification** — For each wildcard record in the zone file (e.g., `*.example.com. IN A 1.2.3.4`), generate a random probe subdomain (e.g., `_mhost-probe-{random}.example.com.`), query it, and verify the response rdata matches the wildcard's rdata. This would actively test that wildcard synthesis works, rather than just confirming the wildcard record exists. Challenges: handling NXDOMAIN for zones without the expected wildcard, multi-level wildcards (`*.sub.example.com.`), interaction with explicit records that shadow wildcards, and CNAME wildcards.
 
 ## 10. Risks and Open Questions
 
@@ -308,6 +310,6 @@ These are ideas for potential future extension, not committed scope. They should
 
 4. **CNAME interaction.** If the zone file has a CNAME for `foo.example.com`, a live lookup for A records at that name will follow the CNAME and return A records of the target. The comparison logic needs to account for CNAME following behavior.
 
-5. **Wildcard records.** Zone files may contain wildcard records (`*.example.com`). Verifying these requires synthesizing specific names to query, which is non-trivial. Consider deferring wildcard verification to a later phase.
+5. **Wildcard records.** ~~Zone files may contain wildcard records (`*.example.com`). Verifying these requires synthesizing specific names to query, which is non-trivial. Consider deferring wildcard verification to a later phase.~~ — Resolved: wildcard records (names where the first label is `*`) are now separated during zone parsing and reported as "skipped" in verification output. They are excluded from DNS queries since querying the literal wildcard name doesn't verify synthesis behavior. See "Probe-based wildcard verification" in Phase 3 for a future approach that would actively test wildcard synthesis.
 
-6. **Feature flag scoping.** The `text-parsing` feature should likely be gated behind the `app` feature flag (or a new `verify` feature) so library-only builds don't pull in the zone parser unless needed.
+6. **Feature flag scoping.** ~~The `text-parsing` feature should likely be gated behind the `app` feature flag (or a new `verify` feature) so library-only builds don't pull in the zone parser unless needed.~~ — Resolved: `hickory-proto` is declared `optional = true` and only enabled by the `app` feature. The `zone` module is gated with `#[cfg(feature = "hickory-proto")]`. Library-only builds exclude zone parsing.

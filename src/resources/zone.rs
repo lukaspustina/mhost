@@ -22,6 +22,7 @@ use crate::resources::{Record, RecordType};
 pub struct Zone {
     origin: Name,
     records: Vec<Record>,
+    wildcard_records: Vec<Record>,
     soa: Option<Record>,
 }
 
@@ -32,6 +33,10 @@ impl Zone {
 
     pub fn records(&self) -> &[Record] {
         &self.records
+    }
+
+    pub fn wildcard_records(&self) -> &[Record] {
+        &self.wildcard_records
     }
 
     pub fn soa(&self) -> Option<&Record> {
@@ -88,6 +93,7 @@ pub fn parse_str(content: &str, path: Option<&Path>, origin: Option<Name>) -> cr
     })?;
 
     let mut records = Vec::new();
+    let mut wildcard_records = Vec::new();
     let mut soa = None;
     for (_rr_key, record_set) in record_sets {
         for proto_record in record_set.records_without_rrsigs() {
@@ -102,6 +108,10 @@ pub fn parse_str(content: &str, path: Option<&Path>, origin: Option<Name>) -> cr
             if is_apex_ns(&record, &zone_origin) {
                 continue;
             }
+            if record.name().is_wildcard() {
+                wildcard_records.push(record);
+                continue;
+            }
             records.push(record);
         }
     }
@@ -109,6 +119,7 @@ pub fn parse_str(content: &str, path: Option<&Path>, origin: Option<Name>) -> cr
     Ok(Zone {
         origin: zone_origin,
         records,
+        wildcard_records,
         soa,
     })
 }
@@ -287,5 +298,41 @@ sub     IN NS   ns1.sub.example.com.
             .collect();
         assert_eq!(ns_records.len(), 1, "non-apex NS should be preserved");
         assert_eq!(ns_records[0].name().to_string(), "sub.example.com.");
+    }
+
+    #[test]
+    fn parse_separates_wildcard_records() {
+        let zone_text = r#"
+$ORIGIN example.com.
+$TTL 3600
+@       IN SOA ns1.example.com. admin.example.com. (
+                2024010101 3600 1800 604800 86400 )
+@       IN NS   ns1.example.com.
+@       IN A    1.2.3.4
+*       IN A    5.6.7.8
+*.sub   IN A    9.10.11.12
+www     IN A    1.2.3.4
+"#;
+        let zone = parse_str(zone_text, None, None).unwrap();
+
+        // Non-wildcard records should be in records()
+        assert_eq!(zone.records().len(), 2, "should have apex A and www A");
+        assert!(
+            zone.records().iter().all(|r| !r.name().is_wildcard()),
+            "records() should not contain wildcards"
+        );
+
+        // Wildcard records should be in wildcard_records()
+        assert_eq!(zone.wildcard_records().len(), 2, "should have *.example.com and *.sub.example.com");
+        assert!(
+            zone.wildcard_records().iter().all(|r| r.name().is_wildcard()),
+            "wildcard_records() should only contain wildcards"
+        );
+    }
+
+    #[test]
+    fn parse_no_wildcards() {
+        let zone = parse_str(MINIMAL_ZONE, None, None).unwrap();
+        assert!(zone.wildcard_records().is_empty(), "MINIMAL_ZONE has no wildcards");
     }
 }

@@ -44,6 +44,15 @@ impl SummaryFormatter for VerifyResults {
                     check.expected_serial,
                 )?;
             }
+            if !self.skipped_wildcards.is_empty() {
+                writeln!(writer)?;
+                writeln!(
+                    writer,
+                    " {} {} wildcard record(s) skipped (not verifiable via simple lookup).",
+                    output_styles::attention_prefix().paint(output_styles::ATTENTION),
+                    self.skipped_wildcards.len()
+                )?;
+            }
             return Ok(());
         }
 
@@ -131,10 +140,21 @@ impl SummaryFormatter for VerifyResults {
             writeln!(writer)?;
         }
 
+        // Wildcard info
+        if !self.skipped_wildcards.is_empty() {
+            writeln!(
+                writer,
+                " {} {} wildcard record(s) skipped (not verifiable via simple lookup).",
+                output_styles::attention_prefix().paint(output_styles::ATTENTION),
+                self.skipped_wildcards.len()
+            )?;
+            writeln!(writer)?;
+        }
+
         // Summary line
         writeln!(
             writer,
-            " {} matched, {} missing, {} extra{}",
+            " {} matched, {} missing, {} extra{}{}",
             self.matches.len(),
             self.missing.len(),
             self.extra.len(),
@@ -142,6 +162,11 @@ impl SummaryFormatter for VerifyResults {
                 String::new()
             } else {
                 format!(", {} TTL drifts", self.ttl_drifts.len())
+            },
+            if self.skipped_wildcards.is_empty() {
+                String::new()
+            } else {
+                format!(", {} wildcards skipped", self.skipped_wildcards.len())
             },
         )?;
 

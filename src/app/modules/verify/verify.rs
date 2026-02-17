@@ -54,6 +54,7 @@ impl Verify {
         } else {
             zone.soa().cloned()
         };
+        let skipped_wildcards: Vec<Record> = zone.wildcard_records().to_vec();
         let mut zone_records = zone.into_records();
 
         // Apply type filtering
@@ -111,6 +112,7 @@ impl Verify {
                 zone_records,
                 zone_origin,
                 zone_soa,
+                skipped_wildcards,
                 live_records: Vec::new(),
             });
         }
@@ -134,6 +136,7 @@ impl Verify {
             zone_records,
             zone_origin,
             zone_soa,
+            skipped_wildcards,
             live_records,
         })
     }
@@ -144,6 +147,7 @@ pub struct VerifyCompare<'a> {
     zone_records: Vec<Record>,
     zone_origin: Name,
     zone_soa: Option<Record>,
+    skipped_wildcards: Vec<Record>,
     live_records: Vec<Record>,
 }
 
@@ -245,14 +249,16 @@ impl<'a> VerifyCompare<'a> {
             missing,
             extra,
             ttl_drifts,
+            skipped_wildcards: self.skipped_wildcards,
             soa_check,
         };
 
-        debug!("Verify results: {} matched, {} missing, {} extra, {} TTL drifts, SOA check: {:?}",
+        debug!("Verify results: {} matched, {} missing, {} extra, {} TTL drifts, {} wildcards skipped, SOA check: {:?}",
             results.matches.len(),
             results.missing.len(),
             results.extra.len(),
             results.ttl_drifts.len(),
+            results.skipped_wildcards.len(),
             results.soa_check,
         );
 
@@ -278,6 +284,7 @@ pub struct VerifyResults {
     pub missing: Vec<Record>,
     pub extra: Vec<Record>,
     pub ttl_drifts: Vec<TtlDrift>,
+    pub skipped_wildcards: Vec<Record>,
     pub soa_check: Option<SoaCheck>,
 }
 
@@ -393,6 +400,7 @@ mod tests {
             missing: Vec::new(),
             extra: Vec::new(),
             ttl_drifts: Vec::new(),
+            skipped_wildcards: Vec::new(),
             soa_check: None,
         };
 
@@ -408,6 +416,7 @@ mod tests {
             missing: vec![make_a_record("example.com.", Ipv4Addr::new(1, 2, 3, 4), 300)],
             extra: Vec::new(),
             ttl_drifts: Vec::new(),
+            skipped_wildcards: Vec::new(),
             soa_check: None,
         };
 
@@ -427,6 +436,7 @@ mod tests {
                 expected_ttl: 3600,
                 actual_ttl: 300,
             }],
+            skipped_wildcards: Vec::new(),
             soa_check: None,
         };
 
@@ -442,6 +452,7 @@ mod tests {
             missing: Vec::new(),
             extra: vec![make_a_record("example.com.", Ipv4Addr::new(5, 6, 7, 8), 300)],
             ttl_drifts: Vec::new(),
+            skipped_wildcards: Vec::new(),
             soa_check: None,
         };
 
@@ -457,6 +468,7 @@ mod tests {
             missing: Vec::new(),
             extra: Vec::new(),
             ttl_drifts: Vec::new(),
+            skipped_wildcards: Vec::new(),
             soa_check: Some(SoaCheck {
                 expected_serial: 2024010102,
                 actual_serial: Some(2024010101),
@@ -476,6 +488,7 @@ mod tests {
             missing: Vec::new(),
             extra: Vec::new(),
             ttl_drifts: Vec::new(),
+            skipped_wildcards: Vec::new(),
             soa_check: Some(SoaCheck {
                 expected_serial: 2024010101,
                 actual_serial: Some(2024010101),
@@ -495,6 +508,7 @@ mod tests {
             missing: Vec::new(),
             extra: Vec::new(),
             ttl_drifts: Vec::new(),
+            skipped_wildcards: Vec::new(),
             soa_check: Some(SoaCheck {
                 expected_serial: 2024010101,
                 actual_serial: None,
@@ -514,6 +528,7 @@ mod tests {
             missing: vec![make_mx_record("example.com.", 10, "mail.example.com.", 300)],
             extra: Vec::new(),
             ttl_drifts: Vec::new(),
+            skipped_wildcards: Vec::new(),
             soa_check: Some(SoaCheck {
                 expected_serial: 2024010101,
                 actual_serial: Some(2024010101),
@@ -544,6 +559,7 @@ mod tests {
             missing: Vec::new(),
             extra: Vec::new(),
             ttl_drifts: Vec::new(),
+            skipped_wildcards: Vec::new(),
             soa_check: None,
         };
 
@@ -564,6 +580,7 @@ mod tests {
             missing: vec![make_a_record("www.example.com.", Ipv4Addr::new(1, 2, 3, 4), 300)],
             extra: Vec::new(),
             ttl_drifts: Vec::new(),
+            skipped_wildcards: Vec::new(),
             soa_check: None,
         };
 
@@ -584,6 +601,7 @@ mod tests {
             missing: Vec::new(),
             extra: vec![make_a_record("example.com.", Ipv4Addr::new(5, 6, 7, 8), 300)],
             ttl_drifts: Vec::new(),
+            skipped_wildcards: Vec::new(),
             soa_check: None,
         };
 
@@ -608,6 +626,7 @@ mod tests {
                 expected_ttl: 3600,
                 actual_ttl: 300,
             }],
+            skipped_wildcards: Vec::new(),
             soa_check: None,
         };
 
@@ -629,6 +648,7 @@ mod tests {
             missing: Vec::new(),
             extra: Vec::new(),
             ttl_drifts: Vec::new(),
+            skipped_wildcards: Vec::new(),
             soa_check: Some(SoaCheck {
                 expected_serial: 2024010101,
                 actual_serial: Some(2024010101),
@@ -653,6 +673,7 @@ mod tests {
             missing: Vec::new(),
             extra: Vec::new(),
             ttl_drifts: Vec::new(),
+            skipped_wildcards: Vec::new(),
             soa_check: Some(SoaCheck {
                 expected_serial: 2024010102,
                 actual_serial: Some(2024010101),
