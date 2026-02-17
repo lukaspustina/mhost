@@ -604,21 +604,18 @@ impl App {
         }
 
         match action {
+            // Lifecycle
             Action::Quit => {
-                let has_results = self.lookups.is_some();
-                if has_results && !self.quit_confirm {
+                if self.lookups.is_some() && !self.quit_confirm {
                     self.quit_confirm = true;
                 } else {
                     self.should_quit = true;
                 }
             }
 
-            Action::EnterInputMode => {
-                self.mode = Mode::Input;
-            }
-            Action::ExitInputMode => {
-                self.mode = Mode::Normal;
-            }
+            // Mode switching
+            Action::EnterInputMode => self.mode = Mode::Input,
+            Action::ExitInputMode => self.mode = Mode::Normal,
             Action::EnterSearchMode => {
                 self.filter_input = self.filter.as_ref().map_or(String::new(), |r| r.as_str().to_string());
                 self.filter_cursor_pos = self.filter_input.len();
@@ -629,31 +626,7 @@ impl App {
                 self.filter_error = None;
                 self.mode = Mode::Normal;
             }
-            Action::ApplyFilter => {
-                let trimmed = self.filter_input.trim().to_string();
-                if trimmed.is_empty() {
-                    self.filter = None;
-                    self.filter_error = None;
-                } else {
-                    match RegexBuilder::new(&trimmed)
-                        .case_insensitive(true)
-                        .size_limit(10 * (1 << 20))
-                        .dfa_size_limit(10 * (1 << 20))
-                        .build()
-                    {
-                        Ok(re) => {
-                            self.filter = Some(re);
-                            self.filter_error = None;
-                        }
-                        Err(e) => {
-                            self.filter_error = Some(e.to_string());
-                            return;
-                        }
-                    }
-                }
-                self.mode = Mode::Normal;
-                self.rebuild_rows();
-            }
+            Action::ApplyFilter => self.handle_apply_filter(),
             Action::ClearFilter => {
                 self.filter = None;
                 self.filter_error = None;
@@ -661,109 +634,167 @@ impl App {
                 self.filter_cursor_pos = 0;
                 self.rebuild_rows();
             }
-            Action::SubmitQuery => {
-                let domain = self.input.trim().to_string();
-                if !domain.is_empty() {
-                    // Abort existing tasks before starting new query
-                    if let Some(handle) = self.dns_task.take() {
-                        handle.abort();
-                    }
-                    for handle in self.discovery_tasks.drain(..) {
-                        handle.abort();
-                    }
-                    self.resolver_group = None;
+            Action::SubmitQuery => self.handle_submit_query(),
 
-                    // Manual query clears navigation history (fresh start)
-                    self.history.clear();
-
-                    self.mode = Mode::Normal;
-                    self.query_generation += 1;
-                    self.query_state = QueryState::Loading {
-                        domain: domain.clone(),
-                    };
-                    self.reset_query_state();
-                }
-            }
-
+            // Input editing
             Action::InputChar(c) => {
                 let (buf, pos) = self.active_input_mut();
                 buf.insert(*pos, c);
                 *pos += c.len_utf8();
             }
-            Action::InputBackspace => {
-                let (buf, pos) = self.active_input_mut();
-                if *pos > 0 {
-                    let prev = buf[..*pos]
-                        .char_indices()
-                        .next_back()
-                        .map(|(i, _)| i)
-                        .unwrap_or(0);
-                    buf.drain(prev..*pos);
-                    *pos = prev;
-                }
-            }
-            Action::InputLeft => {
-                let (buf, pos) = self.active_input_mut();
-                if *pos > 0 {
-                    *pos = buf[..*pos]
-                        .char_indices()
-                        .next_back()
-                        .map(|(i, _)| i)
-                        .unwrap_or(0);
-                }
-            }
-            Action::InputRight => {
-                let (buf, pos) = self.active_input_mut();
-                if *pos < buf.len() {
-                    *pos = buf[*pos..]
-                        .char_indices()
-                        .nth(1)
-                        .map(|(i, _)| *pos + i)
-                        .unwrap_or(buf.len());
-                }
-            }
-            Action::InputHome => {
-                let (_buf, pos) = self.active_input_mut();
-                *pos = 0;
-            }
-            Action::InputEnd => {
-                let (buf, pos) = self.active_input_mut();
-                *pos = buf.len();
-            }
-            Action::InputDeleteWord => {
-                let (buf, pos) = self.active_input_mut();
-                if *pos > 0 {
-                    let new_pos = buf[..*pos]
-                        .trim_end()
-                        .rfind(|c: char| c.is_whitespace())
-                        .map(|i| i + 1)
-                        .unwrap_or(0);
-                    buf.drain(new_pos..*pos);
-                    *pos = new_pos;
-                }
+            Action::InputBackspace | Action::InputLeft | Action::InputRight
+            | Action::InputHome | Action::InputEnd | Action::InputDeleteWord => {
+                self.handle_input_editing(action);
             }
 
+            // View toggles
             Action::SelectAll => {
-                for cat in TOGGLEABLE_CATEGORIES {
-                    self.active_categories.insert(*cat);
-                }
+                for cat in TOGGLEABLE_CATEGORIES { self.active_categories.insert(*cat); }
                 self.rebuild_rows();
             }
             Action::SelectNone => {
                 self.active_categories.clear();
                 self.rebuild_rows();
             }
-            Action::ToggleHumanView => {
-                self.human_view = !self.human_view;
-            }
-            Action::ToggleStats => {
-                self.show_stats = !self.show_stats;
-            }
+            Action::ToggleHumanView => self.human_view = !self.human_view,
+            Action::ToggleStats => self.show_stats = !self.show_stats,
             Action::CycleGroupMode => {
                 self.group_mode = self.group_mode.next();
                 self.rebuild_rows();
             }
 
+            // Table navigation
+            Action::MoveUp | Action::MoveDown | Action::PageUp | Action::PageDown
+            | Action::Home | Action::End | Action::DigitPress(_)
+            | Action::PressG | Action::PressCapG => {
+                self.handle_navigation(action);
+            }
+
+            // Record drill / history
+            Action::OpenRecordDetail => self.handle_open_record_detail(),
+            Action::DrillIntoName => self.handle_drill_into_name(),
+            Action::DrillIntoValue => self.handle_drill_into_value(),
+            Action::GoBack => {
+                if let Some(handle) = self.dns_task.take() { handle.abort(); }
+                for handle in self.discovery_tasks.drain(..) { handle.abort(); }
+                self.pop_history();
+            }
+
+            // Popups
+            Action::OpenHelp => { self.popup = Popup::Help; self.help_scroll = 0; }
+            Action::OpenServers => { self.popup = Popup::Servers; self.servers_scroll = 0; }
+            Action::OpenWhois => { self.popup = Popup::Whois; self.whois_scroll = 0; }
+            Action::OpenLints => self.handle_open_lints(),
+            Action::WhoisResult { generation, data } => {
+                if generation == self.query_generation {
+                    self.whois_data = Some(data);
+                    self.whois_error = None;
+                    self.whois_loading = false;
+                }
+            }
+            Action::WhoisError { generation, message } => {
+                if generation == self.query_generation {
+                    self.whois_error = Some(message);
+                    self.whois_loading = false;
+                }
+            }
+            Action::ClosePopup => self.popup = Popup::None,
+            Action::PopupScrollUp => self.popup_scroll_mut(|s| *s = s.saturating_sub(1)),
+            Action::PopupScrollDown => self.popup_scroll_mut(|s| *s = s.saturating_add(1)),
+            Action::PopupScrollPageUp => self.popup_scroll_mut(|s| *s = s.saturating_sub(10)),
+            Action::PopupScrollPageDown => self.popup_scroll_mut(|s| *s = s.saturating_add(10)),
+            Action::PopupScrollHome => self.popup_scroll_mut(|s| *s = 0),
+            Action::PopupScrollEnd => self.popup_scroll_mut(|s| *s = u16::MAX),
+
+            // Discovery
+            Action::OpenDiscovery | Action::RunStrategy(_) | Action::RunAllStrategies
+            | Action::DiscoveryBatch { .. } | Action::DiscoveryComplete { .. }
+            | Action::DiscoveryError { .. } | Action::WildcardComplete { .. } => {
+                self.handle_discovery(action);
+            }
+
+            // DNS results
+            Action::DnsBatch { .. } | Action::DnsComplete { .. } | Action::DnsError { .. } => {
+                self.handle_dns_result(action);
+            }
+        }
+    }
+
+    fn handle_apply_filter(&mut self) {
+        let trimmed = self.filter_input.trim().to_string();
+        if trimmed.is_empty() {
+            self.filter = None;
+            self.filter_error = None;
+        } else {
+            match RegexBuilder::new(&trimmed)
+                .case_insensitive(true)
+                .size_limit(10 * (1 << 20))
+                .dfa_size_limit(10 * (1 << 20))
+                .build()
+            {
+                Ok(re) => {
+                    self.filter = Some(re);
+                    self.filter_error = None;
+                }
+                Err(e) => {
+                    self.filter_error = Some(e.to_string());
+                    return;
+                }
+            }
+        }
+        self.mode = Mode::Normal;
+        self.rebuild_rows();
+    }
+
+    fn handle_submit_query(&mut self) {
+        let domain = self.input.trim().to_string();
+        if !domain.is_empty() {
+            if let Some(handle) = self.dns_task.take() { handle.abort(); }
+            for handle in self.discovery_tasks.drain(..) { handle.abort(); }
+            self.resolver_group = None;
+            self.history.clear();
+            self.mode = Mode::Normal;
+            self.query_generation += 1;
+            self.query_state = QueryState::Loading { domain };
+            self.reset_query_state();
+        }
+    }
+
+    fn handle_input_editing(&mut self, action: Action) {
+        let (buf, pos) = self.active_input_mut();
+        match action {
+            Action::InputBackspace => {
+                if *pos > 0 {
+                    let prev = buf[..*pos].char_indices().next_back().map(|(i, _)| i).unwrap_or(0);
+                    buf.drain(prev..*pos);
+                    *pos = prev;
+                }
+            }
+            Action::InputLeft => {
+                if *pos > 0 {
+                    *pos = buf[..*pos].char_indices().next_back().map(|(i, _)| i).unwrap_or(0);
+                }
+            }
+            Action::InputRight => {
+                if *pos < buf.len() {
+                    *pos = buf[*pos..].char_indices().nth(1).map(|(i, _)| *pos + i).unwrap_or(buf.len());
+                }
+            }
+            Action::InputHome => *pos = 0,
+            Action::InputEnd => *pos = buf.len(),
+            Action::InputDeleteWord => {
+                if *pos > 0 {
+                    let new_pos = buf[..*pos].trim_end().rfind(|c: char| c.is_whitespace()).map(|i| i + 1).unwrap_or(0);
+                    buf.drain(new_pos..*pos);
+                    *pos = new_pos;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_navigation(&mut self, action: Action) {
+        match action {
             Action::MoveUp => {
                 let i = match self.table_state.selected() {
                     Some(i) => i.saturating_sub(1),
@@ -773,9 +804,7 @@ impl App {
                 self.table_state.select(Some(i));
             }
             Action::MoveDown => {
-                if self.rows.is_empty() {
-                    return;
-                }
+                if self.rows.is_empty() { return; }
                 let i = match self.table_state.selected() {
                     Some(i) => (i + 1).min(self.rows.len() - 1),
                     None => 0,
@@ -791,9 +820,7 @@ impl App {
                 self.table_state.select(Some(i));
             }
             Action::PageDown => {
-                if self.rows.is_empty() {
-                    return;
-                }
+                if self.rows.is_empty() { return; }
                 let i = match self.table_state.selected() {
                     Some(i) => (i + 10).min(self.rows.len() - 1),
                     None => 0,
@@ -801,31 +828,22 @@ impl App {
                 self.table_state.select(Some(i));
             }
             Action::Home => {
-                if !self.rows.is_empty() {
-                    self.table_state.select(Some(0));
-                }
+                if !self.rows.is_empty() { self.table_state.select(Some(0)); }
             }
             Action::End => {
-                if !self.rows.is_empty() {
-                    self.table_state.select(Some(self.rows.len() - 1));
-                }
+                if !self.rows.is_empty() { self.table_state.select(Some(self.rows.len() - 1)); }
             }
-
             Action::DigitPress(c) => {
-                if self.count_buffer.len() < 6 {
-                    self.count_buffer.push(c);
-                }
+                if self.count_buffer.len() < 6 { self.count_buffer.push(c); }
             }
             Action::PressG => {
                 if self.pending_g.is_some() {
-                    // Second g: jump to line N or top
                     self.pending_g = None;
                     let line = self.count_buffer.parse::<usize>().unwrap_or(0);
                     self.count_buffer.clear();
                     if !self.rows.is_empty() {
                         if line > 0 {
-                            self.table_state
-                                .select(Some((line - 1).min(self.rows.len() - 1)));
+                            self.table_state.select(Some((line - 1).min(self.rows.len() - 1)));
                         } else {
                             self.table_state.select(Some(0));
                         }
@@ -840,123 +858,69 @@ impl App {
                 self.count_buffer.clear();
                 if !self.rows.is_empty() {
                     if line > 0 {
-                        self.table_state
-                            .select(Some((line - 1).min(self.rows.len() - 1)));
+                        self.table_state.select(Some((line - 1).min(self.rows.len() - 1)));
                     } else {
                         self.table_state.select(Some(self.rows.len() - 1));
                     }
                 }
             }
+            _ => {}
+        }
+    }
 
-            Action::OpenRecordDetail => {
-                if let Some(idx) = self.table_state.selected() {
-                    if let Some(row) = self.rows.get(idx) {
-                        self.record_detail_scroll = 0;
-                        self.popup = Popup::RecordDetail {
-                            name: row.name.clone(),
-                            record_type: row.record_type,
-                            value: row.value.clone(),
-                        };
-                    }
-                }
+    fn handle_open_record_detail(&mut self) {
+        if let Some(idx) = self.table_state.selected() {
+            if let Some(row) = self.rows.get(idx) {
+                self.record_detail_scroll = 0;
+                self.popup = Popup::RecordDetail {
+                    name: row.name.clone(),
+                    record_type: row.record_type,
+                    value: row.value.clone(),
+                };
             }
-            Action::DrillIntoName => {
-                // Only drill when a row is selected and query is done
-                if !matches!(self.query_state, QueryState::Done { .. }) {
-                    return;
-                }
-                if let Some(idx) = self.table_state.selected() {
-                    if let Some(row) = self.rows.get(idx) {
-                        let target = row.name.trim_end_matches('.').to_string();
-                        let current = self.current_domain().trim_end_matches('.');
-                        if !target.is_empty() && target != current {
-                            self.drill_to(target);
-                        }
-                    }
-                }
-            }
-            Action::DrillIntoValue => {
-                if !matches!(self.query_state, QueryState::Done { .. }) {
-                    return;
-                }
-                if let Some(idx) = self.table_state.selected() {
-                    if let Some(row) = self.rows.get(idx) {
-                        if let Some(ref target) = row.drill_target {
-                            let target = target.trim_end_matches('.').to_string();
-                            let current = self.current_domain().trim_end_matches('.');
-                            if !target.is_empty() && target != "." && target != current {
-                                self.drill_to(target);
-                            }
-                        }
-                    }
-                }
-            }
-            Action::GoBack => {
-                // Abort any running tasks before restoring
-                if let Some(handle) = self.dns_task.take() {
-                    handle.abort();
-                }
-                for handle in self.discovery_tasks.drain(..) {
-                    handle.abort();
-                }
-                self.pop_history();
-            }
-            Action::OpenHelp => {
-                self.popup = Popup::Help;
-                self.help_scroll = 0;
-            }
-            Action::OpenServers => {
-                self.popup = Popup::Servers;
-                self.servers_scroll = 0;
-            }
-            Action::OpenWhois => {
-                self.popup = Popup::Whois;
-                self.whois_scroll = 0;
-            }
-            Action::OpenLints => {
-                self.popup = Popup::Lints;
-                self.lint_scroll = 0;
-                if self.lint_results.is_none() {
-                    if let Some(ref lookups) = self.lookups {
-                        self.lint_results = Some(lints::run_lints(lookups));
-                    }
-                }
-            }
-            Action::WhoisResult { generation, data } => {
-                if generation == self.query_generation {
-                    self.whois_data = Some(data);
-                    self.whois_error = None;
-                    self.whois_loading = false;
-                }
-            }
-            Action::WhoisError { generation, message } => {
-                if generation == self.query_generation {
-                    self.whois_error = Some(message);
-                    self.whois_loading = false;
-                }
-            }
-            Action::ClosePopup => {
-                self.popup = Popup::None;
-            }
-            Action::PopupScrollUp => {
-                self.popup_scroll_mut(|s| *s = s.saturating_sub(1));
-            }
-            Action::PopupScrollDown => {
-                self.popup_scroll_mut(|s| *s = s.saturating_add(1));
-            }
-            Action::PopupScrollPageUp => {
-                self.popup_scroll_mut(|s| *s = s.saturating_sub(10));
-            }
-            Action::PopupScrollPageDown => {
-                self.popup_scroll_mut(|s| *s = s.saturating_add(10));
-            }
-            Action::PopupScrollHome => {
-                self.popup_scroll_mut(|s| *s = 0);
-            }
-            Action::PopupScrollEnd => {
-                self.popup_scroll_mut(|s| *s = u16::MAX);
-            }
+        }
+    }
 
+    fn handle_drill_into_name(&mut self) {
+        if !matches!(self.query_state, QueryState::Done { .. }) { return; }
+        if let Some(idx) = self.table_state.selected() {
+            if let Some(row) = self.rows.get(idx) {
+                let target = row.name.trim_end_matches('.').to_string();
+                let current = self.current_domain().trim_end_matches('.');
+                if !target.is_empty() && target != current {
+                    self.drill_to(target);
+                }
+            }
+        }
+    }
+
+    fn handle_drill_into_value(&mut self) {
+        if !matches!(self.query_state, QueryState::Done { .. }) { return; }
+        if let Some(idx) = self.table_state.selected() {
+            if let Some(row) = self.rows.get(idx) {
+                if let Some(ref target) = row.drill_target {
+                    let target = target.trim_end_matches('.').to_string();
+                    let current = self.current_domain().trim_end_matches('.');
+                    if !target.is_empty() && target != "." && target != current {
+                        self.drill_to(target);
+                    }
+                }
+            }
+        }
+    }
+
+    fn handle_open_lints(&mut self) {
+        self.popup = Popup::Lints;
+        self.lint_scroll = 0;
+        if self.lint_results.is_none() {
+            if let Some(ref lookups) = self.lookups {
+                self.lint_results = Some(lints::run_lints(lookups));
+            }
+        }
+    }
+
+    fn handle_discovery(&mut self, action: Action) {
+        match action {
             Action::OpenDiscovery => {
                 if self.lookups.is_some() {
                     self.popup = Popup::Discovery;
@@ -969,7 +933,7 @@ impl App {
             Action::RunStrategy(strategy) => {
                 if let Some(ref mut state) = self.discovery_state {
                     if matches!(state.statuses.get(&strategy), Some(StrategyStatus::Running { .. })) {
-                        return; // already running
+                        return;
                     }
                     state.statuses.insert(strategy, StrategyStatus::Running { completed: 0, total: 0 });
                     self.pending_strategy_spawns.push(strategy);
@@ -1024,11 +988,14 @@ impl App {
                     }
                 }
             }
+            _ => {}
+        }
+    }
 
+    fn handle_dns_result(&mut self, action: Action) {
+        match action {
             Action::DnsBatch { generation, lookups, completed, total } => {
-                if generation != self.query_generation {
-                    return; // discard stale results from a previous query
-                }
+                if generation != self.query_generation { return; }
                 self.batch_progress = (completed, total);
                 self.ingest_batch(&lookups);
                 match self.lookups.take() {
@@ -1041,31 +1008,9 @@ impl App {
                 }
             }
             Action::DnsComplete { generation, elapsed } => {
-                if generation != self.query_generation {
-                    return; // discard stale completion from a previous query
-                }
-                let server_count = self.lookups.as_ref().map_or(0, |lookups| {
-                    let mut servers = HashSet::new();
-                    for lookup in lookups.iter() {
-                        servers.insert(lookup.name_server().to_string());
-                    }
-                    servers.len()
-                });
-                // Count total unique records (before category filtering)
-                let total_record_count = self.lookups.as_ref().map_or(0, |lookups| {
-                    let mut seen = HashSet::new();
-                    for lookup in lookups.iter() {
-                        for record in lookup.records() {
-                            let key = (
-                                record.name().to_string(),
-                                record.record_type(),
-                                format_rdata(record.data()),
-                            );
-                            seen.insert(key);
-                        }
-                    }
-                    seen.len()
-                });
+                if generation != self.query_generation { return; }
+                let server_count = self.responding_servers_set.len();
+                let total_record_count = self.seen_records.len();
                 let domain = self.current_domain().to_string();
                 let record_count = self.rows.len();
                 self.query_state = QueryState::Done {
@@ -1078,13 +1023,12 @@ impl App {
                 self.batch_progress = (0, 0);
             }
             Action::DnsError { generation, message } => {
-                if generation != self.query_generation {
-                    return; // discard stale error from a previous query
-                }
+                if generation != self.query_generation { return; }
                 let domain = self.current_domain().to_string();
                 self.query_state = QueryState::Error { domain, message };
                 self.batch_progress = (0, 0);
             }
+            _ => {}
         }
     }
 
