@@ -1,6 +1,17 @@
 # mhost — Dev Review Findings
 
-Generated: 2026-02-17
+Generated: 2026-02-17 | Last updated: 2026-02-17
+
+## Progress
+
+| Category                | Fixed | Won't Fix | Open | Total |
+|-------------------------|------:|----------:|-----:|------:|
+| Architecture & Code     |     7 |         0 |    4 |    11 |
+| Security                |     3 |         0 |    4 |     7 |
+| Test Coverage           |     3 |         0 |    6 |     9 |
+| UX / CLI / TUI          |     5 |         1 |    7 |    13 |
+| Documentation           |     9 |         0 |    2 |    11 |
+| **Total**               |**27** |     **1** |**23**|**51** |
 
 ## Status Legend
 
