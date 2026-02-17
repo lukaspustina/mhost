@@ -32,6 +32,11 @@
 - Full `Serialize` + `Deserialize` on all DNS types — JSON round-trip for snapshots
 - DNS snapshot and timeline diff: save lookup JSON, diff against live DNS or another snapshot via `--left-from-file` / `--right-from-file`
 - Full module-level documentation, `cargo doc --no-deps` builds clean
+- Usage examples in `mhost --help` output
+- Actionable error messages: Display-formatted error counts with `--timeout` hint on timeout errors
+- HTTP response size limits enforce post-read body length checks (chunked encoding bypass fix)
+- Range validation on all CLI numeric parameters including hidden `--max-worker-threads`
+- Distinct ASCII-mode prefixes for attention (`!`) vs error (`x`)
 </details>
 
 <details>
@@ -42,10 +47,12 @@
 - **Lints / health checks** — Press `c` to show DNS health checks popup. Runs 9 lint categories (CNAME, NS, MX, HTTPS/SVCB, SPF, DMARC, CAA, TTL, DNSSEC) synchronously from existing lookup data. Color-coded results (green OK, yellow warning, red failed), scrollable with j/k.
 - **Summary / stats panel** — Press `S` to toggle a 2-line panel showing record type distribution, unique record count, query health breakdown (OK/NX/errors), responding server count, response time range, and DNSSEC status badge.
 - **Per-server response times** — Press `s` to open servers popup showing a per-server stats table with protocol, OK/error counts, and min/avg/max latency. Sorted by average response time.
-- **DNSSEC status indicator** — Stats panel shows a color-coded DNSSEC badge (signed/partial/broken/unsigned) derived from the existing lint infrastructure.
+- **DNSSEC status indicator** — Stats panel shows a color-coded DNSSEC badge (signed/partial/broken/unsigned) derived from the existing lint infrastructure. Computed once at query completion for efficiency.
 - **Drill-down and query history** — Enter drills into subdomain names, `l`/`→` drills into hostname targets (CNAME, MX, NS, SRV, SOA, SVCB/HTTPS, NAPTR, PTR). Full state snapshots pushed to a history stack. `←`/`Backspace` restores previous state instantly.
 - **Free-text filter / search** — `/` enters search mode with case-insensitive regex matching across name, type, value, and human-readable columns.
 - **Grouping modes** — Press `Tab` to cycle between four grouping modes: Category (default), Type, Name, and Server. Mode preserved in drill-down history.
+- **`--ascii` mode** — Full ASCII fallbacks for all Unicode glyphs (arrows, progress bar, check marks, circle indicators, dashes).
+- **Rendering throttle** — Capped at ~30 fps to avoid excessive redraws during rapid DNS batch arrivals.
 </details>
 
 ---
