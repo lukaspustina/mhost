@@ -562,7 +562,7 @@ mod tests {
                 },
                 {
                     "key": "remarks",
-                    "value": "+ abuse@netcologne.de is contact for criminal use,spam, etc. +",
+                    "value": "+ abuse@example.com is contact for criminal use,spam, etc. +",
                     "details_link": null
                 },
                 {
@@ -970,8 +970,8 @@ mod tests {
                 },
                 {
                     "key": "OrgAbuseEmail",
-                    "value": "abuse@amazonaws.com",
-                    "details_link": "mailto:abuse@amazonaws.com"
+                    "value": "abuse@example.com",
+                    "details_link": "mailto:abuse@example.com"
                 },
                 {
                     "key": "OrgAbuseRef",
@@ -1002,8 +1002,8 @@ mod tests {
                 },
                 {
                     "key": "OrgAbuseEmail",
-                    "value": "abuse@amazonaws.com",
-                    "details_link": "mailto:abuse@amazonaws.com"
+                    "value": "abuse@example.com",
+                    "details_link": "mailto:abuse@example.com"
                 },
                 {
                     "key": "OrgAbuseRef",
@@ -1034,8 +1034,8 @@ mod tests {
                 },
                 {
                     "key": "OrgAbuseEmail",
-                    "value": "abuse@amazonaws.com",
-                    "details_link": "mailto:abuse@amazonaws.com"
+                    "value": "abuse@example.com",
+                    "details_link": "mailto:abuse@example.com"
                 },
                 {
                     "key": "OrgAbuseRef",
@@ -1066,8 +1066,8 @@ mod tests {
                 },
                 {
                     "key": "OrgAbuseEmail",
-                    "value": "hostmaster@arin.net",
-                    "details_link": "mailto:hostmaster@arin.net"
+                    "value": "hostmaster@example.com",
+                    "details_link": "mailto:hostmaster@example.com"
                 },
                 {
                     "key": "OrgAbuseRef",
@@ -1098,8 +1098,8 @@ mod tests {
                 },
                 {
                     "key": "OrgNOCEmail",
-                    "value": "amzn-noc-contact@amazon.com",
-                    "details_link": "mailto:amzn-noc-contact@amazon.com"
+                    "value": "noc-contact@example.com",
+                    "details_link": "mailto:noc-contact@example.com"
                 },
                 {
                     "key": "OrgNOCRef",
@@ -1130,8 +1130,8 @@ mod tests {
                 },
                 {
                     "key": "OrgNOCEmail",
-                    "value": "amzn-noc-contact@amazon.com",
-                    "details_link": "mailto:amzn-noc-contact@amazon.com"
+                    "value": "noc-contact@example.com",
+                    "details_link": "mailto:noc-contact@example.com"
                 },
                 {
                     "key": "OrgNOCRef",
@@ -1162,8 +1162,8 @@ mod tests {
                 },
                 {
                     "key": "OrgNOCEmail",
-                    "value": "amzn-noc-contact@amazon.com",
-                    "details_link": "mailto:amzn-noc-contact@amazon.com"
+                    "value": "noc-contact@example.com",
+                    "details_link": "mailto:noc-contact@example.com"
                 },
                 {
                     "key": "OrgNOCRef",
@@ -1194,8 +1194,8 @@ mod tests {
                 },
                 {
                     "key": "OrgNOCEmail",
-                    "value": "noc@arin.net",
-                    "details_link": "mailto:noc@arin.net"
+                    "value": "noc@example.com",
+                    "details_link": "mailto:noc@example.com"
                 },
                 {
                     "key": "OrgNOCRef",
@@ -1524,7 +1524,7 @@ mod tests {
                 },
                 {
                     "key": "OrgRoutingEmail",
-                    "value": "aws-dogfish-routing-poc@amazon.com",
+                    "value": "routing-poc@example.com",
                     "details_link": null
                 },
                 {
@@ -1556,7 +1556,7 @@ mod tests {
                 },
                 {
                     "key": "OrgRoutingEmail",
-                    "value": "aws-dogfish-routing-poc@amazon.com",
+                    "value": "routing-poc@example.com",
                     "details_link": null
                 },
                 {
@@ -1588,7 +1588,7 @@ mod tests {
                 },
                 {
                     "key": "OrgRoutingEmail",
-                    "value": "aws-routing-poc@amazon.com",
+                    "value": "routing@example.com",
                     "details_link": null
                 },
                 {
@@ -1620,7 +1620,7 @@ mod tests {
                 },
                 {
                     "key": "OrgRoutingEmail",
-                    "value": "aws-routing-poc@amazon.com",
+                    "value": "routing@example.com",
                     "details_link": null
                 },
                 {
@@ -1652,8 +1652,8 @@ mod tests {
                 },
                 {
                     "key": "OrgTechEmail",
-                    "value": "amzn-noc-contact@amazon.com",
-                    "details_link": "mailto:amzn-noc-contact@amazon.com"
+                    "value": "noc-contact@example.com",
+                    "details_link": "mailto:noc-contact@example.com"
                 },
                 {
                     "key": "OrgTechRef",
@@ -1684,8 +1684,8 @@ mod tests {
                 },
                 {
                     "key": "OrgTechEmail",
-                    "value": "amzn-noc-contact@amazon.com",
-                    "details_link": "mailto:amzn-noc-contact@amazon.com"
+                    "value": "noc-contact@example.com",
+                    "details_link": "mailto:noc-contact@example.com"
                 },
                 {
                     "key": "OrgTechRef",
@@ -1716,8 +1716,8 @@ mod tests {
                 },
                 {
                     "key": "OrgTechEmail",
-                    "value": "amzn-noc-contact@amazon.com",
-                    "details_link": "mailto:amzn-noc-contact@amazon.com"
+                    "value": "noc-contact@example.com",
+                    "details_link": "mailto:noc-contact@example.com"
                 },
                 {
                     "key": "OrgTechRef",
@@ -1748,8 +1748,8 @@ mod tests {
                 },
                 {
                     "key": "OrgTechEmail",
-                    "value": "hostmaster@arin.net",
-                    "details_link": "mailto:hostmaster@arin.net"
+                    "value": "hostmaster@example.com",
+                    "details_link": "mailto:hostmaster@example.com"
                 },
                 {
                     "key": "OrgTechRef",
