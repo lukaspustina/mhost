@@ -345,7 +345,7 @@ Examples:
             Arg::new("max-worker-threads")
                 .long("max-worker-threads")
                 .value_name("NUMBER")
-                .value_parser(str::parse::<usize>)
+                .value_parser(usize_range(1, 256))
                 .hide(true)
                 .help("Set the max. number of worker threads overriding derived value")
         )
