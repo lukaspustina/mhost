@@ -70,6 +70,19 @@ pub fn create_parser() -> Command {
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .disable_help_subcommand(true)
         .infer_subcommands(true)
+        .after_help(
+            "Examples:\n  \
+             mhost lookup example.com                    Look up A, AAAA, CNAME, MX records\n  \
+             mhost lookup -t ANY example.com             Look up all record types\n  \
+             mhost lookup 192.168.1.1                    Reverse lookup an IP address\n  \
+             mhost lookup -p example.com                 Use predefined public DNS servers\n  \
+             mhost check example.com                     Run DNS health checks\n  \
+             mhost discover example.com                  Discover subdomains\n  \
+             mhost dnssec example.com                    Verify DNSSEC trust chain\n  \
+             mhost trace example.com                     Trace delegation from root servers\n  \
+             mhost propagation example.com               Check SOA propagation across resolvers\n  \
+             mhost info A                                Show details about a record type",
+        )
         .arg(
             Arg::new("use-system-resolv-opt")
                 .long("use-system-resolv-opt")
