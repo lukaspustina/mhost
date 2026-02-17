@@ -28,7 +28,7 @@ impl<T: Eq> Difference<T> {
     }
 
     pub fn has_differences(&self) -> bool {
-        self.fields.is_empty()
+        !self.fields.is_empty()
     }
 
     pub fn differences(&self) -> &[T] {
@@ -135,6 +135,18 @@ mod tests {
     use crate::IntoName;
 
     use super::*;
+
+    #[test]
+    fn has_differences_empty_fields() {
+        let diff = Difference::<String>::new(vec![]);
+        assert!(!diff.has_differences());
+    }
+
+    #[test]
+    fn has_differences_with_fields() {
+        let diff = Difference::new(vec!["field1".to_string()]);
+        assert!(diff.has_differences());
+    }
 
     #[test]
     fn soa_set_differences() {

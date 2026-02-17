@@ -218,7 +218,7 @@ Examples:
                 .help("Sets resolvers lookup mode")
                 .long_help(r#"Sets resolvers mode
 * multi: Each query is sent to all available name servers
-* uni: Each query is send to exactly on name server
+* uni: Each query is sent to exactly one name server
 "#
     )
         )

@@ -58,10 +58,13 @@ fn do_main() -> Result<ExitStatus> {
     setup_terminal(&args, color);
     setup_logging(&args, color, debug);
     info!("Set up logging.");
-    let app_config = if let Ok(app_config) = parse_global_args(&args) {
-        app_config
-    } else {
-        return Ok(ExitStatus::ConfigParsingFailed);
+    let app_config = match parse_global_args(&args) {
+        Ok(app_config) => app_config,
+        Err(err) => {
+            let console = Console::new(ConsoleOpts::default());
+            console.error(format!("Invalid configuration: {:#}", err));
+            return Ok(ExitStatus::ConfigParsingFailed);
+        }
     };
     info!("Parsed global args.");
     let console = setup_console(&app_config);

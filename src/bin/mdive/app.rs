@@ -675,21 +675,7 @@ impl App {
                     self.query_state = QueryState::Loading {
                         domain: domain.clone(),
                     };
-                    self.rows.clear();
-                    self.lookups = None;
-                    self.batch_progress = (0, 0);
-                    self.table_state.select(None);
-                    self.filter = None;
-                    self.filter_error = None;
-                    self.filter_input.clear();
-                    self.filter_cursor_pos = 0;
-                    self.whois_data = None;
-                    self.whois_error = None;
-                    self.whois_loading = false;
-                    self.lint_results = None;
-                    self.stats_data = None;
-                    self.discovery_state = None;
-                    self.category_map.clear();
+                    self.reset_query_state();
                 }
             }
 
@@ -1211,6 +1197,10 @@ impl App {
         self.query_state = QueryState::Loading {
             domain,
         };
+        self.reset_query_state();
+    }
+
+    fn reset_query_state(&mut self) {
         self.rows.clear();
         self.lookups = None;
         self.batch_progress = (0, 0);

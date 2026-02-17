@@ -220,20 +220,6 @@ impl<'a> TraceRun<'a> {
                 break;
             }
 
-            // Determine the zone name from referrals
-            if let Some(first_result) = hops.last() {
-                if let Some(first_referral) = first_result
-                    .server_results
-                    .iter()
-                    .find(|r| matches!(r.outcome, ServerOutcome::Referral))
-                {
-                    if !first_referral.referral_ns.is_empty() {
-                        // The zone is determined by the NS record owner name from the authority section
-                        // We'll use the authority section zone name from the raw results
-                    }
-                }
-            }
-
             // Resolve glue if needed and build next hop server list
             let mut resolved_servers = next_servers.clone();
             resolver::resolve_missing_glue(self.env.app_config, &mut resolved_servers).await;

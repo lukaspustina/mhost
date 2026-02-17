@@ -36,8 +36,6 @@ impl SOA {
         }
     }
 
-    pub fn increment_serial(&mut self) {}
-
     pub fn mname(&self) -> &Name {
         &self.mname
     }
