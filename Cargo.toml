@@ -3,13 +3,13 @@ name = "mhost"
 version = "0.8.0"
 authors = ["Lukas Pustina <lukas@pustina.de>"]
 edition = "2021"
-description = "More than host - A modern take on the classic host DNS lookup utility including an easy to use and very fast Rust lookup library"
+description = "Fast, async DNS lookup library and CLI -- modern dig/host replacement with parallel multi-server queries, DoH, DoT, subdomain discovery, and zone verification"
 repository = "https://github.com/lukaspustina/mhost.git"
 homepage = "https://mhost.pustina.de"
 readme = "README.md"
 license = "MIT/Apache-2.0"
-categories = ["command-line-utilities"]
-keywords = ["network", "dns", "host", "dig", "cli"]
+categories = ["command-line-utilities", "network-programming"]
+keywords = ["dns", "dns-lookup", "dig", "networking", "dns-client"]
 include = [
   "README.md",
   "LICENSE-APACHE",
