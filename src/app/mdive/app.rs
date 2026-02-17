@@ -1,0 +1,1919 @@
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::str::FromStr;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
+use crate::app::common::ordinal::Ordinal;
+use crate::app::common::rdata_format::{format_rdata, format_rdata_human};
+use crate::app::common::resolver_args::ResolverArgs;
+use crate::app::common::subdomain_spec::{default_entries, Category, SubdomainEntry};
+use crate::resolver::lookup::{LookupResult, Lookups};
+use crate::resolver::Error as ResolverError;
+use crate::resolver::ResolverGroup;
+use crate::resources::rdata::RData;
+use crate::services::whois::WhoisResponses;
+use crate::{Name, RecordType};
+use ratatui::widgets::TableState;
+use regex::RegexBuilder;
+use tokio::task::JoinHandle;
+
+use crate::app::modules::check::lints::{check_dnssec, CheckResult};
+
+use super::lints::{self, LintSection};
+
+/// All categories available for toggling, in display order.
+/// Keys 1-9 map to indices 0-8, key 0 maps to index 9.
+pub const TOGGLEABLE_CATEGORIES: &[Category] = &[
+    Category::EmailAuthentication,  // 1
+    Category::EmailServices,        // 2
+    Category::TlsDane,              // 3
+    Category::Communication,        // 4
+    Category::CalendarContacts,     // 5
+    Category::Infrastructure,       // 6
+    Category::ModernProtocols,      // 7
+    Category::VerificationMetadata, // 8
+    Category::Legacy,               // 9
+    Category::Gaming,               // 0
+];
+
+/// Default active categories on startup (Legacy and Gaming off by default).
+const DEFAULT_CATEGORIES: &[Category] = &[
+    Category::EmailAuthentication,
+    Category::EmailServices,
+    Category::TlsDane,
+    Category::Communication,
+    Category::CalendarContacts,
+    Category::Infrastructure,
+    Category::ModernProtocols,
+    Category::VerificationMetadata,
+];
+
+pub fn category_short_label(cat: Category) -> &'static str {
+    match cat {
+        Category::EmailAuthentication => "Email",
+        Category::EmailServices => "Svc",
+        Category::TlsDane => "TLS",
+        Category::Communication => "Comm",
+        Category::CalendarContacts => "Cal",
+        Category::Infrastructure => "Infra",
+        Category::ModernProtocols => "Modern",
+        Category::VerificationMetadata => "Verify",
+        Category::Legacy => "Legacy",
+        Category::Gaming => "Gaming",
+        Category::Apex => "Apex",
+        Category::Discovered => "Disc",
+    }
+}
+
+fn category_ordinal(cat: Category) -> u8 {
+    match cat {
+        Category::Apex => 0,
+        Category::EmailAuthentication => 1,
+        Category::EmailServices => 2,
+        Category::TlsDane => 3,
+        Category::Communication => 4,
+        Category::CalendarContacts => 5,
+        Category::Infrastructure => 6,
+        Category::ModernProtocols => 7,
+        Category::VerificationMetadata => 8,
+        Category::Legacy => 9,
+        Category::Gaming => 10,
+        Category::Discovered => 11,
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum DnssecStatus {
+    Signed,
+    Partial,
+    Broken,
+    Unsigned,
+}
+
+#[derive(Clone)]
+pub struct StatsData {
+    pub rr_type_counts: BTreeMap<RecordType, usize>,
+    pub total_unique: usize,
+    pub responses: usize,
+    pub nxdomains: usize,
+    pub timeout_errors: usize,
+    pub refuse_errors: usize,
+    pub servfail_errors: usize,
+    pub total_errors: usize,
+    pub responding_servers: usize,
+    pub min_time_ms: Option<u128>,
+    pub max_time_ms: Option<u128>,
+    pub dnssec_status: DnssecStatus,
+}
+
+fn compute_stats(lookups: &Lookups) -> StatsData {
+    // Unique record type counts (deduped by name+type+value)
+    let mut seen = HashSet::new();
+    let mut rr_type_counts = BTreeMap::new();
+    for lookup in lookups.iter() {
+        for record in lookup.records() {
+            let key = (
+                record.name().to_string(),
+                record.record_type(),
+                format_rdata(record.data()),
+            );
+            if seen.insert(key) {
+                *rr_type_counts.entry(record.record_type()).or_insert(0usize) += 1;
+            }
+        }
+    }
+    let total_unique: usize = rr_type_counts.values().sum();
+
+    // Query health counts
+    let (mut responses, mut nxdomains, mut timeout_errors, mut refuse_errors, mut servfail_errors, mut total_errors) =
+        (0, 0, 0, 0, 0, 0);
+    for l in lookups.iter() {
+        match l.result() {
+            LookupResult::Response { .. } => responses += 1,
+            LookupResult::NxDomain { .. } => nxdomains += 1,
+            LookupResult::Error(ResolverError::Timeout) => {
+                timeout_errors += 1;
+                total_errors += 1;
+            }
+            LookupResult::Error(ResolverError::QueryRefused) => {
+                refuse_errors += 1;
+                total_errors += 1;
+            }
+            LookupResult::Error(ResolverError::ServerFailure) => {
+                servfail_errors += 1;
+                total_errors += 1;
+            }
+            LookupResult::Error { .. } => total_errors += 1,
+        }
+    }
+
+    // Responding servers
+    let responding_servers = lookups
+        .iter()
+        .filter(|x| x.result().is_response())
+        .map(|x| x.name_server().to_string())
+        .collect::<HashSet<_>>()
+        .len();
+
+    // Response times
+    let times: Vec<u128> = lookups
+        .iter()
+        .filter_map(|x| x.result().response())
+        .map(|x| x.response_time().as_millis())
+        .collect();
+    let min_time_ms = times.iter().min().copied();
+    let max_time_ms = times.iter().max().copied();
+
+    // DNSSEC status from existing lint infrastructure
+    let dnssec_results = check_dnssec(lookups);
+    let dnssec_status = if dnssec_results
+        .iter()
+        .all(|r| matches!(r, CheckResult::Warning(msg) if msg.starts_with("No DNSSEC")))
+    {
+        DnssecStatus::Unsigned
+    } else if dnssec_results.iter().any(|r| matches!(r, CheckResult::Failed(_))) {
+        DnssecStatus::Broken
+    } else if dnssec_results.iter().any(|r| matches!(r, CheckResult::Warning(_))) {
+        DnssecStatus::Partial
+    } else {
+        DnssecStatus::Signed
+    };
+
+    StatsData {
+        rr_type_counts,
+        total_unique,
+        responses,
+        nxdomains,
+        timeout_errors,
+        refuse_errors,
+        servfail_errors,
+        total_errors,
+        responding_servers,
+        min_time_ms,
+        max_time_ms,
+        dnssec_status,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GroupMode {
+    Category,
+    RecordType,
+    Name,
+    Server,
+}
+
+impl GroupMode {
+    pub fn next(self) -> GroupMode {
+        match self {
+            GroupMode::Category => GroupMode::RecordType,
+            GroupMode::RecordType => GroupMode::Name,
+            GroupMode::Name => GroupMode::Server,
+            GroupMode::Server => GroupMode::Category,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            GroupMode::Category => "Category",
+            GroupMode::RecordType => "Type",
+            GroupMode::Name => "Name",
+            GroupMode::Server => "Server",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mode {
+    Normal,
+    Input,
+    Search,
+}
+
+#[derive(Debug, Clone)]
+pub enum QueryState {
+    Idle,
+    Loading {
+        domain: String,
+    },
+    Querying {
+        domain: String,
+    },
+    Done {
+        domain: String,
+        record_count: usize,
+        total_record_count: usize,
+        server_count: usize,
+        elapsed: Duration,
+    },
+    Error {
+        domain: String,
+        message: String,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub struct RecordRow {
+    pub name: String,
+    pub record_type: RecordType,
+    pub ttl: u32,
+    pub value: String,
+    pub human_value: String,
+    pub nameserver: String,
+    pub category: Category,
+    /// Hostname extracted from value for drill-down navigation (l/→ key).
+    pub drill_target: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DiscoveryStrategy {
+    CtLogs,
+    Wordlist,
+    SrvProbing,
+    TxtMining,
+    Permutation,
+}
+
+impl DiscoveryStrategy {
+    pub fn all() -> &'static [DiscoveryStrategy] {
+        &[
+            DiscoveryStrategy::CtLogs,
+            DiscoveryStrategy::Wordlist,
+            DiscoveryStrategy::SrvProbing,
+            DiscoveryStrategy::TxtMining,
+            DiscoveryStrategy::Permutation,
+        ]
+    }
+
+    pub fn key(self) -> char {
+        match self {
+            DiscoveryStrategy::CtLogs => 'c',
+            DiscoveryStrategy::Wordlist => 'w',
+            DiscoveryStrategy::SrvProbing => 's',
+            DiscoveryStrategy::TxtMining => 't',
+            DiscoveryStrategy::Permutation => 'p',
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            DiscoveryStrategy::CtLogs => "CT Logs",
+            DiscoveryStrategy::Wordlist => "Wordlist",
+            DiscoveryStrategy::SrvProbing => "SRV Probing",
+            DiscoveryStrategy::TxtMining => "TXT Mining",
+            DiscoveryStrategy::Permutation => "Permutation",
+        }
+    }
+
+    pub fn description(self) -> &'static str {
+        match self {
+            DiscoveryStrategy::CtLogs => "Search Certificate Transparency logs (crt.sh) for historically issued certificates, revealing subdomains that may not be publicly linked",
+            DiscoveryStrategy::Wordlist => "Brute-force 424 common subdomain names (api, mail, cdn, staging, ...) with wildcard filtering to suppress false positives",
+            DiscoveryStrategy::SrvProbing => "Probe 22 well-known SRV service records (IMAP, XMPP, SIP, LDAP, CalDAV, Matrix, STUN/TURN, ...)",
+            DiscoveryStrategy::TxtMining => "Extract referenced domains from SPF includes/redirects and DMARC rua/ruf mailto URIs in existing TXT records",
+            DiscoveryStrategy::Permutation => "Generate variations of discovered subdomain labels with common prefixes/suffixes (dev-, staging-, -test, -prod, -v2, ...)",
+        }
+    }
+
+    pub fn from_key(c: char) -> Option<DiscoveryStrategy> {
+        match c {
+            'c' => Some(DiscoveryStrategy::CtLogs),
+            'w' => Some(DiscoveryStrategy::Wordlist),
+            's' => Some(DiscoveryStrategy::SrvProbing),
+            't' => Some(DiscoveryStrategy::TxtMining),
+            'p' => Some(DiscoveryStrategy::Permutation),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum StrategyStatus {
+    Idle,
+    Running { completed: usize, total: usize },
+    Done { found: usize, elapsed: Duration },
+    Error(String),
+}
+
+#[derive(Clone)]
+pub struct DiscoveryState {
+    pub statuses: HashMap<DiscoveryStrategy, StrategyStatus>,
+    pub wildcard_lookups: Option<Lookups>,
+    pub wildcard_checked: bool,
+    pub wildcard_running: bool,
+    pub generation: u64,
+}
+
+impl DiscoveryState {
+    fn new(generation: u64) -> Self {
+        let mut statuses = HashMap::new();
+        for s in DiscoveryStrategy::all() {
+            statuses.insert(*s, StrategyStatus::Idle);
+        }
+        DiscoveryState {
+            statuses,
+            wildcard_lookups: None,
+            wildcard_checked: false,
+            wildcard_running: false,
+            generation,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Popup {
+    None,
+    RecordDetail {
+        name: String,
+        record_type: RecordType,
+        value: String,
+    },
+    Help,
+    Servers,
+    Whois,
+    Lints,
+    Discovery,
+}
+
+pub struct HistoryEntry {
+    pub domain: String,
+    pub input: String,
+    pub query_state: QueryState,
+    pub lookups: Option<Lookups>,
+    pub rows: Vec<RecordRow>,
+    pub selected_index: Option<usize>,
+    pub stats_data: Option<StatsData>,
+    pub whois_data: Option<WhoisResponses>,
+    pub whois_error: Option<String>,
+    pub lint_results: Option<Vec<LintSection>>,
+    pub discovery_state: Option<DiscoveryState>,
+    pub category_map: HashMap<(String, RecordType), Category>,
+    pub active_categories: HashSet<Category>,
+    pub filter: Option<regex::Regex>,
+    pub filter_input: String,
+    pub batch_progress: (usize, usize),
+    pub group_mode: GroupMode,
+}
+
+pub enum Action {
+    Quit,
+    EnterInputMode,
+    ExitInputMode,
+    EnterSearchMode,
+    ExitSearchMode,
+    ApplyFilter,
+    ClearFilter,
+    SubmitQuery,
+    InputChar(char),
+    InputBackspace,
+    InputLeft,
+    InputRight,
+    InputHome,
+    InputEnd,
+    InputDeleteWord,
+    SelectAll,
+    SelectNone,
+    ToggleHumanView,
+    ToggleStats,
+    CycleGroupMode,
+    MoveUp,
+    MoveDown,
+    PageUp,
+    PageDown,
+    Home,
+    End,
+    OpenRecordDetail,
+    DrillIntoName,
+    DrillIntoValue,
+    GoBack,
+    OpenHelp,
+    OpenServers,
+    OpenWhois,
+    OpenLints,
+    ClosePopup,
+    PopupScrollUp,
+    PopupScrollDown,
+    PopupScrollPageUp,
+    PopupScrollPageDown,
+    PopupScrollHome,
+    PopupScrollEnd,
+    WhoisResult {
+        generation: u64,
+        data: WhoisResponses,
+    },
+    WhoisError {
+        generation: u64,
+        message: String,
+    },
+    DigitPress(char),
+    PressG,
+    PressCapG,
+    DnsBatch {
+        generation: u64,
+        lookups: Lookups,
+        completed: usize,
+        total: usize,
+    },
+    DnsComplete {
+        generation: u64,
+        elapsed: Duration,
+    },
+    DnsError {
+        generation: u64,
+        message: String,
+    },
+    OpenDiscovery,
+    RunStrategy(DiscoveryStrategy),
+    RunAllStrategies,
+    DiscoveryBatch {
+        generation: u64,
+        strategy: DiscoveryStrategy,
+        lookups: Lookups,
+        completed: usize,
+        total: usize,
+    },
+    DiscoveryComplete {
+        generation: u64,
+        strategy: DiscoveryStrategy,
+        found: usize,
+        elapsed: Duration,
+    },
+    DiscoveryError {
+        generation: u64,
+        strategy: DiscoveryStrategy,
+        message: String,
+    },
+    WildcardComplete {
+        generation: u64,
+        wildcard_lookups: Option<Lookups>,
+    },
+}
+
+pub struct App {
+    pub resolver_args: ResolverArgs,
+    pub mode: Mode,
+    pub input: String,
+    pub cursor_pos: usize,
+    pub filter_input: String,
+    pub filter_cursor_pos: usize,
+    pub filter: Option<regex::Regex>,
+    pub filter_error: Option<String>,
+    pub active_categories: HashSet<Category>,
+    pub query_state: QueryState,
+    pub rows: Vec<RecordRow>,
+    pub table_state: TableState,
+    pub should_quit: bool,
+    pub popup: Popup,
+    pub human_view: bool,
+    pub batch_progress: (usize, usize),
+    pub count_buffer: String,
+    pub pending_g: Option<Instant>,
+    pub quit_confirm: bool,
+    pub(crate) lookups: Option<Lookups>,
+    /// Monotonically increasing query generation; used to discard stale DNS results.
+    pub(crate) query_generation: u64,
+    pub whois_data: Option<WhoisResponses>,
+    pub whois_error: Option<String>,
+    pub whois_scroll: u16,
+    /// True while a WHOIS fetch is in progress.
+    pub(crate) whois_loading: bool,
+    /// Tracks which query generation a pending/completed WHOIS fetch belongs to,
+    /// so stale results from a previous query can be discarded.
+    pub(crate) whois_generation: u64,
+    pub lint_results: Option<Vec<LintSection>>,
+    pub lint_scroll: u16,
+    pub show_stats: bool,
+    pub stats_data: Option<StatsData>,
+    pub group_mode: GroupMode,
+    pub discovery_state: Option<DiscoveryState>,
+    pub discovery_scroll: u16,
+    pub record_detail_scroll: u16,
+    pub servers_scroll: u16,
+    pub help_scroll: u16,
+    pub(crate) pending_strategy_spawns: Vec<DiscoveryStrategy>,
+    /// Shared resolver group, built once per query.
+    pub(crate) resolver_group: Option<Arc<ResolverGroup>>,
+    /// Handle for the active DNS query task (aborted on new query).
+    pub(crate) dns_task: Option<JoinHandle<()>>,
+    /// Handles for active discovery tasks (aborted on new query).
+    pub(crate) discovery_tasks: Vec<JoinHandle<()>>,
+    /// Cached category lookup map, rebuilt per query domain.
+    category_map: HashMap<(String, RecordType), Category>,
+    /// Persistent dedup set for incremental row building across batches.
+    seen_records: HashSet<(String, RecordType, String)>,
+    /// Persistent set of responding server names for incremental stats.
+    responding_servers_set: HashSet<String>,
+    /// Cached default entries (allocated once).
+    default_entries: Vec<SubdomainEntry>,
+    /// Navigation history stack for drill-down (max 50 entries).
+    pub history: Vec<HistoryEntry>,
+}
+
+impl App {
+    pub fn new(resolver_args: ResolverArgs) -> Self {
+        Self {
+            resolver_args,
+            mode: Mode::Normal,
+            input: String::new(),
+            cursor_pos: 0,
+            filter_input: String::new(),
+            filter_cursor_pos: 0,
+            filter: None,
+            filter_error: None,
+            active_categories: DEFAULT_CATEGORIES.iter().copied().collect(),
+            query_state: QueryState::Idle,
+            rows: Vec::new(),
+            table_state: TableState::default(),
+            should_quit: false,
+            popup: Popup::None,
+            human_view: false,
+            batch_progress: (0, 0),
+            count_buffer: String::new(),
+            pending_g: None,
+            quit_confirm: false,
+            lookups: None,
+            query_generation: 0,
+            whois_data: None,
+            whois_error: None,
+            whois_scroll: 0,
+            whois_loading: false,
+            whois_generation: 0,
+            lint_results: None,
+            lint_scroll: 0,
+            show_stats: false,
+            stats_data: None,
+            group_mode: GroupMode::Category,
+            discovery_state: None,
+            discovery_scroll: 0,
+            record_detail_scroll: 0,
+            servers_scroll: 0,
+            help_scroll: 0,
+            pending_strategy_spawns: Vec::new(),
+            resolver_group: None,
+            dns_task: None,
+            discovery_tasks: Vec::new(),
+            category_map: HashMap::new(),
+            seen_records: HashSet::new(),
+            responding_servers_set: HashSet::new(),
+            default_entries: default_entries(),
+            history: Vec::new(),
+        }
+    }
+
+    /// Returns a mutable reference to the active input buffer and cursor position
+    /// for the current mode (Input or Search).
+    fn active_input_mut(&mut self) -> (&mut String, &mut usize) {
+        match self.mode {
+            Mode::Search => (&mut self.filter_input, &mut self.filter_cursor_pos),
+            _ => (&mut self.input, &mut self.cursor_pos),
+        }
+    }
+
+    pub fn update(&mut self, action: Action) {
+        // Clear pending_g after 1 second timeout
+        if let Some(t) = self.pending_g {
+            if t.elapsed() > Duration::from_secs(1) {
+                self.pending_g = None;
+                self.count_buffer.clear();
+            }
+        }
+
+        // Reset quit confirmation on any non-Quit action
+        if !matches!(action, Action::Quit) {
+            self.quit_confirm = false;
+        }
+
+        // Vi-count bookkeeping: on non-count actions, flush a single-digit buffer
+        // as a category toggle, then clear state.
+        match &action {
+            Action::DigitPress(_) | Action::PressG | Action::PressCapG => {}
+            _ => {
+                if self.count_buffer.len() == 1 && self.pending_g.is_none() {
+                    let c = self.count_buffer.chars().next().unwrap();
+                    let idx = if c == '0' { 9 } else { (c as usize) - ('1' as usize) };
+                    if let Some(cat) = TOGGLEABLE_CATEGORIES.get(idx) {
+                        if self.active_categories.contains(cat) {
+                            self.active_categories.remove(cat);
+                        } else {
+                            self.active_categories.insert(*cat);
+                        }
+                        self.rebuild_rows();
+                    }
+                }
+                self.count_buffer.clear();
+                self.pending_g = None;
+            }
+        }
+
+        match action {
+            // Lifecycle
+            Action::Quit => {
+                if self.lookups.is_some() && !self.quit_confirm {
+                    self.quit_confirm = true;
+                } else {
+                    self.should_quit = true;
+                }
+            }
+
+            // Mode switching
+            Action::EnterInputMode => self.mode = Mode::Input,
+            Action::ExitInputMode => self.mode = Mode::Normal,
+            Action::EnterSearchMode => {
+                self.filter_input = self.filter.as_ref().map_or(String::new(), |r| r.as_str().to_string());
+                self.filter_cursor_pos = self.filter_input.len();
+                self.filter_error = None;
+                self.mode = Mode::Search;
+            }
+            Action::ExitSearchMode => {
+                self.filter_error = None;
+                self.mode = Mode::Normal;
+            }
+            Action::ApplyFilter => self.handle_apply_filter(),
+            Action::ClearFilter => {
+                self.filter = None;
+                self.filter_error = None;
+                self.filter_input.clear();
+                self.filter_cursor_pos = 0;
+                self.rebuild_rows();
+            }
+            Action::SubmitQuery => self.handle_submit_query(),
+
+            // Input editing
+            Action::InputChar(c) => {
+                let (buf, pos) = self.active_input_mut();
+                buf.insert(*pos, c);
+                *pos += c.len_utf8();
+            }
+            Action::InputBackspace
+            | Action::InputLeft
+            | Action::InputRight
+            | Action::InputHome
+            | Action::InputEnd
+            | Action::InputDeleteWord => {
+                self.handle_input_editing(action);
+            }
+
+            // View toggles
+            Action::SelectAll => {
+                for cat in TOGGLEABLE_CATEGORIES {
+                    self.active_categories.insert(*cat);
+                }
+                self.rebuild_rows();
+            }
+            Action::SelectNone => {
+                self.active_categories.clear();
+                self.rebuild_rows();
+            }
+            Action::ToggleHumanView => self.human_view = !self.human_view,
+            Action::ToggleStats => self.show_stats = !self.show_stats,
+            Action::CycleGroupMode => {
+                self.group_mode = self.group_mode.next();
+                self.rebuild_rows();
+            }
+
+            // Table navigation
+            Action::MoveUp
+            | Action::MoveDown
+            | Action::PageUp
+            | Action::PageDown
+            | Action::Home
+            | Action::End
+            | Action::DigitPress(_)
+            | Action::PressG
+            | Action::PressCapG => {
+                self.handle_navigation(action);
+            }
+
+            // Record drill / history
+            Action::OpenRecordDetail => self.handle_open_record_detail(),
+            Action::DrillIntoName => self.handle_drill_into_name(),
+            Action::DrillIntoValue => self.handle_drill_into_value(),
+            Action::GoBack => {
+                if let Some(handle) = self.dns_task.take() {
+                    handle.abort();
+                }
+                for handle in self.discovery_tasks.drain(..) {
+                    handle.abort();
+                }
+                self.pop_history();
+            }
+
+            // Popups
+            Action::OpenHelp => {
+                self.popup = Popup::Help;
+                self.help_scroll = 0;
+            }
+            Action::OpenServers => {
+                self.popup = Popup::Servers;
+                self.servers_scroll = 0;
+            }
+            Action::OpenWhois => {
+                self.popup = Popup::Whois;
+                self.whois_scroll = 0;
+            }
+            Action::OpenLints => self.handle_open_lints(),
+            Action::WhoisResult { generation, data } => {
+                if generation == self.query_generation {
+                    self.whois_data = Some(data);
+                    self.whois_error = None;
+                    self.whois_loading = false;
+                }
+            }
+            Action::WhoisError { generation, message } => {
+                if generation == self.query_generation {
+                    self.whois_error = Some(message);
+                    self.whois_loading = false;
+                }
+            }
+            Action::ClosePopup => self.popup = Popup::None,
+            Action::PopupScrollUp => self.popup_scroll_mut(|s| *s = s.saturating_sub(1)),
+            Action::PopupScrollDown => self.popup_scroll_mut(|s| *s = s.saturating_add(1)),
+            Action::PopupScrollPageUp => self.popup_scroll_mut(|s| *s = s.saturating_sub(10)),
+            Action::PopupScrollPageDown => self.popup_scroll_mut(|s| *s = s.saturating_add(10)),
+            Action::PopupScrollHome => self.popup_scroll_mut(|s| *s = 0),
+            Action::PopupScrollEnd => self.popup_scroll_mut(|s| *s = u16::MAX),
+
+            // Discovery
+            Action::OpenDiscovery
+            | Action::RunStrategy(_)
+            | Action::RunAllStrategies
+            | Action::DiscoveryBatch { .. }
+            | Action::DiscoveryComplete { .. }
+            | Action::DiscoveryError { .. }
+            | Action::WildcardComplete { .. } => {
+                self.handle_discovery(action);
+            }
+
+            // DNS results
+            Action::DnsBatch { .. } | Action::DnsComplete { .. } | Action::DnsError { .. } => {
+                self.handle_dns_result(action);
+            }
+        }
+    }
+
+    fn handle_apply_filter(&mut self) {
+        let trimmed = self.filter_input.trim().to_string();
+        if trimmed.is_empty() {
+            self.filter = None;
+            self.filter_error = None;
+        } else {
+            match RegexBuilder::new(&trimmed)
+                .case_insensitive(true)
+                .size_limit(10 * (1 << 20))
+                .dfa_size_limit(10 * (1 << 20))
+                .build()
+            {
+                Ok(re) => {
+                    self.filter = Some(re);
+                    self.filter_error = None;
+                }
+                Err(e) => {
+                    self.filter_error = Some(e.to_string());
+                    return;
+                }
+            }
+        }
+        self.mode = Mode::Normal;
+        self.rebuild_rows();
+    }
+
+    fn handle_submit_query(&mut self) {
+        let domain = self.input.trim().to_string();
+        if !domain.is_empty() {
+            if let Some(handle) = self.dns_task.take() {
+                handle.abort();
+            }
+            for handle in self.discovery_tasks.drain(..) {
+                handle.abort();
+            }
+            self.resolver_group = None;
+            self.history.clear();
+            self.mode = Mode::Normal;
+            self.query_generation += 1;
+            self.query_state = QueryState::Loading { domain };
+            self.reset_query_state();
+        }
+    }
+
+    fn handle_input_editing(&mut self, action: Action) {
+        let (buf, pos) = self.active_input_mut();
+        match action {
+            Action::InputBackspace => {
+                if *pos > 0 {
+                    let prev = buf[..*pos].char_indices().next_back().map(|(i, _)| i).unwrap_or(0);
+                    buf.drain(prev..*pos);
+                    *pos = prev;
+                }
+            }
+            Action::InputLeft => {
+                if *pos > 0 {
+                    *pos = buf[..*pos].char_indices().next_back().map(|(i, _)| i).unwrap_or(0);
+                }
+            }
+            Action::InputRight => {
+                if *pos < buf.len() {
+                    *pos = buf[*pos..]
+                        .char_indices()
+                        .nth(1)
+                        .map(|(i, _)| *pos + i)
+                        .unwrap_or(buf.len());
+                }
+            }
+            Action::InputHome => *pos = 0,
+            Action::InputEnd => *pos = buf.len(),
+            Action::InputDeleteWord => {
+                if *pos > 0 {
+                    let new_pos = buf[..*pos]
+                        .trim_end()
+                        .rfind(|c: char| c.is_whitespace())
+                        .map(|i| i + 1)
+                        .unwrap_or(0);
+                    buf.drain(new_pos..*pos);
+                    *pos = new_pos;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_navigation(&mut self, action: Action) {
+        match action {
+            Action::MoveUp => {
+                let i = match self.table_state.selected() {
+                    Some(i) => i.saturating_sub(1),
+                    None if !self.rows.is_empty() => 0,
+                    None => return,
+                };
+                self.table_state.select(Some(i));
+            }
+            Action::MoveDown => {
+                if self.rows.is_empty() {
+                    return;
+                }
+                let i = match self.table_state.selected() {
+                    Some(i) => (i + 1).min(self.rows.len() - 1),
+                    None => 0,
+                };
+                self.table_state.select(Some(i));
+            }
+            Action::PageUp => {
+                let i = match self.table_state.selected() {
+                    Some(i) => i.saturating_sub(10),
+                    None if !self.rows.is_empty() => 0,
+                    None => return,
+                };
+                self.table_state.select(Some(i));
+            }
+            Action::PageDown => {
+                if self.rows.is_empty() {
+                    return;
+                }
+                let i = match self.table_state.selected() {
+                    Some(i) => (i + 10).min(self.rows.len() - 1),
+                    None => 0,
+                };
+                self.table_state.select(Some(i));
+            }
+            Action::Home => {
+                if !self.rows.is_empty() {
+                    self.table_state.select(Some(0));
+                }
+            }
+            Action::End => {
+                if !self.rows.is_empty() {
+                    self.table_state.select(Some(self.rows.len() - 1));
+                }
+            }
+            Action::DigitPress(c) => {
+                if self.count_buffer.len() < 6 {
+                    self.count_buffer.push(c);
+                }
+            }
+            Action::PressG => {
+                if self.pending_g.is_some() {
+                    self.pending_g = None;
+                    let line = self.count_buffer.parse::<usize>().unwrap_or(0);
+                    self.count_buffer.clear();
+                    if !self.rows.is_empty() {
+                        if line > 0 {
+                            self.table_state.select(Some((line - 1).min(self.rows.len() - 1)));
+                        } else {
+                            self.table_state.select(Some(0));
+                        }
+                    }
+                } else {
+                    self.pending_g = Some(Instant::now());
+                }
+            }
+            Action::PressCapG => {
+                self.pending_g = None;
+                let line = self.count_buffer.parse::<usize>().unwrap_or(0);
+                self.count_buffer.clear();
+                if !self.rows.is_empty() {
+                    if line > 0 {
+                        self.table_state.select(Some((line - 1).min(self.rows.len() - 1)));
+                    } else {
+                        self.table_state.select(Some(self.rows.len() - 1));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_open_record_detail(&mut self) {
+        if let Some(idx) = self.table_state.selected() {
+            if let Some(row) = self.rows.get(idx) {
+                self.record_detail_scroll = 0;
+                self.popup = Popup::RecordDetail {
+                    name: row.name.clone(),
+                    record_type: row.record_type,
+                    value: row.value.clone(),
+                };
+            }
+        }
+    }
+
+    fn handle_drill_into_name(&mut self) {
+        if !matches!(self.query_state, QueryState::Done { .. }) {
+            return;
+        }
+        if let Some(idx) = self.table_state.selected() {
+            if let Some(row) = self.rows.get(idx) {
+                let target = row.name.trim_end_matches('.').to_string();
+                let current = self.current_domain().trim_end_matches('.');
+                if !target.is_empty() && target != current {
+                    self.drill_to(target);
+                }
+            }
+        }
+    }
+
+    fn handle_drill_into_value(&mut self) {
+        if !matches!(self.query_state, QueryState::Done { .. }) {
+            return;
+        }
+        if let Some(idx) = self.table_state.selected() {
+            if let Some(row) = self.rows.get(idx) {
+                if let Some(ref target) = row.drill_target {
+                    let target = target.trim_end_matches('.').to_string();
+                    let current = self.current_domain().trim_end_matches('.');
+                    if !target.is_empty() && target != "." && target != current {
+                        self.drill_to(target);
+                    }
+                }
+            }
+        }
+    }
+
+    fn handle_open_lints(&mut self) {
+        self.popup = Popup::Lints;
+        self.lint_scroll = 0;
+        if self.lint_results.is_none() {
+            if let Some(ref lookups) = self.lookups {
+                self.lint_results = Some(lints::run_lints(lookups));
+            }
+        }
+    }
+
+    fn handle_discovery(&mut self, action: Action) {
+        match action {
+            Action::OpenDiscovery => {
+                if self.lookups.is_some() {
+                    self.popup = Popup::Discovery;
+                    self.discovery_scroll = 0;
+                    if self.discovery_state.is_none() {
+                        self.discovery_state = Some(DiscoveryState::new(self.query_generation));
+                    }
+                }
+            }
+            Action::RunStrategy(strategy) => {
+                if let Some(ref mut state) = self.discovery_state {
+                    if matches!(state.statuses.get(&strategy), Some(StrategyStatus::Running { .. })) {
+                        return;
+                    }
+                    state
+                        .statuses
+                        .insert(strategy, StrategyStatus::Running { completed: 0, total: 0 });
+                    self.pending_strategy_spawns.push(strategy);
+                }
+            }
+            Action::RunAllStrategies => {
+                if let Some(ref mut state) = self.discovery_state {
+                    for &strategy in DiscoveryStrategy::all() {
+                        if !matches!(state.statuses.get(&strategy), Some(StrategyStatus::Running { .. })) {
+                            state
+                                .statuses
+                                .insert(strategy, StrategyStatus::Running { completed: 0, total: 0 });
+                            self.pending_strategy_spawns.push(strategy);
+                        }
+                    }
+                }
+            }
+            Action::DiscoveryBatch {
+                generation,
+                strategy,
+                lookups,
+                completed,
+                total,
+            } => {
+                let state = match self.discovery_state {
+                    Some(ref mut s) if s.generation == generation => s,
+                    _ => return,
+                };
+                state
+                    .statuses
+                    .insert(strategy, StrategyStatus::Running { completed, total });
+                self.ingest_batch(&lookups);
+                match self.lookups.take() {
+                    Some(existing) => self.lookups = Some(existing.merge(lookups)),
+                    None => self.lookups = Some(lookups),
+                }
+                if !self.rows.is_empty() && self.table_state.selected().is_none() {
+                    self.table_state.select(Some(0));
+                }
+            }
+            Action::DiscoveryComplete {
+                generation,
+                strategy,
+                found,
+                elapsed,
+            } => {
+                if let Some(ref mut state) = self.discovery_state {
+                    if state.generation == generation {
+                        state.statuses.insert(strategy, StrategyStatus::Done { found, elapsed });
+                    }
+                }
+            }
+            Action::DiscoveryError {
+                generation,
+                strategy,
+                message,
+            } => {
+                if let Some(ref mut state) = self.discovery_state {
+                    if state.generation == generation {
+                        state.statuses.insert(strategy, StrategyStatus::Error(message));
+                    }
+                }
+            }
+            Action::WildcardComplete {
+                generation,
+                wildcard_lookups,
+            } => {
+                if let Some(ref mut state) = self.discovery_state {
+                    if state.generation == generation {
+                        state.wildcard_lookups = wildcard_lookups;
+                        state.wildcard_checked = true;
+                        state.wildcard_running = false;
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_dns_result(&mut self, action: Action) {
+        match action {
+            Action::DnsBatch {
+                generation,
+                lookups,
+                completed,
+                total,
+            } => {
+                if generation != self.query_generation {
+                    return;
+                }
+                self.batch_progress = (completed, total);
+                self.ingest_batch(&lookups);
+                match self.lookups.take() {
+                    Some(existing) => self.lookups = Some(existing.merge(lookups)),
+                    None => self.lookups = Some(lookups),
+                }
+                if !self.rows.is_empty() && self.table_state.selected().is_none() {
+                    self.table_state.select(Some(0));
+                }
+            }
+            Action::DnsComplete { generation, elapsed } => {
+                if generation != self.query_generation {
+                    return;
+                }
+                let server_count = self.responding_servers_set.len();
+                let total_record_count = self.seen_records.len();
+                let domain = self.current_domain().to_string();
+                let record_count = self.rows.len();
+                self.query_state = QueryState::Done {
+                    domain,
+                    record_count,
+                    total_record_count,
+                    server_count,
+                    elapsed,
+                };
+                self.batch_progress = (0, 0);
+                self.update_dnssec_status();
+            }
+            Action::DnsError { generation, message } => {
+                if generation != self.query_generation {
+                    return;
+                }
+                let domain = self.current_domain().to_string();
+                self.query_state = QueryState::Error { domain, message };
+                self.batch_progress = (0, 0);
+            }
+            _ => {}
+        }
+    }
+
+    /// Returns true if the WHOIS popup is open and data needs to be fetched.
+    pub fn needs_whois_fetch(&self) -> bool {
+        self.popup == Popup::Whois
+            && self.whois_data.is_none()
+            && self.whois_error.is_none()
+            && !self.whois_loading
+            && self.lookups.is_some()
+    }
+
+    /// Returns a mutable reference to the scroll position for the current popup.
+    fn popup_scroll_mut(&mut self, f: impl FnOnce(&mut u16)) {
+        let scroll = match self.popup {
+            Popup::Whois => &mut self.whois_scroll,
+            Popup::Lints => &mut self.lint_scroll,
+            Popup::Discovery => &mut self.discovery_scroll,
+            Popup::RecordDetail { .. } => &mut self.record_detail_scroll,
+            Popup::Servers => &mut self.servers_scroll,
+            Popup::Help => &mut self.help_scroll,
+            _ => return,
+        };
+        f(scroll);
+    }
+
+    pub fn current_domain(&self) -> &str {
+        match &self.query_state {
+            QueryState::Loading { domain }
+            | QueryState::Querying { domain }
+            | QueryState::Done { domain, .. }
+            | QueryState::Error { domain, .. } => domain,
+            QueryState::Idle => "",
+        }
+    }
+
+    /// Rebuild the category map when the domain changes.
+    fn rebuild_category_map(&mut self, domain_name: &Name) {
+        self.category_map.clear();
+        for entry in &self.default_entries {
+            if entry.subdomain.is_empty() {
+                self.category_map
+                    .insert((domain_name.to_string(), entry.record_type), Category::Apex);
+            } else if let Ok(sub) = Name::from_str(entry.subdomain) {
+                if let Ok(full) = sub.append_domain(domain_name) {
+                    self.category_map
+                        .insert((full.to_string(), entry.record_type), entry.category);
+                }
+            }
+        }
+    }
+
+    fn push_history(&mut self) {
+        let entry = HistoryEntry {
+            domain: self.current_domain().to_string(),
+            input: self.input.clone(),
+            query_state: self.query_state.clone(),
+            lookups: self.lookups.clone(),
+            rows: self.rows.clone(),
+            selected_index: self.table_state.selected(),
+            stats_data: self.stats_data.clone(),
+            whois_data: self.whois_data.clone(),
+            whois_error: self.whois_error.clone(),
+            lint_results: self.lint_results.clone(),
+            discovery_state: self.discovery_state.clone(),
+            category_map: self.category_map.clone(),
+            active_categories: self.active_categories.clone(),
+            filter: self.filter.clone(),
+            filter_input: self.filter_input.clone(),
+            batch_progress: self.batch_progress,
+            group_mode: self.group_mode,
+        };
+        if self.history.len() >= 50 {
+            self.history.remove(0);
+        }
+        self.history.push(entry);
+    }
+
+    fn pop_history(&mut self) {
+        if let Some(entry) = self.history.pop() {
+            self.input = entry.input;
+            self.cursor_pos = self.input.len();
+            self.query_state = entry.query_state;
+            self.lookups = entry.lookups;
+            self.rows = entry.rows;
+            self.stats_data = entry.stats_data;
+            self.whois_data = entry.whois_data;
+            self.whois_error = entry.whois_error;
+            self.lint_results = entry.lint_results;
+            self.discovery_state = entry.discovery_state;
+            self.category_map = entry.category_map;
+            self.active_categories = entry.active_categories;
+            self.filter = entry.filter;
+            self.filter_input = entry.filter_input;
+            self.filter_cursor_pos = self.filter_input.len();
+            self.batch_progress = entry.batch_progress;
+            self.group_mode = entry.group_mode;
+            self.table_state.select(entry.selected_index);
+        }
+    }
+
+    fn drill_to(&mut self, domain: String) {
+        self.push_history();
+
+        // Abort existing tasks
+        if let Some(handle) = self.dns_task.take() {
+            handle.abort();
+        }
+        for handle in self.discovery_tasks.drain(..) {
+            handle.abort();
+        }
+        self.resolver_group = None;
+
+        self.input = domain.clone();
+        self.cursor_pos = domain.len();
+        self.mode = Mode::Normal;
+        self.query_generation += 1;
+        self.query_state = QueryState::Loading { domain };
+        self.reset_query_state();
+    }
+
+    fn reset_query_state(&mut self) {
+        self.rows.clear();
+        self.lookups = None;
+        self.batch_progress = (0, 0);
+        self.table_state.select(None);
+        self.filter = None;
+        self.filter_error = None;
+        self.filter_input.clear();
+        self.filter_cursor_pos = 0;
+        self.whois_data = None;
+        self.whois_error = None;
+        self.whois_loading = false;
+        self.lint_results = None;
+        self.stats_data = None;
+        self.discovery_state = None;
+        self.category_map.clear();
+        self.seen_records.clear();
+        self.responding_servers_set.clear();
+    }
+
+    /// Incrementally ingest a new batch: update stats and append rows without
+    /// reprocessing all previously accumulated lookups.
+    fn ingest_batch(&mut self, batch: &Lookups) {
+        let domain = self.current_domain().to_string();
+        let domain_name = if !domain.is_empty() {
+            let fqdn = if domain.ends_with('.') {
+                domain.clone()
+            } else {
+                format!("{domain}.")
+            };
+            Name::from_str(&fqdn).ok()
+        } else {
+            None
+        };
+
+        // Ensure category map is built
+        if let Some(ref dn) = domain_name {
+            if self.category_map.is_empty() {
+                self.rebuild_category_map(dn);
+            }
+        }
+
+        let stats = self.stats_data.get_or_insert_with(|| StatsData {
+            rr_type_counts: BTreeMap::new(),
+            total_unique: 0,
+            responses: 0,
+            nxdomains: 0,
+            timeout_errors: 0,
+            refuse_errors: 0,
+            servfail_errors: 0,
+            total_errors: 0,
+            responding_servers: 0,
+            min_time_ms: None,
+            max_time_ms: None,
+            dnssec_status: DnssecStatus::Unsigned,
+        });
+
+        let mut new_rows = Vec::new();
+
+        for lookup in batch.iter() {
+            // Update per-lookup stats
+            match lookup.result() {
+                LookupResult::Response { .. } => stats.responses += 1,
+                LookupResult::NxDomain { .. } => stats.nxdomains += 1,
+                LookupResult::Error(ResolverError::Timeout) => {
+                    stats.timeout_errors += 1;
+                    stats.total_errors += 1;
+                }
+                LookupResult::Error(ResolverError::QueryRefused) => {
+                    stats.refuse_errors += 1;
+                    stats.total_errors += 1;
+                }
+                LookupResult::Error(ResolverError::ServerFailure) => {
+                    stats.servfail_errors += 1;
+                    stats.total_errors += 1;
+                }
+                LookupResult::Error { .. } => stats.total_errors += 1,
+            }
+
+            if lookup.result().is_response() {
+                self.responding_servers_set.insert(lookup.name_server().to_string());
+            }
+            if let Some(resp) = lookup.result().response() {
+                let ms = resp.response_time().as_millis();
+                stats.min_time_ms = Some(stats.min_time_ms.map_or(ms, |cur| cur.min(ms)));
+                stats.max_time_ms = Some(stats.max_time_ms.map_or(ms, |cur| cur.max(ms)));
+            }
+
+            // Process records for both stats dedup counting and row building
+            let ns = lookup.name_server().to_string();
+            for record in lookup.records() {
+                let name_str = record.name().to_string();
+                let rt = record.record_type();
+                let value = format_rdata(record.data());
+                let key = (name_str.clone(), rt, value.clone());
+
+                // Dedup: only count and add row if this is a new unique record
+                if !self.seen_records.insert(key) {
+                    continue;
+                }
+
+                *stats.rr_type_counts.entry(rt).or_insert(0usize) += 1;
+                stats.total_unique += 1;
+
+                // Build row if we have a valid domain context
+                if let Some(ref dn) = domain_name {
+                    let category = self
+                        .category_map
+                        .get(&(name_str.clone(), rt))
+                        .copied()
+                        .unwrap_or_else(|| {
+                            if let Ok(record_name) = Name::from_str(&name_str) {
+                                if dn.zone_of(&record_name) && record_name != *dn {
+                                    return Category::Discovered;
+                                }
+                            }
+                            Category::Apex
+                        });
+
+                    if category != Category::Apex
+                        && category != Category::Discovered
+                        && !self.active_categories.contains(&category)
+                    {
+                        continue;
+                    }
+
+                    let human_value = format_rdata_human(record.data());
+                    let drill_target = extract_drill_target(record.data());
+                    new_rows.push(RecordRow {
+                        name: name_str,
+                        record_type: rt,
+                        ttl: record.ttl(),
+                        value,
+                        human_value,
+                        nameserver: ns.clone(),
+                        category,
+                        drill_target,
+                    });
+                }
+            }
+        }
+
+        stats.responding_servers = self.responding_servers_set.len();
+
+        if new_rows.is_empty() {
+            return;
+        }
+
+        // Append and re-sort (stable sort on nearly-sorted data is efficient)
+        self.rows.append(&mut new_rows);
+        self.sort_rows();
+
+        // Apply regex filter to newly added rows
+        if let Some(ref re) = self.filter {
+            self.rows.retain(|row| {
+                re.is_match(&row.name)
+                    || re.is_match(&row.record_type.to_string())
+                    || re.is_match(&row.value)
+                    || re.is_match(&row.human_value)
+            });
+        }
+
+        // Update record count in Done state
+        if let QueryState::Done { record_count, .. } = &mut self.query_state {
+            *record_count = self.rows.len();
+        }
+    }
+
+    /// Recompute DNSSEC status from the full accumulated lookups.
+    fn update_dnssec_status(&mut self) {
+        if let (Some(ref mut stats), Some(ref lookups)) = (&mut self.stats_data, &self.lookups) {
+            let dnssec_results = check_dnssec(lookups);
+            stats.dnssec_status = if dnssec_results
+                .iter()
+                .all(|r| matches!(r, CheckResult::Warning(msg) if msg.starts_with("No DNSSEC")))
+            {
+                DnssecStatus::Unsigned
+            } else if dnssec_results.iter().any(|r| matches!(r, CheckResult::Failed(_))) {
+                DnssecStatus::Broken
+            } else if dnssec_results.iter().any(|r| matches!(r, CheckResult::Warning(_))) {
+                DnssecStatus::Partial
+            } else {
+                DnssecStatus::Signed
+            };
+        }
+    }
+
+    fn rebuild_rows(&mut self) {
+        if self.lookups.is_none() {
+            return;
+        }
+        let domain = self.current_domain().to_string();
+        if domain.is_empty() {
+            return;
+        }
+
+        // Build lookup table: (full_name, record_type) -> category
+        // Ensure FQDN so to_string() matches DNS response names (which are always FQDN)
+        let fqdn = if domain.ends_with('.') {
+            domain.clone()
+        } else {
+            format!("{domain}.")
+        };
+        let domain_name = match Name::from_str(&fqdn) {
+            Ok(n) => n,
+            Err(_) => return,
+        };
+
+        // Rebuild category map only if it's empty (new domain)
+        if self.category_map.is_empty() {
+            self.rebuild_category_map(&domain_name);
+        }
+
+        let lookups = self.lookups.as_ref().unwrap();
+
+        // Full rebuild: recompute stats and rebuild seen_records from scratch
+        self.stats_data = Some(compute_stats(lookups));
+        self.seen_records.clear();
+        self.responding_servers_set.clear();
+        for l in lookups.iter() {
+            if l.result().is_response() {
+                self.responding_servers_set.insert(l.name_server().to_string());
+            }
+        }
+
+        let mut rows = Vec::new();
+
+        for lookup in lookups.iter() {
+            let ns = lookup.name_server().to_string();
+            for record in lookup.records() {
+                let name_str = record.name().to_string();
+                let rt = record.record_type();
+
+                // Look up category for this record
+                let category = self
+                    .category_map
+                    .get(&(name_str.clone(), rt))
+                    .copied()
+                    .unwrap_or_else(|| {
+                        // Check if this is a subdomain of the queried domain (discovered record)
+                        if let Ok(record_name) = Name::from_str(&name_str) {
+                            if domain_name.zone_of(&record_name) && record_name != domain_name {
+                                return Category::Discovered;
+                            }
+                        }
+                        Category::Apex
+                    });
+
+                // Apex and Discovered always included; others filtered by active categories
+                if category != Category::Apex
+                    && category != Category::Discovered
+                    && !self.active_categories.contains(&category)
+                {
+                    continue;
+                }
+
+                // Dedup by (name, type, value)
+                let value = format_rdata(record.data());
+                let key = (name_str.clone(), rt, value.clone());
+                if !self.seen_records.insert(key) {
+                    continue;
+                }
+
+                let human_value = format_rdata_human(record.data());
+                let drill_target = extract_drill_target(record.data());
+                rows.push(RecordRow {
+                    name: name_str,
+                    record_type: rt,
+                    ttl: record.ttl(),
+                    value,
+                    human_value,
+                    nameserver: ns.clone(),
+                    category,
+                    drill_target,
+                });
+            }
+        }
+
+        self.rows = rows;
+        self.sort_rows();
+
+        // Apply regex filter
+        if let Some(ref re) = self.filter {
+            self.rows.retain(|row| {
+                re.is_match(&row.name)
+                    || re.is_match(&row.record_type.to_string())
+                    || re.is_match(&row.value)
+                    || re.is_match(&row.human_value)
+            });
+        }
+
+        // Preserve selection if possible
+        let prev_selected = self.table_state.selected();
+        if self.rows.is_empty() {
+            self.table_state.select(None);
+        } else if let Some(i) = prev_selected {
+            self.table_state.select(Some(i.min(self.rows.len().saturating_sub(1))));
+        }
+
+        // Update record count in Done state
+        if let QueryState::Done { record_count, .. } = &mut self.query_state {
+            *record_count = self.rows.len();
+        }
+    }
+
+    fn sort_rows(&mut self) {
+        match self.group_mode {
+            GroupMode::Category => self.rows.sort_by(|a, b| {
+                category_ordinal(a.category)
+                    .cmp(&category_ordinal(b.category))
+                    .then_with(|| a.record_type.ordinal().cmp(&b.record_type.ordinal()))
+                    .then_with(|| a.name.cmp(&b.name))
+                    .then_with(|| a.value.cmp(&b.value))
+            }),
+            GroupMode::RecordType => self.rows.sort_by(|a, b| {
+                a.record_type
+                    .ordinal()
+                    .cmp(&b.record_type.ordinal())
+                    .then_with(|| a.name.cmp(&b.name))
+                    .then_with(|| category_ordinal(a.category).cmp(&category_ordinal(b.category)))
+                    .then_with(|| a.value.cmp(&b.value))
+            }),
+            GroupMode::Name => self.rows.sort_by(|a, b| {
+                a.name
+                    .cmp(&b.name)
+                    .then_with(|| a.record_type.ordinal().cmp(&b.record_type.ordinal()))
+                    .then_with(|| category_ordinal(a.category).cmp(&category_ordinal(b.category)))
+                    .then_with(|| a.value.cmp(&b.value))
+            }),
+            GroupMode::Server => self.rows.sort_by(|a, b| {
+                a.nameserver
+                    .cmp(&b.nameserver)
+                    .then_with(|| a.name.cmp(&b.name))
+                    .then_with(|| a.record_type.ordinal().cmp(&b.record_type.ordinal()))
+                    .then_with(|| a.value.cmp(&b.value))
+            }),
+        }
+    }
+}
+
+/// Extract a drillable hostname target from record data.
+/// Returns `None` for record types without a hostname value (A, AAAA, TXT, etc.).
+fn extract_drill_target(rdata: &RData) -> Option<String> {
+    let name = match rdata {
+        RData::CNAME(name) | RData::ANAME(name) | RData::NS(name) | RData::PTR(name) => name.to_string(),
+        RData::MX(mx) => mx.exchange().to_string(),
+        RData::SRV(srv) => srv.target().to_string(),
+        RData::SOA(soa) => soa.mname().to_string(),
+        RData::SVCB(svcb) | RData::HTTPS(svcb) => {
+            let t = svcb.target_name().to_string();
+            if t == "." {
+                return None;
+            }
+            t
+        }
+        RData::NAPTR(naptr) => {
+            let t = naptr.replacement().to_string();
+            if t == "." {
+                return None;
+            }
+            t
+        }
+        _ => return None,
+    };
+    let name = name.trim_end_matches('.').to_string();
+    if name.is_empty() {
+        None
+    } else {
+        Some(name)
+    }
+}
+
+pub fn record_type_info(rt: RecordType) -> Option<(&'static str, &'static str, Option<&'static str>)> {
+    crate::app::common::record_type_info::find(&rt.to_string()).map(|info| (info.summary, info.detail, info.rfc))
+}
+
+/// Format a raw nameserver string like `udp:8.8.8.8:53,name=Google` into
+/// a human-friendly form like `Google (udp, 8.8.8.8)`.
+pub fn format_nameserver_human(raw: &str) -> String {
+    // Split off key=value options after first comma
+    let (addr_part, opts) = raw.split_once(',').unwrap_or((raw, ""));
+    let name = opts.split(',').find_map(|kv| kv.strip_prefix("name=")).unwrap_or("");
+
+    // addr_part is like "udp:8.8.8.8:53" or "https:dns.google:443"
+    let parts: Vec<&str> = addr_part.splitn(3, ':').collect();
+    let (protocol, host) = if parts.len() >= 2 {
+        (parts[0], parts[1])
+    } else {
+        return raw.to_string();
+    };
+
+    if name.is_empty() {
+        format!("{host} ({protocol})")
+    } else {
+        format!("{name} ({protocol}, {host})")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::resources::rdata::{MX, NAPTR, SOA, SRV, SVCB};
+    use std::net::Ipv4Addr;
+
+    fn name(s: &str) -> Name {
+        Name::from_str(s).unwrap()
+    }
+
+    // --- extract_drill_target ---
+
+    #[test]
+    fn drill_target_cname() {
+        let rdata = RData::CNAME(name("example.com."));
+        assert_eq!(extract_drill_target(&rdata), Some("example.com".into()));
+    }
+
+    #[test]
+    fn drill_target_ns() {
+        let rdata = RData::NS(name("ns1.example.com."));
+        assert_eq!(extract_drill_target(&rdata), Some("ns1.example.com".into()));
+    }
+
+    #[test]
+    fn drill_target_mx() {
+        let rdata = RData::MX(MX::new(10, name("mail.example.com.")));
+        assert_eq!(extract_drill_target(&rdata), Some("mail.example.com".into()));
+    }
+
+    #[test]
+    fn drill_target_srv() {
+        let rdata = RData::SRV(SRV::new(10, 5, 443, name("sip.example.com.")));
+        assert_eq!(extract_drill_target(&rdata), Some("sip.example.com".into()));
+    }
+
+    #[test]
+    fn drill_target_soa() {
+        let rdata = RData::SOA(SOA::new(
+            name("ns1.example.com."),
+            name("admin.example.com."),
+            2024010101,
+            3600,
+            900,
+            604800,
+            86400,
+        ));
+        assert_eq!(extract_drill_target(&rdata), Some("ns1.example.com".into()));
+    }
+
+    #[test]
+    fn drill_target_svcb_root_returns_none() {
+        let rdata = RData::SVCB(SVCB::new(0, name("."), vec![]));
+        assert_eq!(extract_drill_target(&rdata), None);
+    }
+
+    #[test]
+    fn drill_target_svcb_with_target() {
+        let rdata = RData::SVCB(SVCB::new(1, name("cdn.example.com."), vec![]));
+        assert_eq!(extract_drill_target(&rdata), Some("cdn.example.com".into()));
+    }
+
+    #[test]
+    fn drill_target_naptr_root_returns_none() {
+        let rdata = RData::NAPTR(NAPTR::new(
+            100,
+            10,
+            "s".into(),
+            "SIP+D2U".into(),
+            String::new(),
+            name("."),
+        ));
+        assert_eq!(extract_drill_target(&rdata), None);
+    }
+
+    #[test]
+    fn drill_target_naptr_with_replacement() {
+        let rdata = RData::NAPTR(NAPTR::new(
+            100,
+            10,
+            "s".into(),
+            "SIP+D2U".into(),
+            String::new(),
+            name("sip.example.com."),
+        ));
+        assert_eq!(extract_drill_target(&rdata), Some("sip.example.com".into()));
+    }
+
+    #[test]
+    fn drill_target_a_returns_none() {
+        let rdata = RData::A(Ipv4Addr::new(1, 2, 3, 4));
+        assert_eq!(extract_drill_target(&rdata), None);
+    }
+
+    #[test]
+    fn drill_target_zero_returns_none() {
+        assert_eq!(extract_drill_target(&RData::ZERO), None);
+    }
+
+    // --- format_nameserver_human ---
+
+    #[test]
+    fn format_ns_full() {
+        assert_eq!(
+            format_nameserver_human("udp:8.8.8.8:53,name=Google"),
+            "Google (udp, 8.8.8.8)"
+        );
+    }
+
+    #[test]
+    fn format_ns_no_name() {
+        assert_eq!(format_nameserver_human("tcp:1.1.1.1:53"), "1.1.1.1 (tcp)");
+    }
+
+    #[test]
+    fn format_ns_https() {
+        assert_eq!(
+            format_nameserver_human("https:dns.google:443,name=Google"),
+            "Google (https, dns.google)"
+        );
+    }
+
+    #[test]
+    fn format_ns_no_colon_fallback() {
+        assert_eq!(format_nameserver_human("plain"), "plain");
+    }
+
+    // --- category_short_label ---
+
+    #[test]
+    fn category_labels_are_unique() {
+        let labels: Vec<&str> = TOGGLEABLE_CATEGORIES.iter().map(|c| category_short_label(*c)).collect();
+        let unique: HashSet<&str> = labels.iter().copied().collect();
+        assert_eq!(labels.len(), unique.len(), "category labels must be unique");
+    }
+
+    // --- category_ordinal ---
+
+    #[test]
+    fn category_ordinals_are_strictly_increasing() {
+        let all = [
+            Category::Apex,
+            Category::EmailAuthentication,
+            Category::EmailServices,
+            Category::TlsDane,
+            Category::Communication,
+            Category::CalendarContacts,
+            Category::Infrastructure,
+            Category::ModernProtocols,
+            Category::VerificationMetadata,
+            Category::Legacy,
+            Category::Gaming,
+            Category::Discovered,
+        ];
+        for window in all.windows(2) {
+            assert!(
+                category_ordinal(window[0]) < category_ordinal(window[1]),
+                "{:?} should sort before {:?}",
+                window[0],
+                window[1]
+            );
+        }
+    }
+
+    // --- GroupMode ---
+
+    #[test]
+    fn group_mode_next_cycles() {
+        assert_eq!(GroupMode::Category.next(), GroupMode::RecordType);
+        assert_eq!(GroupMode::RecordType.next(), GroupMode::Name);
+        assert_eq!(GroupMode::Name.next(), GroupMode::Server);
+        assert_eq!(GroupMode::Server.next(), GroupMode::Category);
+    }
+
+    #[test]
+    fn group_mode_labels() {
+        assert_eq!(GroupMode::Category.label(), "Category");
+        assert_eq!(GroupMode::RecordType.label(), "Type");
+        assert_eq!(GroupMode::Name.label(), "Name");
+        assert_eq!(GroupMode::Server.label(), "Server");
+    }
+
+    // --- sort_rows ---
+
+    fn make_row(name: &str, rt: RecordType, cat: Category, ns: &str) -> RecordRow {
+        RecordRow {
+            name: name.into(),
+            record_type: rt,
+            ttl: 300,
+            value: String::new(),
+            human_value: String::new(),
+            nameserver: ns.into(),
+            category: cat,
+            drill_target: None,
+        }
+    }
+
+    #[test]
+    fn sort_rows_by_category() {
+        let mut rows = vec![
+            make_row("b.example.com", RecordType::A, Category::Infrastructure, "ns1"),
+            make_row("a.example.com", RecordType::MX, Category::EmailServices, "ns1"),
+            make_row("c.example.com", RecordType::A, Category::Apex, "ns1"),
+        ];
+        // Category sort: Apex(0) < EmailServices(2) < Infrastructure(6)
+        rows.sort_by(|a, b| {
+            category_ordinal(a.category)
+                .cmp(&category_ordinal(b.category))
+                .then_with(|| a.record_type.ordinal().cmp(&b.record_type.ordinal()))
+                .then_with(|| a.name.cmp(&b.name))
+                .then_with(|| a.value.cmp(&b.value))
+        });
+        assert_eq!(rows[0].category, Category::Apex);
+        assert_eq!(rows[1].category, Category::EmailServices);
+        assert_eq!(rows[2].category, Category::Infrastructure);
+    }
+
+    #[test]
+    fn sort_rows_by_server() {
+        let mut rows = vec![
+            make_row("a.example.com", RecordType::A, Category::Apex, "ns2"),
+            make_row("a.example.com", RecordType::A, Category::Apex, "ns1"),
+            make_row("b.example.com", RecordType::A, Category::Apex, "ns1"),
+        ];
+        rows.sort_by(|a, b| {
+            a.nameserver
+                .cmp(&b.nameserver)
+                .then_with(|| a.name.cmp(&b.name))
+                .then_with(|| a.record_type.ordinal().cmp(&b.record_type.ordinal()))
+                .then_with(|| a.value.cmp(&b.value))
+        });
+        assert_eq!(rows[0].nameserver, "ns1");
+        assert_eq!(rows[0].name, "a.example.com");
+        assert_eq!(rows[1].nameserver, "ns1");
+        assert_eq!(rows[1].name, "b.example.com");
+        assert_eq!(rows[2].nameserver, "ns2");
+    }
+}

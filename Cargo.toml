@@ -24,13 +24,13 @@ build = "build.rs"
 name = "mhost"
 path = "src/bin/mhost.rs"
 doc = false
-required-features = ["app"]
+required-features = ["app-cli"]
 
 [[bin]]
 name = "mdive"
-path = "src/bin/mdive/main.rs"
+path = "src/bin/mdive.rs"
 doc = false
-required-features = ["tui"]
+required-features = ["app-tui"]
 
 [lib]
 name = "mhost"
@@ -81,10 +81,14 @@ lit = "1"
 spectral = "0.6"
 
 [features]
-default = ["app"]
+default = ["app-cli"]
 services = ["reqwest"]
-app = ["anyhow", "clap", "clap_complete", "hickory-proto", "hostname", "humantime", "tabwriter", "tracing-log", "tracing-subscriber", "services"]
-tui = ["app", "ratatui", "crossterm", "clap", "humantime", "regex"]
+app-lib = ["anyhow", "humantime", "services"]
+app-cli = ["app-lib", "clap", "clap_complete", "hickory-proto", "hostname", "humantime", "tabwriter", "tracing-log", "tracing-subscriber"]
+app-tui = ["app-lib", "ratatui", "crossterm", "clap", "humantime", "regex"]
+# Backward compatibility aliases
+app = ["app-cli"]
+tui = ["app-tui"]
 
 [profile.release]
 lto = true
@@ -100,7 +104,7 @@ extended-description = """mhost
 - uses lints to validate the DNS configurations of any domain.
 """
 section = "Network"
-features = ["app"]
+features = ["app-cli"]
 priority = "optional"
 assets = [
     ["target/release/mhost", "usr/bin/", "755"],
@@ -111,7 +115,7 @@ assets = [
 package = "mhost"
 
 [package.metadata.rpm.cargo]
-buildflags = ["--release", "--features", "app"]
+buildflags = ["--release", "--features", "app-cli"]
 
 [package.metadata.rpm.targets]
 mhost = { path = "/usr/bin/mhost" }

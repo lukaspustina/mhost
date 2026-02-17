@@ -10,8 +10,8 @@ use clap::builder::ValueParser;
 use clap::ArgMatches;
 
 use crate::nameserver::{predefined, NameServerConfig, NameServerConfigGroup, Protocol};
-use crate::resolver::ResolverGroupBuilder;
 use crate::resolver::ResolverGroup;
+use crate::resolver::ResolverGroupBuilder;
 
 /// Shared resolver configuration, parsed from CLI args.
 ///

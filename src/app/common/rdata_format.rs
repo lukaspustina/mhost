@@ -21,13 +21,7 @@ pub fn format_rdata(rdata: &RData) -> String {
             soa.minimum()
         ),
         RData::TXT(txt) => txt.as_string(),
-        RData::SRV(srv) => format!(
-            "{} {} {} {}",
-            srv.priority(),
-            srv.weight(),
-            srv.port(),
-            srv.target()
-        ),
+        RData::SRV(srv) => format!("{} {} {} {}", srv.priority(), srv.weight(), srv.port(), srv.target()),
         RData::CAA(caa) => {
             let critical = if caa.issuer_critical() { "128" } else { "0" };
             format!("{} {} \"{}\"", critical, caa.tag(), caa.value())
@@ -41,12 +35,7 @@ pub fn format_rdata(rdata: &RData) -> String {
             if params.is_empty() {
                 format!("{} {}", svcb.svc_priority(), svcb.target_name())
             } else {
-                format!(
-                    "{} {} {}",
-                    svcb.svc_priority(),
-                    svcb.target_name(),
-                    params.join(" ")
-                )
+                format!("{} {} {}", svcb.svc_priority(), svcb.target_name(), params.join(" "))
             }
         }
         RData::TLSA(tlsa) => format!(
@@ -72,10 +61,7 @@ pub fn format_rdata(rdata: &RData) -> String {
         ),
         RData::OPENPGPKEY(key) => format!("[{}B key]", key.public_key().len()),
         RData::DNSKEY(key) => {
-            let tag = key
-                .key_tag()
-                .map(|t| t.to_string())
-                .unwrap_or_else(|| "-".to_string());
+            let tag = key.key_tag().map(|t| t.to_string()).unwrap_or_else(|| "-".to_string());
             format!("tag={} algo={} flags={}", tag, key.algorithm(), key.flags())
         }
         RData::DS(ds) => format!(
@@ -84,12 +70,7 @@ pub fn format_rdata(rdata: &RData) -> String {
             ds.algorithm(),
             ds.digest_type()
         ),
-        RData::RRSIG(rrsig) => format!(
-            "{} {} tag={}",
-            rrsig.type_covered(),
-            rrsig.algorithm(),
-            rrsig.key_tag()
-        ),
+        RData::RRSIG(rrsig) => format!("{} {} tag={}", rrsig.type_covered(), rrsig.algorithm(), rrsig.key_tag()),
         RData::NSEC(nsec) => {
             let types: Vec<String> = nsec.types().iter().map(|t| t.to_string()).collect();
             format!("{} [{}]", nsec.next_domain_name(), types.join(" "))
@@ -124,13 +105,22 @@ pub fn format_rdata_human(rdata: &RData) -> String {
         RData::SOA(soa) => {
             format!(
                 "Primary NS: {}\nContact: {}\nSerial: {}\nRefresh: {}\nRetry: {}\nExpire: {}\nMinimum TTL: {}",
-                soa.mname(), soa.rname(), soa.serial(), soa.refresh(), soa.retry(), soa.expire(), soa.minimum()
+                soa.mname(),
+                soa.rname(),
+                soa.serial(),
+                soa.refresh(),
+                soa.retry(),
+                soa.expire(),
+                soa.minimum()
             )
         }
         RData::SRV(srv) => {
             format!(
                 "Priority: {}\nWeight: {}\nPort: {}\nTarget: {}",
-                srv.priority(), srv.weight(), srv.port(), srv.target()
+                srv.priority(),
+                srv.weight(),
+                srv.port(),
+                srv.target()
             )
         }
         RData::CAA(caa) => {
@@ -139,7 +129,9 @@ pub fn format_rdata_human(rdata: &RData) -> String {
             let description = match (caa.tag(), caa.value().trim()) {
                 ("issue", v) if v.is_empty() || v == ";" => "no CA is allowed to issue certificates".to_string(),
                 ("issue", v) => format!("allow {v} to issue certificates"),
-                ("issuewild", v) if v.is_empty() || v == ";" => "no CA is allowed to issue wildcard certificates".to_string(),
+                ("issuewild", v) if v.is_empty() || v == ";" => {
+                    "no CA is allowed to issue wildcard certificates".to_string()
+                }
                 ("issuewild", v) => format!("allow {v} to issue wildcard certificates"),
                 ("iodef", v) => format!("report policy violations to {v}"),
                 (t, v) => format!("{t} {v}"),
@@ -175,20 +167,30 @@ pub fn format_rdata_human(rdata: &RData) -> String {
         RData::TLSA(tlsa) => {
             format!(
                 "Usage: {}\nSelector: {}\nMatching: {}\nData: [{}B]",
-                tlsa.cert_usage(), tlsa.selector(), tlsa.matching(), tlsa.cert_data().len()
+                tlsa.cert_usage(),
+                tlsa.selector(),
+                tlsa.matching(),
+                tlsa.cert_data().len()
             )
         }
         RData::SSHFP(sshfp) => {
             let fp_hex: String = sshfp.fingerprint().iter().map(|b| format!("{b:02x}")).collect();
             format!(
                 "Algorithm: {}\nFingerprint Type: {}\nFingerprint: {}",
-                sshfp.algorithm(), sshfp.fingerprint_type(), fp_hex
+                sshfp.algorithm(),
+                sshfp.fingerprint_type(),
+                fp_hex
             )
         }
         RData::NAPTR(naptr) => {
             format!(
                 "Order: {}\nPreference: {}\nFlags: {}\nServices: {}\nRegexp: {}\nReplacement: {}",
-                naptr.order(), naptr.preference(), naptr.flags(), naptr.services(), naptr.regexp(), naptr.replacement()
+                naptr.order(),
+                naptr.preference(),
+                naptr.flags(),
+                naptr.services(),
+                naptr.regexp(),
+                naptr.replacement()
             )
         }
         RData::TXT(txt) => format_txt_human(txt),
@@ -197,13 +199,28 @@ pub fn format_rdata_human(rdata: &RData) -> String {
         }
         RData::DNSKEY(key) => {
             let tag = key.key_tag().map(|t| t.to_string()).unwrap_or_else(|| "-".to_string());
-            format!("Flags: {}\nAlgorithm: {}\nKey Tag: {}", key.flags(), key.algorithm(), tag)
+            format!(
+                "Flags: {}\nAlgorithm: {}\nKey Tag: {}",
+                key.flags(),
+                key.algorithm(),
+                tag
+            )
         }
         RData::DS(ds) => {
-            format!("Key Tag: {}\nAlgorithm: {}\nDigest Type: {}", ds.key_tag(), ds.algorithm(), ds.digest_type())
+            format!(
+                "Key Tag: {}\nAlgorithm: {}\nDigest Type: {}",
+                ds.key_tag(),
+                ds.algorithm(),
+                ds.digest_type()
+            )
         }
         RData::RRSIG(rrsig) => {
-            format!("Type Covered: {}\nAlgorithm: {}\nKey Tag: {}", rrsig.type_covered(), rrsig.algorithm(), rrsig.key_tag())
+            format!(
+                "Type Covered: {}\nAlgorithm: {}\nKey Tag: {}",
+                rrsig.type_covered(),
+                rrsig.algorithm(),
+                rrsig.key_tag()
+            )
         }
         // For simple types, the plain format is sufficient
         _ => format_rdata(rdata),
@@ -214,10 +231,7 @@ fn format_txt_human(txt: &crate::resources::rdata::TXT) -> String {
     let text = txt.as_string();
     match ParsedTxt::from_str(&text) {
         Ok(ParsedTxt::Spf(spf)) => {
-            let mut lines = vec![
-                "Type: SPF".to_string(),
-                format!("Version: {}", spf.version()),
-            ];
+            let mut lines = vec!["Type: SPF".to_string(), format!("Version: {}", spf.version())];
             for word in spf.words() {
                 match word {
                     Word::Word(q, mechanism) => {
@@ -231,16 +245,24 @@ fn format_txt_human(txt: &crate::resources::rdata::TXT) -> String {
                             Mechanism::All => "all".to_string(),
                             Mechanism::A { domain_spec, cidr_len } => {
                                 let mut s = "a".to_string();
-                                if let Some(d) = domain_spec { s = format!("a:{d}"); }
-                                if let Some(c) = cidr_len { s = format!("{s}/{c}"); }
+                                if let Some(d) = domain_spec {
+                                    s = format!("a:{d}");
+                                }
+                                if let Some(c) = cidr_len {
+                                    s = format!("{s}/{c}");
+                                }
                                 s
                             }
                             Mechanism::IPv4(ip) => format!("ip4:{ip}"),
                             Mechanism::IPv6(ip) => format!("ip6:{ip}"),
                             Mechanism::MX { domain_spec, cidr_len } => {
                                 let mut s = "mx".to_string();
-                                if let Some(d) = domain_spec { s = format!("mx:{d}"); }
-                                if let Some(c) = cidr_len { s = format!("{s}/{c}"); }
+                                if let Some(d) = domain_spec {
+                                    s = format!("mx:{d}");
+                                }
+                                if let Some(c) = cidr_len {
+                                    s = format!("{s}/{c}");
+                                }
                                 s
                             }
                             Mechanism::PTR(d) => match d {
@@ -261,18 +283,31 @@ fn format_txt_human(txt: &crate::resources::rdata::TXT) -> String {
             lines.join("\n")
         }
         Ok(ParsedTxt::Dmarc(dmarc)) => {
-            let mut lines = vec![
-                "Type: DMARC".to_string(),
-                format!("Policy: {}", dmarc.policy()),
-            ];
-            if let Some(sp) = dmarc.subdomain_policy() { lines.push(format!("Subdomain Policy: {sp}")); }
-            if let Some(rua) = dmarc.rua() { lines.push(format!("RUA: {rua}")); }
-            if let Some(ruf) = dmarc.ruf() { lines.push(format!("RUF: {ruf}")); }
-            if let Some(adkim) = dmarc.adkim() { lines.push(format!("DKIM Alignment: {adkim}")); }
-            if let Some(aspf) = dmarc.aspf() { lines.push(format!("SPF Alignment: {aspf}")); }
-            if let Some(pct) = dmarc.pct() { lines.push(format!("Percentage: {pct}")); }
-            if let Some(fo) = dmarc.fo() { lines.push(format!("Failure Options: {fo}")); }
-            if let Some(ri) = dmarc.ri() { lines.push(format!("Report Interval: {ri}")); }
+            let mut lines = vec!["Type: DMARC".to_string(), format!("Policy: {}", dmarc.policy())];
+            if let Some(sp) = dmarc.subdomain_policy() {
+                lines.push(format!("Subdomain Policy: {sp}"));
+            }
+            if let Some(rua) = dmarc.rua() {
+                lines.push(format!("RUA: {rua}"));
+            }
+            if let Some(ruf) = dmarc.ruf() {
+                lines.push(format!("RUF: {ruf}"));
+            }
+            if let Some(adkim) = dmarc.adkim() {
+                lines.push(format!("DKIM Alignment: {adkim}"));
+            }
+            if let Some(aspf) = dmarc.aspf() {
+                lines.push(format!("SPF Alignment: {aspf}"));
+            }
+            if let Some(pct) = dmarc.pct() {
+                lines.push(format!("Percentage: {pct}"));
+            }
+            if let Some(fo) = dmarc.fo() {
+                lines.push(format!("Failure Options: {fo}"));
+            }
+            if let Some(ri) = dmarc.ri() {
+                lines.push(format!("Report Interval: {ri}"));
+            }
             lines.join("\n")
         }
         Ok(ParsedTxt::MtaSts(mta_sts)) => {
@@ -282,16 +317,22 @@ fn format_txt_human(txt: &crate::resources::rdata::TXT) -> String {
             format!("Type: TLS-RPT\nVersion: {}\nRUA: {}", tls_rpt.version(), tls_rpt.rua())
         }
         Ok(ParsedTxt::Bimi(bimi)) => {
-            let mut lines = vec![
-                "Type: BIMI".to_string(),
-                format!("Version: {}", bimi.version()),
-            ];
-            if let Some(logo) = bimi.logo() { lines.push(format!("Logo: {logo}")); }
-            if let Some(authority) = bimi.authority() { lines.push(format!("Authority: {authority}")); }
+            let mut lines = vec!["Type: BIMI".to_string(), format!("Version: {}", bimi.version())];
+            if let Some(logo) = bimi.logo() {
+                lines.push(format!("Logo: {logo}"));
+            }
+            if let Some(authority) = bimi.authority() {
+                lines.push(format!("Authority: {authority}"));
+            }
             lines.join("\n")
         }
         Ok(ParsedTxt::DomainVerification(dv)) => {
-            format!("Type: Verification\nVerifier: {}\nScope: {}\nID: {}", dv.verifier(), dv.scope(), dv.id())
+            format!(
+                "Type: Verification\nVerifier: {}\nScope: {}\nID: {}",
+                dv.verifier(),
+                dv.scope(),
+                dv.id()
+            )
         }
         Err(_) => text,
     }

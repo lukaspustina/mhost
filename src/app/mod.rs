@@ -9,51 +9,29 @@
 
 pub mod common;
 
-#[cfg(feature = "app")]
-pub mod app_config;
-#[cfg(feature = "app")]
-pub mod cli_parser;
-#[cfg(feature = "app")]
-pub mod console;
-#[cfg(feature = "app")]
-pub mod logging;
-#[cfg(feature = "app")]
-pub mod modules;
-#[cfg(feature = "app")]
-pub mod output;
-#[cfg(feature = "app")]
-pub mod resolver;
-#[cfg(feature = "app")]
-pub mod utils;
+#[cfg(feature = "app-tui")]
+pub mod mdive;
+#[cfg(feature = "app-cli")]
+pub mod mhost;
 
-#[cfg(feature = "app")]
-pub use app_config::AppConfig;
-
-/// `ExitStatus` represents the exit states that will be return to the OS after termination
-#[cfg(feature = "app")]
-#[derive(Debug, Clone)]
-pub enum ExitStatus {
-    /// All fine.
-    Ok = 0,
-    /// CLI argument parsing failed.
-    CliParsingFailed = 1,
-    /// Processing of CLI arguments failed.
-    ConfigParsingFailed = 2,
-    /// An unrecoverable error occurred. This is worst case and should not happen.
-    UnrecoverableError = 3,
-    /// A module failed to properly execute.
-    Failed = 10,
-    /// A module check failed.
-    CheckFailed = 11,
-    /// A module could not proceed because of invalid preconditions of the succeeding step.
-    Abort = 12,
-}
-
-/* Unstable :(
-use std::process::Termination;
-impl Termination for ExitStatus {
-    fn report(self) -> i32 {
-        self as i32
-    }
-}
-*/
+// Re-exports for backward compatibility — keep existing `crate::app::*` paths working.
+#[cfg(feature = "app-cli")]
+pub use mhost::app_config;
+#[cfg(feature = "app-cli")]
+pub use mhost::cli_parser;
+#[cfg(feature = "app-cli")]
+pub use mhost::console;
+#[cfg(feature = "app-cli")]
+pub use mhost::logging;
+#[cfg(feature = "app-cli")]
+pub use mhost::modules;
+#[cfg(feature = "app-cli")]
+pub use mhost::output;
+#[cfg(feature = "app-cli")]
+pub use mhost::resolver;
+#[cfg(feature = "app-cli")]
+pub use mhost::utils;
+#[cfg(feature = "app-cli")]
+pub use mhost::AppConfig;
+#[cfg(feature = "app-cli")]
+pub use mhost::ExitStatus;

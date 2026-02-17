@@ -96,10 +96,10 @@ fn setup_tokio(num_threads: Option<usize>) -> Result<Runtime> {
 
 fn setup_terminal(args: &ArgMatches, color: bool) {
     if !color {
-        mhost::app::output::styles::no_color_mode();
+        mhost::app::common::styles::no_color_mode();
     }
     if args.get_flag("ascii") {
-        mhost::app::output::styles::ascii_mode();
+        mhost::app::common::styles::ascii_mode();
     }
 }
 

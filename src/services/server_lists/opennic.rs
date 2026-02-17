@@ -62,7 +62,10 @@ pub async fn download(downloader: ServerListDownloader, spec: &OpenNic) -> Resul
         if len > MAX_RESPONSE_SIZE {
             return Err(Error::HttpClientErrorMessage {
                 why: "response too large",
-                details: format!("response size {} bytes exceeds limit of {} bytes", len, MAX_RESPONSE_SIZE),
+                details: format!(
+                    "response size {} bytes exceeds limit of {} bytes",
+                    len, MAX_RESPONSE_SIZE
+                ),
             });
         }
     }
@@ -75,7 +78,11 @@ pub async fn download(downloader: ServerListDownloader, spec: &OpenNic) -> Resul
     if body.len() as u64 > MAX_RESPONSE_SIZE {
         return Err(Error::HttpClientErrorMessage {
             why: "response too large",
-            details: format!("response size {} bytes exceeds limit of {} bytes", body.len(), MAX_RESPONSE_SIZE),
+            details: format!(
+                "response size {} bytes exceeds limit of {} bytes",
+                body.len(),
+                MAX_RESPONSE_SIZE
+            ),
         });
     }
 

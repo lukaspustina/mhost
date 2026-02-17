@@ -24,36 +24,36 @@ use tracing::debug;
 
 /// Root DNS server IPv4 addresses (a.root-servers.net through m.root-servers.net).
 pub static ROOT_SERVERS: &[Ipv4Addr] = &[
-    Ipv4Addr::new(198, 41, 0, 4),   // a.root-servers.net
-    Ipv4Addr::new(170, 247, 170, 2), // b.root-servers.net
-    Ipv4Addr::new(192, 33, 4, 12),   // c.root-servers.net
-    Ipv4Addr::new(199, 7, 91, 13),   // d.root-servers.net
+    Ipv4Addr::new(198, 41, 0, 4),     // a.root-servers.net
+    Ipv4Addr::new(170, 247, 170, 2),  // b.root-servers.net
+    Ipv4Addr::new(192, 33, 4, 12),    // c.root-servers.net
+    Ipv4Addr::new(199, 7, 91, 13),    // d.root-servers.net
     Ipv4Addr::new(192, 203, 230, 10), // e.root-servers.net
-    Ipv4Addr::new(192, 5, 5, 241),   // f.root-servers.net
-    Ipv4Addr::new(192, 112, 36, 4),  // g.root-servers.net
-    Ipv4Addr::new(198, 97, 190, 53), // h.root-servers.net
-    Ipv4Addr::new(192, 36, 148, 17), // i.root-servers.net
-    Ipv4Addr::new(192, 58, 128, 30), // j.root-servers.net
-    Ipv4Addr::new(193, 0, 14, 129),  // k.root-servers.net
-    Ipv4Addr::new(199, 7, 83, 42),   // l.root-servers.net
-    Ipv4Addr::new(202, 12, 27, 33),  // m.root-servers.net
+    Ipv4Addr::new(192, 5, 5, 241),    // f.root-servers.net
+    Ipv4Addr::new(192, 112, 36, 4),   // g.root-servers.net
+    Ipv4Addr::new(198, 97, 190, 53),  // h.root-servers.net
+    Ipv4Addr::new(192, 36, 148, 17),  // i.root-servers.net
+    Ipv4Addr::new(192, 58, 128, 30),  // j.root-servers.net
+    Ipv4Addr::new(193, 0, 14, 129),   // k.root-servers.net
+    Ipv4Addr::new(199, 7, 83, 42),    // l.root-servers.net
+    Ipv4Addr::new(202, 12, 27, 33),   // m.root-servers.net
 ];
 
 /// Root DNS server IPv6 addresses (a.root-servers.net through m.root-servers.net).
 pub static ROOT_SERVERS_V6: &[Ipv6Addr] = &[
     Ipv6Addr::new(0x2001, 0x0503, 0xba3e, 0, 0, 0, 0x0002, 0x0030), // a.root-servers.net
-    Ipv6Addr::new(0x2801, 0x01b8, 0x0010, 0, 0, 0, 0, 0x000b),       // b.root-servers.net
-    Ipv6Addr::new(0x2001, 0x0500, 0x0002, 0, 0, 0, 0, 0x000c),       // c.root-servers.net
-    Ipv6Addr::new(0x2001, 0x0500, 0x002d, 0, 0, 0, 0, 0x000d),       // d.root-servers.net
-    Ipv6Addr::new(0x2001, 0x0500, 0x00a8, 0, 0, 0, 0, 0x000e),       // e.root-servers.net
-    Ipv6Addr::new(0x2001, 0x0500, 0x002f, 0, 0, 0, 0, 0x000f),       // f.root-servers.net
-    Ipv6Addr::new(0x2001, 0x0500, 0x0012, 0, 0, 0, 0, 0x0d0d),       // g.root-servers.net
-    Ipv6Addr::new(0x2001, 0x0500, 0x0001, 0, 0, 0, 0, 0x0053),       // h.root-servers.net
-    Ipv6Addr::new(0x2001, 0x07fe, 0, 0, 0, 0, 0, 0x0053),            // i.root-servers.net
-    Ipv6Addr::new(0x2001, 0x0503, 0x0c27, 0, 0, 0, 0x0002, 0x0030),  // j.root-servers.net
-    Ipv6Addr::new(0x2001, 0x07fd, 0, 0, 0, 0, 0, 0x0001),            // k.root-servers.net
-    Ipv6Addr::new(0x2001, 0x0500, 0x009f, 0, 0, 0, 0, 0x0042),       // l.root-servers.net
-    Ipv6Addr::new(0x2001, 0x0dc3, 0, 0, 0, 0, 0, 0x0035),            // m.root-servers.net
+    Ipv6Addr::new(0x2801, 0x01b8, 0x0010, 0, 0, 0, 0, 0x000b),      // b.root-servers.net
+    Ipv6Addr::new(0x2001, 0x0500, 0x0002, 0, 0, 0, 0, 0x000c),      // c.root-servers.net
+    Ipv6Addr::new(0x2001, 0x0500, 0x002d, 0, 0, 0, 0, 0x000d),      // d.root-servers.net
+    Ipv6Addr::new(0x2001, 0x0500, 0x00a8, 0, 0, 0, 0, 0x000e),      // e.root-servers.net
+    Ipv6Addr::new(0x2001, 0x0500, 0x002f, 0, 0, 0, 0, 0x000f),      // f.root-servers.net
+    Ipv6Addr::new(0x2001, 0x0500, 0x0012, 0, 0, 0, 0, 0x0d0d),      // g.root-servers.net
+    Ipv6Addr::new(0x2001, 0x0500, 0x0001, 0, 0, 0, 0, 0x0053),      // h.root-servers.net
+    Ipv6Addr::new(0x2001, 0x07fe, 0, 0, 0, 0, 0, 0x0053),           // i.root-servers.net
+    Ipv6Addr::new(0x2001, 0x0503, 0x0c27, 0, 0, 0, 0x0002, 0x0030), // j.root-servers.net
+    Ipv6Addr::new(0x2001, 0x07fd, 0, 0, 0, 0, 0, 0x0001),           // k.root-servers.net
+    Ipv6Addr::new(0x2001, 0x0500, 0x009f, 0, 0, 0, 0, 0x0042),      // l.root-servers.net
+    Ipv6Addr::new(0x2001, 0x0dc3, 0, 0, 0, 0, 0, 0x0035),           // m.root-servers.net
 ];
 
 #[derive(Debug, Error)]
@@ -178,10 +178,7 @@ pub async fn parallel_raw_queries(
         }
     });
 
-    stream::iter(futures)
-        .buffer_unordered(max_concurrent)
-        .collect()
-        .await
+    stream::iter(futures).buffer_unordered(max_concurrent).collect().await
 }
 
 /// Send a non-recursive DNS query with the DNSSEC OK (DO) bit set, requesting
@@ -219,10 +216,7 @@ pub async fn parallel_raw_dnssec_queries(
         }
     });
 
-    stream::iter(futures)
-        .buffer_unordered(max_concurrent)
-        .collect()
-        .await
+    stream::iter(futures).buffer_unordered(max_concurrent).collect().await
 }
 
 fn build_query_message(name: &Name, record_type: RecordType) -> Message {
@@ -253,11 +247,7 @@ fn build_query_message_opts(name: &Name, record_type: RecordType, dnssec_ok: boo
     msg
 }
 
-async fn send_udp(
-    server: SocketAddr,
-    msg: &Message,
-    timeout: Duration,
-) -> RawResult<RawResponse> {
+async fn send_udp(server: SocketAddr, msg: &Message, timeout: Duration) -> RawResult<RawResponse> {
     let msg_bytes = msg.to_vec().map_err(|e| RawError::Decode(e.to_string()))?;
     let expected_id = msg.id();
 
@@ -293,11 +283,7 @@ async fn send_udp(
     })
 }
 
-async fn send_tcp(
-    server: SocketAddr,
-    msg: &Message,
-    timeout: Duration,
-) -> RawResult<RawResponse> {
+async fn send_tcp(server: SocketAddr, msg: &Message, timeout: Duration) -> RawResult<RawResponse> {
     let msg_bytes = msg.to_vec().map_err(|e| RawError::Decode(e.to_string()))?;
     let expected_id = msg.id();
 

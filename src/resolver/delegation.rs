@@ -105,10 +105,7 @@ pub fn extract_referral(results: &[RawQueryResult]) -> Option<Referral> {
         return None;
     }
 
-    Some(Referral {
-        zone_name,
-        ns_servers,
-    })
+    Some(Referral { zone_name, ns_servers })
 }
 
 /// Build a server list from a referral, filtering by IP address preference.

@@ -259,8 +259,14 @@ mod tests {
     #[test]
     fn rdata_dnskey_accessor() {
         let dnskey = DNSKEY::new(
-            257, 3, DnssecAlgorithm::EcdsaP256Sha256,
-            "key_data".to_string(), Some(2371), true, true, false,
+            257,
+            3,
+            DnssecAlgorithm::EcdsaP256Sha256,
+            "key_data".to_string(),
+            Some(2371),
+            true,
+            true,
+            false,
         );
         let rdata = RData::DNSKEY(dnskey.clone());
         assert_eq!(rdata.dnskey(), Some(&dnskey));
@@ -270,7 +276,10 @@ mod tests {
     #[test]
     fn rdata_ds_accessor() {
         let ds = DS::new(
-            12345, DnssecAlgorithm::RsaSha256, DigestType::Sha256, "ABCDEF".to_string(),
+            12345,
+            DnssecAlgorithm::RsaSha256,
+            DigestType::Sha256,
+            "ABCDEF".to_string(),
         );
         let rdata = RData::DS(ds.clone());
         assert_eq!(rdata.ds(), Some(&ds));
@@ -281,8 +290,15 @@ mod tests {
     fn rdata_rrsig_accessor() {
         let name = Name::from_str("example.com.").unwrap();
         let rrsig = RRSIG::new(
-            "A".to_string(), DnssecAlgorithm::RsaSha256, 2, 300,
-            1700000000, 1699000000, 12345, name, "sig".to_string(),
+            "A".to_string(),
+            DnssecAlgorithm::RsaSha256,
+            2,
+            300,
+            1700000000,
+            1699000000,
+            12345,
+            name,
+            "sig".to_string(),
         );
         let rdata = RData::RRSIG(rrsig.clone());
         assert_eq!(rdata.rrsig(), Some(&rrsig));
@@ -301,8 +317,12 @@ mod tests {
     #[test]
     fn rdata_nsec3_accessor() {
         let nsec3 = NSEC3::new(
-            "SHA-1".to_string(), false, 10, "ABCDEF".to_string(),
-            "HASH".to_string(), vec!["A".to_string()],
+            "SHA-1".to_string(),
+            false,
+            10,
+            "ABCDEF".to_string(),
+            "HASH".to_string(),
+            vec!["A".to_string()],
         );
         let rdata = RData::NSEC3(nsec3.clone());
         assert_eq!(rdata.nsec3(), Some(&nsec3));
@@ -458,15 +478,13 @@ impl From<hickory_resolver::proto::rr::RData> for RData {
                     TDnssec::DS(ref ds) => {
                         let algo_u8: u8 = ds.algorithm().into();
                         let digest_u8: u8 = ds.digest_type().into();
-                        let digest_hex: String =
-                            ds.digest().iter().map(|b| format!("{:02X}", b)).collect();
+                        let digest_hex: String = ds.digest().iter().map(|b| format!("{:02X}", b)).collect();
                         RData::DS(DS::new(ds.key_tag(), algo_u8.into(), digest_u8.into(), digest_hex))
                     }
                     TDnssec::CDS(ref ds) => {
                         let algo_u8: u8 = ds.algorithm().map(u8::from).unwrap_or(0);
                         let digest_u8: u8 = ds.digest_type().into();
-                        let digest_hex: String =
-                            ds.digest().iter().map(|b| format!("{:02X}", b)).collect();
+                        let digest_hex: String = ds.digest().iter().map(|b| format!("{:02X}", b)).collect();
                         RData::DS(DS::new(ds.key_tag(), algo_u8.into(), digest_u8.into(), digest_hex))
                     }
                     TDnssec::RRSIG(ref sig) => convert_sig(sig),
@@ -478,10 +496,8 @@ impl From<hickory_resolver::proto::rr::RData> for RData {
                     TDnssec::NSEC3(ref nsec3) => {
                         let hash_algo = nsec3_hash_algorithm_name(nsec3.hash_algorithm());
                         let salt = hex_or_dash(nsec3.salt());
-                        let next_hashed =
-                            data_encoding::BASE32HEX_NOPAD.encode(nsec3.next_hashed_owner_name());
-                        let types: Vec<String> =
-                            nsec3.type_bit_maps().map(|rt| rt.to_string()).collect();
+                        let next_hashed = data_encoding::BASE32HEX_NOPAD.encode(nsec3.next_hashed_owner_name());
+                        let types: Vec<String> = nsec3.type_bit_maps().map(|rt| rt.to_string()).collect();
                         RData::NSEC3(NSEC3::new(
                             hash_algo,
                             nsec3.opt_out(),
@@ -494,12 +510,7 @@ impl From<hickory_resolver::proto::rr::RData> for RData {
                     TDnssec::NSEC3PARAM(ref param) => {
                         let hash_algo = nsec3_hash_algorithm_name(param.hash_algorithm());
                         let salt = hex_or_dash(param.salt());
-                        RData::NSEC3PARAM(NSEC3PARAM::new(
-                            hash_algo,
-                            param.opt_out(),
-                            param.iterations(),
-                            salt,
-                        ))
+                        RData::NSEC3PARAM(NSEC3PARAM::new(hash_algo, param.opt_out(), param.iterations(), salt))
                     }
                     _ => RData::Unknown(UNKNOWN::new(0, NULL::new())),
                 }

@@ -73,12 +73,8 @@ impl Finding {
 /// Classify a DNSSEC algorithm by its security strength.
 pub fn classify_algorithm(algo: DnssecAlgorithm) -> Finding {
     match algo {
-        DnssecAlgorithm::RsaMd5 => {
-            Finding::failed(format!("Algorithm {} is deprecated and insecure (RFC 6725)", algo))
-        }
-        DnssecAlgorithm::Dsa => {
-            Finding::failed(format!("Algorithm {} is deprecated and insecure", algo))
-        }
+        DnssecAlgorithm::RsaMd5 => Finding::failed(format!("Algorithm {} is deprecated and insecure (RFC 6725)", algo)),
+        DnssecAlgorithm::Dsa => Finding::failed(format!("Algorithm {} is deprecated and insecure", algo)),
         DnssecAlgorithm::RsaSha1 | DnssecAlgorithm::RsaSha1Nsec3Sha1 => {
             Finding::warning(format!("Algorithm {}: SHA-1 is deprecated, consider upgrading", algo))
         }
@@ -170,7 +166,10 @@ pub fn validate_algorithm_strength(algorithms: &HashSet<DnssecAlgorithm>) -> Vec
 
 /// Validate RRSIG expiration for a set of RRSIG records.
 pub fn validate_rrsig_expiration(rrsigs: &[&RRSIG], now: u32) -> Vec<Finding> {
-    rrsigs.iter().map(|rrsig| classify_rrsig_expiration(rrsig, now)).collect()
+    rrsigs
+        .iter()
+        .map(|rrsig| classify_rrsig_expiration(rrsig, now))
+        .collect()
 }
 
 /// Validate DS-to-DNSKEY binding for a set of DS and DNSKEY records.
@@ -247,7 +246,10 @@ pub fn validate_ksk_present(dnskeys: &[&DNSKEY]) -> Vec<Finding> {
             "No KSK (secure entry point) found among DNSKEY records".to_string(),
         ));
     } else {
-        findings.push(Finding::ok(format!("Found {} KSK(s) and {} ZSK(s)", ksk_count, zsk_count)));
+        findings.push(Finding::ok(format!(
+            "Found {} KSK(s) and {} ZSK(s)",
+            ksk_count, zsk_count
+        )));
     }
 
     findings
@@ -341,7 +343,13 @@ mod tests {
     #[test]
     fn classify_rrsig_expiration_valid() {
         let now: u32 = 1700000000;
-        let rrsig = make_rrsig("DNSKEY", DnssecAlgorithm::EcdsaP256Sha256, 2371, now + 864000, now - 100);
+        let rrsig = make_rrsig(
+            "DNSKEY",
+            DnssecAlgorithm::EcdsaP256Sha256,
+            2371,
+            now + 864000,
+            now - 100,
+        );
         let f = classify_rrsig_expiration(&rrsig, now);
         assert_eq!(f.severity, Severity::Ok);
         assert!(f.message.contains("valid"));

@@ -320,7 +320,10 @@ mod tests {
             Lookup::new_for_test(
                 make_query(),
                 ns.clone(),
-                LookupResult::Response(Response::new_for_test(vec![make_mx_record()], Duration::from_millis(20))),
+                LookupResult::Response(Response::new_for_test(
+                    vec![make_mx_record()],
+                    Duration::from_millis(20),
+                )),
             ),
         ]);
         let stats = lookups.statistics();
@@ -374,7 +377,10 @@ mod tests {
             Lookup::new_for_test(
                 make_query(),
                 ns.clone(),
-                LookupResult::Response(Response::new_for_test(vec![make_a_record()], Duration::from_millis(100))),
+                LookupResult::Response(Response::new_for_test(
+                    vec![make_a_record()],
+                    Duration::from_millis(100),
+                )),
             ),
         ]);
         let stats = lookups.statistics();

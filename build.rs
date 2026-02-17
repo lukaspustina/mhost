@@ -11,7 +11,7 @@ use std::fs;
 use std::process;
 
 #[allow(dead_code)]
-#[path = "src/app/cli_parser.rs"]
+#[path = "src/app/mhost/cli_parser.rs"]
 mod cli_parser;
 
 fn main() {

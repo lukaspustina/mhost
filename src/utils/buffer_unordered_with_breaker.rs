@@ -163,7 +163,11 @@ mod tests {
 
         // With concurrency=1, we get items in order: Ok(1), then Err("fail") triggers break.
         // The breaker item is still yielded, then stream terminates.
-        assert!(items.len() <= 3, "breaker should stop the stream early, got {} items", items.len());
+        assert!(
+            items.len() <= 3,
+            "breaker should stop the stream early, got {} items",
+            items.len()
+        );
         assert!(
             items.iter().any(|r: &Result<i32, &str>| r.is_err()),
             "should contain the error that triggered the break"
@@ -172,11 +176,10 @@ mod tests {
 
     #[tokio::test]
     async fn empty_stream() {
-        let items: Vec<Result<i32, &str>> =
-            stream::iter(Vec::<futures::future::Ready<Result<i32, &str>>>::new())
-                .buffered_unordered_with_breaker(10, Box::new(|_| false))
-                .collect()
-                .await;
+        let items: Vec<Result<i32, &str>> = stream::iter(Vec::<futures::future::Ready<Result<i32, &str>>>::new())
+            .buffered_unordered_with_breaker(10, Box::new(|_| false))
+            .collect()
+            .await;
 
         assert!(items.is_empty());
     }

@@ -753,10 +753,22 @@ mod tests {
 
     #[test]
     fn from_str_case_insensitive() {
-        assert_eq!(PredefinedProvider::from_str("CLOUDFLARE").unwrap(), PredefinedProvider::Cloudflare);
-        assert_eq!(PredefinedProvider::from_str("Google").unwrap(), PredefinedProvider::Google);
-        assert_eq!(PredefinedProvider::from_str("QUAD9").unwrap(), PredefinedProvider::Quad9);
-        assert_eq!(PredefinedProvider::from_str("Dns4eu").unwrap(), PredefinedProvider::Dns4eu);
+        assert_eq!(
+            PredefinedProvider::from_str("CLOUDFLARE").unwrap(),
+            PredefinedProvider::Cloudflare
+        );
+        assert_eq!(
+            PredefinedProvider::from_str("Google").unwrap(),
+            PredefinedProvider::Google
+        );
+        assert_eq!(
+            PredefinedProvider::from_str("QUAD9").unwrap(),
+            PredefinedProvider::Quad9
+        );
+        assert_eq!(
+            PredefinedProvider::from_str("Dns4eu").unwrap(),
+            PredefinedProvider::Dns4eu
+        );
     }
 
     #[test]

@@ -319,7 +319,10 @@ impl From<Vec<Lookup>> for Lookups {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Lookup {
     query: UniQuery,
-    #[serde(serialize_with = "ser_arc_nameserver_config", deserialize_with = "deser_arc_nameserver_config")]
+    #[serde(
+        serialize_with = "ser_arc_nameserver_config",
+        deserialize_with = "deser_arc_nameserver_config"
+    )]
     name_server: Arc<NameServerConfig>,
     result: LookupResult,
 }
@@ -722,7 +725,12 @@ mod tests {
             300,
             RData::A(Ipv4Addr::new(1, 2, 3, 4)),
         );
-        let lookup = make_test_lookup("example.com.", RecordType::A, "udp:8.8.8.8:53", make_response(vec![record]));
+        let lookup = make_test_lookup(
+            "example.com.",
+            RecordType::A,
+            "udp:8.8.8.8:53",
+            make_response(vec![record]),
+        );
         let lookups = Lookups::new(vec![lookup]);
 
         let json = serde_json::to_string(&lookups).expect("serialize");
@@ -826,12 +834,7 @@ mod tests {
             "tls:8.8.8.8:853,tls_auth_name=dns.google",
         ];
         for ns_str in configs {
-            let lookup = make_test_lookup(
-                "example.com.",
-                RecordType::A,
-                ns_str,
-                make_response(vec![]),
-            );
+            let lookup = make_test_lookup("example.com.", RecordType::A, ns_str, make_response(vec![]));
             let lookups = Lookups::new(vec![lookup]);
 
             let json = serde_json::to_string(&lookups).expect("serialize");
@@ -839,7 +842,12 @@ mod tests {
 
             let original_ns = deserialized.iter().next().unwrap().name_server();
             let expected_ns = NameServerConfig::from_str(ns_str).unwrap();
-            assert_eq!(original_ns.to_string(), expected_ns.to_string(), "round-trip failed for {}", ns_str);
+            assert_eq!(
+                original_ns.to_string(),
+                expected_ns.to_string(),
+                "round-trip failed for {}",
+                ns_str
+            );
         }
     }
 }

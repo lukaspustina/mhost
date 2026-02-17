@@ -157,10 +157,7 @@ mail    IN A    93.184.216.35
     fn parse_filters_soa() {
         let zone = parse_str(MINIMAL_ZONE, None, None).unwrap();
         assert!(
-            !zone
-                .records()
-                .iter()
-                .any(|r| r.record_type() == RecordType::SOA),
+            !zone.records().iter().any(|r| r.record_type() == RecordType::SOA),
             "SOA records should be filtered out of records()"
         );
     }
@@ -190,8 +187,10 @@ www     IN A    1.2.3.4
     fn parse_filters_apex_ns() {
         let zone = parse_str(MINIMAL_ZONE, None, None).unwrap();
         assert!(
-            !zone.records().iter().any(|r| r.record_type() == RecordType::NS
-                && r.name() == zone.origin()),
+            !zone
+                .records()
+                .iter()
+                .any(|r| r.record_type() == RecordType::NS && r.name() == zone.origin()),
             "Apex NS records should be filtered out"
         );
     }
@@ -224,7 +223,11 @@ www     IN A    1.2.3.4
             .iter()
             .filter(|r| r.name().to_string() == "www.example.com.")
             .collect();
-        assert_eq!(www_records.len(), 1, "relative 'www' should resolve to www.example.com.");
+        assert_eq!(
+            www_records.len(),
+            1,
+            "relative 'www' should resolve to www.example.com."
+        );
     }
 
     #[test]
@@ -323,7 +326,11 @@ www     IN A    1.2.3.4
         );
 
         // Wildcard records should be in wildcard_records()
-        assert_eq!(zone.wildcard_records().len(), 2, "should have *.example.com and *.sub.example.com");
+        assert_eq!(
+            zone.wildcard_records().len(),
+            2,
+            "should have *.example.com and *.sub.example.com"
+        );
         assert!(
             zone.wildcard_records().iter().all(|r| r.name().is_wildcard()),
             "wildcard_records() should only contain wildcards"
