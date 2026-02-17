@@ -82,13 +82,13 @@ cargo run --bin mdive --features app-tui -- example.com  # Run mdive
 ┌─────────────────────────┐   ┌────────────────────────────┐   ┌────────────────────────────┐
 │  Library (no app deps)  │   │  Shared app (app-lib)      │   │  CLI (app-cli)             │
 │                         │   │  app/common/               │   │  app/mhost/                │
-│  resolver/              │──▶│    lints/ (9 shared lints)  │◀──│    cli_parser.rs           │
+│  resolver/              │──▶│    lints/ (re-export stub)  │◀──│    cli_parser.rs           │
 │  nameserver/            │   │    discover/ (strategies)   │   │    app_config.rs           │
 │  resources/ (rdata)     │   │    records.rs (Rendering)   │   │    modules/ (commands)     │
 │  services/ (whois) [S]  │   │    styles.rs (prefixes)     │   │    output/ (CLI rendering) │
-│  statistics/            │   │    rendering.rs (trait+opts) │   │      summary/             │
-│  diff, estimate, utils  │   │    rdata_format.rs          │   │      json.rs              │
-└─────────────────────────┘   │    name_builder.rs          │   └────────────────────────────┘
+│  lints/ (9 pure lints)  │   │    rendering.rs (trait+opts) │   │      summary/             │
+│  statistics/            │   │    rdata_format.rs          │   │      json.rs              │
+│  diff, estimate, utils  │   │    name_builder.rs          │   └────────────────────────────┘
                               │    ordinal.rs               │
                               │    record_type_info.rs      │   ┌────────────────────────────┐
                               │    reference_data.rs        │   │  TUI (app-tui)             │
@@ -105,12 +105,13 @@ Binary entry points: src/bin/mhost.rs, src/bin/mdive.rs
 ```
 
 **Dependency rules**:
-- Library code (`resolver/`, `nameserver/`, `resources/`, `services/`) never imports from `app/`.
-- `app/common/` (feature `app-lib`) is the shared layer between CLI and TUI — put reusable lints, discovery strategies, formatting, rendering traits, and reference data here.
+- Library code (`resolver/`, `nameserver/`, `resources/`, `services/`, `lints/`) never imports from `app/`.
+- The 9 pure lints (CAA, CNAME, DMARC, DNSSEC, HTTPS/SVCB, MX, NS, SPF, TTL) live in the ungated core library at `src/lints/`. They operate on `Lookups` with no app-layer dependencies and are available to any consumer with `default-features = false`.
+- `app/common/` (feature `app-lib`) is the shared layer between CLI and TUI — put reusable discovery strategies, formatting, rendering traits, and reference data here.
 - `app/mhost/` (feature `app-cli`) contains CLI-specific code: parser, config, command modules, output formatters.
 - `app/mdive/` (feature `app-tui`) contains TUI-specific code: state management, UI rendering, async task orchestration.
 - `app/mdive/` imports from `app/common/` for shared business logic. It does **not** import from `app/mhost/output/`.
-- CLI-only lints (SOA serial consistency, AXFR exposure, open resolver, delegation) live in `app/mhost/modules/check/lints/` because they require network access during checks. The 9 shared pure lints (CAA, CNAME, DMARC, DNSSEC, HTTPS/SVCB, MX, NS, SPF, TTL) live in `app/common/lints/`.
+- CLI-only lints (SOA serial consistency, AXFR exposure, open resolver, delegation) live in `app/mhost/modules/check/lints/` because they require network access during checks.
 
 **Output module** (`app/mhost/output/`):
 - `records.rs` and `styles.rs` are re-export stubs for backward compatibility. The canonical implementations live in `app/common/records.rs` and `app/common/styles.rs`.
@@ -118,7 +119,8 @@ Binary entry points: src/bin/mhost.rs, src/bin/mdive.rs
 - `json.rs` — JSON output formatting.
 - The `Rendering` trait and `SummaryOptions` are defined in `app/common/rendering.rs`.
 
-**Other re-export stubs** (canonical implementations live in `app/common/`):
+**Other re-export stubs** (canonical implementations live in `app/common/` or the core library):
+- `app/common/lints/` → `crate::lints` (9 pure lint modules, extracted to core library)
 - `app/mhost/modules/domain_lookup/subdomain_spec.rs` → `app/common/subdomain_spec.rs`
 - `app/mhost/modules/info/reference_data.rs` → `app/common/reference_data.rs`
 

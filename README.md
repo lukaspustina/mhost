@@ -534,6 +534,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+### Running DNS Lints
+
+The core library includes 9 pure lint checks (CAA, CNAME, DMARC, DNSSEC, HTTPS/SVCB, MX, NS, SPF, TTL) that analyse `Lookups` results for common misconfigurations — no `app-*` features required:
+
+```rust
+use mhost::resolver::{ResolverGroupBuilder, MultiQuery};
+use mhost::lints::{check_spf, check_caa, CheckResult};
+use mhost::RecordType;
+use std::time::Duration;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let resolvers = ResolverGroupBuilder::new()
+        .system()
+        .timeout(Duration::from_secs(3))
+        .build()
+        .await?;
+
+    let query = MultiQuery::multi_record(
+        "example.com",
+        vec![RecordType::TXT, RecordType::CAA],
+    )?;
+    let lookups = resolvers.lookup(query).await?;
+
+    for result in check_spf(&lookups).iter().chain(check_caa(&lookups).iter()) {
+        match result {
+            CheckResult::Ok(msg) => println!("  OK: {}", msg),
+            CheckResult::Warning(msg) => println!("  WARN: {}", msg),
+            CheckResult::Failed(msg) => println!("  FAIL: {}", msg),
+            CheckResult::NotFound() => println!("  (not found)"),
+        }
+    }
+    Ok(())
+}
+```
+
 See [docs.rs/mhost](https://docs.rs/mhost) for the full API documentation.
 
 ---

@@ -87,6 +87,7 @@ pub mod app;
 pub mod diff;
 pub mod error;
 pub mod estimate;
+pub mod lints;
 pub mod nameserver;
 pub mod resolver;
 pub mod resources;
