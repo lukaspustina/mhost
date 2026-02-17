@@ -377,6 +377,7 @@ fn subcommands() -> Vec<Command> {
         propagation_subcommand(),
         server_lists_subcommand(),
         trace_subcommand(),
+        verify_subcommand(),
     ]
     .into_iter()
     .map(|x| x.version(env!("CARGO_PKG_VERSION")).author(env!("CARGO_PKG_AUTHORS")))
@@ -871,6 +872,38 @@ Unlike `dig +trace` which queries one server per hop, mhost queries all servers 
                 .long("show-partial-results")
                 .action(ArgAction::SetTrue)
                 .help("Shows results after each delegation hop completes"),
+        )
+}
+
+fn verify_subcommand() -> Command {
+    Command::new("verify")
+        .about("Verifies DNS records against a BIND zone file")
+        .long_about(
+            r#"Compares a BIND zone file (source of truth) against live DNS and reports mismatches. Useful for post-deployment validation, migration audits, and CI/CD integration.
+
+By default, SOA records, DNSSEC records (RRSIG, DNSKEY, DS, NSEC, NSEC3, NSEC3PARAM), and apex NS records are skipped. Use --strict to also check TTL values."#,
+        )
+        .arg(
+            Arg::new("zone-file")
+                .required(true)
+                .index(1)
+                .value_name("ZONE_FILE")
+                .help("Path to BIND zone file"),
+        )
+        .arg(
+            Arg::new("origin")
+                .long("origin")
+                .value_name("NAME")
+                .help("Override zone origin ($ORIGIN)")
+                .long_help(
+                    "Override the zone origin. If not set, the $ORIGIN directive in the zone file is used.",
+                ),
+        )
+        .arg(
+            Arg::new("strict")
+                .long("strict")
+                .action(ArgAction::SetTrue)
+                .help("Report TTL differences as mismatches"),
         )
 }
 

@@ -139,6 +139,7 @@ async fn run_command(args: &ArgMatches, app_config: &AppConfig, console: &Consol
         Some("lookup") => modules::lookup::run(args, app_config).await,
         Some("propagation") => modules::propagation::run(args, app_config).await,
         Some("trace") => modules::trace::run(args, app_config).await,
+        Some("verify") => modules::verify::run(args, app_config).await,
         _ => {
             cli_parser::show_commands();
             Ok(exit_subcommand_invalid())

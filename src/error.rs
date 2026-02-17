@@ -44,6 +44,8 @@ pub enum Error {
         #[from]
         source: serde_json::Error,
     },
+    #[error("failed to parse zone file '{path}': {reason}")]
+    ZoneFileError { path: String, reason: String },
 }
 
 /// This trait enables collections of results or responses to filter just for their errors.

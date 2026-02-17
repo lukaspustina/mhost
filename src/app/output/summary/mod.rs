@@ -14,6 +14,7 @@ use super::*;
 pub mod diff;
 pub mod lookups;
 pub mod propagation;
+pub mod verify;
 pub mod whois;
 
 #[derive(Debug)]

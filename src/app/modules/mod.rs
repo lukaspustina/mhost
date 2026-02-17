@@ -25,6 +25,7 @@ pub mod info;
 pub mod lookup;
 pub mod propagation;
 pub mod trace;
+pub mod verify;
 
 /** Return type for App modules that go through multiple steps
  *

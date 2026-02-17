@@ -64,6 +64,7 @@ tracing = "0.1"
 tracing-futures = "0.2"
 tracing-log = { version = "0.2", optional = true }
 tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"], optional = true }
+hickory-proto = { version = "0.25", features = ["text-parsing"], optional = true }
 hickory-resolver = { version = "0.25", features = ["tokio", "tls-ring", "https-ring", "dnssec-ring", "system-config", "serde"] }
 yansi = "1.0"
 ratatui = { version = "0.30", optional = true, default-features = false, features = ["crossterm"] }
@@ -82,7 +83,7 @@ spectral = "0.6"
 [features]
 default = ["app"]
 services = ["reqwest"]
-app = ["anyhow", "clap", "clap_complete", "hostname", "humantime", "tabwriter", "tracing-log", "tracing-subscriber", "services"]
+app = ["anyhow", "clap", "clap_complete", "hickory-proto", "hostname", "humantime", "tabwriter", "tracing-log", "tracing-subscriber", "services"]
 tui = ["app", "ratatui", "crossterm", "clap", "humantime", "regex"]
 
 [profile.release]

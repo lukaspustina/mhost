@@ -28,6 +28,8 @@ pub mod dnssec_validation;
 pub mod rdata;
 pub mod record;
 pub mod record_type;
+#[cfg(feature = "hickory-proto")]
+pub mod zone;
 
 pub trait NameToIpAddr {
     fn to_ip_addr(&self) -> Result<IpAddr>;
