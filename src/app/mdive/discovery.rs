@@ -3,7 +3,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Instant;
 
-use crate::app::modules::discover::{ct_logs, discover, permutation, srv_probing, txt_mining, wordlist::Wordlist};
+use crate::app::common::discover::{self as discover, ct_logs, permutation, srv_probing, txt_mining, Wordlist};
 use crate::resolver::lookup::Lookups;
 use crate::resolver::{MultiQuery, ResolverGroup};
 use crate::{Name, RecordType};
@@ -174,7 +174,7 @@ pub fn spawn_wildcard_check(
         };
 
         // Generate 5 random subdomain names
-        let rnd_names = discover::WildcardCheck::rnd_names(5, 12);
+        let rnd_names = discover::rnd_names(5, 12);
         let rnd_fqdns: Vec<Name> = rnd_names
             .into_iter()
             .filter_map(|x| Name::from_str(&x).ok())

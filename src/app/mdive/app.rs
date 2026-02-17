@@ -17,7 +17,7 @@ use ratatui::widgets::TableState;
 use regex::RegexBuilder;
 use tokio::task::JoinHandle;
 
-use crate::app::modules::check::lints::{check_dnssec, CheckResult};
+use crate::app::common::lints::{check_dnssec, CheckResult};
 
 use super::lints::{self, LintSection};
 

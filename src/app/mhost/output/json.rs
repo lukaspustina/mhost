@@ -27,11 +27,22 @@ impl JsonFormat {
     }
 }
 
+static VALID_JSON_OPTIONS: &[&str] = &["pretty"];
+
 impl<'a> TryFrom<Vec<&'a str>> for JsonOptions {
     type Error = Error;
 
     fn try_from(values: Vec<&'a str>) -> std::result::Result<Self, Self::Error> {
         let options: HashSet<&str> = values.into_iter().collect();
+        for opt in &options {
+            if !VALID_JSON_OPTIONS.contains(opt) {
+                return Err(Error::ParserError {
+                    what: opt.to_string(),
+                    to: "JsonOptions",
+                    why: format!("unknown option '{}', valid options are: {}", opt, VALID_JSON_OPTIONS.join(", ")),
+                });
+            }
+        }
         Ok(JsonOptions {
             pretty: options.contains("pretty"),
         })

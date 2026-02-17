@@ -342,7 +342,6 @@ mhost trace example.com
 mhost trace -t AAAA --show-all-servers example.com
 ```
 
-<mdive-discovery-view-full-github!-- TODO: screenshot of trace output -->
 ![trace-github.com.](docs/images/trace-github.png)
 
 Unlike `dig +trace` which queries one server per hop, mhost's `trace` command queries **all nameservers at each delegation level in parallel**. It detects referral divergence (where different root/TLD servers disagree), reports per-server latency, and resolves missing glue records automatically.

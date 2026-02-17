@@ -65,6 +65,74 @@ impl SOA {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn example_soa() -> SOA {
+        SOA::new(
+            Name::from_utf8("ns1.example.com.").unwrap(),
+            Name::from_utf8("admin.example.com.").unwrap(),
+            2024010101,
+            3600,
+            900,
+            604800,
+            86400,
+        )
+    }
+
+    #[test]
+    fn soa_new_and_accessors() {
+        let soa = example_soa();
+        assert_eq!(soa.mname(), &Name::from_utf8("ns1.example.com.").unwrap());
+        assert_eq!(soa.rname(), &Name::from_utf8("admin.example.com.").unwrap());
+        assert_eq!(soa.serial(), 2024010101);
+        assert_eq!(soa.refresh(), 3600);
+        assert_eq!(soa.retry(), 900);
+        assert_eq!(soa.expire(), 604800);
+        assert_eq!(soa.minimum(), 86400);
+    }
+
+    #[test]
+    fn soa_negative_timers() {
+        let soa = SOA::new(
+            Name::from_utf8("ns1.example.com.").unwrap(),
+            Name::from_utf8("admin.example.com.").unwrap(),
+            1,
+            -3600,
+            -900,
+            -1,
+            0,
+        );
+        assert_eq!(soa.refresh(), -3600);
+        assert_eq!(soa.retry(), -900);
+        assert_eq!(soa.expire(), -1);
+        assert_eq!(soa.minimum(), 0);
+    }
+
+    #[test]
+    fn soa_equality() {
+        let soa1 = example_soa();
+        let soa2 = example_soa();
+        assert_eq!(soa1, soa2);
+    }
+
+    #[test]
+    fn soa_inequality_on_serial() {
+        let soa1 = example_soa();
+        let soa2 = SOA::new(
+            Name::from_utf8("ns1.example.com.").unwrap(),
+            Name::from_utf8("admin.example.com.").unwrap(),
+            2024010102,
+            3600,
+            900,
+            604800,
+            86400,
+        );
+        assert_ne!(soa1, soa2);
+    }
+}
+
 #[doc(hidden)]
 impl From<hickory_resolver::proto::rr::rdata::SOA> for SOA {
     fn from(soa: hickory_resolver::proto::rr::rdata::SOA) -> Self {

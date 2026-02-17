@@ -362,10 +362,13 @@ impl Default for RipeStatsClient {
 
 impl RipeStatsClient {
     pub fn new(opts: RipeStatsClientOpts) -> RipeStatsClient {
-        RipeStatsClient {
-            opts,
-            http_client: Client::new(),
-        }
+        let http_client = Client::builder()
+            .timeout(opts.timeout)
+            .connect_timeout(Duration::from_secs(10))
+            .redirect(reqwest::redirect::Policy::limited(3))
+            .build()
+            .expect("failed to build HTTP client");
+        RipeStatsClient { opts, http_client }
     }
 
     pub async fn geo_location<T: Into<IpNetwork>>(&self, ip_network: T) -> Result<Response<GeoLocation>> {

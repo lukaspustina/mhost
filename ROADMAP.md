@@ -1,6 +1,6 @@
 # mhost — Roadmap
 
-## What's been done (v0.8.0)
+## What's been done (v0.9.0)
 
 <details>
 <summary>Commands</summary>

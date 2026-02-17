@@ -10,8 +10,8 @@ use ratatui::Frame;
 
 use crate::app::common::reference_data;
 use crate::app::common::styles::{record_type_color, record_type_is_bold};
-use crate::app::modules::check::lints::CheckResult;
-use crate::app::output::styles::is_ascii;
+use crate::app::common::lints::CheckResult;
+use crate::app::common::styles::is_ascii;
 use crate::services::whois::WhoisResponse;
 use crate::RecordType;
 

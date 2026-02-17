@@ -142,7 +142,7 @@ fn parse_output_options<'a, I: Iterator<Item = &'a str>>(output_type: OutputType
             Ok(OutputConfig::json(options))
         }
         OutputType::Summary => {
-            let options = SummaryOptions::try_from(options).context("failed to parse json options")?;
+            let options = SummaryOptions::try_from(options).context("failed to parse summary options")?;
             Ok(OutputConfig::summary(options))
         }
     }

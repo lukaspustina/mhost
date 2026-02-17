@@ -69,7 +69,6 @@ macro_rules! lookups_record_accessor {
 }
 
 impl Lookups {
-    #[allow(dead_code)]
     pub fn new(inner: Vec<Lookup>) -> Lookups {
         Lookups { inner }
     }
@@ -688,7 +687,7 @@ fn instant_to_utc(valid_until: Instant) -> DateTime<Utc> {
         valid_until.duration_since(now)
     };
 
-    Utc::now() + chrono::Duration::from_std(duration).unwrap() // Safe, because I know this is a valid duration
+    Utc::now() + chrono::Duration::from_std(duration).expect("duration from Instant is always valid")
 }
 
 #[cfg(test)]

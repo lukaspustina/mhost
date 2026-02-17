@@ -34,6 +34,13 @@ pub struct NameServer {
 
 pub async fn download(downloader: ServerListDownloader, spec: &PublicDns) -> Result<Vec<NameServerConfig>> {
     let url = if let Some(country) = spec.country() {
+        // Defense-in-depth: validate country code format even though the parser restricts to alphanumeric
+        if country.len() > 3 || !country.chars().all(|c| c.is_ascii_alphanumeric()) {
+            return Err(Error::HttpClientErrorMessage {
+                why: "invalid country code",
+                details: format!("country code must be 1-3 alphanumeric characters, got '{}'", country),
+            });
+        }
         format!("{}/{}.json", BASE_URI, country)
     } else {
         format!("{}s-all.json", BASE_URI)

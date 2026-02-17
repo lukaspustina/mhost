@@ -1,4 +1,4 @@
-use crate::app::modules::check::lints::{self, CheckResult};
+use crate::app::common::lints::{self, CheckResult};
 use crate::resolver::lookup::Uniquify;
 use crate::resolver::Lookups;
 use crate::resources::rdata::TXT;

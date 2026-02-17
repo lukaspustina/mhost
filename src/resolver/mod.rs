@@ -26,7 +26,7 @@ use futures::stream::{self, StreamExt};
 use futures::Future;
 use rand::seq::IndexedRandom;
 use tokio::task;
-use tracing::instrument;
+use tracing::{debug, instrument};
 
 pub use builder::ResolverGroupBuilder;
 pub use error::Error;
@@ -381,21 +381,30 @@ async fn sliding_window_lookups(
     futures: Vec<impl Future<Output = ResolverResult<Lookups>>>,
     max_concurrent: usize,
 ) -> Lookups {
-    #[allow(clippy::map_flatten)]
-    stream::iter(futures)
+    let results: Vec<_> = stream::iter(futures)
         .buffer_unordered(max_concurrent)
         .collect::<Vec<_>>()
-        .await
-        .drain(..)
-        // This map and the consecutive flatten mask JoinErrors which occurred during the lookups. This is a conscious decision!
-        // It doesn't make sense to panic (library wouldn't be resilient anymore), return _one_ error and abort by collecting the Vec
-        // what would be the semantic of that -- why to bother with catching errors in the first place in lookup.
-        // So the only reasonable way is to ignore the errors or return Vec<Result<>>
-        .map(|l| l.ok())
+        .await;
+
+    let mut error_count = 0usize;
+    let lookups: Vec<Lookup> = results
+        .into_iter()
+        .filter_map(|r| match r {
+            Ok(lookups) => Some(lookups),
+            Err(e) => {
+                error_count += 1;
+                debug!("Resolver lookup failed: {}", e);
+                None
+            }
+        })
         .flatten()
-        .flatten()
-        .collect::<Vec<_>>()
-        .into()
+        .collect();
+
+    if error_count > 0 && lookups.is_empty() {
+        debug!("All {} resolver lookups failed with no results", error_count);
+    }
+
+    lookups.into()
 }
 
 #[doc(hidden)]

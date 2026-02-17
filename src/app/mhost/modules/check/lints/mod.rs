@@ -93,16 +93,12 @@ pub mod soa;
 pub mod spf;
 pub mod ttl;
 
-// Re-export shared lint functions for mdive
-pub use caa::check_caa;
-pub use cnames::check_cname_apex;
-pub use dmarc::{check_dmarc_records, is_dmarc};
-pub use dnssec_lint::check_dnssec;
-pub use https_svcb::check_https_svcb_mode;
-pub use mx::check_mx_sync;
-pub use ns::check_ns_count;
-pub use spf::check_spf;
-pub use ttl::check_ttl;
+// Re-export shared lint types and functions from app::common::lints
+pub use crate::app::common::lints::CheckResult;
+pub use crate::app::common::lints::{
+    check_caa, check_cname_apex, check_dmarc_records, check_dnssec, check_https_svcb_mode, check_mx_sync,
+    check_ns_count, check_spf, check_ttl, is_dmarc,
+};
 
 #[derive(Debug, Serialize)]
 pub struct CheckResults {
@@ -195,24 +191,6 @@ impl CheckResults {
 
     pub fn has_failures(&self) -> bool {
         self.has_any(|x| x.is_failed())
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub enum CheckResult {
-    NotFound(),
-    Ok(String),
-    Warning(String),
-    Failed(String),
-}
-
-impl CheckResult {
-    pub fn is_warning(&self) -> bool {
-        matches!(self, CheckResult::Warning(_))
-    }
-
-    pub fn is_failed(&self) -> bool {
-        matches!(self, CheckResult::Failed(_))
     }
 }
 

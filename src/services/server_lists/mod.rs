@@ -152,8 +152,14 @@ impl Default for ServerListDownloader {
 
 impl ServerListDownloader {
     pub fn new(opts: ServerListDownloaderOpts) -> ServerListDownloader {
+        let http_client = reqwest::Client::builder()
+            .timeout(opts.timeout)
+            .connect_timeout(Duration::from_secs(10))
+            .redirect(reqwest::redirect::Policy::limited(3))
+            .build()
+            .expect("failed to build HTTP client");
         ServerListDownloader {
-            http_client: Arc::new(reqwest::Client::new()),
+            http_client: Arc::new(http_client),
             opts: Arc::new(opts),
         }
     }

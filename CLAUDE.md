@@ -11,11 +11,12 @@
 - Don't hide behavior changes inside refactor commits — separate them.
 - Don't include PII, real email addresses, or real domains (other than example.com) in test data, docs, or commits.
 - If uncertain about an implementation detail, leave a concrete `TODO("reason")` rather than a hidden guess.
+- Don't change the `-p` short flag mapping — it intentionally means `--predefined` globally and `--show-partial-results` in subcommands. This is accepted CLI design.
 
 ## Engineering Principles
 
 - **Performance**: Prioritize efficient algorithms and data structures. Benchmark critical paths, avoid unnecessary allocations and copies.
-- **Efficiency**: Make use of mhost async, multi-query capabilities to parallelize lookups across 
+- **Efficiency**: Make use of mhost async, multi-query capabilities to parallelize lookups across multiple nameservers and record types simultaneously.
 - **Rust patterns**: Use idiomatic Rust constructs (enums, traits, iterators) for clarity and safety. Leverage type system to prevent invalid states.
 - **KISS**: Simplest solution that works. Three similar lines beat a premature abstraction.
 - **YAGNI**: Don't build for hypothetical future requirements — solve the current problem.
@@ -28,7 +29,15 @@
 
 ## Project Overview
 
-**mhost** is a modern DNS lookup utility and reusable Rust library — an advanced replacement for `host`/`dig`. Two binaries: `mhost` (CLI) and `mdive` (interactive TUI). Feature flags: **`app`** (default, enables CLI binary), **`tui`** (enables `mdive`, depends on `app`). Without `app`: library-only build with minimal dependencies.
+**mhost** is a modern DNS lookup utility and reusable Rust library — an advanced replacement for `host`/`dig`. Two binaries: `mhost` (CLI) and `mdive` (interactive TUI).
+
+Feature flags (layered):
+- **`app-lib`** — shared app layer (`app/common/`): lints, discovery strategies, rendering, styles. Pulls in `anyhow`, `humantime`, `services`.
+- **`app-cli`** (default) — CLI binary (`mhost`). Depends on `app-lib`. Adds `clap`, `tabwriter`, `tracing-subscriber`, etc.
+- **`app-tui`** — TUI binary (`mdive`). Depends on `app-lib`. Adds `ratatui`, `crossterm`, `regex`.
+- **`app`** / **`tui`** — backward-compatibility aliases for `app-cli` / `app-tui`.
+
+Without any `app-*` feature: library-only build with minimal dependencies.
 
 - **Author**: Lukas Pustina | **License**: MIT / Apache-2.0 | **Edition**: 2021
 - **Repository**: https://github.com/lukaspustina/mhost.git
@@ -47,15 +56,15 @@ The roadmap of this project is in file ROADMAP.md. It contains a prioritized lis
 ## Build & Test
 
 ```sh
-cargo build                # Build everything (default feature = "app")
-cargo build --lib          # Build library only
-cargo build --features tui # Build with TUI (mdive binary)
-cargo check                # Type-check without full compilation
-cargo test --lib           # Unit tests (fast, no network needed)
-cargo test                 # All tests incl. CLI integration tests (slower, needs network)
-cargo clippy               # Lint
-cargo fmt                  # Format
-cargo run --bin mdive --features tui -- example.com  # Run mdive
+cargo build                        # Build everything (default feature = "app-cli")
+cargo build --lib                  # Build library only
+cargo build --features app-tui     # Build with TUI (mdive binary)
+cargo check                        # Type-check without full compilation
+cargo test --lib                   # Unit tests (fast, no network needed)
+cargo test                         # All tests incl. CLI integration tests (slower, needs network)
+cargo clippy                       # Lint
+cargo fmt                          # Format
+cargo run --bin mdive --features app-tui -- example.com  # Run mdive
 ```
 
 ### Test guidelines
@@ -70,31 +79,44 @@ cargo run --bin mdive --features tui -- example.com  # Run mdive
 ## Architecture
 
 ```
-┌─────────────────────────┐   ┌───────────────────────────┐   ┌──────────────────┐
-│  Library (no app deps)  │   │  App layer (feature=app)  │   │ TUI (feature=tui) │
-│                         │   │                           │   │                  │
-│  resolver/              │──▶│  app/cli_parser.rs        │   │  bin/mdive/      │
-│  nameserver/            │   │  app/app_config.rs        │   │    main.rs       │
-│  resources/ (rdata)     │   │  app/modules/ (commands) ◀│───│    app.rs        │
-│  services/ (whois) [S]  │   │  app/output/ (rendering)  │   │    ui.rs         │
-│  statistics/            │   │  app/common/ ◀────────────│───│    dns.rs        │
-│  diff, estimate, utils  │   │                           │   │    discovery.rs  │
-└─────────────────────────┘   └───────────────────────────┘   │    lints.rs      │
-                                                              └──────────────────┘
-[S] = feature="services" (included by "app"; provides reqwest + HTTP services)
+┌─────────────────────────┐   ┌────────────────────────────┐   ┌────────────────────────────┐
+│  Library (no app deps)  │   │  Shared app (app-lib)      │   │  CLI (app-cli)             │
+│                         │   │  app/common/               │   │  app/mhost/                │
+│  resolver/              │──▶│    lints/ (9 shared lints)  │◀──│    cli_parser.rs           │
+│  nameserver/            │   │    discover/ (strategies)   │   │    app_config.rs           │
+│  resources/ (rdata)     │   │    records.rs (Rendering)   │   │    modules/ (commands)     │
+│  services/ (whois) [S]  │   │    styles.rs (prefixes)     │   │    output/ (CLI rendering) │
+│  statistics/            │   │    rendering.rs (trait+opts) │   │      summary/             │
+│  diff, estimate, utils  │   │    rdata_format.rs          │   │      json.rs              │
+└─────────────────────────┘   │    name_builder.rs          │   └────────────────────────────┘
+                              │    reference_data.rs        │
+                              │    resolver_args.rs         │   ┌────────────────────────────┐
+                              └────────────────────────────┘   │  TUI (app-tui)             │
+                                        ▲                      │  app/mdive/                │
+                                        └──────────────────────│    app.rs (state + update)  │
+                                                               │    ui.rs  (rendering)       │
+                                                               │    dns.rs (queries)         │
+                                                               │    discovery.rs             │
+                                                               │    lints.rs                 │
+                                                               └────────────────────────────┘
+
+Binary entry points: src/bin/mhost.rs, src/bin/mdive.rs
+[S] = feature="services" (included by "app-lib"; provides reqwest + HTTP services)
 ```
 
 **Dependency rules**:
 - Library code (`resolver/`, `nameserver/`, `resources/`, `services/`) never imports from `app/`.
-- `app/common/` is shared between `mhost` CLI and `mdive` TUI — put reusable formatting and reference data here.
-- `mdive` (TUI) uses `app/common/` but not `app/output/` — TUI has its own rendering in `ui.rs`.
-- `mdive` imports directly from `app/modules/check/lints` (lint functions + `CheckResult`) and `app/modules/discover` (discovery strategies). This is intentional — these modules contain shared business logic used by both CLI and TUI.
+- `app/common/` (feature `app-lib`) is the shared layer between CLI and TUI — put reusable lints, discovery strategies, formatting, rendering traits, and reference data here.
+- `app/mhost/` (feature `app-cli`) contains CLI-specific code: parser, config, command modules, output formatters.
+- `app/mdive/` (feature `app-tui`) contains TUI-specific code: state management, UI rendering, async task orchestration.
+- `app/mdive/` imports from `app/common/` for shared business logic. It does **not** import from `app/mhost/output/`.
+- CLI-only lints (SOA serial consistency, AXFR exposure, open resolver, delegation) live in `app/mhost/modules/check/lints/` because they require network access during checks. The 9 shared pure lints (CAA, CNAME, DMARC, DNSSEC, HTTPS/SVCB, MX, NS, SPF, TTL) live in `app/common/lints/`.
 
-**Output module** (`app/output/`):
-- `records.rs` — Shared `Rendering` trait impls for all DNS record/rdata types. Used by lookups, propagation, diff, and any future command. DNS record rendering belongs here, not in command-specific files.
-- `summary/{lookups,diff,propagation,whois}.rs` — Per-command `SummaryFormatter` impls containing only command-specific presentation logic.
-- `styles.rs` — Shared output chrome: status prefixes (`ok_prefix()`, `attention_prefix()`), status colors.
-- `records.rs` is a sibling of `summary/` so it accesses `SummaryOptions` via public accessor methods (`opts.human()`, `opts.condensed()`), not direct field access.
+**Output module** (`app/mhost/output/`):
+- `records.rs` and `styles.rs` are re-export stubs for backward compatibility. The canonical implementations live in `app/common/records.rs` and `app/common/styles.rs`.
+- `summary/{lookups,diff,propagation,verify,whois}.rs` — Per-command `SummaryFormatter` impls containing CLI-specific presentation logic.
+- `json.rs` — JSON output formatting.
+- The `Rendering` trait and `SummaryOptions` are defined in `app/common/rendering.rs`.
 
 **mdive TUI design**:
 - **Generation-tagged actions**: Every DNS/discovery action carries a `generation: u64` tag. Stale results from previous queries are silently discarded.

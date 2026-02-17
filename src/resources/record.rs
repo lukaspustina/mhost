@@ -105,6 +105,203 @@ impl Record {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::resources::rdata::{MX, SOA, SRV, SVCB};
+    use std::collections::HashSet;
+    use std::net::Ipv4Addr;
+
+    fn name(s: &str) -> Name {
+        Name::from_utf8(s).unwrap()
+    }
+
+    #[test]
+    fn equality_ignores_ttl() {
+        let r1 = Record::new_for_test(
+            name("example.com."),
+            RecordType::A,
+            300,
+            RData::A(Ipv4Addr::new(1, 2, 3, 4)),
+        );
+        let r2 = Record::new_for_test(
+            name("example.com."),
+            RecordType::A,
+            3600,
+            RData::A(Ipv4Addr::new(1, 2, 3, 4)),
+        );
+        assert_eq!(r1, r2);
+    }
+
+    #[test]
+    fn inequality_on_different_data() {
+        let r1 = Record::new_for_test(
+            name("example.com."),
+            RecordType::A,
+            300,
+            RData::A(Ipv4Addr::new(1, 2, 3, 4)),
+        );
+        let r2 = Record::new_for_test(
+            name("example.com."),
+            RecordType::A,
+            300,
+            RData::A(Ipv4Addr::new(5, 6, 7, 8)),
+        );
+        assert_ne!(r1, r2);
+    }
+
+    #[test]
+    fn inequality_on_different_name() {
+        let r1 = Record::new_for_test(
+            name("a.example.com."),
+            RecordType::A,
+            300,
+            RData::A(Ipv4Addr::new(1, 2, 3, 4)),
+        );
+        let r2 = Record::new_for_test(
+            name("b.example.com."),
+            RecordType::A,
+            300,
+            RData::A(Ipv4Addr::new(1, 2, 3, 4)),
+        );
+        assert_ne!(r1, r2);
+    }
+
+    #[test]
+    fn hash_ignores_ttl() {
+        let r1 = Record::new_for_test(
+            name("example.com."),
+            RecordType::A,
+            300,
+            RData::A(Ipv4Addr::new(1, 2, 3, 4)),
+        );
+        let r2 = Record::new_for_test(
+            name("example.com."),
+            RecordType::A,
+            9999,
+            RData::A(Ipv4Addr::new(1, 2, 3, 4)),
+        );
+        let mut set = HashSet::new();
+        set.insert(r1);
+        // r2 differs only in TTL, so it should be found in the set
+        assert!(set.contains(&r2));
+    }
+
+    #[test]
+    fn hash_distinguishes_different_data() {
+        let r1 = Record::new_for_test(
+            name("example.com."),
+            RecordType::A,
+            300,
+            RData::A(Ipv4Addr::new(1, 2, 3, 4)),
+        );
+        let r2 = Record::new_for_test(
+            name("example.com."),
+            RecordType::A,
+            300,
+            RData::A(Ipv4Addr::new(5, 6, 7, 8)),
+        );
+        let mut set = HashSet::new();
+        set.insert(r1);
+        assert!(!set.contains(&r2));
+    }
+
+    #[test]
+    fn associated_name_a_returns_record_name() {
+        let r = Record::new_for_test(
+            name("example.com."),
+            RecordType::A,
+            300,
+            RData::A(Ipv4Addr::new(1, 2, 3, 4)),
+        );
+        assert_eq!(r.associated_name(), &name("example.com."));
+    }
+
+    #[test]
+    fn associated_name_cname_returns_target() {
+        let target = name("target.example.com.");
+        let r = Record::new_for_test(
+            name("alias.example.com."),
+            RecordType::CNAME,
+            300,
+            RData::CNAME(target.clone()),
+        );
+        assert_eq!(r.associated_name(), &target);
+    }
+
+    #[test]
+    fn associated_name_mx_returns_exchange() {
+        let exchange = name("mail.example.com.");
+        let r = Record::new_for_test(
+            name("example.com."),
+            RecordType::MX,
+            300,
+            RData::MX(MX::new(10, exchange.clone())),
+        );
+        assert_eq!(r.associated_name(), &exchange);
+    }
+
+    #[test]
+    fn associated_name_ns_returns_nameserver() {
+        let ns = name("ns1.example.com.");
+        let r = Record::new_for_test(
+            name("example.com."),
+            RecordType::NS,
+            300,
+            RData::NS(ns.clone()),
+        );
+        assert_eq!(r.associated_name(), &ns);
+    }
+
+    #[test]
+    fn associated_name_ptr_returns_target() {
+        let target = name("host.example.com.");
+        let r = Record::new_for_test(
+            name("4.3.2.1.in-addr.arpa."),
+            RecordType::PTR,
+            300,
+            RData::PTR(target.clone()),
+        );
+        assert_eq!(r.associated_name(), &target);
+    }
+
+    #[test]
+    fn associated_name_srv_returns_target() {
+        let target = name("server.example.com.");
+        let r = Record::new_for_test(
+            name("_http._tcp.example.com."),
+            RecordType::SRV,
+            300,
+            RData::SRV(SRV::new(1, 1, 80, target.clone())),
+        );
+        assert_eq!(r.associated_name(), &target);
+    }
+
+    #[test]
+    fn associated_name_soa_returns_mname() {
+        let mname = name("ns1.example.com.");
+        let r = Record::new_for_test(
+            name("example.com."),
+            RecordType::SOA,
+            300,
+            RData::SOA(SOA::new(mname.clone(), name("admin.example.com."), 1, 3600, 900, 604800, 86400)),
+        );
+        assert_eq!(r.associated_name(), &mname);
+    }
+
+    #[test]
+    fn associated_name_https_returns_target_name() {
+        let target = name("cdn.example.com.");
+        let r = Record::new_for_test(
+            name("example.com."),
+            RecordType::HTTPS,
+            300,
+            RData::HTTPS(SVCB::new(1, target.clone(), vec![])),
+        );
+        assert_eq!(r.associated_name(), &target);
+    }
+}
+
 #[doc(hidden)]
 impl From<&hickory_resolver::proto::rr::Record> for Record {
     fn from(record: &hickory_resolver::proto::rr::Record) -> Self {

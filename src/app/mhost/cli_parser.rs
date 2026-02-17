@@ -139,7 +139,7 @@ pub fn create_parser() -> Command {
                 .action(ArgAction::Append)
                 .help("Adds nameserver for lookups")
                 .long_help(
-                    r#"Adds nameserver for lookups. A nameserver may be specified by protocol, hostname or IP address, and port number, delimited by coloons, e.g., udp:dns.google:53. Supported protocols are udp,tcp,tls,https.
+                    r#"Adds nameserver for lookups. A nameserver may be specified by protocol, hostname or IP address, and port number, delimited by colons, e.g., udp:dns.google:53. Supported protocols are udp,tcp,tls,https.
 Additionally, further parameters like 'tls_auth_name' or 'name' may be added separated by commas. 'tls_auth_name' must be set for protocols 'tls' and 'https' if an IP address is given. If protocol or port number are omitted, the defaults udp and 53 are used, respectively.
 Examples:
 * 127.0.0.1 is udp:127.0.0.1:53
@@ -390,6 +390,7 @@ fn subcommands() -> Vec<Command> {
 
 fn check_subcommand() -> Command {
     Command::new("check")
+        .alias("c")
         .about("Checks all available records for known misconfigurations or mistakes")
         .arg(
             Arg::new("domain name")
@@ -397,7 +398,7 @@ fn check_subcommand() -> Command {
                 .required(true)
                 .value_name("DOMAIN NAME")
                 .help("domain name to check")
-                .long_help("* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de"),
+                .long_help("* DOMAIN NAME may be any valid DNS name, e.g., example.com"),
         )
         .arg(
             Arg::new("partial-results")
@@ -560,6 +561,7 @@ fn diff_subcommand() -> Command {
 
 fn discover_subcommand() -> Command {
     Command::new("discover")
+        .alias("d")
         .about("Discovers records of a domain using multiple heuristics")
         .arg(
             Arg::new("domain name")
@@ -567,7 +569,7 @@ fn discover_subcommand() -> Command {
                 .index(1)
                 .value_name("DOMAIN NAME")
                 .help("domain name to discover")
-                .long_help("* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de"),
+                .long_help("* DOMAIN NAME may be any valid DNS name, e.g., example.com"),
         )
         .arg(
             Arg::new("partial-results")
@@ -704,6 +706,7 @@ fn info_subcommand() -> Command {
 
 fn lookup_subcommand() -> Command {
     Command::new("lookup")
+        .alias("l")
         .about("Looks up a name, IP address or CIDR block")
         .arg(
             Arg::new("domain name")
@@ -713,7 +716,7 @@ fn lookup_subcommand() -> Command {
                 .help("domain name, IP address, or CIDR block to lookup")
                 .long_help(
                     r#"domain name, IP address, CIDR block, or, if -s, SERVICE SPEC, to lookup"
-* DOMAIN NAME may be any valid DNS name, e.g., lukas.pustina.de
+* DOMAIN NAME may be any valid DNS name, e.g., example.com
 * IP ADDR may be any valid IPv4 or IPv4 address, e.g., 192.168.0.1
 * CIDR BLOCK may be any valid IPv4 or IPv6 subnet in CIDR notation, e.g., 192.168.0.1/24
   all valid IP addresses of a CIDR block will be queried for a reverse lookup
@@ -877,6 +880,7 @@ Unlike `dig +trace` which queries one server per hop, mhost queries all servers 
 
 fn verify_subcommand() -> Command {
     Command::new("verify")
+        .alias("v")
         .about("Verifies DNS records against a BIND zone file")
         .long_about(
             r#"Compares a BIND zone file (source of truth) against live DNS and reports mismatches. Useful for post-deployment validation, migration audits, and CI/CD integration.

@@ -51,11 +51,22 @@ impl Default for SummaryOptions {
     }
 }
 
+static VALID_SUMMARY_OPTIONS: &[&str] = &["human", "condensed", "show-domain-names"];
+
 impl<'a> TryFrom<Vec<&'a str>> for SummaryOptions {
     type Error = Error;
 
     fn try_from(values: Vec<&'a str>) -> std::result::Result<Self, Self::Error> {
         let options: HashSet<&str> = values.into_iter().collect();
+        for opt in &options {
+            if !VALID_SUMMARY_OPTIONS.contains(opt) {
+                return Err(Error::ParserError {
+                    what: opt.to_string(),
+                    to: "SummaryOptions",
+                    why: format!("unknown option '{}', valid options are: {}", opt, VALID_SUMMARY_OPTIONS.join(", ")),
+                });
+            }
+        }
         Ok(SummaryOptions {
             human: options.contains("human"),
             condensed: options.contains("condensed"),

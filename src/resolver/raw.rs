@@ -299,11 +299,23 @@ async fn send_tcp(server: SocketAddr, msg: &Message, timeout: Duration) -> RawRe
     stream.write_all(&len.to_be_bytes()).await?;
     stream.write_all(&msg_bytes).await?;
 
+    // DNS over TCP responses use a 2-byte length prefix (max 65535).
+    // Cap at 16KB to limit allocation from untrusted servers; standard DNS
+    // responses rarely exceed a few KB outside of zone transfers (AXFR).
+    const MAX_TCP_RESPONSE_LEN: usize = 16_384;
+
     let response_len = match tokio::time::timeout(timeout, stream.read_u16()).await {
         Ok(Ok(len)) => len as usize,
         Ok(Err(e)) => return Err(RawError::Io(e)),
         Err(_) => return Err(RawError::Timeout(timeout)),
     };
+
+    if response_len > MAX_TCP_RESPONSE_LEN {
+        return Err(RawError::Decode(format!(
+            "TCP response length {} exceeds maximum {}",
+            response_len, MAX_TCP_RESPONSE_LEN
+        )));
+    }
 
     let mut buf = vec![0u8; response_len];
     match tokio::time::timeout(timeout, stream.read_exact(&mut buf)).await {
