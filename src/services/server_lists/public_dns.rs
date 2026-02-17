@@ -59,7 +59,7 @@ pub async fn download(downloader: ServerListDownloader, spec: &PublicDns) -> Res
         });
     }
 
-    const MAX_RESPONSE_SIZE: u64 = 10 * 1024 * 1024;
+    const MAX_RESPONSE_SIZE: u64 = 50 * 1024 * 1024;
     if let Some(len) = res.content_length() {
         if len > MAX_RESPONSE_SIZE {
             return Err(Error::HttpClientErrorMessage {
