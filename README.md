@@ -119,13 +119,13 @@ mdive -p example.com                     # Use 84 public resolvers for broader c
 mdive -s 8.8.8.8 -s 1.1.1.1 example.com # Pick your own nameservers
 ```
 
-<!-- TODO: screenshot of mdive main view with populated record table -->
+![mdive main view github.com.](docs/images/mdive-main-view-github.png)
 
 **A live, sortable record table.** All DNS records for a domain -- apex plus dozens of well-known subdomains across 10 categories (email auth, TLS/DANE, SRV services, infrastructure, and more). Results stream in progressively as servers respond, with a real-time progress bar in the status line. Toggle between raw DNS wire format and human-readable values with a single keypress.
 
 **Drill-down navigation.** See a CNAME pointing somewhere interesting? Press `l` to follow it. Found a subdomain in the results? Hit Enter to dive in. Every query is pushed onto a history stack, so Backspace takes you right back. It's like `cd` and `cd ..` but for DNS.
 
-<!-- TODO: screenshot of mdive discovery panel -->
+![mdive discovery empty github.com.](docs/images/mdive-discovery-view-empty-github.png)
 
 **Five discovery strategies, one keypress away.** Press `d` to open the discovery panel, then launch any combination:
 
@@ -137,6 +137,8 @@ mdive -s 8.8.8.8 -s 1.1.1.1 example.com # Pick your own nameservers
 | `t` | TXT Mining | Extract referenced domains from SPF includes and DMARC URIs |
 | `p` | Permutation | Generate variations of already-discovered labels (dev-, staging-, -prod, ...) |
 | `a` | All | Run everything at once |
+
+![mdive discovery full github.com.](docs/images/mdive-discovery-view-full-github.png)
 
 Discovered subdomains appear in the main table as they're found. Wildcard detection runs automatically to filter false positives.
 
@@ -340,7 +342,8 @@ mhost trace example.com
 mhost trace -t AAAA --show-all-servers example.com
 ```
 
-<!-- TODO: screenshot of trace output -->
+<mdive-discovery-view-full-github!-- TODO: screenshot of trace output -->
+![trace-github.com.](docs/images/trace-github.png)
 
 Unlike `dig +trace` which queries one server per hop, mhost's `trace` command queries **all nameservers at each delegation level in parallel**. It detects referral divergence (where different root/TLD servers disagree), reports per-server latency, and resolves missing glue records automatically.
 
@@ -351,7 +354,8 @@ mhost -p propagation example.com
 mhost -p prop --all example.com
 ```
 
-<!-- TODO: screenshot of propagation output -->
+![propagation-github.com.-1](docs/images/propagation-github_1.png)
+![propagation-github.com.-2](docs/images/propagation-github_2.png)
 
 After making a DNS change, check whether it has reached all the major public resolvers. Uses the predefined nameserver set (Cloudflare, Google, Quad9, Mullvad, Wikimedia, DNS4EU).
 
