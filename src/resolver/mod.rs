@@ -423,6 +423,27 @@ impl From<ResolverOpts> for hickory_resolver::config::ResolverOpts {
     }
 }
 
+#[cfg(test)]
+impl Resolver {
+    pub fn new_for_test(opts: ResolverOpts, name_server: NameServerConfig) -> Self {
+        let config = ResolverConfig::new(name_server.clone());
+        let tr_opts: hickory_resolver::config::ResolverOpts = opts.clone().into();
+        let tr_config: hickory_resolver::config::ResolverConfig = config.into();
+        let tr_resolver = hickory_resolver::Resolver::builder_with_config(
+            tr_config,
+            hickory_resolver::name_server::TokioConnectionProvider::default(),
+        )
+        .with_options(tr_opts)
+        .build();
+
+        Resolver {
+            inner: Arc::new(tr_resolver),
+            opts: Arc::new(opts),
+            name_server: Arc::new(name_server),
+        }
+    }
+}
+
 #[doc(hidden)]
 impl From<ResolverConfig> for hickory_resolver::config::ResolverConfig {
     fn from(rc: ResolverConfig) -> Self {

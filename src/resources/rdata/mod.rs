@@ -316,6 +316,38 @@ mod tests {
         assert_eq!(rdata.nsec3param(), Some(&nsec3param));
         assert!(rdata.nsec3().is_none());
     }
+
+    #[test]
+    fn rdata_mx_accessor() {
+        let mx = MX::new(10, Name::from_str("mail.example.com.").unwrap());
+        let rdata = RData::MX(mx.clone());
+        assert_eq!(rdata.mx(), Some(&mx));
+        assert!(rdata.a().is_none());
+    }
+
+    #[test]
+    fn rdata_srv_accessor() {
+        let srv = SRV::new(10, 20, 5060, Name::from_str("sip.example.com.").unwrap());
+        let rdata = RData::SRV(srv.clone());
+        assert_eq!(rdata.srv(), Some(&srv));
+        assert!(rdata.a().is_none());
+    }
+
+    #[test]
+    fn rdata_null_accessor() {
+        let null = NULL::with(vec![1, 2, 3]);
+        let rdata = RData::NULL(null.clone());
+        assert_eq!(rdata.null(), Some(&null));
+        assert!(rdata.a().is_none());
+    }
+
+    #[test]
+    fn rdata_unknown_accessor() {
+        let unknown = UNKNOWN::new(999, NULL::with(vec![0xAB]));
+        let rdata = RData::Unknown(unknown.clone());
+        assert_eq!(rdata.unknown(), Some(&unknown));
+        assert!(rdata.a().is_none());
+    }
 }
 
 #[doc(hidden)]

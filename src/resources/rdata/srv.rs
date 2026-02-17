@@ -58,3 +58,19 @@ impl From<hickory_resolver::proto::rr::rdata::SRV> for SRV {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn srv_new_and_accessors() {
+        let target = Name::from_utf8("sip.example.com.").unwrap();
+        let srv = SRV::new(10, 20, 5060, target.clone());
+
+        assert_eq!(srv.priority(), 10);
+        assert_eq!(srv.weight(), 20);
+        assert_eq!(srv.port(), 5060);
+        assert_eq!(srv.target(), &target);
+    }
+}

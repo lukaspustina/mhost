@@ -42,3 +42,17 @@ impl From<(u16, hickory_resolver::proto::rr::rdata::NULL)> for UNKNOWN {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unknown_new_and_accessors() {
+        let null_data = NULL::with(vec![0xAB, 0xCD]);
+        let unknown = UNKNOWN::new(999, null_data.clone());
+
+        assert_eq!(unknown.code(), 999);
+        assert_eq!(unknown.rdata(), &null_data);
+    }
+}

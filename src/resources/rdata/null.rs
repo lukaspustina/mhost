@@ -50,3 +50,20 @@ impl From<hickory_resolver::proto::rr::rdata::NULL> for NULL {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn null_new_is_empty() {
+        let null = NULL::new();
+        assert_eq!(null.anything(), None);
+    }
+
+    #[test]
+    fn null_with_data() {
+        let null = NULL::with(vec![1, 2, 3]);
+        assert_eq!(null.anything(), Some([1u8, 2, 3].as_slice()));
+    }
+}

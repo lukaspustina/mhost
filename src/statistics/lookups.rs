@@ -200,3 +200,186 @@ fn rr_types_as_str(rr_type_counts: &BTreeMap<RecordType, usize>) -> String {
 fn count_rrs(rr_type_counts: &BTreeMap<RecordType, usize>) -> usize {
     rr_type_counts.values().sum()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::nameserver::NameServerConfig;
+    use crate::resolver::lookup::{Lookup, LookupResult, NxDomain, Response};
+    use crate::resolver::{Error, Lookups, UniQuery};
+    use crate::resources::rdata::{Name, MX};
+    use crate::resources::{RData, Record};
+    use std::net::Ipv4Addr;
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    fn make_ns(addr: &str) -> Arc<NameServerConfig> {
+        Arc::new(NameServerConfig::from_str(addr).unwrap())
+    }
+
+    fn make_query() -> UniQuery {
+        UniQuery::new("example.com.", RecordType::A).unwrap()
+    }
+
+    fn make_a_record() -> Record {
+        Record::new_for_test(
+            Name::from_utf8("example.com.").unwrap(),
+            RecordType::A,
+            300,
+            RData::A(Ipv4Addr::new(1, 2, 3, 4)),
+        )
+    }
+
+    fn make_mx_record() -> Record {
+        Record::new_for_test(
+            Name::from_utf8("example.com.").unwrap(),
+            RecordType::MX,
+            300,
+            RData::MX(MX::new(10, Name::from_utf8("mail.example.com.").unwrap())),
+        )
+    }
+
+    #[test]
+    fn statistics_empty_lookups() {
+        let lookups = Lookups::empty();
+        let stats = lookups.statistics();
+
+        assert_eq!(stats.responses, 0);
+        assert_eq!(stats.nxdomains, 0);
+        assert_eq!(stats.timeout_errors, 0);
+        assert_eq!(stats.refuse_errors, 0);
+        assert_eq!(stats.servfail_errors, 0);
+        assert_eq!(stats.total_errors, 0);
+        assert!(stats.rr_type_counts.is_empty());
+        assert_eq!(stats.responding_servers, 0);
+        assert!(stats.response_time_summary.min.is_none());
+        assert!(stats.response_time_summary.max.is_none());
+    }
+
+    #[test]
+    fn statistics_counts_responses_and_nxdomains() {
+        let ns = make_ns("udp:8.8.8.8:53");
+        let lookups = Lookups::new(vec![
+            Lookup::new_for_test(
+                make_query(),
+                ns.clone(),
+                LookupResult::Response(Response::new_for_test(vec![make_a_record()], Duration::from_millis(10))),
+            ),
+            Lookup::new_for_test(
+                make_query(),
+                ns.clone(),
+                LookupResult::Response(Response::new_for_test(vec![make_a_record()], Duration::from_millis(20))),
+            ),
+            Lookup::new_for_test(
+                make_query(),
+                ns.clone(),
+                LookupResult::NxDomain(NxDomain::new_for_test(Duration::from_millis(15))),
+            ),
+        ]);
+        let stats = lookups.statistics();
+
+        assert_eq!(stats.responses, 2);
+        assert_eq!(stats.nxdomains, 1);
+    }
+
+    #[test]
+    fn statistics_counts_error_types() {
+        let ns = make_ns("udp:8.8.8.8:53");
+        let lookups = Lookups::new(vec![
+            Lookup::new_for_test(make_query(), ns.clone(), LookupResult::Error(Error::Timeout)),
+            Lookup::new_for_test(make_query(), ns.clone(), LookupResult::Error(Error::QueryRefused)),
+            Lookup::new_for_test(make_query(), ns.clone(), LookupResult::Error(Error::ServerFailure)),
+            Lookup::new_for_test(
+                make_query(),
+                ns.clone(),
+                LookupResult::Error(Error::ResolveError {
+                    reason: "test".to_string(),
+                }),
+            ),
+        ]);
+        let stats = lookups.statistics();
+
+        assert_eq!(stats.timeout_errors, 1);
+        assert_eq!(stats.refuse_errors, 1);
+        assert_eq!(stats.servfail_errors, 1);
+        assert_eq!(stats.total_errors, 4);
+    }
+
+    #[test]
+    fn statistics_counts_rr_types() {
+        let ns = make_ns("udp:8.8.8.8:53");
+        let lookups = Lookups::new(vec![
+            Lookup::new_for_test(
+                make_query(),
+                ns.clone(),
+                LookupResult::Response(Response::new_for_test(
+                    vec![make_a_record(), make_a_record()],
+                    Duration::from_millis(10),
+                )),
+            ),
+            Lookup::new_for_test(
+                make_query(),
+                ns.clone(),
+                LookupResult::Response(Response::new_for_test(vec![make_mx_record()], Duration::from_millis(20))),
+            ),
+        ]);
+        let stats = lookups.statistics();
+
+        assert_eq!(stats.rr_type_counts[&RecordType::A], 2);
+        assert_eq!(stats.rr_type_counts[&RecordType::MX], 1);
+        assert_eq!(stats.rr_type_counts.len(), 2);
+    }
+
+    #[test]
+    fn statistics_counts_responding_servers() {
+        let ns1 = make_ns("udp:8.8.8.8:53");
+        let ns2 = make_ns("udp:1.1.1.1:53");
+        let lookups = Lookups::new(vec![
+            Lookup::new_for_test(
+                make_query(),
+                ns1.clone(),
+                LookupResult::Response(Response::new_for_test(vec![make_a_record()], Duration::from_millis(10))),
+            ),
+            Lookup::new_for_test(
+                make_query(),
+                ns2.clone(),
+                LookupResult::Response(Response::new_for_test(vec![make_a_record()], Duration::from_millis(20))),
+            ),
+            // NxDomain should not count as a responding server
+            Lookup::new_for_test(
+                make_query(),
+                make_ns("udp:9.9.9.9:53"),
+                LookupResult::NxDomain(NxDomain::new_for_test(Duration::from_millis(15))),
+            ),
+        ]);
+        let stats = lookups.statistics();
+
+        assert_eq!(stats.responding_servers, 2);
+    }
+
+    #[test]
+    fn statistics_response_time_summary() {
+        let ns = make_ns("udp:8.8.8.8:53");
+        let lookups = Lookups::new(vec![
+            Lookup::new_for_test(
+                make_query(),
+                ns.clone(),
+                LookupResult::Response(Response::new_for_test(vec![make_a_record()], Duration::from_millis(50))),
+            ),
+            Lookup::new_for_test(
+                make_query(),
+                ns.clone(),
+                LookupResult::Response(Response::new_for_test(vec![make_a_record()], Duration::from_millis(10))),
+            ),
+            Lookup::new_for_test(
+                make_query(),
+                ns.clone(),
+                LookupResult::Response(Response::new_for_test(vec![make_a_record()], Duration::from_millis(100))),
+            ),
+        ]);
+        let stats = lookups.statistics();
+
+        assert_eq!(stats.response_time_summary.min, Some(10));
+        assert_eq!(stats.response_time_summary.max, Some(100));
+    }
+}

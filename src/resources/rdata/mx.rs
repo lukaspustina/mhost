@@ -38,3 +38,17 @@ impl From<hickory_resolver::proto::rr::rdata::MX> for MX {
         MX::new(mx.preference(), mx.exchange().clone())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mx_new_and_accessors() {
+        let exchange = Name::from_utf8("mail.example.com.").unwrap();
+        let mx = MX::new(10, exchange.clone());
+
+        assert_eq!(mx.preference(), 10);
+        assert_eq!(mx.exchange(), &exchange);
+    }
+}

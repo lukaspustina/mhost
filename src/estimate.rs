@@ -66,3 +66,131 @@ impl Estimate for ResolverGroup {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::nameserver::NameServerConfig;
+    use crate::resolver::{ResolverGroupOpts, ResolverOpts};
+    use crate::RecordType;
+    use std::net::Ipv4Addr;
+
+    fn make_resolver(retries: usize) -> Resolver {
+        let mut opts = ResolverOpts::default();
+        opts.retries = retries;
+        let ns = NameServerConfig::udp((Ipv4Addr::new(127, 0, 0, 1), 53));
+        Resolver::new_for_test(opts, ns)
+    }
+
+    #[test]
+    fn estimation_add() {
+        let a = Estimation {
+            min_requests: 2,
+            max_requests: 4,
+        };
+        let b = Estimation {
+            min_requests: 3,
+            max_requests: 6,
+        };
+        let sum = a + b;
+        assert_eq!(sum.min_requests, 5);
+        assert_eq!(sum.max_requests, 10);
+    }
+
+    #[test]
+    fn estimation_display() {
+        let e = Estimation {
+            min_requests: 3,
+            max_requests: 9,
+        };
+        assert_eq!(format!("{}", e), "[min=3, max=9]");
+    }
+
+    #[test]
+    fn estimation_default() {
+        let e = Estimation::default();
+        assert_eq!(e.min_requests, 0);
+        assert_eq!(e.max_requests, 0);
+    }
+
+    #[test]
+    fn resolver_estimate_no_retries() {
+        let resolver = make_resolver(0);
+        let query = MultiQuery::new(
+            vec!["a.example.com.", "b.example.com."],
+            vec![RecordType::A, RecordType::MX, RecordType::TXT],
+        )
+        .unwrap();
+        let est = resolver.estimate(&query);
+
+        assert_eq!(est.min_requests, 6);
+        assert_eq!(est.max_requests, 6);
+    }
+
+    #[test]
+    fn resolver_estimate_with_retries() {
+        let resolver = make_resolver(2);
+        let query = MultiQuery::multi_record("example.com.", vec![RecordType::A, RecordType::MX]).unwrap();
+        let est = resolver.estimate(&query);
+
+        assert_eq!(est.min_requests, 2);
+        assert_eq!(est.max_requests, 6); // 2 * (1 + 2)
+    }
+
+    #[test]
+    fn resolver_group_multi_mode() {
+        let resolvers = vec![make_resolver(0), make_resolver(0), make_resolver(0)];
+        let group = ResolverGroup::new(
+            resolvers,
+            ResolverGroupOpts {
+                mode: Mode::Multi,
+                limit: None,
+                ..Default::default()
+            },
+        );
+        let query = MultiQuery::single("example.com.", RecordType::A).unwrap();
+        let est = group.estimate(&query);
+
+        // 3 resolvers, each estimates min=1, max=1 (0 retries)
+        assert_eq!(est.min_requests, 3);
+        assert_eq!(est.max_requests, 3);
+    }
+
+    #[test]
+    fn resolver_group_multi_mode_with_limit() {
+        let resolvers = vec![make_resolver(0), make_resolver(0), make_resolver(0)];
+        let group = ResolverGroup::new(
+            resolvers,
+            ResolverGroupOpts {
+                mode: Mode::Multi,
+                limit: Some(2),
+                ..Default::default()
+            },
+        );
+        let query = MultiQuery::single("example.com.", RecordType::A).unwrap();
+        let est = group.estimate(&query);
+
+        // Only 2 resolvers counted due to limit
+        assert_eq!(est.min_requests, 2);
+        assert_eq!(est.max_requests, 2);
+    }
+
+    #[test]
+    fn resolver_group_uni_mode() {
+        let resolvers = vec![make_resolver(1), make_resolver(1)];
+        let group = ResolverGroup::new(
+            resolvers,
+            ResolverGroupOpts {
+                mode: Mode::Uni,
+                limit: None,
+                ..Default::default()
+            },
+        );
+        let query = MultiQuery::single("example.com.", RecordType::A).unwrap();
+        let est = group.estimate(&query);
+
+        // Uni mode uses first resolver's estimate only
+        assert_eq!(est.min_requests, 1);
+        assert_eq!(est.max_requests, 2); // 1 * (1 + 1)
+    }
+}
