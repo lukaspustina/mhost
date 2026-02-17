@@ -90,6 +90,7 @@ pub mod estimate;
 pub mod nameserver;
 pub mod resolver;
 pub mod resources;
+#[cfg(feature = "services")]
 pub mod services;
 pub mod statistics;
 pub mod system_config;

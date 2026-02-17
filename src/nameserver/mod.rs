@@ -64,24 +64,22 @@ impl FromStr for Protocol {
 
 /// Configuration for a DNS nameserver, including transport protocol and address.
 ///
-/// Each variant carries the protocol, IP address, port, and an optional human-readable name.
+/// Each variant carries the IP address, port, and an optional human-readable name.
+/// The transport protocol is determined by the enum variant itself.
 /// TLS and HTTPS variants additionally carry the TLS hostname for certificate validation.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize)]
 pub enum NameServerConfig {
     Udp {
-        protocol: Protocol,
         ip_addr: IpAddr,
         port: u16,
         name: Option<String>,
     },
     Tcp {
-        protocol: Protocol,
         ip_addr: IpAddr,
         port: u16,
         name: Option<String>,
     },
     Tls {
-        protocol: Protocol,
         ip_addr: IpAddr,
         port: u16,
         /// The TLS hostname, CN
@@ -89,7 +87,6 @@ pub enum NameServerConfig {
         name: Option<String>,
     },
     Https {
-        protocol: Protocol,
         ip_addr: IpAddr,
         port: u16,
         /// The TLS hostname, CN
@@ -106,7 +103,6 @@ impl NameServerConfig {
     pub fn udp_with_name<T: Into<SocketAddr>, S: Into<Option<String>>>(socket_addr: T, name: S) -> Self {
         let socket_addr = socket_addr.into();
         NameServerConfig::Udp {
-            protocol: Protocol::Udp,
             ip_addr: socket_addr.ip(),
             port: socket_addr.port(),
             name: name.into(),
@@ -120,7 +116,6 @@ impl NameServerConfig {
     pub fn tcp_with_name<T: Into<SocketAddr>, S: Into<Option<String>>>(socket_addr: T, name: S) -> Self {
         let socket_addr = socket_addr.into();
         NameServerConfig::Tcp {
-            protocol: Protocol::Tcp,
             ip_addr: socket_addr.ip(),
             port: socket_addr.port(),
             name: name.into(),
@@ -138,7 +133,6 @@ impl NameServerConfig {
     ) -> Self {
         let socket_addr = socket_addr.into();
         NameServerConfig::Tls {
-            protocol: Protocol::Tls,
             ip_addr: socket_addr.ip(),
             port: socket_addr.port(),
             tls_auth_name: tls_auth_name.into(),
@@ -157,7 +151,6 @@ impl NameServerConfig {
     ) -> Self {
         let socket_addr = socket_addr.into();
         NameServerConfig::Https {
-            protocol: Protocol::Https,
             ip_addr: socket_addr.ip(),
             port: socket_addr.port(),
             tls_auth_name: tls_auth_name.into(),
@@ -182,25 +175,27 @@ impl NameServerConfig {
             | NameServerConfig::Https { ip_addr, .. } => *ip_addr,
         }
     }
+
+    pub fn port(&self) -> u16 {
+        match self {
+            NameServerConfig::Udp { port, .. }
+            | NameServerConfig::Tcp { port, .. }
+            | NameServerConfig::Tls { port, .. }
+            | NameServerConfig::Https { port, .. } => *port,
+        }
+    }
 }
 
 impl fmt::Display for NameServerConfig {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         let str = match self {
-            NameServerConfig::Udp {
-                protocol: _,
-                ip_addr,
-                port,
-                name,
-            } => format!("udp:{}:{}{}", format_ip_addr(ip_addr), port, format_name(name)),
-            NameServerConfig::Tcp {
-                protocol: _,
-                ip_addr,
-                port,
-                name,
-            } => format!("tcp:{}:{}{}", format_ip_addr(ip_addr), port, format_name(name)),
+            NameServerConfig::Udp { ip_addr, port, name } => {
+                format!("udp:{}:{}{}", format_ip_addr(ip_addr), port, format_name(name))
+            }
+            NameServerConfig::Tcp { ip_addr, port, name } => {
+                format!("tcp:{}:{}{}", format_ip_addr(ip_addr), port, format_name(name))
+            }
             NameServerConfig::Tls {
-                protocol: _,
                 ip_addr,
                 port,
                 tls_auth_name,
@@ -213,7 +208,6 @@ impl fmt::Display for NameServerConfig {
                 format_name(name)
             ),
             NameServerConfig::Https {
-                protocol: _,
                 ip_addr,
                 port,
                 tls_auth_name,
@@ -321,61 +315,20 @@ impl From<Protocol> for hickory_resolver::proto::xfer::Protocol {
 #[doc(hidden)]
 impl From<NameServerConfig> for hickory_resolver::config::NameServerConfig {
     fn from(config: NameServerConfig) -> Self {
-        match config {
-            NameServerConfig::Udp {
-                protocol,
-                ip_addr,
-                port,
-                name: _,
-            } => hickory_resolver::config::NameServerConfig {
-                socket_addr: SocketAddr::new(ip_addr, port),
-                protocol: protocol.into(),
-                trust_negative_responses: true,
-                tls_dns_name: None,
-                http_endpoint: None,
-                bind_addr: None,
-            },
-            NameServerConfig::Tcp {
-                protocol,
-                ip_addr,
-                port,
-                name: _,
-            } => hickory_resolver::config::NameServerConfig {
-                socket_addr: SocketAddr::new(ip_addr, port),
-                protocol: protocol.into(),
-                trust_negative_responses: true,
-                tls_dns_name: None,
-                http_endpoint: None,
-                bind_addr: None,
-            },
-            NameServerConfig::Tls {
-                protocol,
-                ip_addr,
-                port,
-                tls_auth_name,
-                name: _,
-            } => hickory_resolver::config::NameServerConfig {
-                socket_addr: SocketAddr::new(ip_addr, port),
-                protocol: protocol.into(),
-                trust_negative_responses: true,
-                tls_dns_name: Some(tls_auth_name),
-                http_endpoint: None,
-                bind_addr: None,
-            },
-            NameServerConfig::Https {
-                protocol,
-                ip_addr,
-                port,
-                tls_auth_name,
-                name: _,
-            } => hickory_resolver::config::NameServerConfig {
-                socket_addr: SocketAddr::new(ip_addr, port),
-                protocol: protocol.into(),
-                trust_negative_responses: true,
-                tls_dns_name: Some(tls_auth_name),
-                http_endpoint: None,
-                bind_addr: None,
-            },
+        let protocol = config.protocol().into();
+        let tls_dns_name = match &config {
+            NameServerConfig::Tls { tls_auth_name, .. } | NameServerConfig::Https { tls_auth_name, .. } => {
+                Some(tls_auth_name.clone())
+            }
+            _ => None,
+        };
+        hickory_resolver::config::NameServerConfig {
+            socket_addr: SocketAddr::new(config.ip_addr(), config.port()),
+            protocol,
+            trust_negative_responses: true,
+            tls_dns_name,
+            http_endpoint: None,
+            bind_addr: None,
         }
     }
 }

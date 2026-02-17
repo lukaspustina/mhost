@@ -185,14 +185,14 @@ Unmaintained since 2017. Consider replacing with standard `assert_eq!`/`assert!`
 13. ~~Defer DNSSEC status recomputation~~ — Done: moved from `DnsBatch`/`DiscoveryBatch` to `DnsComplete` only.
 
 ### Phase 4: Test Coverage
-14. Add tests for `statistics/lookups.rs`
-15. Add tests for `resolver/query.rs` (MultiQuery)
-16. Add module-level tests for `mx.rs`, `srv.rs`, `null.rs`, `unknown.rs`
-17. Add tests for `estimate.rs`
-18. Consider a mock DNS resolver for offline testing
+14. ~~Add tests for `statistics/lookups.rs`~~ — Done: 6 tests covering stats computation.
+15. ~~Add tests for `resolver/query.rs` (MultiQuery)~~ — Done: 7 tests covering Cartesian product and edge cases.
+16. ~~Add module-level tests for `mx.rs`, `srv.rs`, `null.rs`, `unknown.rs`~~ — Done: 5 tests + 4 rdata accessor tests.
+17. ~~Add tests for `estimate.rs`~~ — Done: 8 tests covering request estimation.
+18. Consider a mock DNS resolver for offline testing — Deferred: `Resolver::new_for_test` helper added for synchronous test construction; full mock resolver not yet warranted.
 
 ### Phase 5: Architecture Cleanup
-19. Remove redundant `protocol` field from `NameServerConfig`
-20. Unify the three breaker-based `sliding_window_lookups` copies
-21. Move shared discovery/lint logic to `app/common/`
-22. Feature-gate `reqwest` for library-only builds
+19. ~~Remove redundant `protocol` field from `NameServerConfig`~~ — Done: field removed from all 4 variants, protocol derived from enum variant via `protocol()` accessor. Added `port()` accessor. Serde format change accepted.
+20. Unify the three breaker-based `sliding_window_lookups` copies — Skipped: the four implementations differ enough (breaker vs no-breaker, different error handling, different output types) that a generic abstraction would be more complex than the duplication it eliminates.
+21. ~~Move shared discovery/lint logic to `app/common/`~~ — Resolved by documenting: mdive's imports from `app/modules/check/lints` and `app/modules/discover` are intentional shared business logic. Architecture docs updated.
+22. ~~Feature-gate `reqwest` for library-only builds~~ — Done: new `services` feature (included by `app`) gates `reqwest`, `services/` module, and dependent `statistics/` submodules. Library-only builds no longer pull in HTTP dependencies.

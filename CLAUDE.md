@@ -75,18 +75,20 @@ cargo run --bin mdive --features tui -- example.com  # Run mdive
 │                         │   │                           │   │                  │
 │  resolver/              │──▶│  app/cli_parser.rs        │   │  bin/mdive/      │
 │  nameserver/            │   │  app/app_config.rs        │   │    main.rs       │
-│  resources/ (rdata)     │   │  app/modules/ (commands)  │   │    app.rs        │
-│  services/ (whois)      │   │  app/output/ (rendering)  │   │    ui.rs         │
+│  resources/ (rdata)     │   │  app/modules/ (commands) ◀│───│    app.rs        │
+│  services/ (whois) [S]  │   │  app/output/ (rendering)  │   │    ui.rs         │
 │  statistics/            │   │  app/common/ ◀────────────│───│    dns.rs        │
 │  diff, estimate, utils  │   │                           │   │    discovery.rs  │
 └─────────────────────────┘   └───────────────────────────┘   │    lints.rs      │
                                                               └──────────────────┘
+[S] = feature="services" (included by "app"; provides reqwest + HTTP services)
 ```
 
 **Dependency rules**:
 - Library code (`resolver/`, `nameserver/`, `resources/`, `services/`) never imports from `app/`.
 - `app/common/` is shared between `mhost` CLI and `mdive` TUI — put reusable formatting and reference data here.
 - `mdive` (TUI) uses `app/common/` but not `app/output/` — TUI has its own rendering in `ui.rs`.
+- `mdive` imports directly from `app/modules/check/lints` (lint functions + `CheckResult`) and `app/modules/discover` (discovery strategies). This is intentional — these modules contain shared business logic used by both CLI and TUI.
 
 **Output module** (`app/output/`):
 - `records.rs` — Shared `Rendering` trait impls for all DNS record/rdata types. Used by lookups, propagation, diff, and any future command. DNS record rendering belongs here, not in command-specific files.

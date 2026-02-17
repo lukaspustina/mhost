@@ -22,6 +22,7 @@ pub enum Error {
         #[from]
         source: crate::resolver::Error,
     },
+    #[cfg(feature = "services")]
     #[error("external service failed")]
     ServiceError {
         #[from]

@@ -8,7 +8,9 @@
 //! Statistics module to compute statistical information on query results.
 
 pub mod lookups;
+#[cfg(feature = "services")]
 pub mod server_lists;
+#[cfg(feature = "services")]
 pub mod whois;
 
 mod styles {
