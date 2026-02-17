@@ -1,5 +1,51 @@
 # Changelog
 
+## v0.9.0
+
+### New: `verify` command
+
+Verify that live DNS matches a BIND zone file -- catch drift before it bites.
+
+- `mhost verify example.com.zone` — parse a BIND zone file, look up every (name, type) pair against live DNS, report matches, mismatches, missing, and extra records
+- `--strict` — treat TTL differences as mismatches
+- `--only-type` / `--ignore-type` — filter which record types to verify
+- `--ignore-extra` / `--ignore-soa` — suppress extra-record reporting or SOA serial comparison
+- `--origin` — override the zone origin ($ORIGIN)
+- Wildcard records detected and reported as skipped (can't be verified via simple lookups)
+- Non-zero exit code on mismatch for CI/CD integration
+- SOA serial comparison between zone file and live DNS
+
+### Improvements
+
+- Add `--ascii` flag to mdive TUI for terminals without Unicode support
+- Distinguish error (`x`) and attention (`!`) prefixes in ASCII mode
+- Throttle mdive TUI rendering to ~30 fps to reduce redraws during rapid batch arrivals
+- Defer DNSSEC status recomputation to query completion for efficiency
+- Improve error count output with Display formatting and `--timeout` hint on timeout errors
+- Add range validation to hidden `--max-worker-threads` parameter
+- Add usage examples to `mhost --help` output
+
+### Security
+
+- Add post-read body size checks to prevent chunked encoding bypass of HTTP response size limits
+
+### Architecture
+
+- Feature-gate `reqwest` behind `services` feature for leaner library-only builds
+- Remove protocol redundancy in internal resolver configuration
+
+### Code quality
+
+- Add unit tests for modules with zero test coverage
+- Replace real email addresses in WHOIS test fixtures with example.com
+
+### Documentation
+
+- Add `verify` command documentation to README with examples
+- Add `dnssec` command to README command table and reference
+- Overhaul README structure: centered header, feature comparison table, audience section, collapsible reference sections
+- Update roadmap to reflect shipped verify command
+
 ## v0.8.0
 
 ### New: mdive interactive TUI
