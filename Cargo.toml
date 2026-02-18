@@ -7,7 +7,7 @@ description = "Fast, async DNS lookup library and CLI -- modern dig/host replace
 repository = "https://github.com/lukaspustina/mhost.git"
 homepage = "https://mhost.pustina.de"
 readme = "README.md"
-license = "MIT/Apache-2.0"
+license = "MIT OR Apache-2.0"
 categories = ["command-line-utilities", "network-programming"]
 keywords = ["dns", "dns-lookup", "dig", "networking", "dns-client"]
 include = [
@@ -42,7 +42,7 @@ clap = { version = "4", optional = true }
 clap_complete = { version = "4", optional = true }
 chrono = { version = "0.4", features = ["serde"] }
 data-encoding = "2"
-futures = { version = "0.3.*"}
+futures = { version = "0.3" }
 hostname = { version = "0.4", optional = true }
 humantime = { version = "2", optional = true }
 indexmap = "2"
@@ -86,21 +86,22 @@ services = ["reqwest", "lru_time_cache"]
 dot = ["hickory-resolver/tls-ring"]
 doh = ["hickory-resolver/https-ring"]
 app-lib = ["anyhow", "humantime", "services", "serde_json", "yansi", "dot", "doh"]
-app-cli = ["app-lib", "clap", "clap_complete", "hickory-proto", "hostname", "humantime", "tabwriter", "tracing-log", "tracing-subscriber"]
-app-tui = ["app-lib", "ratatui", "crossterm", "clap", "humantime", "regex"]
+app-cli = ["app-lib", "clap", "clap_complete", "hickory-proto", "hostname", "tabwriter", "tracing-log", "tracing-subscriber"]
+app-tui = ["app-lib", "ratatui", "crossterm", "clap", "regex"]
 # Backward compatibility aliases
 app = ["app-cli"]
 tui = ["app-tui"]
 
 [profile.release]
 lto = true
+codegen-units = 1
 overflow-checks = true
 panic = "abort"
 
 [package.metadata.deb]
 extended-description = """mhost
 - is very fast and uses multiple DNS servers concurrently and aggregates all results for more reliable lookups.
-- supports classic DNS over UDP and TCP as well as modern DNS over TLS (DoT) and HTTP (DoH).
+- supports classic DNS over UDP and TCP as well as modern DNS over TLS (DoT) and HTTPS (DoH).
 - presents results in an easy, human readable format or as JSON for post-processing.
 - discovers host names, subdomains of any domain, as well as IP subnets in CIDR notation.
 - uses lints to validate the DNS configurations of any domain.
