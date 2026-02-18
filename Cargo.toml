@@ -65,7 +65,7 @@ tracing-futures = "0.2"
 tracing-log = { version = "0.2", optional = true }
 tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"], optional = true }
 hickory-proto = { version = "0.25", features = ["text-parsing"], optional = true }
-hickory-resolver = { version = "0.25", features = ["tokio", "tls-ring", "https-ring", "dnssec-ring", "system-config", "serde"] }
+hickory-resolver = { version = "0.25", features = ["tokio", "dnssec-ring", "system-config", "serde"] }
 yansi = { version = "1.0", optional = true }
 ratatui = { version = "0.30", optional = true, default-features = false, features = ["crossterm"] }
 crossterm = { version = "0.28", optional = true, features = ["event-stream"] }
@@ -83,7 +83,9 @@ spectral = "0.6"
 [features]
 default = ["app-cli"]
 services = ["reqwest", "lru_time_cache"]
-app-lib = ["anyhow", "humantime", "services", "serde_json", "yansi"]
+dot = ["hickory-resolver/tls-ring"]
+doh = ["hickory-resolver/https-ring"]
+app-lib = ["anyhow", "humantime", "services", "serde_json", "yansi", "dot", "doh"]
 app-cli = ["app-lib", "clap", "clap_complete", "hickory-proto", "hostname", "humantime", "tabwriter", "tracing-log", "tracing-subscriber"]
 app-tui = ["app-lib", "ratatui", "crossterm", "clap", "humantime", "regex"]
 # Backward compatibility aliases

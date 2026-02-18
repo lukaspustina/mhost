@@ -76,7 +76,9 @@ impl parser::NameServerConfig<'_> {
         match &self.protocol {
             Protocol::Udp => try_udp_from(target_ip, self),
             Protocol::Tcp => try_tcp_from(target_ip, self),
+            #[cfg(feature = "dot")]
             Protocol::Tls => try_tls_from(target_ip, self),
+            #[cfg(feature = "doh")]
             Protocol::Https => try_https_from(target_ip, self),
         }
     }
@@ -136,6 +138,7 @@ fn try_tcp_from(ip: IpAddr, config: parser::NameServerConfig) -> Result<NameServ
     }
 }
 
+#[cfg(feature = "dot")]
 fn try_tls_from(ip: IpAddr, config: parser::NameServerConfig) -> Result<NameServerConfig> {
     use parser::{NameServerConfig, Target};
     match config {
@@ -175,6 +178,7 @@ fn try_tls_from(ip: IpAddr, config: parser::NameServerConfig) -> Result<NameServ
     }
 }
 
+#[cfg(feature = "doh")]
 fn try_https_from(ip: IpAddr, config: parser::NameServerConfig) -> Result<NameServerConfig> {
     use parser::{NameServerConfig, Target};
     match config {
@@ -366,6 +370,7 @@ mod test {
         assert_that(&[expected1, expected2]).contains(config.unwrap());
     }
 
+    #[cfg(feature = "dot")]
     #[tokio::test]
     async fn tls_cloudflare_dns_com_tls_auth_name() {
         crate::utils::tests::logging::init();
@@ -388,6 +393,7 @@ mod test {
         assert_that(&[expected1, expected2]).contains(config.unwrap());
     }
 
+    #[cfg(feature = "dot")]
     #[tokio::test]
     async fn tls_104_16_249_249_tls_auth_name_name() {
         crate::utils::tests::logging::init();
@@ -406,6 +412,7 @@ mod test {
         assert_that(&config).is_ok().is_equal_to(expected);
     }
 
+    #[cfg(feature = "doh")]
     #[tokio::test]
     #[allow(non_snake_case)]
     async fn https_slash_slash_2606_4700__6810_f8f9_tls_auth_name_name() {
@@ -479,8 +486,10 @@ pub(crate) mod parser {
     pub(crate) enum Protocol {
         Udp,
         Tcp,
-        Https,
+        #[cfg(feature = "dot")]
         Tls,
+        #[cfg(feature = "doh")]
+        Https,
     }
 
     impl FromStr for Protocol {
@@ -490,8 +499,10 @@ pub(crate) mod parser {
             match s {
                 "udp" => Ok(Protocol::Udp),
                 "tcp" => Ok(Protocol::Tcp),
-                "https" => Ok(Protocol::Https),
+                #[cfg(feature = "dot")]
                 "tls" => Ok(Protocol::Tls),
+                #[cfg(feature = "doh")]
+                "https" => Ok(Protocol::Https),
                 _ => Err(Self::Err::ParserError {
                     what: s.to_string(),
                     to: "Protocol",
@@ -575,7 +586,9 @@ pub(crate) mod parser {
 
     fn default_port_for(protocol: &Protocol) -> u16 {
         match *protocol {
+            #[cfg(feature = "doh")]
             Protocol::Https => 443,
+            #[cfg(feature = "dot")]
             Protocol::Tls => 853,
             _ => 53,
         }
@@ -772,6 +785,7 @@ pub(crate) mod parser {
             assert_that(&config).is_equal_to(expected);
         }
 
+        #[cfg(feature = "dot")]
         #[test]
         fn tls_cloudflare_dns_com_tan() {
             crate::utils::tests::logging::init();
@@ -789,6 +803,7 @@ pub(crate) mod parser {
             assert_that(&config).is_equal_to(expected);
         }
 
+        #[cfg(feature = "dot")]
         #[test]
         fn tls_cloudflare_dns_com_tls_auth_name() {
             crate::utils::tests::logging::init();
@@ -806,6 +821,7 @@ pub(crate) mod parser {
             assert_that(&config).is_equal_to(expected);
         }
 
+        #[cfg(feature = "dot")]
         #[test]
         fn tls_dns_google_tls_auth_name() {
             crate::utils::tests::logging::init();
@@ -823,6 +839,7 @@ pub(crate) mod parser {
             assert_that(&config).is_equal_to(expected);
         }
 
+        #[cfg(feature = "dot")]
         #[test]
         fn tls_dns_google_port_tls_auth_name() {
             crate::utils::tests::logging::init();
@@ -840,6 +857,7 @@ pub(crate) mod parser {
             assert_that(&config).is_equal_to(expected);
         }
 
+        #[cfg(feature = "dot")]
         #[test]
         fn tls_dns_google_port_tls_auth_name_name() {
             crate::utils::tests::logging::init();

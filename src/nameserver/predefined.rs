@@ -56,102 +56,142 @@ impl PredefinedProvider {
     /// Returns all [`NameServerConfig`]s for this provider, across all transports and address families.
     pub fn configs(&self) -> Vec<NameServerConfig> {
         match self {
-            PredefinedProvider::Cloudflare => vec![
-                cloudflare::udp(),
-                cloudflare::tcp(),
-                cloudflare::https(),
-                cloudflare::tls(),
-                cloudflare::udp_2(),
-                cloudflare::tcp_2(),
-                cloudflare::https_2(),
-                cloudflare::tls_2(),
-                cloudflare::udp6(),
-                cloudflare::tcp6(),
-                cloudflare::https6(),
-                cloudflare::tls6(),
-                cloudflare::udp6_2(),
-                cloudflare::tcp6_2(),
-                cloudflare::https6_2(),
-                cloudflare::tls6_2(),
-            ],
-            PredefinedProvider::Google => vec![
-                google::udp(),
-                google::tcp(),
-                google::https(),
-                google::tls(),
-                google::udp_2(),
-                google::tcp_2(),
-                google::https_2(),
-                google::tls_2(),
-                google::udp6(),
-                google::tcp6(),
-                google::https6(),
-                google::tls6(),
-                google::udp6_2(),
-                google::tcp6_2(),
-                google::https6_2(),
-                google::tls6_2(),
-            ],
-            PredefinedProvider::Quad9 => vec![
-                quad9::udp(),
-                quad9::tcp(),
-                quad9::https(),
-                quad9::tls(),
-                quad9::udp_2(),
-                quad9::tcp_2(),
-                quad9::https_2(),
-                quad9::tls_2(),
-                quad9::udp6(),
-                quad9::tcp6(),
-                quad9::https6(),
-                quad9::tls6(),
-                quad9::udp6_2(),
-                quad9::tcp6_2(),
-                quad9::https6_2(),
-                quad9::tls6_2(),
-            ],
-            PredefinedProvider::Mullvad => vec![
-                mullvad::udp(),
-                mullvad::tcp(),
-                mullvad::https(),
-                mullvad::tls(),
-                mullvad::udp_2(),
-                mullvad::tcp_2(),
-                mullvad::https_2(),
-                mullvad::tls_2(),
-                mullvad::udp6(),
-                mullvad::tcp6(),
-                mullvad::https6(),
-                mullvad::tls6(),
-            ],
-            PredefinedProvider::Wikimedia => vec![
-                wikimedia::udp(),
-                wikimedia::tcp(),
-                wikimedia::https(),
-                wikimedia::tls(),
-                wikimedia::udp_2(),
-                wikimedia::tcp_2(),
-                wikimedia::https_2(),
-                wikimedia::tls_2(),
-                wikimedia::udp6(),
-                wikimedia::tcp6(),
-                wikimedia::https6(),
-                wikimedia::tls6(),
-                wikimedia::udp6_2(),
-                wikimedia::tcp6_2(),
-                wikimedia::https6_2(),
-                wikimedia::tls6_2(),
-            ],
-            PredefinedProvider::Dns4eu => vec![
-                dns4eu::udp(),
-                dns4eu::tcp(),
-                dns4eu::https(),
-                dns4eu::tls(),
-                dns4eu::udp_2(),
-                dns4eu::tcp_2(),
-                dns4eu::https_2(),
-                dns4eu::tls_2(),
-            ],
+            PredefinedProvider::Cloudflare => {
+                let mut v = vec![
+                    cloudflare::udp(),
+                    cloudflare::tcp(),
+                    cloudflare::udp_2(),
+                    cloudflare::tcp_2(),
+                    cloudflare::udp6(),
+                    cloudflare::tcp6(),
+                    cloudflare::udp6_2(),
+                    cloudflare::tcp6_2(),
+                ];
+                #[cfg(feature = "doh")]
+                v.extend([
+                    cloudflare::https(),
+                    cloudflare::https_2(),
+                    cloudflare::https6(),
+                    cloudflare::https6_2(),
+                ]);
+                #[cfg(feature = "dot")]
+                v.extend([
+                    cloudflare::tls(),
+                    cloudflare::tls_2(),
+                    cloudflare::tls6(),
+                    cloudflare::tls6_2(),
+                ]);
+                v
+            }
+            PredefinedProvider::Google => {
+                let mut v = vec![
+                    google::udp(),
+                    google::tcp(),
+                    google::udp_2(),
+                    google::tcp_2(),
+                    google::udp6(),
+                    google::tcp6(),
+                    google::udp6_2(),
+                    google::tcp6_2(),
+                ];
+                #[cfg(feature = "doh")]
+                v.extend([
+                    google::https(),
+                    google::https_2(),
+                    google::https6(),
+                    google::https6_2(),
+                ]);
+                #[cfg(feature = "dot")]
+                v.extend([
+                    google::tls(),
+                    google::tls_2(),
+                    google::tls6(),
+                    google::tls6_2(),
+                ]);
+                v
+            }
+            PredefinedProvider::Quad9 => {
+                let mut v = vec![
+                    quad9::udp(),
+                    quad9::tcp(),
+                    quad9::udp_2(),
+                    quad9::tcp_2(),
+                    quad9::udp6(),
+                    quad9::tcp6(),
+                    quad9::udp6_2(),
+                    quad9::tcp6_2(),
+                ];
+                #[cfg(feature = "doh")]
+                v.extend([
+                    quad9::https(),
+                    quad9::https_2(),
+                    quad9::https6(),
+                    quad9::https6_2(),
+                ]);
+                #[cfg(feature = "dot")]
+                v.extend([
+                    quad9::tls(),
+                    quad9::tls_2(),
+                    quad9::tls6(),
+                    quad9::tls6_2(),
+                ]);
+                v
+            }
+            PredefinedProvider::Mullvad => {
+                let mut v = vec![
+                    mullvad::udp(),
+                    mullvad::tcp(),
+                    mullvad::udp_2(),
+                    mullvad::tcp_2(),
+                    mullvad::udp6(),
+                    mullvad::tcp6(),
+                ];
+                #[cfg(feature = "doh")]
+                v.extend([mullvad::https(), mullvad::https_2(), mullvad::https6()]);
+                #[cfg(feature = "dot")]
+                v.extend([mullvad::tls(), mullvad::tls_2(), mullvad::tls6()]);
+                v
+            }
+            PredefinedProvider::Wikimedia => {
+                let mut v = vec![
+                    wikimedia::udp(),
+                    wikimedia::tcp(),
+                    wikimedia::udp_2(),
+                    wikimedia::tcp_2(),
+                    wikimedia::udp6(),
+                    wikimedia::tcp6(),
+                    wikimedia::udp6_2(),
+                    wikimedia::tcp6_2(),
+                ];
+                #[cfg(feature = "doh")]
+                v.extend([
+                    wikimedia::https(),
+                    wikimedia::https_2(),
+                    wikimedia::https6(),
+                    wikimedia::https6_2(),
+                ]);
+                #[cfg(feature = "dot")]
+                v.extend([
+                    wikimedia::tls(),
+                    wikimedia::tls_2(),
+                    wikimedia::tls6(),
+                    wikimedia::tls6_2(),
+                ]);
+                v
+            }
+            PredefinedProvider::Dns4eu => {
+                let mut v = vec![
+                    dns4eu::udp(),
+                    dns4eu::tcp(),
+                    dns4eu::udp_2(),
+                    dns4eu::tcp_2(),
+                ];
+                #[cfg(feature = "doh")]
+                v.extend([dns4eu::https(), dns4eu::https_2()]);
+                #[cfg(feature = "dot")]
+                v.extend([dns4eu::tls(), dns4eu::tls_2()]);
+                v
+            }
         }
     }
 }
@@ -218,92 +258,99 @@ pub fn propagation_nameserver_configs() -> Vec<NameServerConfig> {
 }
 
 pub fn nameserver_configs() -> Vec<NameServerConfig> {
-    vec![
+    let mut v = vec![
         cloudflare::udp(),
         cloudflare::tcp(),
-        cloudflare::https(),
-        cloudflare::tls(),
         cloudflare::udp_2(),
         cloudflare::tcp_2(),
-        cloudflare::https_2(),
-        cloudflare::tls_2(),
         cloudflare::udp6(),
         cloudflare::tcp6(),
-        cloudflare::https6(),
-        cloudflare::tls6(),
         cloudflare::udp6_2(),
         cloudflare::tcp6_2(),
-        cloudflare::https6_2(),
-        cloudflare::tls6_2(),
         google::udp(),
         google::tcp(),
-        google::https(),
-        google::tls(),
         google::udp_2(),
         google::tcp_2(),
-        google::https_2(),
-        google::tls_2(),
         google::udp6(),
         google::tcp6(),
-        google::https6(),
-        google::tls6(),
         google::udp6_2(),
         google::tcp6_2(),
-        google::https6_2(),
-        google::tls6_2(),
         quad9::udp(),
         quad9::tcp(),
-        quad9::https(),
-        quad9::tls(),
         quad9::udp_2(),
         quad9::tcp_2(),
-        quad9::https_2(),
-        quad9::tls_2(),
         quad9::udp6(),
         quad9::tcp6(),
-        quad9::https6(),
-        quad9::tls6(),
         quad9::udp6_2(),
         quad9::tcp6_2(),
-        quad9::https6_2(),
-        quad9::tls6_2(),
         mullvad::udp(),
         mullvad::tcp(),
-        mullvad::https(),
-        mullvad::tls(),
         mullvad::udp_2(),
         mullvad::tcp_2(),
-        mullvad::https_2(),
-        mullvad::tls_2(),
         mullvad::udp6(),
         mullvad::tcp6(),
-        mullvad::https6(),
-        mullvad::tls6(),
         wikimedia::udp(),
         wikimedia::tcp(),
-        wikimedia::https(),
-        wikimedia::tls(),
         wikimedia::udp_2(),
         wikimedia::tcp_2(),
-        wikimedia::https_2(),
-        wikimedia::tls_2(),
         wikimedia::udp6(),
         wikimedia::tcp6(),
-        wikimedia::https6(),
-        wikimedia::tls6(),
         wikimedia::udp6_2(),
         wikimedia::tcp6_2(),
-        wikimedia::https6_2(),
-        wikimedia::tls6_2(),
         dns4eu::udp(),
         dns4eu::tcp(),
-        dns4eu::https(),
-        dns4eu::tls(),
         dns4eu::udp_2(),
         dns4eu::tcp_2(),
+    ];
+    #[cfg(feature = "doh")]
+    v.extend([
+        cloudflare::https(),
+        cloudflare::https_2(),
+        cloudflare::https6(),
+        cloudflare::https6_2(),
+        google::https(),
+        google::https_2(),
+        google::https6(),
+        google::https6_2(),
+        quad9::https(),
+        quad9::https_2(),
+        quad9::https6(),
+        quad9::https6_2(),
+        mullvad::https(),
+        mullvad::https_2(),
+        mullvad::https6(),
+        wikimedia::https(),
+        wikimedia::https_2(),
+        wikimedia::https6(),
+        wikimedia::https6_2(),
+        dns4eu::https(),
         dns4eu::https_2(),
+    ]);
+    #[cfg(feature = "dot")]
+    v.extend([
+        cloudflare::tls(),
+        cloudflare::tls_2(),
+        cloudflare::tls6(),
+        cloudflare::tls6_2(),
+        google::tls(),
+        google::tls_2(),
+        google::tls6(),
+        google::tls6_2(),
+        quad9::tls(),
+        quad9::tls_2(),
+        quad9::tls6(),
+        quad9::tls6_2(),
+        mullvad::tls(),
+        mullvad::tls_2(),
+        mullvad::tls6(),
+        wikimedia::tls(),
+        wikimedia::tls_2(),
+        wikimedia::tls6(),
+        wikimedia::tls6_2(),
+        dns4eu::tls(),
         dns4eu::tls_2(),
-    ]
+    ]);
+    v
 }
 
 pub mod cloudflare {
@@ -325,10 +372,12 @@ pub mod cloudflare {
         NameServerConfig::tcp_with_name((IPV4_1, 53), "Cloudflare 1".to_string())
     }
 
+    #[cfg(feature = "doh")]
     pub fn https() -> NameServerConfig {
         NameServerConfig::https_with_name((IPV4_1, 443), "cloudflare-dns.com", "Cloudflare 1".to_string())
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV4_1, 853), "cloudflare-dns.com", "Cloudflare 1".to_string())
     }
@@ -342,10 +391,12 @@ pub mod cloudflare {
         NameServerConfig::tcp_with_name((IPV4_2, 53), "Cloudflare 2".to_string())
     }
 
+    #[cfg(feature = "doh")]
     pub fn https_2() -> NameServerConfig {
         NameServerConfig::https_with_name((IPV4_2, 443), "cloudflare-dns.com", "Cloudflare 2".to_string())
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls_2() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV4_2, 853), "cloudflare-dns.com", "Cloudflare 2".to_string())
     }
@@ -359,10 +410,12 @@ pub mod cloudflare {
         NameServerConfig::tcp_with_name((IPV6_1, 53), "Cloudflare 1".to_string())
     }
 
+    #[cfg(feature = "doh")]
     pub fn https6() -> NameServerConfig {
         NameServerConfig::https_with_name((IPV6_1, 443), "cloudflare-dns.com", "Cloudflare 1".to_string())
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls6() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV6_1, 853), "cloudflare-dns.com", "Cloudflare 1".to_string())
     }
@@ -376,10 +429,12 @@ pub mod cloudflare {
         NameServerConfig::tcp_with_name((IPV6_2, 53), "Cloudflare 2".to_string())
     }
 
+    #[cfg(feature = "doh")]
     pub fn https6_2() -> NameServerConfig {
         NameServerConfig::https_with_name((IPV6_2, 443), "cloudflare-dns.com", "Cloudflare 2".to_string())
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls6_2() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV6_2, 853), "cloudflare-dns.com", "Cloudflare 2".to_string())
     }
@@ -404,10 +459,12 @@ pub mod google {
         NameServerConfig::tcp_with_name((IPV4_1, 53), "Google 1".to_string())
     }
 
+    #[cfg(feature = "doh")]
     pub fn https() -> NameServerConfig {
         NameServerConfig::https_with_name((IPV4_1, 443), "dns.google", "Google 1".to_string())
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV4_1, 853), "dns.google", "Google 1".to_string())
     }
@@ -421,10 +478,12 @@ pub mod google {
         NameServerConfig::tcp_with_name((IPV4_2, 53), "Google 2".to_string())
     }
 
+    #[cfg(feature = "doh")]
     pub fn https_2() -> NameServerConfig {
         NameServerConfig::https_with_name((IPV4_2, 443), "dns.google", "Google 2".to_string())
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls_2() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV4_2, 853), "dns.google", "Google 2".to_string())
     }
@@ -438,10 +497,12 @@ pub mod google {
         NameServerConfig::tcp_with_name((IPV6_1, 53), "Google 1".to_string())
     }
 
+    #[cfg(feature = "doh")]
     pub fn https6() -> NameServerConfig {
         NameServerConfig::https_with_name((IPV6_1, 443), "dns.google", "Google 1".to_string())
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls6() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV6_1, 853), "dns.google", "Google 1".to_string())
     }
@@ -455,10 +516,12 @@ pub mod google {
         NameServerConfig::tcp_with_name((IPV6_2, 53), "Google 2".to_string())
     }
 
+    #[cfg(feature = "doh")]
     pub fn https6_2() -> NameServerConfig {
         NameServerConfig::https_with_name((IPV6_2, 443), "dns.google", "Google 2".to_string())
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls6_2() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV6_2, 853), "dns.google", "Google 2".to_string())
     }
@@ -484,10 +547,12 @@ pub mod quad9 {
         NameServerConfig::tcp_with_name((IPV4_1, 53), "Quad9 1".to_string())
     }
 
+    #[cfg(feature = "doh")]
     pub fn https() -> NameServerConfig {
         NameServerConfig::https_with_name((IPV4_1, 443), "dns10.quad9.net", "Quad9 1".to_string())
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV4_1, 853), "dns10.quad9.net", "Quad9 1".to_string())
     }
@@ -501,10 +566,12 @@ pub mod quad9 {
         NameServerConfig::tcp_with_name((IPV4_2, 53), "Quad9 2".to_string())
     }
 
+    #[cfg(feature = "doh")]
     pub fn https_2() -> NameServerConfig {
         NameServerConfig::https_with_name((IPV4_2, 443), "dns10.quad9.net", "Quad9 2".to_string())
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls_2() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV4_2, 853), "dns10.quad9.net", "Quad9 2".to_string())
     }
@@ -518,10 +585,12 @@ pub mod quad9 {
         NameServerConfig::tcp_with_name((IPV6_1, 53), "Quad9 1".to_string())
     }
 
+    #[cfg(feature = "doh")]
     pub fn https6() -> NameServerConfig {
         NameServerConfig::https_with_name((IPV6_1, 443), "dns10.quad9.net", "Quad9 1".to_string())
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls6() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV6_1, 853), "dns10.quad9.net", "Quad9 1".to_string())
     }
@@ -535,10 +604,12 @@ pub mod quad9 {
         NameServerConfig::tcp_with_name((IPV6_2, 53), "Quad9 2".to_string())
     }
 
+    #[cfg(feature = "doh")]
     pub fn https6_2() -> NameServerConfig {
         NameServerConfig::https_with_name((IPV6_2, 443), "dns10.quad9.net", "Quad9 2".to_string())
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls6_2() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV6_2, 853), "dns10.quad9.net", "Quad9 2".to_string())
     }
@@ -562,10 +633,12 @@ pub mod mullvad {
         NameServerConfig::tcp_with_name((IPV4_1, 53), "Mullvad 1".to_string())
     }
 
+    #[cfg(feature = "doh")]
     pub fn https() -> NameServerConfig {
         NameServerConfig::https_with_name((IPV4_1, 443), "dns.mullvad.net", "Mullvad 1".to_string())
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV4_1, 853), "dns.mullvad.net", "Mullvad 1".to_string())
     }
@@ -579,10 +652,12 @@ pub mod mullvad {
         NameServerConfig::tcp_with_name((IPV4_2, 53), "Mullvad 2".to_string())
     }
 
+    #[cfg(feature = "doh")]
     pub fn https_2() -> NameServerConfig {
         NameServerConfig::https_with_name((IPV4_2, 443), "dns.mullvad.net", "Mullvad 2".to_string())
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls_2() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV4_2, 853), "dns.mullvad.net", "Mullvad 2".to_string())
     }
@@ -596,10 +671,12 @@ pub mod mullvad {
         NameServerConfig::tcp_with_name((IPV6, 53), "Mullvad".to_string())
     }
 
+    #[cfg(feature = "doh")]
     pub fn https6() -> NameServerConfig {
         NameServerConfig::https_with_name((IPV6, 443), "dns.mullvad.net", "Mullvad".to_string())
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls6() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV6, 853), "dns.mullvad.net", "Mullvad".to_string())
     }
@@ -624,10 +701,12 @@ pub mod wikimedia {
         NameServerConfig::tcp_with_name((IPV4_1, 53), "Wikimedia 1".to_string())
     }
 
+    #[cfg(feature = "doh")]
     pub fn https() -> NameServerConfig {
         NameServerConfig::https_with_name((IPV4_1, 443), "wikimedia-dns.org", "Wikimedia 1".to_string())
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV4_1, 853), "wikimedia-dns.org", "Wikimedia 1".to_string())
     }
@@ -641,10 +720,12 @@ pub mod wikimedia {
         NameServerConfig::tcp_with_name((IPV4_2, 53), "Wikimedia 2".to_string())
     }
 
+    #[cfg(feature = "doh")]
     pub fn https_2() -> NameServerConfig {
         NameServerConfig::https_with_name((IPV4_2, 443), "wikimedia-dns.org", "Wikimedia 2".to_string())
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls_2() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV4_2, 853), "wikimedia-dns.org", "Wikimedia 2".to_string())
     }
@@ -658,10 +739,12 @@ pub mod wikimedia {
         NameServerConfig::tcp_with_name((IPV6_1, 53), "Wikimedia 1".to_string())
     }
 
+    #[cfg(feature = "doh")]
     pub fn https6() -> NameServerConfig {
         NameServerConfig::https_with_name((IPV6_1, 443), "wikimedia-dns.org", "Wikimedia 1".to_string())
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls6() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV6_1, 853), "wikimedia-dns.org", "Wikimedia 1".to_string())
     }
@@ -675,10 +758,12 @@ pub mod wikimedia {
         NameServerConfig::tcp_with_name((IPV6_2, 53), "Wikimedia 2".to_string())
     }
 
+    #[cfg(feature = "doh")]
     pub fn https6_2() -> NameServerConfig {
         NameServerConfig::https_with_name((IPV6_2, 443), "wikimedia-dns.org", "Wikimedia 2".to_string())
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls6_2() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV6_2, 853), "wikimedia-dns.org", "Wikimedia 2".to_string())
     }
@@ -701,10 +786,12 @@ pub mod dns4eu {
         NameServerConfig::tcp_with_name((IPV4_1, 53), "DNS4EU 1".to_string())
     }
 
+    #[cfg(feature = "doh")]
     pub fn https() -> NameServerConfig {
         NameServerConfig::https_with_name((IPV4_1, 443), "unfiltered.joindns4.eu", "DNS4EU 1".to_string())
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV4_1, 853), "unfiltered.joindns4.eu", "DNS4EU 1".to_string())
     }
@@ -718,10 +805,12 @@ pub mod dns4eu {
         NameServerConfig::tcp_with_name((IPV4_2, 53), "DNS4EU 2".to_string())
     }
 
+    #[cfg(feature = "doh")]
     pub fn https_2() -> NameServerConfig {
         NameServerConfig::https_with_name((IPV4_2, 443), "unfiltered.joindns4.eu", "DNS4EU 2".to_string())
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls_2() -> NameServerConfig {
         NameServerConfig::tls_with_name((IPV4_2, 853), "unfiltered.joindns4.eu", "DNS4EU 2".to_string())
     }

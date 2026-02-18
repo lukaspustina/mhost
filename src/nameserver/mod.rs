@@ -38,10 +38,12 @@ pub enum Protocol {
     Udp,
     /// Plain TCP (port 53).
     Tcp,
-    /// DNS-over-HTTPS (port 443).
-    Https,
     /// DNS-over-TLS (port 853).
+    #[cfg(feature = "dot")]
     Tls,
+    /// DNS-over-HTTPS (port 443).
+    #[cfg(feature = "doh")]
+    Https,
 }
 
 impl FromStr for Protocol {
@@ -51,8 +53,10 @@ impl FromStr for Protocol {
         match s {
             "udp" => Ok(Protocol::Udp),
             "tcp" => Ok(Protocol::Tcp),
-            "https" => Ok(Protocol::Https),
+            #[cfg(feature = "dot")]
             "tls" => Ok(Protocol::Tls),
+            #[cfg(feature = "doh")]
+            "https" => Ok(Protocol::Https),
             _ => Err(Error::ParserError {
                 what: s.to_string(),
                 to: "Protocol",
@@ -79,6 +83,7 @@ pub enum NameServerConfig {
         port: u16,
         name: Option<String>,
     },
+    #[cfg(feature = "dot")]
     Tls {
         ip_addr: IpAddr,
         port: u16,
@@ -86,6 +91,7 @@ pub enum NameServerConfig {
         tls_auth_name: String,
         name: Option<String>,
     },
+    #[cfg(feature = "doh")]
     Https {
         ip_addr: IpAddr,
         port: u16,
@@ -122,10 +128,12 @@ impl NameServerConfig {
         }
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls<T: Into<SocketAddr>, S: Into<String>>(socket_addr: T, tls_auth_name: S) -> Self {
         NameServerConfig::tls_with_name(socket_addr, tls_auth_name, None)
     }
 
+    #[cfg(feature = "dot")]
     pub fn tls_with_name<T: Into<SocketAddr>, S: Into<String>, U: Into<Option<String>>>(
         socket_addr: T,
         tls_auth_name: S,
@@ -140,10 +148,12 @@ impl NameServerConfig {
         }
     }
 
+    #[cfg(feature = "doh")]
     pub fn https<T: Into<SocketAddr>, S: Into<String>>(socket_addr: T, tls_auth_name: S) -> Self {
         NameServerConfig::https_with_name(socket_addr, tls_auth_name, None)
     }
 
+    #[cfg(feature = "doh")]
     pub fn https_with_name<T: Into<SocketAddr>, S: Into<String>, U: Into<Option<String>>>(
         socket_addr: T,
         tls_auth_name: S,
@@ -162,26 +172,30 @@ impl NameServerConfig {
         match self {
             NameServerConfig::Udp { .. } => Protocol::Udp,
             NameServerConfig::Tcp { .. } => Protocol::Tcp,
-            NameServerConfig::Https { .. } => Protocol::Https,
+            #[cfg(feature = "dot")]
             NameServerConfig::Tls { .. } => Protocol::Tls,
+            #[cfg(feature = "doh")]
+            NameServerConfig::Https { .. } => Protocol::Https,
         }
     }
 
     pub fn ip_addr(&self) -> IpAddr {
         match self {
-            NameServerConfig::Udp { ip_addr, .. }
-            | NameServerConfig::Tcp { ip_addr, .. }
-            | NameServerConfig::Tls { ip_addr, .. }
-            | NameServerConfig::Https { ip_addr, .. } => *ip_addr,
+            NameServerConfig::Udp { ip_addr, .. } | NameServerConfig::Tcp { ip_addr, .. } => *ip_addr,
+            #[cfg(feature = "dot")]
+            NameServerConfig::Tls { ip_addr, .. } => *ip_addr,
+            #[cfg(feature = "doh")]
+            NameServerConfig::Https { ip_addr, .. } => *ip_addr,
         }
     }
 
     pub fn port(&self) -> u16 {
         match self {
-            NameServerConfig::Udp { port, .. }
-            | NameServerConfig::Tcp { port, .. }
-            | NameServerConfig::Tls { port, .. }
-            | NameServerConfig::Https { port, .. } => *port,
+            NameServerConfig::Udp { port, .. } | NameServerConfig::Tcp { port, .. } => *port,
+            #[cfg(feature = "dot")]
+            NameServerConfig::Tls { port, .. } => *port,
+            #[cfg(feature = "doh")]
+            NameServerConfig::Https { port, .. } => *port,
         }
     }
 }
@@ -195,6 +209,7 @@ impl fmt::Display for NameServerConfig {
             NameServerConfig::Tcp { ip_addr, port, name } => {
                 format!("tcp:{}:{}{}", format_ip_addr(ip_addr), port, format_name(name))
             }
+            #[cfg(feature = "dot")]
             NameServerConfig::Tls {
                 ip_addr,
                 port,
@@ -207,6 +222,7 @@ impl fmt::Display for NameServerConfig {
                 tls_auth_name,
                 format_name(name)
             ),
+            #[cfg(feature = "doh")]
             NameServerConfig::Https {
                 ip_addr,
                 port,
@@ -306,8 +322,10 @@ impl From<Protocol> for hickory_resolver::proto::xfer::Protocol {
         match protocol {
             Protocol::Udp => hickory_resolver::proto::xfer::Protocol::Udp,
             Protocol::Tcp => hickory_resolver::proto::xfer::Protocol::Tcp,
-            Protocol::Https => hickory_resolver::proto::xfer::Protocol::Https,
+            #[cfg(feature = "dot")]
             Protocol::Tls => hickory_resolver::proto::xfer::Protocol::Tls,
+            #[cfg(feature = "doh")]
+            Protocol::Https => hickory_resolver::proto::xfer::Protocol::Https,
         }
     }
 }
@@ -317,9 +335,10 @@ impl From<NameServerConfig> for hickory_resolver::config::NameServerConfig {
     fn from(config: NameServerConfig) -> Self {
         let protocol = config.protocol().into();
         let tls_dns_name = match &config {
-            NameServerConfig::Tls { tls_auth_name, .. } | NameServerConfig::Https { tls_auth_name, .. } => {
-                Some(tls_auth_name.clone())
-            }
+            #[cfg(feature = "dot")]
+            NameServerConfig::Tls { tls_auth_name, .. } => Some(tls_auth_name.clone()),
+            #[cfg(feature = "doh")]
+            NameServerConfig::Https { tls_auth_name, .. } => Some(tls_auth_name.clone()),
             _ => None,
         };
         hickory_resolver::config::NameServerConfig {
@@ -340,6 +359,7 @@ mod test {
     use spectral::prelude::*;
     use std::net::{Ipv4Addr, Ipv6Addr};
 
+    #[cfg(feature = "dot")]
     #[test]
     fn display_tls() {
         let nsc = NameServerConfig::tls_with_name(
@@ -356,6 +376,7 @@ mod test {
             .is_equal_to(expected);
     }
 
+    #[cfg(feature = "doh")]
     #[test]
     fn display_https() {
         let nsc = NameServerConfig::https_with_name(
