@@ -1,5 +1,43 @@
 # Changelog
 
+## v0.10.0
+
+### Library: DNS lints available without app features
+
+The 9 pure DNS lint checks (CAA, CNAME, DMARC, DNSSEC, HTTPS/SVCB, MX, NS, SPF, TTL) are now exposed as `mhost::lints::*` in the core library, usable without any `app-*` feature gate. Library consumers can run DNS configuration lints on `Lookups` results without pulling in `reqwest` or the full app dependency chain.
+
+### Improvements
+
+- Add short aliases for subcommands: `lookup`/`l`, `check`/`c`, `discover`/`d`, `verify`/`v`
+- Validate `--output-options` arguments with clear error messages instead of silently ignoring invalid options
+- Print "Found failures/warnings/No issues" summary before "Finished" line in `check` output
+- Show help on missing subcommand consistently exits with status 0
+- PageUp/PageDown in mdive TUI now scroll by actual visible table height instead of hardcoded 10 rows
+- mdive status bar shows `HUMAN`/`RAW` badge indicating current view mode
+
+### Security
+
+- Cap TCP DNS response buffer at 16 KB to prevent excessive memory allocation from untrusted servers
+- Validate country codes at URL construction time in public-dns.info server list downloader
+- Enforce connect timeouts (10s), request timeouts, and redirect limits (max 3) on all HTTP clients
+
+### Bug Fixes
+
+- Raise HTTP response size limit from 10 MB to 50 MB for `get-server-lists` (public-dns.info now returns ~29 MB)
+- Log resolver errors in `sliding_window_lookups` at `debug!` level instead of silently dropping them
+
+### Architecture
+
+- Restructure `src/app/` into layered feature gates: `app-lib` (shared), `app-cli` (CLI), `app-tui` (TUI). TUI no longer depends on CLI
+- Extract 9 pure lints from `app/common/lints/` into ungated `src/lints/` core library module
+- Deduplicate CLI lint files by importing shared analysis functions from core library
+
+### Tests
+
+- Add unit tests for SOA rdata, resolver error classification, Record equality, SPF lints, rdata formatting, TXT parsing
+- Add lit tests for `dnssec` and `verify` CLI commands
+- Fix 4 failing CLI integration tests (updated example.com zone fixture, stale output patterns)
+
 ## v0.9.0
 
 ### New: `verify` command
