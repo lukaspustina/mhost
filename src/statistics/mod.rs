@@ -13,16 +13,6 @@ pub mod server_lists;
 #[cfg(feature = "services")]
 pub mod whois;
 
-mod styles {
-    use yansi::{Color, Style};
-
-    pub static NORMAL: Style = Style::new();
-    pub static BOLD: Style = Style::new().fg(Color::White).bold();
-    pub static GOOD: Style = Style::new().fg(Color::Green);
-    pub static WARN: Style = Style::new().fg(Color::Yellow);
-    pub static ERR: Style = Style::new().fg(Color::Red);
-}
-
 pub trait Statistics<'a> {
     type StatsOut;
 

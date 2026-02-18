@@ -9,5 +9,6 @@ pub mod reference_data;
 pub mod rendering;
 #[cfg(any(feature = "app-cli", feature = "app-tui"))]
 pub mod resolver_args;
+pub mod statistics;
 pub mod styles;
 pub mod subdomain_spec;

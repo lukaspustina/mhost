@@ -5,10 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::fmt;
 use std::marker::PhantomData;
-
-use yansi::Paint;
 
 use super::*;
 use crate::services::server_lists::DownloadResponses;
@@ -19,25 +16,6 @@ pub struct DownloadResponsesStats<'a> {
     pub errors: usize,
     // This is used to please the borrow checker as we currently don't use a borrowed value with lifetime 'a
     phantom: PhantomData<&'a usize>,
-}
-
-impl fmt::Display for DownloadResponsesStats<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fn fmt_errors(errors: usize) -> String {
-            if errors == 0 {
-                "0 Err".to_string()
-            } else {
-                format!("{} Err", errors.paint(styles::ERR))
-            }
-        }
-
-        let str = format!(
-            "{num_servers} name servers, {errs}",
-            num_servers = self.nameserver_configs.paint(styles::BOLD),
-            errs = fmt_errors(self.errors),
-        );
-        f.write_str(&str)
-    }
 }
 
 impl<'a> Statistics<'a> for DownloadResponses {
