@@ -1,4 +1,5 @@
 $ORIGIN example.com.
 $TTL 86400
-@   IN  SOA ns.icann.org. noc.dns.icann.org. 2024010101 7200 3600 1209600 3600
-@   IN  A   93.184.215.14
+@   IN  SOA elliott.ns.cloudflare.com. dns.cloudflare.com. 2396526872 10000 2400 604800 1800
+@   IN  A   104.18.26.120
+@   IN  A   104.18.27.120

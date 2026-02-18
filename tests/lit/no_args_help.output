@@ -1,6 +1,6 @@
 RUN: @mhost_bin
 
-CHECK: More than host
+CHECK: Fast, async DNS lookup library and CLI
 CHECK: Usage:
 CHECK: Commands:
 CHECK: mhost -h

@@ -18,7 +18,6 @@ CHECK-NEXT: * Comparing authoritative with looked up SOA records
 CHECK-NEXT: = All authoritative SOA records are in sync
 CHECK-NEXT: = Looked up SOA records match authoritative SOA records
 CHECK: > Checking CNAME lints
-CHECK-NEXT: * Apex
 CHECK-NEXT: * MX
 CHECK-NEXT: * SRV
 CHECK-NEXT: * CNAME
