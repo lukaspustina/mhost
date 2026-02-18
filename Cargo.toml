@@ -47,7 +47,7 @@ hostname = { version = "0.4", optional = true }
 humantime = { version = "2", optional = true }
 indexmap = "2"
 ipnetwork = { version = "0.21", features = ["serde"] }
-lru_time_cache = "0.11"
+lru_time_cache = { version = "0.11", optional = true }
 nom = "7"
 rand = "0.9"
 regex = { version = "1", optional = true }
@@ -56,7 +56,7 @@ pin-project = "1"
 resolv-conf = "0.7"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "fs", "io-util", "net", "sync"] }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", optional = true }
 smallvec = "1"
 tabwriter = { version = "1", optional = true }
 thiserror = "2"
@@ -82,8 +82,8 @@ spectral = "0.6"
 
 [features]
 default = ["app-cli"]
-services = ["reqwest"]
-app-lib = ["anyhow", "humantime", "services", "yansi"]
+services = ["reqwest", "lru_time_cache"]
+app-lib = ["anyhow", "humantime", "services", "serde_json", "yansi"]
 app-cli = ["app-lib", "clap", "clap_complete", "hickory-proto", "hostname", "humantime", "tabwriter", "tracing-log", "tracing-subscriber"]
 app-tui = ["app-lib", "ratatui", "crossterm", "clap", "humantime", "regex"]
 # Backward compatibility aliases
