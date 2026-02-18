@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.11.0
+
+### Library: DoT and DoH are now opt-in features
+
+DNS-over-TLS and DNS-over-HTTPS support are now gated behind two new Cargo features:
+
+- **`dot`** — enables DNS-over-TLS (`hickory-resolver/tls-ring`)
+- **`doh`** — enables DNS-over-HTTPS (`hickory-resolver/https-ring`)
+
+Both features are included unconditionally by `app-lib`, so CLI and TUI builds are unaffected. A library-only build (`default-features = false`) no longer pulls in `ring` (a large C/asm TLS crypto crate) when only plain UDP/TCP lookups are needed.
+
+The feature gates cover `Protocol::Tls/Https`, `NameServerConfig::Tls/Https`, all factory methods, parser arms, predefined server lists, and `From` impls. The 84 predefined nameserver configs automatically include TLS/HTTPS entries only when the respective feature is active.
+
+### Library: `serde_json` and `lru_time_cache` are now opt-in
+
+`serde_json` is gated behind `app-lib` (used for JSON output in CLI/TUI). `lru_time_cache` is gated behind `services` (used for WHOIS caching). Neither is a dependency in a library-only build.
+
+### Architecture
+
+- Move `Statistics` `Display` impls from the core library into the app layer (`app-lib`), keeping the core library free of formatting concerns
+
 ## v0.10.0
 
 ### Library: DNS lints available without app features
