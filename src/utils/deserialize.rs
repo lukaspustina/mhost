@@ -5,9 +5,12 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+#[cfg(feature = "services")]
 use serde::{de, Deserialize, Deserializer};
+#[cfg(feature = "services")]
 use std::str::FromStr;
 
+#[cfg(feature = "services")]
 pub fn des_f32_from_string<'de, D>(deserializer: D) -> Result<f32, D::Error>
 where
     D: Deserializer<'de>,

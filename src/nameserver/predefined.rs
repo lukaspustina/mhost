@@ -54,6 +54,7 @@ impl PredefinedProvider {
     }
 
     /// Returns all [`NameServerConfig`]s for this provider, across all transports and address families.
+    #[allow(unused_mut)] // mut needed when doh/dot features add .extend() calls
     pub fn configs(&self) -> Vec<NameServerConfig> {
         match self {
             PredefinedProvider::Cloudflare => {
@@ -257,6 +258,7 @@ pub fn propagation_nameserver_configs() -> Vec<NameServerConfig> {
     ]
 }
 
+#[allow(unused_mut)] // mut needed when doh/dot features add .extend() calls
 pub fn nameserver_configs() -> Vec<NameServerConfig> {
     let mut v = vec![
         cloudflare::udp(),
