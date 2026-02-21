@@ -1,5 +1,6 @@
 use super::CheckResult;
 use crate::resolver::Lookups;
+#[cfg(any(feature = "app-lib", test))]
 use crate::Name;
 
 /// Run synchronous CNAME apex lint check against the given lookups.
@@ -20,6 +21,7 @@ pub fn check_cname_apex(lookups: &Lookups) -> Vec<CheckResult> {
     results
 }
 
+#[cfg(any(feature = "app-lib", test))]
 pub(crate) fn classify_chain_depth(origin: &Name, depth: usize) -> Vec<CheckResult> {
     if depth <= 3 {
         vec![CheckResult::Ok(format!(

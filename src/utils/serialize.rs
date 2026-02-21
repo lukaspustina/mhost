@@ -26,6 +26,7 @@ where
     Ok(Arc::new(config))
 }
 
+#[cfg(feature = "services")]
 pub fn ser_to_string<S, T: ToString>(data: &T, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
