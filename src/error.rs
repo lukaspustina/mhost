@@ -39,6 +39,7 @@ pub enum Error {
         #[from]
         source: std::io::Error,
     },
+    #[cfg(feature = "serde_json")]
     #[error("failed to serialize to JSON")]
     SerJsonError {
         #[from]
