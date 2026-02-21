@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.11.1
+
+### Bug Fixes
+
+- Gate `SerJsonError` variant behind `serde_json` feature — fixes compilation failure in library-only build (`--no-default-features`) introduced when `serde_json` was made optional in v0.11.0
+- Gate `classify_chain_depth`, `des_f32_from_string`, and `ser_to_string` behind their respective feature flags to eliminate dead-code warnings in library-only build
+- Allow `unused_mut` on predefined provider config builders where mutability is conditionally needed by `doh`/`dot` feature extensions
+
 ## v0.11.0
 
 ### Library: DoT and DoH are now opt-in features
