@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.11.2
+
+### Security
+
+- Update `aws-lc-sys` to 0.38.0 — fixes PKCS7_verify signature validation bypass, certificate chain validation bypass, and AES-CCM timing side-channel (GHSA alerts 59–61)
+- Update `quinn-proto` to 0.11.14 — fixes unauthenticated remote DoS via QUIC transport parameter parsing (GHSA alert 62)
+
 ## v0.11.1
 
 ### Bug Fixes
