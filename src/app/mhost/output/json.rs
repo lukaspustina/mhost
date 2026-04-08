@@ -39,7 +39,11 @@ impl<'a> TryFrom<Vec<&'a str>> for JsonOptions {
                 return Err(Error::ParserError {
                     what: opt.to_string(),
                     to: "JsonOptions",
-                    why: format!("unknown option '{}', valid options are: {}", opt, VALID_JSON_OPTIONS.join(", ")),
+                    why: format!(
+                        "unknown option '{}', valid options are: {}",
+                        opt,
+                        VALID_JSON_OPTIONS.join(", ")
+                    ),
                 });
             }
         }

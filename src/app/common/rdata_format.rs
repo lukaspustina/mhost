@@ -375,17 +375,30 @@ mod tests {
         assert_eq!(format_rdata(&rdata), "DANE-EE Full SHA-256 [2B]");
     }
 
-
     #[test]
     fn format_dnskey() {
-        let dnskey = DNSKEY::new(257, 3, DnssecAlgorithm::EcdsaP256Sha256, "key".to_string(), Some(12345), true, true, false);
+        let dnskey = DNSKEY::new(
+            257,
+            3,
+            DnssecAlgorithm::EcdsaP256Sha256,
+            "key".to_string(),
+            Some(12345),
+            true,
+            true,
+            false,
+        );
         let rdata = RData::DNSKEY(dnskey);
         assert_eq!(format_rdata(&rdata), "tag=12345 algo=ECDSA P-256/SHA-256 flags=257");
     }
 
     #[test]
     fn format_ds() {
-        let ds = DS::new(12345, DnssecAlgorithm::RsaSha256, DigestType::Sha256, "ABCDEF".to_string());
+        let ds = DS::new(
+            12345,
+            DnssecAlgorithm::RsaSha256,
+            DigestType::Sha256,
+            "ABCDEF".to_string(),
+        );
         let rdata = RData::DS(ds);
         assert_eq!(format_rdata(&rdata), "tag=12345 algo=RSA/SHA-256 digest=SHA-256");
     }

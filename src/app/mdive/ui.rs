@@ -8,10 +8,10 @@ use ratatui::widgets::{
 };
 use ratatui::Frame;
 
-use crate::app::common::reference_data;
-use crate::app::common::styles::{record_type_color, record_type_is_bold};
 use crate::app::common::lints::CheckResult;
+use crate::app::common::reference_data;
 use crate::app::common::styles::is_ascii;
+use crate::app::common::styles::{record_type_color, record_type_is_bold};
 use crate::services::whois::WhoisResponse;
 use crate::RecordType;
 
@@ -444,10 +444,7 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
                 .add_modifier(Modifier::BOLD),
         )
     } else {
-        Span::styled(
-            " RAW ",
-            Style::default().fg(Color::DarkGray),
-        )
+        Span::styled(" RAW ", Style::default().fg(Color::DarkGray))
     };
 
     let mut spans = vec![mode_span, view_span];

@@ -96,19 +96,9 @@ impl PredefinedProvider {
                     google::tcp6_2(),
                 ];
                 #[cfg(feature = "doh")]
-                v.extend([
-                    google::https(),
-                    google::https_2(),
-                    google::https6(),
-                    google::https6_2(),
-                ]);
+                v.extend([google::https(), google::https_2(), google::https6(), google::https6_2()]);
                 #[cfg(feature = "dot")]
-                v.extend([
-                    google::tls(),
-                    google::tls_2(),
-                    google::tls6(),
-                    google::tls6_2(),
-                ]);
+                v.extend([google::tls(), google::tls_2(), google::tls6(), google::tls6_2()]);
                 v
             }
             PredefinedProvider::Quad9 => {
@@ -123,19 +113,9 @@ impl PredefinedProvider {
                     quad9::tcp6_2(),
                 ];
                 #[cfg(feature = "doh")]
-                v.extend([
-                    quad9::https(),
-                    quad9::https_2(),
-                    quad9::https6(),
-                    quad9::https6_2(),
-                ]);
+                v.extend([quad9::https(), quad9::https_2(), quad9::https6(), quad9::https6_2()]);
                 #[cfg(feature = "dot")]
-                v.extend([
-                    quad9::tls(),
-                    quad9::tls_2(),
-                    quad9::tls6(),
-                    quad9::tls6_2(),
-                ]);
+                v.extend([quad9::tls(), quad9::tls_2(), quad9::tls6(), quad9::tls6_2()]);
                 v
             }
             PredefinedProvider::Mullvad => {
@@ -181,12 +161,7 @@ impl PredefinedProvider {
                 v
             }
             PredefinedProvider::Dns4eu => {
-                let mut v = vec![
-                    dns4eu::udp(),
-                    dns4eu::tcp(),
-                    dns4eu::udp_2(),
-                    dns4eu::tcp_2(),
-                ];
+                let mut v = vec![dns4eu::udp(), dns4eu::tcp(), dns4eu::udp_2(), dns4eu::tcp_2()];
                 #[cfg(feature = "doh")]
                 v.extend([dns4eu::https(), dns4eu::https_2()]);
                 #[cfg(feature = "dot")]

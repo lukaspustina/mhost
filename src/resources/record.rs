@@ -244,12 +244,7 @@ mod tests {
     #[test]
     fn associated_name_ns_returns_nameserver() {
         let ns = name("ns1.example.com.");
-        let r = Record::new_for_test(
-            name("example.com."),
-            RecordType::NS,
-            300,
-            RData::NS(ns.clone()),
-        );
+        let r = Record::new_for_test(name("example.com."), RecordType::NS, 300, RData::NS(ns.clone()));
         assert_eq!(r.associated_name(), &ns);
     }
 
@@ -284,7 +279,15 @@ mod tests {
             name("example.com."),
             RecordType::SOA,
             300,
-            RData::SOA(SOA::new(mname.clone(), name("admin.example.com."), 1, 3600, 900, 604800, 86400)),
+            RData::SOA(SOA::new(
+                mname.clone(),
+                name("admin.example.com."),
+                1,
+                3600,
+                900,
+                604800,
+                86400,
+            )),
         );
         assert_eq!(r.associated_name(), &mname);
     }

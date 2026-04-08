@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.11.3 - 2026-04-08
+
+### Security
+
+- Update `aws-lc-sys` to 0.39.1 / `aws-lc-rs` to 1.16.2 — fixes X.509 Name Constraints Bypass (RUSTSEC-2026-0044) and CRL Distribution Point scope check logic error (RUSTSEC-2026-0048, severity 7.4 high)
+
 ## v0.11.2
 
 ### Security

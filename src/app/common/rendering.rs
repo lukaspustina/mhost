@@ -63,7 +63,11 @@ impl<'a> TryFrom<Vec<&'a str>> for SummaryOptions {
                 return Err(Error::ParserError {
                     what: opt.to_string(),
                     to: "SummaryOptions",
-                    why: format!("unknown option '{}', valid options are: {}", opt, VALID_SUMMARY_OPTIONS.join(", ")),
+                    why: format!(
+                        "unknown option '{}', valid options are: {}",
+                        opt,
+                        VALID_SUMMARY_OPTIONS.join(", ")
+                    ),
                 });
             }
         }
