@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.11.4 - 2026-05-01
+
+### Security
+
+- Bump `rustls-webpki` to 0.103.13 — fixes CRL parsing panic (RUSTSEC-2026-0104), URI name-constraint bypass (RUSTSEC-2026-0098), and wildcard name-constraint bypass (RUSTSEC-2026-0099)
+- Bump `rand` to 0.9.4 — clears RUSTSEC-2026-0097 (unsound with custom logger)
+
 ## v0.11.3 - 2026-04-08
 
 ### Security
