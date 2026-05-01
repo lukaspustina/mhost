@@ -101,11 +101,7 @@ impl SummaryFormatter for PropagationResults {
         } else {
             for group in &self.resolver_groups {
                 let count = group.servers.len();
-                let pct = if self.total_resolvers > 0 {
-                    count * 100 / self.total_resolvers
-                } else {
-                    0
-                };
+                let pct = (count * 100).checked_div(self.total_resolvers).unwrap_or(0);
 
                 match group.serial {
                     Some(serial) => {
