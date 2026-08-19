@@ -76,8 +76,10 @@ mod tests {
     use std::net::Ipv4Addr;
 
     fn make_resolver(retries: usize) -> Resolver {
-        let mut opts = ResolverOpts::default();
-        opts.retries = retries;
+        let opts = ResolverOpts {
+            retries,
+            ..Default::default()
+        };
         let ns = NameServerConfig::udp((Ipv4Addr::new(127, 0, 0, 1), 53));
         Resolver::new_for_test(opts, ns)
     }

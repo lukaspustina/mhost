@@ -23,6 +23,15 @@ impl OPENPGPKEY {
     }
 }
 
+#[doc(hidden)]
+impl From<hickory_resolver::proto::rr::rdata::OPENPGPKEY> for OPENPGPKEY {
+    fn from(key: hickory_resolver::proto::rr::rdata::OPENPGPKEY) -> Self {
+        OPENPGPKEY {
+            public_key: key.public_key().to_vec(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -38,14 +47,5 @@ mod tests {
     fn openpgpkey_empty() {
         let key = OPENPGPKEY::new(vec![]);
         assert!(key.public_key().is_empty());
-    }
-}
-
-#[doc(hidden)]
-impl From<hickory_resolver::proto::rr::rdata::OPENPGPKEY> for OPENPGPKEY {
-    fn from(key: hickory_resolver::proto::rr::rdata::OPENPGPKEY) -> Self {
-        OPENPGPKEY {
-            public_key: key.public_key().to_vec(),
-        }
     }
 }

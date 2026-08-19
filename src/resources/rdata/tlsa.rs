@@ -83,6 +83,22 @@ iana_enum! {
     }
 }
 
+#[doc(hidden)]
+impl From<hickory_resolver::proto::rr::rdata::TLSA> for TLSA {
+    fn from(tlsa: hickory_resolver::proto::rr::rdata::TLSA) -> Self {
+        let cert_usage_u8: u8 = tlsa.cert_usage().into();
+        let selector_u8: u8 = tlsa.selector().into();
+        let matching_u8: u8 = tlsa.matching().into();
+
+        TLSA {
+            cert_usage: cert_usage_u8.into(),
+            selector: selector_u8.into(),
+            matching: matching_u8.into(),
+            cert_data: tlsa.cert_data().to_vec(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -149,21 +165,5 @@ mod tests {
         assert_eq!(Matching::Sha512.to_string(), "SHA-512");
         assert_eq!(Matching::Private.to_string(), "Private");
         assert_eq!(Matching::Unassigned(7).to_string(), "Unassigned(7)");
-    }
-}
-
-#[doc(hidden)]
-impl From<hickory_resolver::proto::rr::rdata::TLSA> for TLSA {
-    fn from(tlsa: hickory_resolver::proto::rr::rdata::TLSA) -> Self {
-        let cert_usage_u8: u8 = tlsa.cert_usage().into();
-        let selector_u8: u8 = tlsa.selector().into();
-        let matching_u8: u8 = tlsa.matching().into();
-
-        TLSA {
-            cert_usage: cert_usage_u8.into(),
-            selector: selector_u8.into(),
-            matching: matching_u8.into(),
-            cert_data: tlsa.cert_data().to_vec(),
-        }
     }
 }

@@ -84,7 +84,7 @@ impl FileWriter<'_> {
         if self.env.console.not_quiet() {
             self.env
                 .console
-                .ok(format!("Saved to file '{}'.", &self.env.mod_config.output_file_path));
+                .ok(format!("Saved to file '{}'.", self.env.mod_config.output_file_path));
         }
 
         Ok(ExitStatus::Ok)

@@ -486,9 +486,8 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
         }
         QueryState::Querying { domain } => {
             let (completed, total) = app.batch_progress;
-            if total > 0 {
-                let width = 12;
-                let filled = (completed * width) / total;
+            let width = 12;
+            if let Some(filled) = (completed * width).checked_div(total) {
                 let empty = width - filled;
                 spans.push(Span::styled(
                     format!(" Querying {domain} "),

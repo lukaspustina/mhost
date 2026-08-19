@@ -37,6 +37,20 @@ impl CAA {
     }
 }
 
+#[doc(hidden)]
+impl From<hickory_resolver::proto::rr::rdata::CAA> for CAA {
+    fn from(caa: hickory_resolver::proto::rr::rdata::CAA) -> Self {
+        let tag = caa.tag().to_string();
+        let value = String::from_utf8_lossy(caa.raw_value()).into_owned();
+
+        CAA {
+            issuer_critical: caa.issuer_critical(),
+            tag,
+            value,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -55,19 +69,5 @@ mod tests {
         assert!(!caa.issuer_critical());
         assert_eq!(caa.tag(), "issuewild");
         assert_eq!(caa.value(), ";");
-    }
-}
-
-#[doc(hidden)]
-impl From<hickory_resolver::proto::rr::rdata::CAA> for CAA {
-    fn from(caa: hickory_resolver::proto::rr::rdata::CAA) -> Self {
-        let tag = caa.tag().to_string();
-        let value = String::from_utf8_lossy(caa.raw_value()).into_owned();
-
-        CAA {
-            issuer_critical: caa.issuer_critical(),
-            tag,
-            value,
-        }
     }
 }

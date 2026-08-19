@@ -63,6 +63,20 @@ impl NAPTR {
     }
 }
 
+#[doc(hidden)]
+impl From<hickory_resolver::proto::rr::rdata::NAPTR> for NAPTR {
+    fn from(naptr: hickory_resolver::proto::rr::rdata::NAPTR) -> Self {
+        NAPTR {
+            order: naptr.order(),
+            preference: naptr.preference(),
+            flags: String::from_utf8_lossy(naptr.flags()).into_owned(),
+            services: String::from_utf8_lossy(naptr.services()).into_owned(),
+            regexp: String::from_utf8_lossy(naptr.regexp()).into_owned(),
+            replacement: naptr.replacement().clone(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -85,19 +99,5 @@ mod tests {
         assert_eq!(naptr.services(), "E2U+sip");
         assert_eq!(naptr.regexp(), "!^.*$!sip:info@example.com!");
         assert_eq!(naptr.replacement(), &replacement);
-    }
-}
-
-#[doc(hidden)]
-impl From<hickory_resolver::proto::rr::rdata::NAPTR> for NAPTR {
-    fn from(naptr: hickory_resolver::proto::rr::rdata::NAPTR) -> Self {
-        NAPTR {
-            order: naptr.order(),
-            preference: naptr.preference(),
-            flags: String::from_utf8_lossy(naptr.flags()).into_owned(),
-            services: String::from_utf8_lossy(naptr.services()).into_owned(),
-            regexp: String::from_utf8_lossy(naptr.regexp()).into_owned(),
-            replacement: naptr.replacement().clone(),
-        }
     }
 }

@@ -65,6 +65,21 @@ impl SOA {
     }
 }
 
+#[doc(hidden)]
+impl From<hickory_resolver::proto::rr::rdata::SOA> for SOA {
+    fn from(soa: hickory_resolver::proto::rr::rdata::SOA) -> Self {
+        SOA {
+            mname: soa.mname().clone(),
+            rname: soa.rname().clone(),
+            serial: soa.serial(),
+            refresh: soa.refresh(),
+            retry: soa.retry(),
+            expire: soa.expire(),
+            minimum: soa.minimum(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -130,20 +145,5 @@ mod tests {
             86400,
         );
         assert_ne!(soa1, soa2);
-    }
-}
-
-#[doc(hidden)]
-impl From<hickory_resolver::proto::rr::rdata::SOA> for SOA {
-    fn from(soa: hickory_resolver::proto::rr::rdata::SOA) -> Self {
-        SOA {
-            mname: soa.mname().clone(),
-            rname: soa.rname().clone(),
-            serial: soa.serial(),
-            refresh: soa.refresh(),
-            retry: soa.retry(),
-            expire: soa.expire(),
-            minimum: soa.minimum(),
-        }
     }
 }

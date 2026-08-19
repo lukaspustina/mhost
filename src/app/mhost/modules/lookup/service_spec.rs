@@ -30,7 +30,7 @@ impl ServiceSpec {
     }
 
     pub fn to_domain_name(&self) -> String {
-        format!("_{}._{}.{}", &self.service_name, &self.protocol, &self.domain_name)
+        format!("_{}._{}.{}", self.service_name, self.protocol, self.domain_name)
     }
 }
 

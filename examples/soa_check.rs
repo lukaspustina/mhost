@@ -56,5 +56,5 @@ async fn main() {
         resolvers.estimate(&q.clone().into())
     );
     let soas = resolvers.lookup(q).await.unwrap().soa().unique().to_owned();
-    println!("SOAs -- should be exactly one: {:#?}", &soas);
+    println!("SOAs -- should be exactly one: {:#?}", soas);
 }

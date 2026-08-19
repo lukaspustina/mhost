@@ -58,6 +58,20 @@ iana_enum! {
     }
 }
 
+#[doc(hidden)]
+impl From<hickory_resolver::proto::rr::rdata::SSHFP> for SSHFP {
+    fn from(sshfp: hickory_resolver::proto::rr::rdata::SSHFP) -> Self {
+        let algo_u8: u8 = sshfp.algorithm().into();
+        let fp_type_u8: u8 = sshfp.fingerprint_type().into();
+
+        SSHFP {
+            algorithm: algo_u8.into(),
+            fingerprint_type: fp_type_u8.into(),
+            fingerprint: sshfp.fingerprint().to_vec(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -118,19 +132,5 @@ mod tests {
         assert_eq!(FingerprintType::SHA1.to_string(), "SHA-1");
         assert_eq!(FingerprintType::SHA256.to_string(), "SHA-256");
         assert_eq!(FingerprintType::Unassigned(10).to_string(), "Unassigned(10)");
-    }
-}
-
-#[doc(hidden)]
-impl From<hickory_resolver::proto::rr::rdata::SSHFP> for SSHFP {
-    fn from(sshfp: hickory_resolver::proto::rr::rdata::SSHFP) -> Self {
-        let algo_u8: u8 = sshfp.algorithm().into();
-        let fp_type_u8: u8 = sshfp.fingerprint_type().into();
-
-        SSHFP {
-            algorithm: algo_u8.into(),
-            fingerprint_type: fp_type_u8.into(),
-            fingerprint: sshfp.fingerprint().to_vec(),
-        }
     }
 }

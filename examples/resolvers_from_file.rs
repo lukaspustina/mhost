@@ -55,5 +55,5 @@ async fn main() {
         statistics,
         total_run_time.as_millis()
     );
-    println!("Results:\n{:#?}", &lookups);
+    println!("Results:\n{:#?}", lookups);
 }

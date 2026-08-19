@@ -28,5 +28,5 @@ async fn main() {
     let lookups = resolvers.lookup(mq).await.expect("failed to execute lookups");
 
     let json = serde_json::to_string_pretty(&lookups).expect("failed to serialize lookups");
-    println!("{}", &json);
+    println!("{}", json);
 }

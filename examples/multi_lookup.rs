@@ -25,7 +25,7 @@ async fn main() {
 
     let query = UniQuery::new(name, RecordType::A).expect("Failed to create query");
     let one_lookup = resolvers.lookup(query).await.expect("failed to execute lookups");
-    println!("Lookup result: #{} {:?}", one_lookup.len(), &one_lookup);
+    println!("Lookup result: #{} {:?}", one_lookup.len(), one_lookup);
 
     let mq = MultiQuery::multi_record(
         "www.example.com",

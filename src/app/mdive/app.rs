@@ -864,16 +864,14 @@ impl App {
             }
             Action::InputHome => *pos = 0,
             Action::InputEnd => *pos = buf.len(),
-            Action::InputDeleteWord => {
-                if *pos > 0 {
-                    let new_pos = buf[..*pos]
-                        .trim_end()
-                        .rfind(|c: char| c.is_whitespace())
-                        .map(|i| i + 1)
-                        .unwrap_or(0);
-                    buf.drain(new_pos..*pos);
-                    *pos = new_pos;
-                }
+            Action::InputDeleteWord if *pos > 0 => {
+                let new_pos = buf[..*pos]
+                    .trim_end()
+                    .rfind(|c: char| c.is_whitespace())
+                    .map(|i| i + 1)
+                    .unwrap_or(0);
+                buf.drain(new_pos..*pos);
+                *pos = new_pos;
             }
             _ => {}
         }
@@ -1883,7 +1881,7 @@ mod tests {
 
     #[test]
     fn sort_rows_by_category() {
-        let mut rows = vec![
+        let mut rows = [
             make_row("b.example.com", RecordType::A, Category::Infrastructure, "ns1"),
             make_row("a.example.com", RecordType::MX, Category::EmailServices, "ns1"),
             make_row("c.example.com", RecordType::A, Category::Apex, "ns1"),
@@ -1903,7 +1901,7 @@ mod tests {
 
     #[test]
     fn sort_rows_by_server() {
-        let mut rows = vec![
+        let mut rows = [
             make_row("a.example.com", RecordType::A, Category::Apex, "ns2"),
             make_row("a.example.com", RecordType::A, Category::Apex, "ns1"),
             make_row("b.example.com", RecordType::A, Category::Apex, "ns1"),

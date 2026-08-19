@@ -69,7 +69,7 @@ pub(crate) mod parser {
             tags.iter()
                 .find(|(k, _)| *k == key)
                 .map(|(_, v)| *v)
-                .and_then(|v| if v.is_empty() { None } else { Some(v) })
+                .filter(|&v| !v.is_empty())
         };
 
         Ok((

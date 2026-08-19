@@ -28,6 +28,16 @@ impl HINFO {
     }
 }
 
+#[doc(hidden)]
+impl From<hickory_resolver::proto::rr::rdata::HINFO> for HINFO {
+    fn from(hinfo: hickory_resolver::proto::rr::rdata::HINFO) -> Self {
+        HINFO {
+            cpu: String::from_utf8_lossy(hinfo.cpu()).into_owned(),
+            os: String::from_utf8_lossy(hinfo.os()).into_owned(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -44,15 +54,5 @@ mod tests {
         let hinfo = HINFO::new(String::new(), String::new());
         assert_eq!(hinfo.cpu(), "");
         assert_eq!(hinfo.os(), "");
-    }
-}
-
-#[doc(hidden)]
-impl From<hickory_resolver::proto::rr::rdata::HINFO> for HINFO {
-    fn from(hinfo: hickory_resolver::proto::rr::rdata::HINFO) -> Self {
-        HINFO {
-            cpu: String::from_utf8_lossy(hinfo.cpu()).into_owned(),
-            os: String::from_utf8_lossy(hinfo.os()).into_owned(),
-        }
     }
 }

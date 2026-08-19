@@ -105,6 +105,18 @@ impl Record {
     }
 }
 
+#[doc(hidden)]
+impl From<&hickory_resolver::proto::rr::Record> for Record {
+    fn from(record: &hickory_resolver::proto::rr::Record) -> Self {
+        Record {
+            name: record.name().clone(),
+            record_type: record.record_type().into(),
+            ttl: record.ttl(),
+            data: record.data().clone().into(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -302,17 +314,5 @@ mod tests {
             RData::HTTPS(SVCB::new(1, target.clone(), vec![])),
         );
         assert_eq!(r.associated_name(), &target);
-    }
-}
-
-#[doc(hidden)]
-impl From<&hickory_resolver::proto::rr::Record> for Record {
-    fn from(record: &hickory_resolver::proto::rr::Record) -> Self {
-        Record {
-            name: record.name().clone(),
-            record_type: record.record_type().into(),
-            ttl: record.ttl(),
-            data: record.data().clone().into(),
-        }
     }
 }

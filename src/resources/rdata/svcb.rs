@@ -82,6 +82,26 @@ impl SvcParam {
     }
 }
 
+#[doc(hidden)]
+impl From<hickory_resolver::proto::rr::rdata::SVCB> for SVCB {
+    fn from(svcb: hickory_resolver::proto::rr::rdata::SVCB) -> Self {
+        let svc_params = svcb
+            .svc_params()
+            .iter()
+            .map(|(key, value)| SvcParam {
+                key: key.to_string(),
+                value: value.to_string(),
+            })
+            .collect();
+
+        SVCB {
+            svc_priority: svcb.svc_priority(),
+            target_name: svcb.target_name().clone(),
+            svc_params,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -114,25 +134,5 @@ mod tests {
         let param = SvcParam::new("port".to_string(), "443".to_string());
         assert_eq!(param.key(), "port");
         assert_eq!(param.value(), "443");
-    }
-}
-
-#[doc(hidden)]
-impl From<hickory_resolver::proto::rr::rdata::SVCB> for SVCB {
-    fn from(svcb: hickory_resolver::proto::rr::rdata::SVCB) -> Self {
-        let svc_params = svcb
-            .svc_params()
-            .iter()
-            .map(|(key, value)| SvcParam {
-                key: key.to_string(),
-                value: value.to_string(),
-            })
-            .collect();
-
-        SVCB {
-            svc_priority: svcb.svc_priority(),
-            target_name: svcb.target_name().clone(),
-            svc_params,
-        }
     }
 }
