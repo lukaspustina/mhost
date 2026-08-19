@@ -1,10 +1,20 @@
 ---
 repos:
-  - repo: https://github.com/editorconfig-checker/editorconfig-checker.python
-    rev: '151d143e4a1a06f9f829eadc7c3d35188fee1ad0'
+  # The installed binary, not editorconfig-checker.python and not the upstream
+  # hook repository. The Python wrapper downloaded its Go binary from GitHub
+  # releases on EVERY invocation, with no timeout — and the pinned version's
+  # asset URL now answers 404, after which the CLI blocks instead of failing.
+  # Every commit here hung indefinitely with no output (found 2026-08-19).
+  # The upstream hook repo replaces that with a `go install ./...` at first use,
+  # which is a source build at commit time and did not complete on the machine
+  # where this was found. `brew install editorconfig-checker` is the same tool
+  # as a finished binary, and this is the tier-0 form the fleet already uses.
+  - repo: local
     hooks:
       - id: editorconfig-checker
         name: Check editorconfig compliance
+        entry: editorconfig-checker
+        language: system
   - repo: https://github.com/doublify/pre-commit-rust
     rev: v1.0
     hooks:
