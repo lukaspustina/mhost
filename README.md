@@ -462,7 +462,7 @@ cargo install --features tui mhost       # CLI + interactive TUI (mdive)
 ```sh
 git clone https://github.com/lukaspustina/mhost
 cd mhost
-make install                             # CLI only
+just install                             # CLI + TUI (all features)
 cargo install --features tui --path .    # CLI + TUI
 ```
 

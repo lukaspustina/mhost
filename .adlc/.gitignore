@@ -1,0 +1,12 @@
+# ADR 0006: the ADLC's own artefacts live here, and this file decides which of
+# them are yours to keep. It ships with the ADLC rather than being copied into
+# the repository's own .gitignore, so the rule cannot go missing per repo.
+#
+# Ignored: proof of a single run against a single tree, and the state of a
+# single SDD run. Both are local, both are rewritten constantly.
+attest.json
+cycle/
+
+# Kept: the measurement series, and the exclusions you declared.
+# measurements/*.jsonl
+# not-tests

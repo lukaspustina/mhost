@@ -55,22 +55,26 @@ The roadmap of this project is in file ROADMAP.md. It contains a prioritized lis
 
 ## Build & Test
 
+Everything runs through `just` (pdt-adlc ADR 0008; `make` until 2026-08-19).
+
 ```sh
-cargo build                        # Build everything (default feature = "app-cli")
-cargo build --lib                  # Build library only
-cargo build --features app-tui     # Build with TUI (mdive binary)
-cargo check                        # Type-check without full compilation
-cargo test --lib                   # Unit tests (fast, no network needed)
-cargo test                         # All tests incl. CLI integration tests (slower, needs network)
-cargo clippy                       # Lint
-cargo fmt                          # Format
-cargo run --bin mdive --features app-tui -- example.com  # Run mdive
+just adlc-verify                   # the ADLC gate: fmt-check, clippy, the offline tests
+just test-offline                  # library tests that need no network (549 of 558)
+just test-lib                      # every library test, network ones included
+just test                          # everything: library, doc, integration
+just lint                          # clippy + fmt-check
+just build                         # debug build, all targets
+just check                         # lint + the full suite
 ```
 
 ### Test guidelines
 
-- **`cargo test --lib`** is the reliable quick check — no network needed.
-- **`cargo test`** also runs lit-based CLI integration tests (`tests/cli_output_tests.rs`) that make real DNS queries via `8.8.8.8`. These may fail due to DNS timeouts or changed records.
+- **`just test-offline`** is the reliable quick check, and it is what the ADLC gate runs.
+- **`cargo test --lib` is NOT network-free**, despite what the old Makefile claimed: nine of
+  its tests talk to the network and seven of them were failing on 2026-08-19 — five whois tests
+  calling `stat.ripe.net`, and two parser tests resolving `dns.google` and `tls.cloudflare-dns.com`
+  through the host's resolver. `just test-offline` names and skips exactly those.
+- **`just test`** also runs lit-based CLI integration tests (`tests/cli_output_tests.rs`) that make real DNS queries via `8.8.8.8`. These may fail due to DNS timeouts or changed records.
 - **Every new rdata type or RecordType variant must have unit tests.** Each rdata module has a `#[cfg(test)] mod tests` block covering constructor/accessor round-trips and any enum conversions (`From<u8>`, `Display`).
 - **`RecordType::from_str` must cover all variants.** If you add a new `RecordType` variant, add it to `FromStr`, `all()`, and the `from_str_all_standard_types` test. The `display_round_trip` test will catch omissions.
 - **`RData` accessor tests** in `src/resources/rdata/mod.rs` verify each variant's accessor returns `Some` and unrelated accessors return `None`.
