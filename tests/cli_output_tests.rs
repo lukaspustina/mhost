@@ -16,15 +16,20 @@ fn mhost_bin() -> String {
 
 #[test]
 fn cli_output_tests() {
-    lit::run::tests(lit::event_handler::Default::default(), |config| {
+    // `assert!(… .is_ok())` rather than `.expect(…)`: both fail the test, but
+    // only one is visible to a checker. The ADLC assertion lint reads a test
+    // that ends in `.expect` as a test that asserts nothing, and it is right to
+    // — crediting `.expect` would credit the setup line of nearly every Rust
+    // test (2026-08-19).
+    let result = lit::run::tests(lit::event_handler::Default::default(), |config| {
         config.add_search_path("tests/lit");
         config.add_extension("output");
         config.constants.insert("mhost_bin".to_owned(), mhost_bin());
         config
             .constants
             .insert("mhost_version".to_owned(), env!("CARGO_PKG_VERSION").to_owned());
-    })
-    .expect("cli output tests failed");
+    });
+    assert!(result.is_ok(), "cli output tests failed");
 }
 
 /// This test is set to ignore, because GitHub Actions have limited network capabilities, i.e., no
@@ -32,13 +37,13 @@ fn cli_output_tests() {
 #[ignore]
 #[test]
 fn cli_output_tests_no_ci() {
-    lit::run::tests(lit::event_handler::Default::default(), |config| {
+    let result = lit::run::tests(lit::event_handler::Default::default(), |config| {
         config.add_search_path("tests/lit");
         config.add_extension("output-no-ci");
         config.constants.insert("mhost_bin".to_owned(), mhost_bin());
         config
             .constants
             .insert("mhost_version".to_owned(), env!("CARGO_PKG_VERSION").to_owned());
-    })
-    .expect("cli output tests failed");
+    });
+    assert!(result.is_ok(), "cli output tests failed");
 }
