@@ -192,7 +192,7 @@ pub async fn run(
         }
 
         // If discovery strategies were requested, spawn them
-        let pending: Vec<DiscoveryStrategy> = app.pending_strategy_spawns.drain(..).collect();
+        let pending: Vec<DiscoveryStrategy> = std::mem::take(&mut app.pending_strategy_spawns);
         if !pending.is_empty() {
             let domain = app.current_domain().to_string();
             let generation = app.discovery_state.as_ref().map_or(0, |s| s.generation);
