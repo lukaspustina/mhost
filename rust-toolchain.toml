@@ -1,0 +1,5 @@
+# The toolchain this repository builds, lints and formats with; rustup installs it on first use.
+# A newer clippy adds lints that turn a green tree red without a change here.
+[toolchain]
+channel = "1.98.1"
+components = ["rustfmt", "clippy"]
