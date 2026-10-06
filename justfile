@@ -134,11 +134,15 @@ release: lint test build-release deb
 docs:
     doctoc README.md && git add README.md
 
-# Install dev tooling (pre-commit, cargo plugins).
-init:
-    brew install pre-commit
-    pre-commit install
-    {{cargo}} install cargo-audit cargo-outdated cargo-deb
+# rustup if it is missing, the toolchain rust-toolchain.toml pins (rustfmt and clippy with it), and
+# the cargo tools the recipes call beyond it, pinned, into ~/.cargo/bin: mutation testing, audit,
+# outdated, deny, semver-checks and deb.
+
+# Install the pinned toolchain and cargo tools the recipes need.
+adlc-setup:
+    @command -v rustup >/dev/null || curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain none
+    rustup toolchain install
+    {{cargo}} install --locked cargo-mutants@27.1.0 cargo-audit@0.22.2 cargo-outdated@0.19.0 cargo-deny@0.20.2 cargo-semver-checks@0.51.0 cargo-deb@3.8.0
 
 # Project statistics.
 stats:

@@ -1,0 +1,32 @@
+# adlc.toml — what this repository declares, and what the gate can therefore check.
+# A key nothing reads is refused by `adlc audit`, so a typo never passes as a declaration.
+
+# The contract: the one recipe in the justfile that runs the suite. Only this value is read.
+[contract]
+recipe = "adlc-verify"
+
+# Paths the test classifier must not count as tests, and the reason when there is no suite at all.
+[exceptions]
+# The integration tests resolve real names over the network; the contract runs the offline lib and
+# doc tests, and `just test-integration` runs these by hand.
+not-tests = ["tests/cli_output_tests.rs"]
+# no-suite = "a template repository; nothing here runs"
+no-ci = "public on GitHub; its CI cannot reach the adlc source on the private forge, so the local hooks are the gate"
+
+# Command names the contract calls; `adlc audit` reports the ones missing on this machine.
+[tools]
+required = ["cargo"]
+
+# One command per metric, printing a single percentage; "-" means deliberately not collected.
+[metrics]
+# coverage and complexity: no tool in this stack collects them per run.
+coverage = "-"
+complexity = "-"
+
+# Design principles this repository holds itself to. A principle a test cites by id is guarded.
+[principles]
+# P01 = { sentence = "one HTTP request is one transaction", procedure = "grep for commit() outside db/", guard = "P01" }
+
+# What the pre-push hook runs before the gate. mutate = true breaks changed lines on purpose.
+[preflight]
+mutate = false

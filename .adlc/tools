@@ -1,2 +1,0 @@
-# What `just adlc-verify` invokes. Read by `adlc audit` with `command -v`.
-cargo  # fmt, clippy and the tests all run through it

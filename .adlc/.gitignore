@@ -10,3 +10,5 @@ cycle/
 # Kept: the measurement series, and the exclusions you declared.
 # measurements/*.jsonl
 # not-tests
+receipt.json
+receipt.json.sig

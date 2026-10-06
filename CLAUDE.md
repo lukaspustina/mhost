@@ -55,9 +55,13 @@ The roadmap of this project is in file ROADMAP.md. It contains a prioritized lis
 
 ## Build & Test
 
-Everything runs through `just` (pdt-adlc ADR 0008; `make` until 2026-08-19).
+Everything runs through `just` (`make` until 2026-08-19). The toolchain is pinned in
+`rust-toolchain.toml`. The gate is `adlc` v2, declared in `adlc.toml`; this repository is public
+on GitHub, whose CI cannot reach the adlc source, so `[exceptions] no-ci` makes the local hooks
+the gate.
 
 ```sh
+just adlc-setup                    # once per machine: rustup, the pinned toolchain, the cargo tools
 just adlc-verify                   # the ADLC gate: fmt-check, clippy, the offline tests
 just test-offline                  # library tests that need no network (549 of 558)
 just test-lib                      # every library test, network ones included

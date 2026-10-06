@@ -1,3 +1,6 @@
 .claude/settings.local.json
 .idea
 /target
+
+# cargo mutants writes its report here; adlc mutate runs it.
+mutants.out*/
