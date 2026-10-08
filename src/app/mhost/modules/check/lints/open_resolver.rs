@@ -77,7 +77,17 @@ impl<'a> OpenResolver<'a> {
             query,
             "Running lookups for NS server IP addresses for open resolver check."
         );
-        let ns_ips: Vec<std::net::IpAddr> = super::probe_targets(&lookups, &self.env.console);
+        let ns_ips: Vec<std::net::IpAddr> = match super::probe_targets(&lookups, &self.env.console) {
+            Ok(ips) => ips,
+            Err(reason) => {
+                let results = vec![CheckResult::Warning(format!(
+                    "{}: cannot check for open resolver",
+                    reason
+                ))];
+                print_check_results!(self, results, "No NS records found, cannot check for open resolver.");
+                return Ok(results);
+            }
+        };
 
         if ns_ips.is_empty() {
             let results = vec![CheckResult::Warning(

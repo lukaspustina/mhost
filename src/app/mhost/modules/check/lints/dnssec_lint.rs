@@ -83,7 +83,9 @@ impl<'a> DnssecCheck<'a> {
         let ns_lookups: Lookups =
             intermediate_lookups!(self, query, "Resolving NS IP addresses for DNSKEY signatures.");
 
-        for ip in super::probe_targets(&ns_lookups, &self.env.console).into_iter().take(3) {
+        // Non-public addresses are reported by probe_targets and simply not asked here.
+        let targets = super::probe_targets(&ns_lookups, &self.env.console).unwrap_or_default();
+        for ip in targets.into_iter().take(3) {
             let server = SocketAddr::new(ip, 53);
             match raw::raw_dnssec_query(
                 server,

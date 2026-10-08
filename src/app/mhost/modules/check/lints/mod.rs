@@ -230,17 +230,39 @@ fn public_ips(ips: Vec<std::net::IpAddr>) -> (Vec<std::net::IpAddr>, Vec<std::ne
     ips.into_iter().partition(|ip| crate::nameserver::is_global_ip(*ip))
 }
 
-/// The public addresses among the unique A then AAAA addresses in `lookups`; reports the others.
-fn probe_targets(lookups: &Lookups, console: &crate::app::console::Console) -> Vec<std::net::IpAddr> {
-    let (public, skipped) = public_ips(unique_ips(lookups));
-    if !skipped.is_empty() && console.show_partial_results() {
+/// The addresses to probe among `ips`: the public ones. When addresses resolved but none is
+/// public, the error says so — callers report it instead of claiming nothing resolved.
+fn select_targets(ips: Vec<std::net::IpAddr>) -> std::result::Result<Vec<std::net::IpAddr>, String> {
+    let (public, skipped) = public_ips(ips);
+    if public.is_empty() && !skipped.is_empty() {
         let skipped: Vec<String> = skipped.iter().map(|ip| ip.to_string()).collect();
+        return Err(format!(
+            "Nameserver addresses {} are not public and were not probed",
+            skipped.join(", ")
+        ));
+    }
+    Ok(public)
+}
+
+/// The public addresses among the unique A then AAAA addresses in `lookups`, cf. [`select_targets`];
+/// lists the left-out ones in the partial output.
+fn probe_targets(
+    lookups: &Lookups,
+    console: &crate::app::console::Console,
+) -> std::result::Result<Vec<std::net::IpAddr>, String> {
+    let ips = unique_ips(lookups);
+    let skipped: Vec<String> = ips
+        .iter()
+        .filter(|ip| !crate::nameserver::is_global_ip(**ip))
+        .map(|ip| ip.to_string())
+        .collect();
+    if !skipped.is_empty() && console.show_partial_results() {
         console.info(format!(
             "Not probing non-public nameserver addresses: {}",
             skipped.join(", ")
         ));
     }
-    public
+    select_targets(ips)
 }
 
 /// The unique A then AAAA addresses in `lookups`, each family in address order so that probes go
@@ -399,6 +421,22 @@ mod tests {
             .map(|ip| ip.parse().unwrap())
             .collect();
         assert_eq!(ips, expected);
+    }
+
+    #[test]
+    fn only_non_public_addresses_is_a_reason_not_an_empty_list() {
+        let ips = |list: &[&str]| -> Vec<IpAddr> { list.iter().map(|ip| ip.parse().unwrap()).collect() };
+
+        let reason = select_targets(ips(&["10.0.0.53", "127.0.0.1"])).unwrap_err();
+        assert!(
+            reason.contains("10.0.0.53") && reason.contains("not public"),
+            "{reason}"
+        );
+        assert_eq!(
+            select_targets(ips(&["10.0.0.53", "8.8.8.8"])).unwrap(),
+            ips(&["8.8.8.8"])
+        );
+        assert!(select_targets(Vec::new()).unwrap().is_empty());
     }
 
     #[test]
