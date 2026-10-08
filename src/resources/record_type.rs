@@ -215,6 +215,13 @@ impl FromStr for RecordType {
     }
 }
 
+/// The record type's numeric code on the wire, e.g. 15 for MX.
+impl From<RecordType> for u16 {
+    fn from(rt: RecordType) -> u16 {
+        rt.to_proto().into()
+    }
+}
+
 impl From<RecordType> for &'static str {
     fn from(rt: RecordType) -> &'static str {
         match rt {
@@ -262,6 +269,17 @@ impl fmt::Display for RecordType {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn into_wire_code() {
+        assert_eq!(u16::from(RecordType::A), 1);
+        assert_eq!(u16::from(RecordType::MX), 15);
+        assert_eq!(u16::from(RecordType::HTTPS), 65);
+        assert_eq!(u16::from(RecordType::Unknown(65280)), 65280);
+        for rt in RecordType::all() {
+            assert_eq!(RecordType::from_proto(u16::from(rt).into()), rt, "{rt}");
+        }
+    }
 
     #[test]
     fn from_str_all_standard_types() {
