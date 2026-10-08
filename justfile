@@ -44,12 +44,18 @@ lint: clippy fmt-check
 
 # The library tests that need no network — what the gate runs.
 #
-# Skipped: services::whois::* (five tests, HTTPS to stat.ripe.net) and the two
+# Skipped: the five whois tests that call stat.ripe.net over HTTPS and the two
 # parser tests that resolve dns.google / tls.cloudflare-dns.com through the
-# host's resolver. Everything else runs; the nine are reachable via `just test-lib`.
+# host's resolver. Everything else runs, the offline whois parser tests
+# included; the seven are reachable via `just test-lib`. `--skip` matches
+# substrings, so each name is spelled out.
 test-offline:
     {{cargo}} test --lib {{all_features}} -- \
-        --skip services::whois \
+        --skip services::whois::service::tests::geo_location \
+        --skip services::whois::service::tests::network_info \
+        --skip services::whois::service::tests::whois \
+        --skip services::whois::tests::test_1_1_1_1 \
+        --skip services::whois::tests::test_5x_1_1_1_1 \
         --skip nameserver::parser::test::dns_google \
         --skip nameserver::parser::test::tls_cloudflare_dns_com_tls_auth_name
 
