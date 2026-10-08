@@ -205,18 +205,8 @@ impl<'a> TraceRun<'a> {
                 break;
             }
 
-            // Resolve glue if needed and build next hop server list
-            let mut resolved_servers = next_servers.clone();
-            resolver::resolve_missing_glue(self.env.app_config, &mut resolved_servers).await;
-
-            // Build next hop server list, filtering by address family
-            let mut next_zone = current_zone.clone();
-            let referral = delegation::Referral {
-                ns_servers: resolved_servers,
-            };
-            current_servers = delegation::build_server_list(&referral, |ip| self.env.app_config.ip_allowed(ip));
-
             // Determine next zone from the first referral's authority section
+            let mut next_zone = current_zone.clone();
             if let Some(hop) = hops.last() {
                 for sr in &hop.server_results {
                     if !sr.referral_ns.is_empty() {
@@ -228,6 +218,32 @@ impl<'a> TraceRun<'a> {
                     }
                 }
             }
+
+            // A referral that does not lead closer to the name would loop or leave the bailiwick.
+            if !delegation::referral_makes_progress(&current_zone, &next_zone, &name.to_ascii()) {
+                warn!(
+                    "Referral from {} to {} does not lead closer to {}",
+                    current_zone, next_zone, name
+                );
+                if self.env.console.not_quiet() {
+                    self.env.console.attention(format!(
+                        "Stopping at hop {}: referral from {} to {} does not lead closer to {}",
+                        level + 1,
+                        current_zone,
+                        next_zone,
+                        name
+                    ));
+                }
+                break;
+            }
+
+            // Resolve glue if needed and build next hop server list, filtering by address family
+            let mut resolved_servers = next_servers.clone();
+            resolver::resolve_missing_glue(self.env.app_config, &mut resolved_servers).await;
+            let referral = delegation::Referral {
+                ns_servers: resolved_servers,
+            };
+            current_servers = delegation::build_server_list(&referral, |ip| self.env.app_config.ip_allowed(ip));
             current_zone = next_zone;
         }
 

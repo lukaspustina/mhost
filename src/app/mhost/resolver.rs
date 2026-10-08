@@ -271,11 +271,7 @@ pub async fn resolve_missing_glue(
 ) {
     use crate::resolver::lookup::Uniquify;
 
-    let missing_ns: Vec<String> = ns_servers
-        .iter()
-        .filter(|(_, ips)| ips.is_empty())
-        .map(|(name, _)| name.clone())
-        .collect();
+    let missing_ns = crate::resolver::delegation::glueless_names(ns_servers);
 
     if missing_ns.is_empty() {
         return;
