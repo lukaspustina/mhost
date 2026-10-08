@@ -23,6 +23,8 @@ use chrono::{DateTime, Utc};
 use futures::stream::{self, StreamExt};
 use futures::Future;
 use hickory_resolver::net::{DnsError, NetError};
+
+use crate::resolver::ResponseCode;
 use serde::{Deserialize, Serialize};
 use tokio::task;
 use tracing::{debug, field, info, instrument, trace, Span};
@@ -571,16 +573,34 @@ impl Response {
     }
 }
 
-/// An NxDomain response indicating the queried name does not exist.
+/// A negative answer: no records for the query.
+///
+/// Despite its name it covers more than NXDOMAIN; [`NxDomain::response_code`] tells them apart:
+/// `NXDomain` (the name does not exist) and `NoError` (NODATA: the name exists, the type does
+/// not) are definite answers, while `ServFail`, `Refused` and the other error codes mean the
+/// lookup failed and says nothing about the name.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NxDomain {
     response_time: Duration,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    response_code: Option<ResponseCode>,
+}
+
+impl NxDomain {
+    /// The nameserver's response code; `None` only for results deserialised from before it was
+    /// recorded.
+    pub fn response_code(&self) -> Option<ResponseCode> {
+        self.response_code
+    }
 }
 
 #[cfg(test)]
 impl NxDomain {
     pub fn new_for_test(response_time: Duration) -> Self {
-        NxDomain { response_time }
+        NxDomain {
+            response_time,
+            response_code: None,
+        }
     }
 }
 
@@ -697,13 +717,15 @@ impl IntoLookup for std::result::Result<hickory_resolver::lookup::Lookup, NetErr
                     }),
                     None => LookupResult::NxDomain(NxDomain {
                         response_time: Instant::now() - start_time,
+                        response_code: Some(ResponseCode::from_proto(no_records.response_code)),
                     }),
                 }
             }
             // hickory 0.25 folded every error rcode into NoRecordsFound; 0.26 reports them as
             // DnsError::ResponseCode. Both stay Nx so the classification does not change.
-            Err(NetError::Dns(DnsError::ResponseCode(_))) => LookupResult::NxDomain(NxDomain {
+            Err(NetError::Dns(DnsError::ResponseCode(code))) => LookupResult::NxDomain(NxDomain {
                 response_time: Instant::now() - start_time,
+                response_code: Some(ResponseCode::from_proto(code)),
             }),
             Err(err) => LookupResult::Error(Error::from_net(err)),
         }
@@ -762,6 +784,54 @@ mod tests {
                 "{code:?} must stay Nx"
             );
         }
+    }
+
+    fn nx_code(result: std::result::Result<hickory_resolver::lookup::Lookup, NetError>) -> Option<ResponseCode> {
+        match result.into_lookup(Instant::now()) {
+            LookupResult::NxDomain(nx) => nx.response_code(),
+            other => panic!("expected NxDomain, got {other:?}"),
+        }
+    }
+
+    // A consumer must tell a definite negative answer (NXDOMAIN, NODATA) from a failed lookup.
+    #[test]
+    fn nxdomain_carries_the_response_code() {
+        use hickory_resolver::net::{DnsError, NoRecords};
+        use hickory_resolver::proto::op::{Query, ResponseCode as ProtoCode};
+        use hickory_resolver::proto::rr::{Name, RecordType as ProtoRecordType};
+
+        let query = || Query::query(Name::from_ascii("example.com.").unwrap(), ProtoRecordType::A);
+        let no_records = |code| Err(NetError::Dns(DnsError::NoRecordsFound(NoRecords::new(query(), code))));
+
+        assert_eq!(nx_code(no_records(ProtoCode::NXDomain)), Some(ResponseCode::NXDomain));
+        assert_eq!(
+            nx_code(no_records(ProtoCode::NoError)),
+            Some(ResponseCode::NoError),
+            "NODATA"
+        );
+        for (proto, code) in [
+            (ProtoCode::ServFail, ResponseCode::ServFail),
+            (ProtoCode::Refused, ResponseCode::Refused),
+            (ProtoCode::NotImp, ResponseCode::NotImp),
+        ] {
+            assert_eq!(nx_code(Err(NetError::Dns(DnsError::ResponseCode(proto)))), Some(code));
+        }
+    }
+
+    #[cfg(feature = "serde_json")]
+    #[test]
+    fn nxdomain_response_code_serde() {
+        let nx = NxDomain {
+            response_time: Duration::from_millis(5),
+            response_code: Some(ResponseCode::ServFail),
+        };
+        let json = serde_json::to_string(&nx).unwrap();
+        assert!(json.contains(r#""response_code":"SERVFAIL""#), "{json}");
+
+        // JSON written before the field existed still reads.
+        let old: NxDomain = serde_json::from_str(r#"{"response_time":{"secs":0,"nanos":5000000}}"#).unwrap();
+        assert_eq!(old.response_code(), None);
+        assert!(!serde_json::to_string(&old).unwrap().contains("response_code"));
     }
 
     fn proto_ns(zone: &str, target: &str) -> hickory_resolver::proto::rr::Record {
@@ -930,6 +1000,7 @@ mod tests {
             "udp:8.8.8.8:53",
             LookupResult::NxDomain(NxDomain {
                 response_time: Duration::from_millis(30),
+                response_code: Some(ResponseCode::NXDomain),
             }),
         );
         let lookups = Lookups::new(vec![lookup]);

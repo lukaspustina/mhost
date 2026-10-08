@@ -32,6 +32,7 @@ pub use builder::ResolverGroupBuilder;
 pub use error::Error;
 pub use lookup::{Lookup, Lookups};
 pub use query::{MultiQuery, UniQuery};
+pub use response_code::ResponseCode;
 
 use crate::nameserver::{NameServerConfig, NameServerConfigGroup};
 use crate::system_config;
@@ -50,6 +51,7 @@ pub mod predefined;
 pub mod query;
 #[cfg(feature = "app-cli")]
 pub(crate) mod raw;
+pub mod response_code;
 
 pub type ResolverResult<T> = std::result::Result<T, Error>;
 
