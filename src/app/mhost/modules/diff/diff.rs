@@ -257,7 +257,7 @@ impl DiffOutput<'_> {
 mod tests {
     use super::*;
     use crate::resources::RData;
-    use hickory_resolver::Name;
+    use hickory_resolver::proto::rr::Name;
     use std::net::Ipv4Addr;
 
     fn make_a_record(name: &str, ip: Ipv4Addr) -> Record {

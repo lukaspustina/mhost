@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use hickory_resolver::Name;
+use hickory_resolver::proto::rr::Name;
 use serde::{Deserialize, Serialize};
 
 /// Shared data type for both SVCB and HTTPS record types (RFC 9460).
@@ -52,7 +52,7 @@ impl SVCB {
     #[doc(hidden)]
     pub fn from_hickory_svcb(svcb: &hickory_resolver::proto::rr::rdata::SVCB) -> Self {
         let svc_params = svcb
-            .svc_params()
+            .svc_params
             .iter()
             .map(|(key, value)| SvcParam {
                 key: key.to_string(),
@@ -61,8 +61,8 @@ impl SVCB {
             .collect();
 
         SVCB {
-            svc_priority: svcb.svc_priority(),
-            target_name: svcb.target_name().clone(),
+            svc_priority: svcb.svc_priority,
+            target_name: svcb.target_name.clone(),
             svc_params,
         }
     }
@@ -86,7 +86,7 @@ impl SvcParam {
 impl From<hickory_resolver::proto::rr::rdata::SVCB> for SVCB {
     fn from(svcb: hickory_resolver::proto::rr::rdata::SVCB) -> Self {
         let svc_params = svcb
-            .svc_params()
+            .svc_params
             .iter()
             .map(|(key, value)| SvcParam {
                 key: key.to_string(),
@@ -95,8 +95,8 @@ impl From<hickory_resolver::proto::rr::rdata::SVCB> for SVCB {
             .collect();
 
         SVCB {
-            svc_priority: svcb.svc_priority(),
-            target_name: svcb.target_name().clone(),
+            svc_priority: svcb.svc_priority,
+            target_name: svcb.target_name.clone(),
             svc_params,
         }
     }

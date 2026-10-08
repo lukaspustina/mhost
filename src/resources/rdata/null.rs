@@ -40,7 +40,7 @@ impl From<hickory_resolver::proto::rr::rdata::NULL> for NULL {
     fn from(null: hickory_resolver::proto::rr::rdata::NULL) -> Self {
         NULL {
             anything: {
-                let bytes = null.anything();
+                let bytes = null.anything;
                 if bytes.is_empty() {
                     None
                 } else {

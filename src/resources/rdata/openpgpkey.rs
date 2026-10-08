@@ -27,7 +27,7 @@ impl OPENPGPKEY {
 impl From<hickory_resolver::proto::rr::rdata::OPENPGPKEY> for OPENPGPKEY {
     fn from(key: hickory_resolver::proto::rr::rdata::OPENPGPKEY) -> Self {
         OPENPGPKEY {
-            public_key: key.public_key().to_vec(),
+            public_key: key.public_key.to_vec(),
         }
     }
 }

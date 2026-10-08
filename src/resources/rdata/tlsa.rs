@@ -86,15 +86,15 @@ iana_enum! {
 #[doc(hidden)]
 impl From<hickory_resolver::proto::rr::rdata::TLSA> for TLSA {
     fn from(tlsa: hickory_resolver::proto::rr::rdata::TLSA) -> Self {
-        let cert_usage_u8: u8 = tlsa.cert_usage().into();
-        let selector_u8: u8 = tlsa.selector().into();
-        let matching_u8: u8 = tlsa.matching().into();
+        let cert_usage_u8: u8 = tlsa.cert_usage.into();
+        let selector_u8: u8 = tlsa.selector.into();
+        let matching_u8: u8 = tlsa.matching.into();
 
         TLSA {
             cert_usage: cert_usage_u8.into(),
             selector: selector_u8.into(),
             matching: matching_u8.into(),
-            cert_data: tlsa.cert_data().to_vec(),
+            cert_data: tlsa.cert_data.to_vec(),
         }
     }
 }

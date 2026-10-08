@@ -22,7 +22,7 @@ use std::time::{Duration, Instant};
 use chrono::{DateTime, Utc};
 use futures::stream::{self, StreamExt};
 use futures::Future;
-use hickory_resolver::ResolveError;
+use hickory_resolver::net::NetError;
 use serde::{Deserialize, Serialize};
 use tokio::task;
 use tracing::{debug, field, info, instrument, trace, Span};
@@ -653,11 +653,11 @@ trait IntoLookup {
 }
 
 #[doc(hidden)]
-impl IntoLookup for std::result::Result<hickory_resolver::lookup::Lookup, ResolveError> {
+impl IntoLookup for std::result::Result<hickory_resolver::lookup::Lookup, NetError> {
     fn into_lookup(self, start_time: Instant) -> LookupResult {
         match self {
             Ok(lookup) => {
-                let records: Vec<Record> = lookup.record_iter().map(Record::from).collect();
+                let records: Vec<Record> = lookup.answers().iter().map(Record::from).collect();
                 LookupResult::Response(Response {
                     records,
                     response_time: Instant::now() - start_time,

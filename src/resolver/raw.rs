@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 
 use futures::stream::{self, StreamExt};
 use hickory_resolver::proto::op::{Message, MessageType, OpCode, Query};
-use hickory_resolver::proto::rr::{DNSClass, Name, RData, Record, RecordType};
+use hickory_resolver::proto::rr::{Name, RData, Record, RecordType};
 use hickory_resolver::proto::serialize::binary::BinDecodable;
 use thiserror::Error;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -84,27 +84,27 @@ impl RawResponse {
     }
 
     pub fn answers(&self) -> &[Record] {
-        self.message.answers()
+        &self.message.answers
     }
 
     pub fn authority(&self) -> &[Record] {
-        self.message.name_servers()
+        &self.message.authorities
     }
 
     pub fn additional(&self) -> &[Record] {
-        self.message.additionals()
+        &self.message.additionals
     }
 
     pub fn is_authoritative(&self) -> bool {
-        self.message.authoritative()
+        self.message.authoritative
     }
 
     pub fn is_truncated(&self) -> bool {
-        self.message.truncated()
+        self.message.truncation
     }
 
     pub fn response_code(&self) -> hickory_resolver::proto::op::ResponseCode {
-        self.message.response_code()
+        self.message.response_code
     }
 
     pub fn latency(&self) -> Duration {
@@ -116,7 +116,7 @@ impl RawResponse {
         self.authority()
             .iter()
             .filter(|r| r.record_type() == RecordType::NS)
-            .filter_map(|r| match r.data() {
+            .filter_map(|r| match &r.data {
                 RData::NS(ns) => Some(ns.0.clone()),
                 _ => None,
             })
@@ -127,9 +127,9 @@ impl RawResponse {
     pub fn glue_ips(&self) -> Vec<(Name, IpAddr)> {
         self.additional()
             .iter()
-            .filter_map(|r| match r.data() {
-                RData::A(a) => Some((r.name().clone(), IpAddr::V4(a.0))),
-                RData::AAAA(aaaa) => Some((r.name().clone(), IpAddr::V6(aaaa.0))),
+            .filter_map(|r| match &r.data {
+                RData::A(a) => Some((r.name.clone(), IpAddr::V4(a.0))),
+                RData::AAAA(aaaa) => Some((r.name.clone(), IpAddr::V6(aaaa.0))),
                 _ => None,
             })
             .collect()
@@ -228,16 +228,9 @@ fn build_dnssec_query_message(name: &Name, record_type: RecordType) -> Message {
 }
 
 fn build_query_message_opts(name: &Name, record_type: RecordType, dnssec_ok: bool) -> Message {
-    let mut msg = Message::new();
-    msg.set_id(rand::random());
-    msg.set_message_type(MessageType::Query);
-    msg.set_op_code(OpCode::Query);
-    msg.set_recursion_desired(false);
-    let mut query = Query::new();
-    query.set_name(name.clone());
-    query.set_query_type(record_type);
-    query.set_query_class(DNSClass::IN);
-    msg.add_query(query);
+    let mut msg = Message::new(rand::random(), MessageType::Query, OpCode::Query);
+    msg.metadata.recursion_desired = false;
+    msg.add_query(Query::query(name.clone(), record_type));
     if dnssec_ok {
         let mut edns = hickory_resolver::proto::op::Edns::new();
         edns.set_dnssec_ok(true);
@@ -249,7 +242,7 @@ fn build_query_message_opts(name: &Name, record_type: RecordType, dnssec_ok: boo
 
 async fn send_udp(server: SocketAddr, msg: &Message, timeout: Duration) -> RawResult<RawResponse> {
     let msg_bytes = msg.to_vec().map_err(|e| RawError::Decode(e.to_string()))?;
-    let expected_id = msg.id();
+    let expected_id = msg.id;
 
     let bind_addr: SocketAddr = if server.is_ipv6() {
         "[::]:0".parse().unwrap()
@@ -270,10 +263,10 @@ async fn send_udp(server: SocketAddr, msg: &Message, timeout: Duration) -> RawRe
     let latency = start.elapsed();
 
     let response = Message::from_bytes(&buf[..len]).map_err(|e| RawError::Decode(e.to_string()))?;
-    if response.id() != expected_id {
+    if response.id != expected_id {
         return Err(RawError::IdMismatch {
             expected: expected_id,
-            got: response.id(),
+            got: response.id,
         });
     }
 
@@ -285,7 +278,7 @@ async fn send_udp(server: SocketAddr, msg: &Message, timeout: Duration) -> RawRe
 
 async fn send_tcp(server: SocketAddr, msg: &Message, timeout: Duration) -> RawResult<RawResponse> {
     let msg_bytes = msg.to_vec().map_err(|e| RawError::Decode(e.to_string()))?;
-    let expected_id = msg.id();
+    let expected_id = msg.id;
 
     let start = Instant::now();
     let mut stream = match tokio::time::timeout(timeout, TcpStream::connect(server)).await {
@@ -326,10 +319,10 @@ async fn send_tcp(server: SocketAddr, msg: &Message, timeout: Duration) -> RawRe
     let latency = start.elapsed();
 
     let response = Message::from_bytes(&buf).map_err(|e| RawError::Decode(e.to_string()))?;
-    if response.id() != expected_id {
+    if response.id != expected_id {
         return Err(RawError::IdMismatch {
             expected: expected_id,
-            got: response.id(),
+            got: response.id,
         });
     }
 
@@ -348,13 +341,13 @@ mod tests {
         let name = Name::from_ascii("example.com.").unwrap();
         let msg = build_query_message(&name, RecordType::A);
 
-        assert!(!msg.recursion_desired());
-        assert_eq!(msg.op_code(), OpCode::Query);
-        assert_eq!(msg.message_type(), MessageType::Query);
-        assert_eq!(msg.queries().len(), 1);
-        assert_eq!(msg.queries()[0].name(), &name);
-        assert_eq!(msg.queries()[0].query_type(), RecordType::A);
-        assert_eq!(msg.queries()[0].query_class(), DNSClass::IN);
+        assert!(!msg.recursion_desired);
+        assert_eq!(msg.op_code, OpCode::Query);
+        assert_eq!(msg.message_type, MessageType::Query);
+        assert_eq!(msg.queries.len(), 1);
+        assert_eq!(msg.queries[0].name(), &name);
+        assert_eq!(msg.queries[0].query_type(), RecordType::A);
+        assert_eq!(msg.queries[0].query_class(), hickory_resolver::proto::rr::DNSClass::IN);
     }
 
     #[test]
@@ -369,9 +362,9 @@ mod tests {
 
     #[test]
     fn raw_response_referral_ns_names() {
-        let mut msg = Message::new();
-        msg.set_id(1);
-        msg.set_message_type(MessageType::Response);
+        let mut msg = Message::query();
+        msg.metadata.id = 1;
+        msg.metadata.message_type = MessageType::Response;
 
         let ns_record = Record::from_rdata(
             Name::from_ascii("com.").unwrap(),
@@ -380,7 +373,7 @@ mod tests {
                 Name::from_ascii("a.gtld-servers.net.").unwrap(),
             )),
         );
-        msg.add_name_server(ns_record);
+        msg.add_authority(ns_record);
 
         let response = RawResponse {
             message: msg,
@@ -394,9 +387,9 @@ mod tests {
 
     #[test]
     fn raw_response_glue_ips() {
-        let mut msg = Message::new();
-        msg.set_id(1);
-        msg.set_message_type(MessageType::Response);
+        let mut msg = Message::query();
+        msg.metadata.id = 1;
+        msg.metadata.message_type = MessageType::Response;
 
         let a_record = Record::from_rdata(
             Name::from_ascii("a.gtld-servers.net.").unwrap(),
@@ -418,8 +411,8 @@ mod tests {
 
     #[test]
     fn raw_response_is_authoritative() {
-        let mut msg = Message::new();
-        msg.set_authoritative(true);
+        let mut msg = Message::query();
+        msg.metadata.authoritative = true;
         let response = RawResponse {
             message: msg,
             latency: Duration::from_millis(5),

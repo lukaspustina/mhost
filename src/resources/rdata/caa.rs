@@ -40,11 +40,11 @@ impl CAA {
 #[doc(hidden)]
 impl From<hickory_resolver::proto::rr::rdata::CAA> for CAA {
     fn from(caa: hickory_resolver::proto::rr::rdata::CAA) -> Self {
-        let tag = caa.tag().to_string();
-        let value = String::from_utf8_lossy(caa.raw_value()).into_owned();
+        let tag = caa.tag.to_string();
+        let value = String::from_utf8_lossy(&caa.value).into_owned();
 
         CAA {
-            issuer_critical: caa.issuer_critical(),
+            issuer_critical: caa.issuer_critical,
             tag,
             value,
         }

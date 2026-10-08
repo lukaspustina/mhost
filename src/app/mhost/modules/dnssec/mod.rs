@@ -56,7 +56,7 @@ impl Dnssec {
 
 pub struct DnssecRun<'a> {
     env: Environment<'a, DnssecConfig>,
-    domain_name: hickory_resolver::Name,
+    domain_name: hickory_resolver::proto::rr::Name,
 }
 
 impl<'a> DnssecRun<'a> {

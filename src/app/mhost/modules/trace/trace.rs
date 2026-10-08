@@ -41,7 +41,7 @@ impl Trace {
 
 pub struct TraceRun<'a> {
     env: Environment<'a, TraceConfig>,
-    domain_name: hickory_resolver::Name,
+    domain_name: hickory_resolver::proto::rr::Name,
 }
 
 impl<'a> TraceRun<'a> {
@@ -303,7 +303,7 @@ fn process_hop_results(
                         .authority()
                         .iter()
                         .find(|r| r.record_type() == hickory_resolver::proto::rr::RecordType::NS)
-                        .map(|r| r.name().to_ascii());
+                        .map(|r| r.name.to_ascii());
 
                     // Collect glue IPs per NS name
                     for ns_name in &ns_names {
@@ -751,7 +751,7 @@ impl SummaryFormatter for TraceResults {
 mod tests {
     use super::*;
     use crate::resources::rdata::RData;
-    use hickory_resolver::Name;
+    use hickory_resolver::proto::rr::Name;
     use std::net::Ipv4Addr;
 
     fn make_a_record(domain: &str, ip: Ipv4Addr) -> Record {
@@ -948,10 +948,10 @@ mod tests {
     }
 
     fn make_referral_response(zone: &str, ns_names: &[&str], glue: &[(&str, Ipv4Addr)]) -> RawResponse {
-        let mut msg = Message::new();
-        msg.set_id(1);
-        msg.set_message_type(MessageType::Response);
-        msg.set_authoritative(false);
+        let mut msg = Message::query();
+        msg.metadata.id = 1;
+        msg.metadata.message_type = MessageType::Response;
+        msg.metadata.authoritative = false;
 
         for ns_name in ns_names {
             let ns_record = ProtoRecord::from_rdata(
@@ -961,7 +961,7 @@ mod tests {
                     hickory_resolver::proto::rr::Name::from_ascii(ns_name).unwrap(),
                 )),
             );
-            msg.add_name_server(ns_record);
+            msg.add_authority(ns_record);
         }
 
         for (name, ip) in glue {
@@ -977,10 +977,10 @@ mod tests {
     }
 
     fn make_authoritative_response(records: Vec<ProtoRecord>) -> RawResponse {
-        let mut msg = Message::new();
-        msg.set_id(1);
-        msg.set_message_type(MessageType::Response);
-        msg.set_authoritative(true);
+        let mut msg = Message::query();
+        msg.metadata.id = 1;
+        msg.metadata.message_type = MessageType::Response;
+        msg.metadata.authoritative = true;
         for record in records {
             msg.add_answer(record);
         }
@@ -988,11 +988,11 @@ mod tests {
     }
 
     fn make_authoritative_empty(rcode: ResponseCode) -> RawResponse {
-        let mut msg = Message::new();
-        msg.set_id(1);
-        msg.set_message_type(MessageType::Response);
-        msg.set_authoritative(true);
-        msg.set_response_code(rcode);
+        let mut msg = Message::query();
+        msg.metadata.id = 1;
+        msg.metadata.message_type = MessageType::Response;
+        msg.metadata.authoritative = true;
+        msg.metadata.response_code = rcode;
         RawResponse::new_for_test(msg, Duration::from_millis(5))
     }
 

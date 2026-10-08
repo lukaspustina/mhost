@@ -85,7 +85,7 @@ fn extract_ns_servers(results: &[RawQueryResult]) -> HashMap<String, Vec<IpAddr>
         let mut ns_names: Vec<String> = Vec::new();
         for record in response.answers().iter().chain(response.authority().iter()) {
             if record.record_type() == HickoryRecordType::NS {
-                if let RData::NS(ns) = record.data() {
+                if let RData::NS(ns) = &record.data {
                     let name = ns.0.to_ascii();
                     if !ns_names.contains(&name) {
                         ns_names.push(name);
@@ -98,9 +98,9 @@ fn extract_ns_servers(results: &[RawQueryResult]) -> HashMap<String, Vec<IpAddr>
         for ns_name in &ns_names {
             let entry = ns_servers.entry(ns_name.clone()).or_default();
             for record in response.additional() {
-                let record_name = record.name().to_ascii();
+                let record_name = record.name.to_ascii();
                 if record_name == *ns_name {
-                    let ip = match record.data() {
+                    let ip = match &record.data {
                         RData::A(a) => Some(IpAddr::V4(a.0)),
                         RData::AAAA(aaaa) => Some(IpAddr::V6(aaaa.0)),
                         _ => None,

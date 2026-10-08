@@ -76,7 +76,7 @@ impl Propagation {
 
 pub struct AuthoritativeDiscovery<'a> {
     env: Environment<'a, PropagationConfig>,
-    domain_name: hickory_resolver::Name,
+    domain_name: hickory_resolver::proto::rr::Name,
     query_types: Vec<RecordType>,
     query: MultiQuery,
     app_resolver: AppResolver,
@@ -117,7 +117,8 @@ impl<'a> AuthoritativeDiscovery<'a> {
             }
         };
 
-        let ns_names: Vec<hickory_resolver::Name> = ns_lookups.ns().unique().to_owned().into_iter().collect();
+        let ns_names: Vec<hickory_resolver::proto::rr::Name> =
+            ns_lookups.ns().unique().to_owned().into_iter().collect();
         if ns_names.is_empty() {
             info!("No NS records found for authoritative discovery");
             return AuthoritativeInfo::empty();
@@ -623,7 +624,7 @@ mod tests {
     use crate::resolver::lookup::{Lookup, LookupResult, Response};
     use crate::resources::rdata::SOA;
     use crate::resources::RData;
-    use hickory_resolver::Name;
+    use hickory_resolver::proto::rr::Name;
     use std::net::Ipv4Addr;
     use std::sync::Arc;
     use std::time::Duration;

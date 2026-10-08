@@ -317,38 +317,21 @@ impl From<resolv_conf::Config> for NameServerConfigGroup {
 }
 
 #[doc(hidden)]
-impl From<Protocol> for hickory_resolver::proto::xfer::Protocol {
-    fn from(protocol: Protocol) -> Self {
-        match protocol {
-            Protocol::Udp => hickory_resolver::proto::xfer::Protocol::Udp,
-            Protocol::Tcp => hickory_resolver::proto::xfer::Protocol::Tcp,
-            #[cfg(feature = "dot")]
-            Protocol::Tls => hickory_resolver::proto::xfer::Protocol::Tls,
-            #[cfg(feature = "doh")]
-            Protocol::Https => hickory_resolver::proto::xfer::Protocol::Https,
-        }
-    }
-}
-
-#[doc(hidden)]
 impl From<NameServerConfig> for hickory_resolver::config::NameServerConfig {
     fn from(config: NameServerConfig) -> Self {
-        let protocol = config.protocol().into();
-        let tls_dns_name = match &config {
+        use hickory_resolver::config::{ConnectionConfig, ProtocolConfig};
+        let mut connection = match &config {
+            NameServerConfig::Udp { .. } => ConnectionConfig::new(ProtocolConfig::Udp),
+            NameServerConfig::Tcp { .. } => ConnectionConfig::new(ProtocolConfig::Tcp),
             #[cfg(feature = "dot")]
-            NameServerConfig::Tls { tls_auth_name, .. } => Some(tls_auth_name.clone()),
+            NameServerConfig::Tls { tls_auth_name, .. } => ConnectionConfig::tls(tls_auth_name.as_str().into()),
             #[cfg(feature = "doh")]
-            NameServerConfig::Https { tls_auth_name, .. } => Some(tls_auth_name.clone()),
-            _ => None,
+            NameServerConfig::Https { tls_auth_name, .. } => {
+                ConnectionConfig::https(tls_auth_name.as_str().into(), None)
+            }
         };
-        hickory_resolver::config::NameServerConfig {
-            socket_addr: SocketAddr::new(config.ip_addr(), config.port()),
-            protocol,
-            trust_negative_responses: true,
-            tls_dns_name,
-            http_endpoint: None,
-            bind_addr: None,
-        }
+        connection.port = config.port();
+        hickory_resolver::config::NameServerConfig::new(config.ip_addr(), true, vec![connection])
     }
 }
 

@@ -175,10 +175,11 @@ impl Resolver {
         let tr_config: hickory_resolver::config::ResolverConfig = config.into();
         let tr_resolver = hickory_resolver::Resolver::builder_with_config(
             tr_config,
-            hickory_resolver::name_server::TokioConnectionProvider::default(),
+            hickory_resolver::net::runtime::TokioRuntimeProvider::default(),
         )
         .with_options(tr_opts)
-        .build();
+        .build()
+        .map_err(Error::from)?;
 
         Ok(Resolver {
             inner: Arc::new(tr_resolver),
@@ -440,10 +441,11 @@ impl Resolver {
         let tr_config: hickory_resolver::config::ResolverConfig = config.into();
         let tr_resolver = hickory_resolver::Resolver::builder_with_config(
             tr_config,
-            hickory_resolver::name_server::TokioConnectionProvider::default(),
+            hickory_resolver::net::runtime::TokioRuntimeProvider::default(),
         )
         .with_options(tr_opts)
-        .build();
+        .build()
+        .expect("resolver for test");
 
         Resolver {
             inner: Arc::new(tr_resolver),
@@ -456,8 +458,8 @@ impl Resolver {
 #[doc(hidden)]
 impl From<ResolverConfig> for hickory_resolver::config::ResolverConfig {
     fn from(rc: ResolverConfig) -> Self {
-        let mut config = Self::new();
-        config.add_name_server(rc.name_server_config.into());
+        let mut config = Self::default();
+        config.name_servers.push(rc.name_server_config.into());
 
         config
     }

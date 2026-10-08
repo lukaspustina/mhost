@@ -81,7 +81,7 @@ pub fn extract_referral(results: &[RawQueryResult]) -> Option<Referral> {
                 .authority()
                 .iter()
                 .find(|r| r.record_type() == hickory_resolver::proto::rr::RecordType::NS)
-                .map(|r| r.name().to_ascii());
+                .map(|r| r.name.to_ascii());
         }
 
         // Collect glue IPs per NS name
@@ -200,10 +200,10 @@ mod tests {
     fn extract_referral_from_responses() {
         let server = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(198, 41, 0, 4)), 53);
 
-        let mut msg = Message::new();
-        msg.set_id(1);
-        msg.set_message_type(MessageType::Response);
-        msg.set_authoritative(false);
+        let mut msg = Message::query();
+        msg.metadata.id = 1;
+        msg.metadata.message_type = MessageType::Response;
+        msg.metadata.authoritative = false;
 
         let ns_record = ProtoRecord::from_rdata(
             hickory_resolver::proto::rr::Name::from_ascii("com.").unwrap(),
@@ -212,7 +212,7 @@ mod tests {
                 hickory_resolver::proto::rr::Name::from_ascii("a.gtld-servers.net.").unwrap(),
             )),
         );
-        msg.add_name_server(ns_record);
+        msg.add_authority(ns_record);
 
         let a_record = ProtoRecord::from_rdata(
             hickory_resolver::proto::rr::Name::from_ascii("a.gtld-servers.net.").unwrap(),
@@ -251,10 +251,10 @@ mod tests {
     fn extract_referral_skips_authoritative() {
         let server = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)), 53);
 
-        let mut msg = Message::new();
-        msg.set_id(1);
-        msg.set_message_type(MessageType::Response);
-        msg.set_authoritative(true);
+        let mut msg = Message::query();
+        msg.metadata.id = 1;
+        msg.metadata.message_type = MessageType::Response;
+        msg.metadata.authoritative = true;
 
         let response = RawResponse::new_for_test(msg, Duration::from_millis(5));
         let results = vec![RawQueryResult {

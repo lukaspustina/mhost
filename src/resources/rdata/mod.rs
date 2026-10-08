@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 pub use caa::CAA;
 pub use dnssec::{DigestType, DnssecAlgorithm, DNSKEY, DS, NSEC, NSEC3, NSEC3PARAM, RRSIG};
-pub use hickory_resolver::{IntoName, Name};
+pub use hickory_resolver::proto::rr::{IntoName, Name};
 pub use hinfo::HINFO;
 pub use mx::MX;
 pub use naptr::NAPTR;
@@ -205,16 +205,17 @@ impl From<hickory_resolver::proto::rr::RData> for RData {
                 }
 
                 fn convert_sig(sig: &hickory_resolver::proto::dnssec::rdata::SIG) -> RData {
-                    let algo_u8: u8 = sig.algorithm().into();
+                    let input = sig.input();
+                    let algo_u8: u8 = input.algorithm.into();
                     RData::RRSIG(RRSIG::new(
-                        sig.type_covered().to_string(),
+                        input.type_covered.to_string(),
                         algo_u8.into(),
-                        sig.num_labels(),
-                        sig.original_ttl(),
-                        sig.sig_expiration().get(),
-                        sig.sig_inception().get(),
-                        sig.key_tag(),
-                        sig.signer_name().clone(),
+                        input.num_labels,
+                        input.original_ttl,
+                        input.sig_expiration.get(),
+                        input.sig_inception.get(),
+                        input.key_tag,
+                        input.signer_name.clone(),
                         data_encoding::BASE64.encode(sig.sig()),
                     ))
                 }
