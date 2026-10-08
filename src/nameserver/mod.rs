@@ -192,8 +192,9 @@ impl NameServerConfig {
     /// Whether this nameserver is a public target: a globally routable address and a non-zero
     /// port. False for loopback, private (RFC 1918, ULA), link-local (incl. cloud metadata at
     /// 169.254.169.254), shared (CGNAT), documentation, benchmarking, multicast, broadcast,
-    /// reserved and unspecified addresses, and local-use NAT64; v4-mapped, NAT64 and 6to4
-    /// addresses are judged by the embedded IPv4 address.
+    /// reserved and unspecified addresses, and every IPv6 range the IANA special-purpose registry
+    /// marks as not globally reachable; v4-mapped, NAT64 and 6to4 addresses are judged by the
+    /// embedded IPv4 address.
     pub fn is_global(&self) -> bool {
         self.port() != 0 && is_global_ip(self.ip_addr())
     }
@@ -385,10 +386,22 @@ fn is_global_ipv6(ip: Ipv6Addr) -> bool {
         || (segments[0] & 0xfe00) == 0xfc00 // unique local
         || (segments[0] & 0xffc0) == 0xfe80 // link-local
         || segments[..3] == [0x64, 0xff9b, 1] // local-use NAT64 64:ff9b:1::/48
+        || (segments[0] == 0x2001 && segments[1] < 0x200 && !is_global_ietf_assignment(segments)) // 2001::/23
         || (segments[0] == 0x2001 && segments[1] == 0x0db8) // documentation
         || (segments[0] == 0x3fff && segments[1] < 0x1000) // documentation 3fff::/20
-        || segments[..3] == [0x2001, 0x0002, 0] // benchmarking 2001:2::/48
-        || segments[..4] == [0x100, 0, 0, 0]) // discard-only
+        || segments[0] == 0x5f00 // SRv6 SIDs 5f00::/16
+        || segments[..4] == [0x100, 0, 0, 0] // discard-only 100::/64
+        || segments[..4] == [0x100, 0, 0, 1]) // dummy prefix 100:0:0:1::/64
+}
+
+/// The globally reachable exceptions inside the IETF protocol assignments 2001::/23, per the IANA
+/// IPv6 special-purpose address registry; the rest of the block (Teredo, benchmarking, …) is not.
+fn is_global_ietf_assignment(segments: [u16; 8]) -> bool {
+    let [_, b, c, ..] = segments;
+    (b == 1 && segments[2..7] == [0; 5] && (1..=3).contains(&segments[7])) // 2001:1::1/128 .. ::3
+        || b == 3 // AMT 2001:3::/32
+        || (b == 4 && c == 0x112) // AS112-v6 2001:4:112::/48
+        || (0x20..0x40).contains(&b) // ORCHIDv2 2001:20::/28, drone remote ID 2001:30::/28
 }
 
 #[cfg(test)]
@@ -427,6 +440,10 @@ mod test {
             "[3fff::1]",
             "[2002:a00:1::1]",
             "[2002:7f00:1::1]",
+            "[5f00::53]",
+            "[100:0:0:1::1]",
+            "[2001::1]",
+            "[2001:100::1]",
         ] {
             let config = NameServerConfig::from_str(&format!("udp:{target}:53")).unwrap();
             assert!(!config.is_global(), "{target} must not be global");
@@ -444,6 +461,11 @@ mod test {
             "[2002:808:808::1]",
             "[3ffe:1000::1]",
             "[3fff:1000::1]",
+            "[2001:3::1]",
+            "[2001:4:112::1]",
+            "[2001:20::1]",
+            "[2001:1::1]",
+            "[2001:200::1]",
         ] {
             let config = NameServerConfig::from_str(&format!("udp:{target}:53")).unwrap();
             assert!(config.is_global(), "{target} must be global");
