@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.12.1 - unreleased
+
+### Added
+
+- `NxDomain::response_code()` tells a definite negative answer (`NXDomain`, or `NoError` for NODATA) from a failed lookup (`ServFail`, `Refused`, …); new `mhost::resolver::ResponseCode`, serialised as its mnemonic. The field is optional in JSON, so output from 0.12.0 still deserialises
+
+### Fixed
+
+- The release build adds the musl target to the toolchain `rust-toolchain.toml` pins; the first v0.12.0 release run failed on it
+
 ## v0.12.0 - 2026-10-08
 
 ### Security
