@@ -1,0 +1,8 @@
+RUN: @mhost_bin -s tls:1.1.1.1:853,tls_auth_name=cloudflare-dns.com -s https:1.1.1.1:443,tls_auth_name=cloudflare-dns.com --no-system-lookups --ascii --no-color lookup -t A example.com
+
+CHECK: > Options: mode=multi, concurrent nameservers=10, max. nameservers=100, concurrent requests=5, retries=0, timeout=5s, ndots=1, abort on error, abort on timeout
+CHECK-NEXT: > Running lookups.
+CHECK-NEXT: - Sending 2 requests to 2 nameservers for 1 record type of 1 name.
+CHECK-NEXT: - Received 2 responses with [[\d+]] RR [[.]][[\d+]] A[[.]], 0 Nx, 0 Err in (min [[\d+]], max [[\d+]]) ms from 2 servers within [[\d+]] ms of total run time.
+CHECK-NEXT: * A:
+CHECK: + Finished.
