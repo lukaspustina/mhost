@@ -41,12 +41,15 @@ use std::fmt::Formatter;
 use std::str::FromStr;
 
 pub mod builder;
-pub mod delegation;
+// Iterative delegation walking over raw queries; only the CLI uses it.
+#[cfg(feature = "app-cli")]
+pub(crate) mod delegation;
 pub mod error;
 pub mod lookup;
 pub mod predefined;
 pub mod query;
-pub mod raw;
+#[cfg(feature = "app-cli")]
+pub(crate) mod raw;
 
 pub type ResolverResult<T> = std::result::Result<T, Error>;
 
@@ -171,15 +174,15 @@ impl Resolver {
     #[instrument(name =  "create resolver", level = "info", skip(config, opts), fields(server = %config.name_server_config))]
     pub async fn new(config: ResolverConfig, opts: ResolverOpts) -> ResolverResult<Self> {
         let name_server = config.name_server_config.clone();
-        let tr_opts = opts.clone().into();
-        let tr_config: hickory_resolver::config::ResolverConfig = config.into();
+        let tr_opts = opts.to_proto();
+        let tr_config = config.to_proto();
         let tr_resolver = hickory_resolver::Resolver::builder_with_config(
             tr_config,
             hickory_resolver::net::runtime::TokioRuntimeProvider::default(),
         )
         .with_options(tr_opts)
         .build()
-        .map_err(Error::from)?;
+        .map_err(Error::from_net)?;
 
         Ok(Resolver {
             inner: Arc::new(tr_resolver),
@@ -420,9 +423,9 @@ impl From<resolv_conf::Config> for ResolverOpts {
     }
 }
 
-#[doc(hidden)]
-impl From<ResolverOpts> for hickory_resolver::config::ResolverOpts {
-    fn from(opts: ResolverOpts) -> Self {
+impl ResolverOpts {
+    pub(crate) fn to_proto(&self) -> hickory_resolver::config::ResolverOpts {
+        let opts = self;
         let mut resolver_opts = hickory_resolver::config::ResolverOpts::default();
         resolver_opts.attempts = opts.retries;
         resolver_opts.ndots = opts.ndots;
@@ -437,8 +440,8 @@ impl From<ResolverOpts> for hickory_resolver::config::ResolverOpts {
 impl Resolver {
     pub fn new_for_test(opts: ResolverOpts, name_server: NameServerConfig) -> Self {
         let config = ResolverConfig::new(name_server.clone());
-        let tr_opts: hickory_resolver::config::ResolverOpts = opts.clone().into();
-        let tr_config: hickory_resolver::config::ResolverConfig = config.into();
+        let tr_opts = opts.to_proto();
+        let tr_config = config.to_proto();
         let tr_resolver = hickory_resolver::Resolver::builder_with_config(
             tr_config,
             hickory_resolver::net::runtime::TokioRuntimeProvider::default(),
@@ -455,11 +458,11 @@ impl Resolver {
     }
 }
 
-#[doc(hidden)]
-impl From<ResolverConfig> for hickory_resolver::config::ResolverConfig {
-    fn from(rc: ResolverConfig) -> Self {
-        let mut config = Self::default();
-        config.name_servers.push(rc.name_server_config.into());
+impl ResolverConfig {
+    pub(crate) fn to_proto(&self) -> hickory_resolver::config::ResolverConfig {
+        let rc = self;
+        let mut config = hickory_resolver::config::ResolverConfig::default();
+        config.name_servers.push(rc.name_server_config.to_proto());
 
         config
     }

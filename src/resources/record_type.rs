@@ -91,9 +91,9 @@ impl RecordType {
     }
 }
 
-#[doc(hidden)]
-impl From<RecordType> for hickory_resolver::proto::rr::RecordType {
-    fn from(rt: RecordType) -> Self {
+impl RecordType {
+    pub(crate) fn to_proto(self) -> hickory_resolver::proto::rr::RecordType {
+        let rt = self;
         use hickory_resolver::proto::rr::RecordType as Trt;
 
         match rt {
@@ -132,9 +132,8 @@ impl From<RecordType> for hickory_resolver::proto::rr::RecordType {
     }
 }
 
-#[doc(hidden)]
-impl From<hickory_resolver::proto::rr::RecordType> for RecordType {
-    fn from(rt: hickory_resolver::proto::rr::RecordType) -> Self {
+impl RecordType {
+    pub(crate) fn from_proto(rt: hickory_resolver::proto::rr::RecordType) -> Self {
         use hickory_resolver::proto::rr::RecordType as Trt;
 
         match rt {

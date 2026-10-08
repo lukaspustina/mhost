@@ -188,7 +188,7 @@ where
         for rqr in &dnskey_results {
             if let Ok(response) = &rqr.result {
                 for record in response.answers() {
-                    let mhost_record = Record::from(record);
+                    let mhost_record = Record::from_proto(record);
                     if let Some(key) = mhost_record.data().dnskey() {
                         if !dnskeys.contains(key) {
                             dnskeys.push(key.clone());
@@ -306,7 +306,7 @@ where
             for rqr in &ds_results {
                 if let Ok(response) = &rqr.result {
                     for record in response.answers() {
-                        let mhost_record = Record::from(record);
+                        let mhost_record = Record::from_proto(record);
                         if let Some(ds) = mhost_record.data().ds() {
                             if !ds_from_parent.contains(ds) {
                                 ds_from_parent.push(ds.clone());
@@ -323,13 +323,8 @@ where
             let mut ns_servers = extract_ns_servers(&ns_results);
             if !ns_servers.is_empty() {
                 resolver::resolve_missing_glue(app_config, &mut ns_servers).await;
-                current_servers = delegation::build_server_list(
-                    &delegation::Referral {
-                        zone_name: child.clone(),
-                        ns_servers,
-                    },
-                    |ip| app_config.ip_allowed(ip),
-                );
+                current_servers =
+                    delegation::build_server_list(&delegation::Referral { ns_servers }, |ip| app_config.ip_allowed(ip));
             } else {
                 debug!("No NS servers found for child zone {}", child);
                 current_servers = Vec::new();

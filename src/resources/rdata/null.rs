@@ -35,9 +35,8 @@ impl NULL {
     }
 }
 
-#[doc(hidden)]
-impl From<hickory_resolver::proto::rr::rdata::NULL> for NULL {
-    fn from(null: hickory_resolver::proto::rr::rdata::NULL) -> Self {
+impl NULL {
+    pub(crate) fn from_proto(null: hickory_resolver::proto::rr::rdata::NULL) -> Self {
         NULL {
             anything: {
                 let bytes = null.anything;

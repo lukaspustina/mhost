@@ -624,7 +624,7 @@ async fn single_lookup(resolver: Resolver, query: UniQuery) -> Lookup {
     debug!("Sending lookup request");
     let result = resolver
         .inner
-        .lookup(q.name, q.record_type.into())
+        .lookup(q.name.as_proto().clone(), q.record_type.to_proto())
         .await
         .into_lookup(start_time);
 
@@ -705,7 +705,7 @@ impl IntoLookup for std::result::Result<hickory_resolver::lookup::Lookup, NetErr
             Err(NetError::Dns(DnsError::ResponseCode(_))) => LookupResult::NxDomain(NxDomain {
                 response_time: Instant::now() - start_time,
             }),
-            Err(err) => LookupResult::Error(Error::from(err)),
+            Err(err) => LookupResult::Error(Error::from_net(err)),
         }
     }
 }
@@ -725,7 +725,7 @@ fn select_records<'a>(
         ((query_type.is_any() || query_type == record_type) && r.name == *query.name())
             || (query_type.is_ns() && record_type.is_ip_addr())
     };
-    answers.chain(others.filter(matches)).map(Record::from).collect()
+    answers.chain(others.filter(matches)).map(Record::from_proto).collect()
 }
 
 fn instant_to_utc(valid_until: Instant) -> DateTime<Utc> {

@@ -9,7 +9,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use crate::resources::{RData, RecordType};
-use hickory_resolver::proto::rr::Name;
+use crate::Name;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
@@ -105,14 +105,13 @@ impl Record {
     }
 }
 
-#[doc(hidden)]
-impl From<&hickory_resolver::proto::rr::Record> for Record {
-    fn from(record: &hickory_resolver::proto::rr::Record) -> Self {
+impl Record {
+    pub(crate) fn from_proto(record: &hickory_resolver::proto::rr::Record) -> Self {
         Record {
-            name: record.name.clone(),
-            record_type: record.record_type().into(),
+            name: Name::from_proto(record.name.clone()),
+            record_type: RecordType::from_proto(record.record_type()),
             ttl: record.ttl,
-            data: record.data.clone().into(),
+            data: RData::from_proto(record.data.clone()),
         }
     }
 }

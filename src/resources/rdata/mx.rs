@@ -8,7 +8,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use hickory_resolver::proto::rr::Name;
+use crate::Name;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize, Deserialize)]
@@ -32,10 +32,9 @@ impl MX {
     }
 }
 
-#[doc(hidden)]
-impl From<hickory_resolver::proto::rr::rdata::MX> for MX {
-    fn from(mx: hickory_resolver::proto::rr::rdata::MX) -> Self {
-        MX::new(mx.preference, mx.exchange.clone())
+impl MX {
+    pub(crate) fn from_proto(mx: hickory_resolver::proto::rr::rdata::MX) -> Self {
+        MX::new(mx.preference, Name::from_proto(mx.exchange.clone()))
     }
 }
 

@@ -8,7 +8,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms..
 
-use hickory_resolver::proto::rr::Name;
+use crate::Name;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
@@ -47,14 +47,13 @@ impl SRV {
     }
 }
 
-#[doc(hidden)]
-impl From<hickory_resolver::proto::rr::rdata::SRV> for SRV {
-    fn from(srv: hickory_resolver::proto::rr::rdata::SRV) -> Self {
+impl SRV {
+    pub(crate) fn from_proto(srv: hickory_resolver::proto::rr::rdata::SRV) -> Self {
         SRV {
             priority: srv.priority,
             weight: srv.weight,
             port: srv.port,
-            target: srv.target.clone(),
+            target: Name::from_proto(srv.target.clone()),
         }
     }
 }

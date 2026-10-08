@@ -8,7 +8,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use hickory_resolver::proto::rr::Name;
+use crate::Name;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize, Deserialize)]
@@ -65,12 +65,11 @@ impl SOA {
     }
 }
 
-#[doc(hidden)]
-impl From<hickory_resolver::proto::rr::rdata::SOA> for SOA {
-    fn from(soa: hickory_resolver::proto::rr::rdata::SOA) -> Self {
+impl SOA {
+    pub(crate) fn from_proto(soa: hickory_resolver::proto::rr::rdata::SOA) -> Self {
         SOA {
-            mname: soa.mname.clone(),
-            rname: soa.rname.clone(),
+            mname: Name::from_proto(soa.mname.clone()),
+            rname: Name::from_proto(soa.rname.clone()),
             serial: soa.serial,
             refresh: soa.refresh,
             retry: soa.retry,

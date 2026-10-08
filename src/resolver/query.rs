@@ -11,8 +11,8 @@
 //! the Cartesian product of multiple names and record types, enabling batch lookups in
 //! a single call.
 
-use hickory_resolver::proto::rr::IntoName;
-use hickory_resolver::proto::rr::Name;
+use crate::IntoName;
+use crate::Name;
 use serde::{Deserialize, Serialize};
 
 use crate::resolver::{Error, ResolverResult};

@@ -292,7 +292,7 @@ pub async fn resolve_missing_glue(
     };
 
     for ns_name in &missing_ns {
-        let name = match hickory_resolver::proto::rr::Name::from_ascii(ns_name) {
+        let name = match crate::Name::from_ascii(ns_name) {
             Ok(n) => n,
             Err(e) => {
                 tracing::warn!("Failed to parse NS name {}: {}", ns_name, e);

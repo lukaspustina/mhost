@@ -28,9 +28,8 @@ impl HINFO {
     }
 }
 
-#[doc(hidden)]
-impl From<hickory_resolver::proto::rr::rdata::HINFO> for HINFO {
-    fn from(hinfo: hickory_resolver::proto::rr::rdata::HINFO) -> Self {
+impl HINFO {
+    pub(crate) fn from_proto(hinfo: hickory_resolver::proto::rr::rdata::HINFO) -> Self {
         HINFO {
             cpu: String::from_utf8_lossy(&hinfo.cpu).into_owned(),
             os: String::from_utf8_lossy(&hinfo.os).into_owned(),

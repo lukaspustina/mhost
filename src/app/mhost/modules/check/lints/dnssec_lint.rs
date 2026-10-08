@@ -87,8 +87,8 @@ impl<'a> DnssecCheck<'a> {
             let server = SocketAddr::new(ip, 53);
             match raw::raw_dnssec_query(
                 server,
-                &self.domain_name,
-                RecordType::DNSKEY.into(),
+                self.domain_name.as_proto(),
+                RecordType::DNSKEY.to_proto(),
                 Duration::from_secs(5),
             )
             .await
@@ -97,7 +97,7 @@ impl<'a> DnssecCheck<'a> {
                     let records: Vec<Record> = response
                         .answers()
                         .iter()
-                        .map(Record::from)
+                        .map(Record::from_proto)
                         .filter(|r| r.record_type() == RecordType::RRSIG)
                         .collect();
                     info!("Received {} DNSKEY signatures from {}", records.len(), server);

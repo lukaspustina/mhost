@@ -12,9 +12,9 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 
 use serde::{Deserialize, Serialize};
 
+pub use crate::resources::name::{IntoName, Name, NameError};
 pub use caa::CAA;
 pub use dnssec::{DigestType, DnssecAlgorithm, DNSKEY, DS, NSEC, NSEC3, NSEC3PARAM, RRSIG};
-pub use hickory_resolver::proto::rr::{IntoName, Name};
 pub use hinfo::HINFO;
 pub use mx::MX;
 pub use naptr::NAPTR;
@@ -160,31 +160,31 @@ impl RData {
 
 #[doc(hidden)]
 #[allow(unused_variables, deprecated)]
-impl From<hickory_resolver::proto::rr::RData> for RData {
-    fn from(rdata: hickory_resolver::proto::rr::RData) -> Self {
+impl RData {
+    pub(crate) fn from_proto(rdata: hickory_resolver::proto::rr::RData) -> Self {
         use hickory_resolver::proto::rr::RData as TRData;
 
         match rdata {
             TRData::A(value) => RData::A(value.0),
             TRData::AAAA(value) => RData::AAAA(value.0),
-            TRData::ANAME(value) => RData::ANAME(value.0),
-            TRData::CAA(value) => RData::CAA(value.into()),
-            TRData::CNAME(value) => RData::CNAME(value.0),
-            TRData::HINFO(value) => RData::HINFO(value.into()),
+            TRData::ANAME(value) => RData::ANAME(Name::from_proto(value.0)),
+            TRData::CAA(value) => RData::CAA(CAA::from_proto(value)),
+            TRData::CNAME(value) => RData::CNAME(Name::from_proto(value.0)),
+            TRData::HINFO(value) => RData::HINFO(HINFO::from_proto(value)),
             TRData::HTTPS(value) => RData::HTTPS(SVCB::from_hickory_svcb(&value)),
-            TRData::MX(value) => RData::MX(value.into()),
-            TRData::NAPTR(value) => RData::NAPTR(value.into()),
-            TRData::NULL(value) => RData::NULL(value.into()),
-            TRData::NS(value) => RData::NS(value.0),
-            TRData::OPENPGPKEY(value) => RData::OPENPGPKEY(value.into()),
+            TRData::MX(value) => RData::MX(MX::from_proto(value)),
+            TRData::NAPTR(value) => RData::NAPTR(NAPTR::from_proto(value)),
+            TRData::NULL(value) => RData::NULL(NULL::from_proto(value)),
+            TRData::NS(value) => RData::NS(Name::from_proto(value.0)),
+            TRData::OPENPGPKEY(value) => RData::OPENPGPKEY(OPENPGPKEY::from_proto(value)),
             TRData::OPT(value) => RData::OPT,
-            TRData::PTR(value) => RData::PTR(value.0),
-            TRData::SOA(value) => RData::SOA(value.into()),
-            TRData::SRV(value) => RData::SRV(value.into()),
-            TRData::SSHFP(value) => RData::SSHFP(value.into()),
-            TRData::SVCB(value) => RData::SVCB(value.into()),
-            TRData::TLSA(value) => RData::TLSA(value.into()),
-            TRData::TXT(value) => RData::TXT(value.into()),
+            TRData::PTR(value) => RData::PTR(Name::from_proto(value.0)),
+            TRData::SOA(value) => RData::SOA(SOA::from_proto(value)),
+            TRData::SRV(value) => RData::SRV(SRV::from_proto(value)),
+            TRData::SSHFP(value) => RData::SSHFP(SSHFP::from_proto(value)),
+            TRData::SVCB(value) => RData::SVCB(SVCB::from_proto(value)),
+            TRData::TLSA(value) => RData::TLSA(TLSA::from_proto(value)),
+            TRData::TXT(value) => RData::TXT(TXT::from_proto(value)),
             TRData::DNSSEC(value) => {
                 use hickory_resolver::proto::dnssec::rdata::DNSSECRData as TDnssec;
                 use hickory_resolver::proto::dnssec::PublicKey as HickoryPublicKey;
@@ -215,7 +215,7 @@ impl From<hickory_resolver::proto::rr::RData> for RData {
                         input.sig_expiration.get(),
                         input.sig_inception.get(),
                         input.key_tag,
-                        input.signer_name.clone(),
+                        Name::from_proto(input.signer_name.clone()),
                         data_encoding::BASE64.encode(sig.sig()),
                     ))
                 }
@@ -280,7 +280,7 @@ impl From<hickory_resolver::proto::rr::RData> for RData {
                     TDnssec::SIG(ref sig) => convert_sig(sig),
                     TDnssec::NSEC(ref nsec) => {
                         let types: Vec<String> = nsec.type_bit_maps().map(|rt| rt.to_string()).collect();
-                        RData::NSEC(NSEC::new(nsec.next_domain_name().clone(), types))
+                        RData::NSEC(NSEC::new(Name::from_proto(nsec.next_domain_name().clone()), types))
                     }
                     TDnssec::NSEC3(ref nsec3) => {
                         let hash_algo = nsec3_hash_algorithm_name(nsec3.hash_algorithm());
@@ -306,7 +306,7 @@ impl From<hickory_resolver::proto::rr::RData> for RData {
             }
             TRData::Unknown { code, rdata } => {
                 let code_u16: u16 = code.into();
-                RData::Unknown(UNKNOWN::new(code_u16, rdata.into()))
+                RData::Unknown(UNKNOWN::new(code_u16, NULL::from_proto(rdata)))
             }
             TRData::ZERO => RData::ZERO,
             // Catch any other new variants we don't handle

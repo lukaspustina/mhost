@@ -12,7 +12,7 @@
 
 use std::path::Path;
 
-use hickory_proto::rr::Name;
+use crate::Name;
 use hickory_proto::serialize::txt::Parser;
 
 use crate::resources::{Record, RecordType};
@@ -86,18 +86,19 @@ pub fn parse<P: AsRef<Path>>(path: P, origin: Option<Name>) -> crate::Result<Zon
 /// Parse a BIND zone file from a string.
 pub fn parse_str(content: &str, path: Option<&Path>, origin: Option<Name>) -> crate::Result<Zone> {
     let path_buf = path.map(|p| p.to_path_buf());
-    let parser = Parser::new(content, path_buf, origin);
-    let (zone_origin, record_sets) = parser.parse().map_err(|e| crate::Error::ZoneFileError {
+    let parser = Parser::new(content, path_buf, origin.map(|o| o.as_proto().clone()));
+    let (proto_origin, record_sets) = parser.parse().map_err(|e| crate::Error::ZoneFileError {
         path: path.map(|p| p.display().to_string()).unwrap_or_default(),
         reason: e.to_string(),
     })?;
 
+    let zone_origin = Name::from_proto(proto_origin);
     let mut records = Vec::new();
     let mut wildcard_records = Vec::new();
     let mut soa = None;
     for (_rr_key, record_set) in record_sets {
         for proto_record in record_set.records_without_rrsigs() {
-            let record = Record::from(proto_record);
+            let record = Record::from_proto(proto_record);
             // Capture the first SOA record before filtering
             if record.record_type() == RecordType::SOA && soa.is_none() {
                 soa = Some(record.clone());

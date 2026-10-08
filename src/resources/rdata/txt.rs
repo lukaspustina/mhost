@@ -54,9 +54,8 @@ impl TXT {
     }
 }
 
-#[doc(hidden)]
-impl From<hickory_resolver::proto::rr::rdata::TXT> for TXT {
-    fn from(txt: hickory_resolver::proto::rr::rdata::TXT) -> Self {
+impl TXT {
+    pub(crate) fn from_proto(txt: hickory_resolver::proto::rr::rdata::TXT) -> Self {
         let txt_data = txt.txt_data;
         TXT { txt_data }
     }

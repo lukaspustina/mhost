@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use hickory_resolver::proto::rr::Name;
+use crate::Name;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
@@ -63,16 +63,15 @@ impl NAPTR {
     }
 }
 
-#[doc(hidden)]
-impl From<hickory_resolver::proto::rr::rdata::NAPTR> for NAPTR {
-    fn from(naptr: hickory_resolver::proto::rr::rdata::NAPTR) -> Self {
+impl NAPTR {
+    pub(crate) fn from_proto(naptr: hickory_resolver::proto::rr::rdata::NAPTR) -> Self {
         NAPTR {
             order: naptr.order,
             preference: naptr.preference,
             flags: String::from_utf8_lossy(&naptr.flags).into_owned(),
             services: String::from_utf8_lossy(&naptr.services).into_owned(),
             regexp: String::from_utf8_lossy(&naptr.regexp).into_owned(),
-            replacement: naptr.replacement.clone(),
+            replacement: Name::from_proto(naptr.replacement.clone()),
         }
     }
 }

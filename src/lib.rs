@@ -99,7 +99,7 @@ pub mod utils;
 
 pub use error::Error;
 pub use ipnetwork::IpNetwork;
-pub use resources::rdata::{IntoName, Name};
+pub use resources::name::{IntoName, Name, NameError};
 pub use resources::RecordType;
 
 pub type Result<T> = std::result::Result<T, error::Error>;

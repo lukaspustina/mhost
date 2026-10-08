@@ -316,9 +316,9 @@ impl From<resolv_conf::Config> for NameServerConfigGroup {
     }
 }
 
-#[doc(hidden)]
-impl From<NameServerConfig> for hickory_resolver::config::NameServerConfig {
-    fn from(config: NameServerConfig) -> Self {
+impl NameServerConfig {
+    pub(crate) fn to_proto(&self) -> hickory_resolver::config::NameServerConfig {
+        let config = self;
         use hickory_resolver::config::{ConnectionConfig, ProtocolConfig};
         let mut connection = match &config {
             NameServerConfig::Udp { .. } => ConnectionConfig::new(ProtocolConfig::Udp),

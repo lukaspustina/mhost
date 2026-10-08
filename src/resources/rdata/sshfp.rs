@@ -58,9 +58,8 @@ iana_enum! {
     }
 }
 
-#[doc(hidden)]
-impl From<hickory_resolver::proto::rr::rdata::SSHFP> for SSHFP {
-    fn from(sshfp: hickory_resolver::proto::rr::rdata::SSHFP) -> Self {
+impl SSHFP {
+    pub(crate) fn from_proto(sshfp: hickory_resolver::proto::rr::rdata::SSHFP) -> Self {
         let algo_u8: u8 = sshfp.algorithm.into();
         let fp_type_u8: u8 = sshfp.fingerprint_type.into();
 

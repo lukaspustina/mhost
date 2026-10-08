@@ -39,8 +39,8 @@ pub enum Error {
     RuntimePanicError,
 }
 
-impl From<NetError> for Error {
-    fn from(error: NetError) -> Self {
+impl Error {
+    pub(crate) fn from_net(error: NetError) -> Self {
         match error {
             NetError::Timeout => Error::Timeout,
             NetError::Dns(DnsError::ResponseCode(ResponseCode::Refused)) => Error::QueryRefused,
@@ -54,7 +54,7 @@ impl From<NetError> for Error {
                 ..
             })) => Error::QueryRefused,
             NetError::Dns(DnsError::NoRecordsFound(_)) => Error::NoRecordsFound,
-            NetError::Proto(proto_error) => Self::from(proto_error),
+            NetError::Proto(proto_error) => Self::from_proto(proto_error),
             _ => Error::ResolveError {
                 reason: error.to_string(),
             },
@@ -62,8 +62,16 @@ impl From<NetError> for Error {
     }
 }
 
-impl From<ProtoError> for Error {
-    fn from(error: ProtoError) -> Self {
+impl Error {
+    pub(crate) fn from_proto(error: ProtoError) -> Self {
+        Error::ProtoError {
+            reason: error.to_string(),
+        }
+    }
+}
+
+impl From<crate::NameError> for Error {
+    fn from(error: crate::NameError) -> Self {
         Error::ProtoError {
             reason: error.to_string(),
         }
@@ -85,25 +93,25 @@ mod tests {
 
     #[test]
     fn net_timeout_maps_to_timeout() {
-        let err = Error::from(NetError::Timeout);
+        let err = Error::from_net(NetError::Timeout);
         assert!(matches!(err, Error::Timeout));
     }
 
     #[test]
     fn response_code_refused_maps_to_query_refused() {
-        let err = Error::from(NetError::Dns(DnsError::ResponseCode(ResponseCode::Refused)));
+        let err = Error::from_net(NetError::Dns(DnsError::ResponseCode(ResponseCode::Refused)));
         assert!(matches!(err, Error::QueryRefused));
     }
 
     #[test]
     fn response_code_servfail_maps_to_server_failure() {
-        let err = Error::from(NetError::Dns(DnsError::ResponseCode(ResponseCode::ServFail)));
+        let err = Error::from_net(NetError::Dns(DnsError::ResponseCode(ResponseCode::ServFail)));
         assert!(matches!(err, Error::ServerFailure));
     }
 
     #[test]
     fn no_records_servfail_maps_to_server_failure() {
-        let err = Error::from(NetError::from(NoRecords::new(
+        let err = Error::from_net(NetError::from(NoRecords::new(
             hickory_resolver::proto::op::Query::default(),
             ResponseCode::ServFail,
         )));
@@ -112,7 +120,7 @@ mod tests {
 
     #[test]
     fn no_records_refused_maps_to_query_refused() {
-        let err = Error::from(NetError::from(NoRecords::new(
+        let err = Error::from_net(NetError::from(NoRecords::new(
             hickory_resolver::proto::op::Query::default(),
             ResponseCode::Refused,
         )));
@@ -121,7 +129,7 @@ mod tests {
 
     #[test]
     fn no_records_nxdomain_maps_to_no_records_found() {
-        let err = Error::from(NetError::from(NoRecords::new(
+        let err = Error::from_net(NetError::from(NoRecords::new(
             hickory_resolver::proto::op::Query::default(),
             ResponseCode::NXDomain,
         )));
@@ -130,13 +138,13 @@ mod tests {
 
     #[test]
     fn proto_error_maps_to_proto_error() {
-        let err = Error::from(NetError::Proto(ProtoError::from("some generic error".to_string())));
+        let err = Error::from_net(NetError::Proto(ProtoError::from("some generic error".to_string())));
         assert!(matches!(err, Error::ProtoError { .. }));
     }
 
     #[test]
     fn other_net_error_maps_to_resolve_error() {
-        let err = Error::from(NetError::from("some resolve error"));
+        let err = Error::from_net(NetError::from("some resolve error"));
         assert!(matches!(err, Error::ResolveError { .. }));
     }
 

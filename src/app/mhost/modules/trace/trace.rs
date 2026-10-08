@@ -35,7 +35,10 @@ impl Trace {
         let env = Self::init_env(app_config, config)?;
         let domain_name = env.name_builder.from_str(&config.domain_name)?;
 
-        Ok(TraceRun { env, domain_name })
+        Ok(TraceRun {
+            env,
+            domain_name: domain_name.as_proto().clone(),
+        })
     }
 }
 
@@ -75,7 +78,7 @@ impl<'a> TraceRun<'a> {
         let hickory_name = hickory_resolver::proto::rr::Name::from_ascii(self.domain_name.to_ascii())
             .map_err(|e| anyhow::anyhow!("failed to parse domain name: {}", e))?;
 
-        let hickory_record_type: hickory_resolver::proto::rr::RecordType = record_type.into();
+        let hickory_record_type: hickory_resolver::proto::rr::RecordType = record_type.to_proto();
 
         let total_start = Instant::now();
         let hops = self
@@ -209,7 +212,6 @@ impl<'a> TraceRun<'a> {
             // Build next hop server list, filtering by address family
             let mut next_zone = current_zone.clone();
             let referral = delegation::Referral {
-                zone_name: current_zone.clone(),
                 ns_servers: resolved_servers,
             };
             current_servers = delegation::build_server_list(&referral, |ip| self.env.app_config.ip_allowed(ip));
@@ -350,7 +352,7 @@ fn process_hop_results(
 
 /// Convert a hickory-proto Record to mhost Record.
 fn convert_record(record: &hickory_resolver::proto::rr::Record, _record_type: RecordType) -> Option<Record> {
-    Some(Record::from(record))
+    Some(Record::from_proto(record))
 }
 
 fn compute_referral_groups(server_results: &[ServerResult]) -> Vec<ReferralGroup> {
@@ -751,7 +753,7 @@ impl SummaryFormatter for TraceResults {
 mod tests {
     use super::*;
     use crate::resources::rdata::RData;
-    use hickory_resolver::proto::rr::Name;
+    use crate::Name;
     use std::net::Ipv4Addr;
 
     fn make_a_record(domain: &str, ip: Ipv4Addr) -> Record {

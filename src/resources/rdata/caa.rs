@@ -37,9 +37,8 @@ impl CAA {
     }
 }
 
-#[doc(hidden)]
-impl From<hickory_resolver::proto::rr::rdata::CAA> for CAA {
-    fn from(caa: hickory_resolver::proto::rr::rdata::CAA) -> Self {
+impl CAA {
+    pub(crate) fn from_proto(caa: hickory_resolver::proto::rr::rdata::CAA) -> Self {
         let tag = caa.tag.to_string();
         let value = String::from_utf8_lossy(&caa.value).into_owned();
 
