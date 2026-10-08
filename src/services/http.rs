@@ -25,14 +25,20 @@ pub(crate) async fn read_text_capped(mut res: reqwest::Response, max: u64) -> Re
         why: "reading body failed",
         source: e,
     })? {
-        let len = (body.len() + chunk.len()) as u64;
-        if len > max {
-            return Err(too_large(len, max));
-        }
-        body.extend_from_slice(&chunk);
+        push_capped(&mut body, &chunk, max)?;
     }
 
     Ok(String::from_utf8_lossy(&body).into_owned())
+}
+
+/// Appends `chunk` to `body` unless that takes it past `max` bytes.
+fn push_capped(body: &mut Vec<u8>, chunk: &[u8], max: u64) -> Result<()> {
+    let len = (body.len() + chunk.len()) as u64;
+    if len > max {
+        return Err(too_large(len, max));
+    }
+    body.extend_from_slice(chunk);
+    Ok(())
 }
 
 fn too_large(len: u64, max: u64) -> Error {
@@ -54,6 +60,16 @@ mod tests {
     async fn body_within_limit_is_read() {
         let body = read_text_capped(response("0123456789"), 10).await.unwrap();
         assert_eq!(body, "0123456789");
+    }
+
+    // A chunked body carries no Content-Length; only the per-chunk cap stops it.
+    #[test]
+    fn chunks_past_the_limit_fail() {
+        let mut body = Vec::new();
+        push_capped(&mut body, b"01234", 9).unwrap();
+        push_capped(&mut body, b"5678", 9).unwrap();
+        assert!(push_capped(&mut body, b"9", 9).is_err());
+        assert_eq!(body, b"012345678");
     }
 
     #[tokio::test]
