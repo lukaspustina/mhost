@@ -63,7 +63,7 @@ the gate.
 ```sh
 just adlc-setup                    # once per machine: rustup, the pinned toolchain, the cargo tools
 just adlc-verify                   # the ADLC gate: fmt-check, clippy, the offline tests
-just test-offline                  # library tests that need no network (all but nine)
+just test-offline                  # library tests that need no network (all but seven)
 just test-lib                      # every library test, network ones included
 just test                          # everything: library, doc, integration
 just lint                          # clippy + fmt-check
@@ -74,8 +74,8 @@ just check                         # lint + the full suite
 ### Test guidelines
 
 - **`just test-offline`** is the reliable quick check, and it is what the ADLC gate runs.
-- **`cargo test --lib` is NOT network-free**, despite what the old Makefile claimed: nine of
-  its tests talk to the network and seven of them were failing on 2026-08-19 — five whois tests
+- **`cargo test --lib` is NOT network-free**, despite what the old Makefile claimed: seven of
+  its tests talk to the network, and all seven were failing on 2026-08-19 — five whois tests
   calling `stat.ripe.net`, and two parser tests resolving `dns.google` and `tls.cloudflare-dns.com`
   through the host's resolver. `just test-offline` names and skips exactly those.
 - **`just test`** also runs lit-based CLI integration tests (`tests/cli_output_tests.rs`) that make real DNS queries via `8.8.8.8`. These may fail due to DNS timeouts or changed records.
