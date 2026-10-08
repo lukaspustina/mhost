@@ -23,6 +23,27 @@ use crate::RecordType;
 use super::rendering::{Rendering, SummaryOptions};
 use super::styles;
 
+/// Escapes characters that would act on the terminal instead of being shown: control characters
+/// (ESC starts escape sequences such as OSC 52, which writes the clipboard) and bidirectional
+/// overrides. DNS data is attacker-controlled and must pass through this before printing.
+pub(crate) fn term_safe(s: &str) -> std::borrow::Cow<'_, str> {
+    let unsafe_char = |c: char| c.is_control() || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}');
+    if !s.chars().any(unsafe_char) {
+        return std::borrow::Cow::Borrowed(s);
+    }
+    std::borrow::Cow::Owned(
+        s.chars()
+            .map(|c| {
+                if unsafe_char(c) {
+                    c.escape_unicode().to_string()
+                } else {
+                    c.to_string()
+                }
+            })
+            .collect(),
+    )
+}
+
 impl Rendering for Record {
     fn render(&self, opts: &SummaryOptions) -> String {
         self.render_with_suffix("", opts)
@@ -149,8 +170,10 @@ impl Rendering for CAA {
     fn render(&self, opts: &SummaryOptions) -> String {
         let style = styles::CAA;
         let critical = if self.issuer_critical() { " (critical)" } else { "" };
+        let tag = term_safe(self.tag());
+        let value = term_safe(self.value());
         if opts.human() {
-            let description = match (self.tag(), self.value().trim()) {
+            let description = match (tag.as_ref(), value.trim()) {
                 ("issue", v) if v.is_empty() || v == ";" => "no CA is allowed to issue certificates".to_string(),
                 ("issue", v) => format!("allow {} to issue certificates", v.paint(style)),
                 ("issuewild", v) if v.is_empty() || v == ";" => {
@@ -164,8 +187,8 @@ impl Rendering for CAA {
         } else {
             format!(
                 "tag={}, value={}, issuer_critical={}",
-                self.tag().paint(style),
-                self.value().paint(style),
+                tag.paint(style),
+                value.paint(style),
                 self.issuer_critical().paint(style)
             )
         }
@@ -178,7 +201,7 @@ impl Rendering for NULL {
             .anything()
             .map(String::from_utf8_lossy)
             .unwrap_or_else(|| std::borrow::Cow::Borrowed("<no data attached>"));
-        format!("data: {}", data)
+        format!("data: {}", term_safe(&data))
     }
 }
 
@@ -325,7 +348,7 @@ impl TXT {
     fn human<'a, T: Into<Option<&'a str>>>(&self, suffix: T, _: &SummaryOptions) -> String {
         let suffix = suffix.into().unwrap_or("");
 
-        let txt = self.as_string();
+        let txt = term_safe(&self.as_string()).into_owned();
         match ParsedTxt::from_str(&txt) {
             Ok(ParsedTxt::Spf(ref spf)) => TXT::format_spf(spf, suffix),
             Ok(ParsedTxt::Dmarc(ref dmarc)) => TXT::format_dmarc(dmarc, suffix),
@@ -599,17 +622,19 @@ impl TXT {
             buf.push_str(&str);
         }
 
-        format!("'{}'{}", buf.paint(styles::TXT), suffix)
+        format!("'{}'{}", term_safe(&buf).paint(styles::TXT), suffix)
     }
 }
 
 impl Rendering for HINFO {
     fn render(&self, opts: &SummaryOptions) -> String {
         let style = styles::HINFO;
+        let cpu = term_safe(self.cpu());
+        let os = term_safe(self.os());
         if opts.human() {
-            format!("CPU: {}, OS: {}", self.cpu().paint(style), self.os().paint(style))
+            format!("CPU: {}, OS: {}", cpu.paint(style), os.paint(style))
         } else {
-            format!("cpu={}, os={}", self.cpu().paint(style), self.os().paint(style))
+            format!("cpu={}, os={}", cpu.paint(style), os.paint(style))
         }
     }
 }
@@ -617,24 +642,27 @@ impl Rendering for HINFO {
 impl Rendering for NAPTR {
     fn render(&self, opts: &SummaryOptions) -> String {
         let style = styles::NAPTR;
+        let flags = term_safe(self.flags());
+        let services = term_safe(self.services());
+        let regexp = term_safe(self.regexp());
         if opts.human() {
-            let flag_desc = match self.flags().to_lowercase().as_str() {
+            let flag_desc = match flags.to_lowercase().as_str() {
                 "s" => "\u{2192} SRV lookup",
                 "a" => "\u{2192} address lookup",
                 "u" => "\u{2192} URI result",
                 "p" => "\u{2192} protocol-specific",
                 "" => "\u{2192} non-terminal (continue rewriting)",
-                _ => self.flags(),
+                _ => flags.as_ref(),
             };
             let mut result = format!(
                 "order {}, preference {}, service {} {}",
                 self.order().paint(style),
                 self.preference().paint(style),
-                self.services().paint(style),
+                services.paint(style),
                 flag_desc.paint(style)
             );
-            if !self.regexp().is_empty() {
-                result.push_str(&format!(", rewrite: {}", self.regexp().paint(style)));
+            if !regexp.is_empty() {
+                result.push_str(&format!(", rewrite: {}", regexp.paint(style)));
             }
             let replacement_str = self.replacement().to_string();
             if replacement_str != "." && !replacement_str.is_empty() {
@@ -646,9 +674,9 @@ impl Rendering for NAPTR {
                 "order={}, preference={}, flags={}, services={}, regexp={}, replacement={}",
                 self.order().paint(style),
                 self.preference().paint(style),
-                self.flags().paint(style),
-                self.services().paint(style),
-                self.regexp().paint(style),
+                flags.paint(style),
+                services.paint(style),
+                regexp.paint(style),
                 self.replacement().paint(style),
             )
         }
@@ -704,7 +732,8 @@ impl Rendering for SVCB {
                     self.target_name().paint(style),
                 );
                 for p in self.svc_params() {
-                    let clean_value = p.value().trim_end_matches(',');
+                    let value = term_safe(p.value());
+                    let clean_value = value.trim_end_matches(',');
                     let param_str = match p.key() {
                         "alpn" => format!("protocols: {}", clean_value.paint(style)),
                         "no-default-alpn" => "no default protocols".to_string(),
@@ -725,7 +754,7 @@ impl Rendering for SVCB {
             let params: Vec<String> = self
                 .svc_params()
                 .iter()
-                .map(|p| format!("{}={}", p.key(), p.value()))
+                .map(|p| format!("{}={}", term_safe(p.key()), term_safe(p.value())))
                 .collect();
             format!(
                 "{} {} {}",
@@ -907,5 +936,55 @@ impl Rendering for NSEC3PARAM {
 impl Rendering for UNKNOWN {
     fn render(&self, opts: &SummaryOptions) -> String {
         format!("code: {}, {}", self.code(), self.rdata().render(opts))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::resources::rdata::SvcParam;
+
+    // OSC 52 writes the clipboard, BEL ends it; neither may reach the terminal from DNS data.
+    const HOSTILE: &str = "x\u{1b}]52;c;aGk=\u{7}y\u{202e}z";
+
+    fn assert_term_safe(rendered: &str) {
+        assert!(!rendered.contains('\u{7}'), "raw BEL in {rendered:?}");
+        assert!(!rendered.contains("\u{1b}]"), "raw OSC in {rendered:?}");
+        assert!(!rendered.contains('\u{202e}'), "raw bidi override in {rendered:?}");
+        assert!(rendered.contains("\\u{1b}"), "escaped ESC missing in {rendered:?}");
+    }
+
+    #[test]
+    fn dns_strings_are_escaped_for_the_terminal() {
+        for opts in [
+            SummaryOptions::new(true, false, false),
+            SummaryOptions::new(false, false, false),
+        ] {
+            assert_term_safe(&TXT::new(vec![HOSTILE.to_string()]).render(&opts));
+            assert_term_safe(&CAA::new(false, "issue".to_string(), HOSTILE.to_string()).render(&opts));
+            assert_term_safe(&CAA::new(false, HOSTILE.to_string(), "v".to_string()).render(&opts));
+            assert_term_safe(&HINFO::new(HOSTILE.to_string(), HOSTILE.to_string()).render(&opts));
+            let naptr = NAPTR::new(
+                1,
+                1,
+                HOSTILE.to_string(),
+                HOSTILE.to_string(),
+                HOSTILE.to_string(),
+                Name::root(),
+            );
+            assert_term_safe(&naptr.render(&opts));
+            assert_term_safe(&NULL::with(HOSTILE.as_bytes().to_vec()).render(&opts));
+            let svcb = SVCB::new(
+                1,
+                Name::root(),
+                vec![SvcParam::new("alpn".to_string(), HOSTILE.to_string())],
+            );
+            assert_term_safe(&svcb.render(&opts));
+        }
+    }
+
+    #[test]
+    fn printable_text_is_unchanged() {
+        assert_eq!(term_safe("v=spf1 -all ü"), "v=spf1 -all ü");
     }
 }

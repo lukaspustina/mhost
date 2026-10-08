@@ -23,7 +23,7 @@ pub use openpgpkey::OPENPGPKEY;
 pub use soa::SOA;
 pub use srv::SRV;
 pub use sshfp::SSHFP;
-pub use svcb::SVCB;
+pub use svcb::{SvcParam, SVCB};
 pub use tlsa::{CertUsage, Matching, Selector, TLSA};
 pub use txt::TXT;
 pub use unknown::UNKNOWN;

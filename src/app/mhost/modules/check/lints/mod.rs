@@ -70,9 +70,13 @@ macro_rules! print_check_results {
             for r in &$results {
                 match r {
                     CheckResult::NotFound() => $self.env.console.info($not_found_msg),
-                    CheckResult::Ok(str) => $self.env.console.ok(str),
-                    CheckResult::Warning(str) => $self.env.console.attention(str),
-                    CheckResult::Failed(str) => $self.env.console.failed(str),
+                    // Results quote DNS data, which must not act on the terminal.
+                    CheckResult::Ok(str) => $self.env.console.ok($crate::app::common::records::term_safe(str)),
+                    CheckResult::Warning(str) => $self
+                        .env
+                        .console
+                        .attention($crate::app::common::records::term_safe(str)),
+                    CheckResult::Failed(str) => $self.env.console.failed($crate::app::common::records::term_safe(str)),
                 }
             }
         }
