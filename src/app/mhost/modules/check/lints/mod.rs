@@ -223,6 +223,26 @@ impl Check {
     }
 }
 
+/// Splits nameserver addresses into public ones and the rest. The zone under check names its
+/// nameservers, so a hostile zone could point probes (AXFR, open resolver, delegation, DNSKEY)
+/// at the user's own network; only public addresses are probed.
+fn public_ips(ips: Vec<std::net::IpAddr>) -> (Vec<std::net::IpAddr>, Vec<std::net::IpAddr>) {
+    ips.into_iter().partition(|ip| crate::nameserver::is_global_ip(*ip))
+}
+
+/// The public addresses among the unique A then AAAA addresses in `lookups`; reports the others.
+fn probe_targets(lookups: &Lookups, console: &crate::app::console::Console) -> Vec<std::net::IpAddr> {
+    let (public, skipped) = public_ips(unique_ips(lookups));
+    if !skipped.is_empty() && console.show_partial_results() {
+        let skipped: Vec<String> = skipped.iter().map(|ip| ip.to_string()).collect();
+        console.info(format!(
+            "Not probing non-public nameserver addresses: {}",
+            skipped.join(", ")
+        ));
+    }
+    public
+}
+
 /// The unique A then AAAA addresses in `lookups`.
 fn unique_ips(lookups: &Lookups) -> Vec<std::net::IpAddr> {
     use crate::resolver::lookup::Uniquify;
@@ -337,5 +357,29 @@ impl OutputCheckResults<'_> {
 
         self.env.console.print_finished();
         Ok(exit)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::IpAddr;
+
+    #[test]
+    fn public_ips_leaves_out_non_public_addresses() {
+        let ips: Vec<IpAddr> = [
+            "192.0.2.1",
+            "127.0.0.1",
+            "8.8.8.8",
+            "10.0.0.53",
+            "169.254.169.254",
+            "::1",
+        ]
+        .iter()
+        .map(|ip| ip.parse().unwrap())
+        .collect();
+        let (public, skipped) = public_ips(ips);
+        assert_eq!(public, vec!["8.8.8.8".parse::<IpAddr>().unwrap()]);
+        assert_eq!(skipped.len(), 5);
     }
 }

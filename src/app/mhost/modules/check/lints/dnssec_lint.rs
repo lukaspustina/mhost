@@ -83,7 +83,7 @@ impl<'a> DnssecCheck<'a> {
         let ns_lookups: Lookups =
             intermediate_lookups!(self, query, "Resolving NS IP addresses for DNSKEY signatures.");
 
-        for ip in ns_lookups.ips().into_iter().take(3) {
+        for ip in super::probe_targets(&ns_lookups, &self.env.console).into_iter().take(3) {
             let server = SocketAddr::new(ip, 53);
             match raw::raw_dnssec_query(
                 server,

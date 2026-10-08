@@ -344,7 +344,7 @@ impl NameServerConfig {
     }
 }
 
-fn is_global_ip(ip: IpAddr) -> bool {
+pub(crate) fn is_global_ip(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(ip) => is_global_ipv4(ip),
         IpAddr::V6(ip) => is_global_ipv6(ip),

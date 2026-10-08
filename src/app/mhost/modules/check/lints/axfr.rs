@@ -79,7 +79,7 @@ impl<'a> Axfr<'a> {
             query,
             "Running lookups for NS server IP addresses for AXFR check."
         );
-        let ns_ips: Vec<std::net::IpAddr> = super::unique_ips(&lookups);
+        let ns_ips: Vec<std::net::IpAddr> = super::probe_targets(&lookups, &self.env.console);
 
         if ns_ips.is_empty() {
             let results = vec![CheckResult::Warning(
