@@ -1,0 +1,11 @@
+[advisories]
+ignore = [
+    # rustc-serialize comes in only through the dev-dependency spectral (via num 0.1); test code
+    # never parses untrusted JSON with it, and it is not part of any shipped artifact.
+    { id = "RUSTSEC-2022-0004", reason = "dev-only via spectral, no untrusted input" },
+    { id = "RUSTSEC-2025-0025", reason = "unmaintained, dev-only via spectral" },
+    # ansi_term, atty and term come in only through the dev-dependency lit.
+    { id = "RUSTSEC-2021-0139", reason = "unmaintained, dev-only via lit" },
+    { id = "RUSTSEC-2024-0375", reason = "unmaintained, dev-only via lit" },
+    { id = "RUSTSEC-2018-0015", reason = "unmaintained, dev-only via lit" },
+]
