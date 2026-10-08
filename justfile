@@ -46,7 +46,7 @@ lint: clippy fmt-check
 #
 # Skipped: services::whois::* (five tests, HTTPS to stat.ripe.net) and the two
 # parser tests that resolve dns.google / tls.cloudflare-dns.com through the
-# host's resolver. 549 of 558 run; the nine are reachable via `just test-lib`.
+# host's resolver. Everything else runs; the nine are reachable via `just test-lib`.
 test-offline:
     {{cargo}} test --lib {{all_features}} -- \
         --skip services::whois \

@@ -63,7 +63,7 @@ the gate.
 ```sh
 just adlc-setup                    # once per machine: rustup, the pinned toolchain, the cargo tools
 just adlc-verify                   # the ADLC gate: fmt-check, clippy, the offline tests
-just test-offline                  # library tests that need no network (549 of 558)
+just test-offline                  # library tests that need no network (all but nine)
 just test-lib                      # every library test, network ones included
 just test                          # everything: library, doc, integration
 just lint                          # clippy + fmt-check
@@ -120,6 +120,9 @@ Binary entry points: src/bin/mhost.rs, src/bin/mdive.rs
 - `app/mdive/` (feature `app-tui`) contains TUI-specific code: state management, UI rendering, async task orchestration.
 - `app/mdive/` imports from `app/common/` for shared business logic. It does **not** import from `app/mhost/output/`.
 - CLI-only lints (SOA serial consistency, AXFR exposure, open resolver, delegation) live in `app/mhost/modules/check/lints/` because they require network access during checks.
+- **No hickory type in the public API.** `mhost::Name`/`IntoName` are mhost's own (`resources/name.rs`); conversions to and from hickory are crate-private inherent fns (`from_proto`, `to_proto`, `Error::from_net`), never `From` impls — a public `From<hickory::X>` makes the next hickory major a breaking mhost release. `resolver::raw` and `resolver::delegation` are `pub(crate)`, built only with `app-cli`.
+- **hickory 0.26 semantics mhost relies on** (all in `resolver/lookup.rs` `IntoLookup`): lookups take every answer plus matching authority/additional records and NS glue, as 0.25 did; error rcodes (SERVFAIL, REFUSED, …) are reported as Nx, as they always were; DNSSEC records a query did not ask for are stripped by hickory unless DO is set, which a stub lookup only does with full validation — fetch RRSIGs with `raw::raw_dnssec_query` instead.
+- **Untrusted input**: DNS data printed by the CLI goes through `app::common::records::term_safe`; `check` probes only public nameserver addresses (`nameserver::is_global_ip`); `ResolverGroupBuilder::deny_non_global` is the opt-in guard for consumers that take nameservers from callers.
 
 **Output module** (`app/mhost/output/`):
 - `records.rs` and `styles.rs` are re-export stubs for backward compatibility. The canonical implementations live in `app/common/records.rs` and `app/common/styles.rs`.
