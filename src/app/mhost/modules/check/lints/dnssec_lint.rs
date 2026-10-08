@@ -98,43 +98,56 @@ impl<'a> DnssecCheck<'a> {
             Ok(targets) => targets,
             Err(reason) => return Ok(Err(reason)),
         };
-        for ip in targets.into_iter().take(3) {
-            let server = SocketAddr::new(ip, 53);
-            match raw::raw_dnssec_query(
-                server,
-                self.domain_name.as_proto(),
-                RecordType::DNSKEY.to_proto(),
-                Duration::from_secs(5),
-            )
-            .await
-            {
-                Ok(response) => {
-                    let records = dnskey_signatures(&response);
-                    // A lame or refusing server answers without signatures; ask the next one
-                    // rather than judging the zone by its silence.
-                    if records.is_empty() {
-                        debug!(
-                            "No DNSKEY signatures from {} (rcode {:?})",
-                            server,
-                            response.response_code()
-                        );
-                        continue;
-                    }
-                    info!("Received {} DNSKEY signatures from {}", records.len(), server);
-                    let query = UniQuery::new(self.domain_name.clone(), RecordType::RRSIG)?;
-                    let name_server = Arc::new(NameServerConfig::udp(server));
-                    return Ok(Ok(Lookups::new(vec![Lookup::from_records(
-                        query,
-                        name_server,
-                        records,
-                    )])));
-                }
-                Err(e) => debug!("DNSKEY query with DO failed against {}: {}", server, e),
+        let domain = self.domain_name.as_proto().clone();
+        let signed = first_signed(&targets, |server| {
+            let domain = domain.clone();
+            async move {
+                raw::raw_dnssec_query(server, &domain, RecordType::DNSKEY.to_proto(), Duration::from_secs(5)).await
             }
+        })
+        .await;
+        if let Some((server, records)) = signed {
+            let query = UniQuery::new(self.domain_name.clone(), RecordType::RRSIG)?;
+            let name_server = Arc::new(NameServerConfig::udp(server));
+            return Ok(Ok(Lookups::new(vec![Lookup::from_records(
+                query,
+                name_server,
+                records,
+            )])));
         }
 
         Ok(Ok(Lookups::empty()))
     }
+}
+
+/// The DNSKEY signatures from the first of up to three `targets` that answers with any. A lame or
+/// refusing server answers without signatures; the next one is asked rather than judging the zone
+/// by its silence.
+async fn first_signed<F, Fut>(targets: &[std::net::IpAddr], mut query: F) -> Option<(SocketAddr, Vec<Record>)>
+where
+    F: FnMut(SocketAddr) -> Fut,
+    Fut: std::future::Future<Output = raw::RawResult<raw::RawResponse>>,
+{
+    for ip in targets.iter().take(3) {
+        let server = SocketAddr::new(*ip, 53);
+        match query(server).await {
+            Ok(response) => {
+                let records = dnskey_signatures(&response);
+                if records.is_empty() {
+                    debug!(
+                        "No DNSKEY signatures from {} (rcode {:?})",
+                        server,
+                        response.response_code()
+                    );
+                    continue;
+                }
+                info!("Received {} DNSKEY signatures from {}", records.len(), server);
+                return Some((server, records));
+            }
+            Err(e) => debug!("DNSKEY query with DO failed against {}: {}", server, e),
+        }
+    }
+    None
 }
 
 /// The RRSIG records in a DNSKEY response's answer section.
@@ -151,6 +164,51 @@ fn dnskey_signatures(response: &raw::RawResponse) -> Vec<Record> {
 mod tests {
     use super::*;
     use hickory_resolver::proto::op::{Message, MessageType, OpCode, ResponseCode};
+
+    fn signed_response() -> raw::RawResponse {
+        use hickory_resolver::proto::dnssec::rdata::{sig::SigInput, DNSSECRData, RRSIG};
+        use hickory_resolver::proto::dnssec::Algorithm;
+        use hickory_resolver::proto::rr::SerialNumber;
+        use hickory_resolver::proto::rr::{Name as ProtoName, RData as ProtoRData, Record as ProtoRecord};
+
+        let zone = ProtoName::from_ascii("example.com.").unwrap();
+        let input = SigInput {
+            type_covered: RecordType::DNSKEY.to_proto(),
+            algorithm: Algorithm::ECDSAP256SHA256,
+            num_labels: 2,
+            original_ttl: 3600,
+            sig_expiration: SerialNumber::new(2_000_000_000),
+            sig_inception: SerialNumber::new(1_900_000_000),
+            key_tag: 2371,
+            signer_name: zone.clone(),
+        };
+        let rrsig = ProtoRData::DNSSEC(DNSSECRData::RRSIG(RRSIG::from_sig(input, vec![1, 2, 3])));
+        let mut message = Message::new(1, MessageType::Response, OpCode::Query);
+        message.add_answer(ProtoRecord::from_rdata(zone, 3600, rrsig));
+        raw::RawResponse::new_for_test(message, Duration::from_millis(1))
+    }
+
+    #[tokio::test]
+    async fn refusing_server_is_passed_over_for_the_next() {
+        let targets: Vec<std::net::IpAddr> = vec!["192.0.2.1".parse().unwrap(), "192.0.2.2".parse().unwrap()];
+        let (server, records) = first_signed(&targets, |server| async move {
+            if server.ip() == targets_first() {
+                let mut message = Message::new(1, MessageType::Response, OpCode::Query);
+                message.metadata.response_code = ResponseCode::Refused;
+                Ok(raw::RawResponse::new_for_test(message, Duration::from_millis(1)))
+            } else {
+                Ok(signed_response())
+            }
+        })
+        .await
+        .expect("the second server answers with signatures");
+        assert_eq!(server.ip(), "192.0.2.2".parse::<std::net::IpAddr>().unwrap());
+        assert_eq!(records.len(), 1);
+    }
+
+    fn targets_first() -> std::net::IpAddr {
+        "192.0.2.1".parse().unwrap()
+    }
 
     #[test]
     fn refusing_server_yields_no_signatures() {
