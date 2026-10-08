@@ -86,14 +86,12 @@ fn check_dnssec_presence(counts: &DnssecCounts, results: &mut Vec<CheckResult>) 
     }
 }
 
+// DNSKEY without RRSIG is not judged: a stub resolver strips RRSIGs unless the query sets DO,
+// so their absence in ordinary lookups says nothing about the zone.
 fn check_dnssec_key_types(has_dnskey: bool, has_rrsig: bool, results: &mut Vec<CheckResult>) {
     if has_dnskey && has_rrsig {
         results.push(CheckResult::Ok(
             "DNSKEY and RRSIG records present: DNSSEC chain appears complete".to_string(),
-        ));
-    } else if has_dnskey && !has_rrsig {
-        results.push(CheckResult::Warning(
-            "DNSKEY present but no RRSIG records found: DNSSEC signatures may be missing".to_string(),
         ));
     } else if !has_dnskey && has_rrsig {
         results.push(CheckResult::Warning(
@@ -262,12 +260,12 @@ mod tests {
         assert!(matches!(&results[0], CheckResult::Ok(_)));
     }
 
+    // A stub resolver only returns RRSIGs when the query sets DO, so their absence proves nothing.
     #[test]
-    fn check_key_types_missing_rrsig() {
+    fn check_key_types_missing_rrsig_is_not_judged() {
         let mut results = Vec::new();
         check_dnssec_key_types(true, false, &mut results);
-        assert_eq!(results.len(), 1);
-        assert!(matches!(&results[0], CheckResult::Warning(_)));
+        assert!(results.is_empty());
     }
 
     #[test]
