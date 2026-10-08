@@ -10,6 +10,10 @@
 //! Provides two levels of granularity:
 //! - **Per-record classification helpers** (`classify_*`): Evaluate a single record, return one [`Finding`].
 //! - **Collection-level validators** (`validate_*`): Evaluate sets of records, return `Vec<Finding>`.
+//!
+//! These are consistency checks, not DNSSEC validation: no signature and no DS digest is verified
+//! cryptographically. A DS "matches" a DNSKEY when key tag and algorithm agree, which anyone can
+//! arrange for a forged key. Do not present a result as proof that a zone validates.
 
 use std::collections::HashSet;
 

@@ -46,6 +46,9 @@ pub mod spf;
 pub mod ttl;
 
 /// Outcome of an individual lint check.
+///
+/// The messages quote DNS data as received — CAA tags and values, DMARC policies, TXT content —
+/// and DNS data is attacker-controlled. Escape them before putting them into HTML or a terminal.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum CheckResult {
     NotFound(),
