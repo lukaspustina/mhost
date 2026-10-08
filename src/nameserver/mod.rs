@@ -192,8 +192,8 @@ impl NameServerConfig {
     /// Whether this nameserver is a public target: a globally routable address and a non-zero
     /// port. False for loopback, private (RFC 1918, ULA), link-local (incl. cloud metadata at
     /// 169.254.169.254), shared (CGNAT), documentation, benchmarking, multicast, broadcast,
-    /// reserved and unspecified addresses; v4-mapped and NAT64 addresses are judged by the
-    /// embedded IPv4 address.
+    /// reserved and unspecified addresses, and local-use NAT64; v4-mapped, NAT64 and 6to4
+    /// addresses are judged by the embedded IPv4 address.
     pub fn is_global(&self) -> bool {
         self.port() != 0 && is_global_ip(self.ip_addr())
     }
@@ -375,12 +375,19 @@ fn is_global_ipv6(ip: Ipv6Addr) -> bool {
         let [.., hi, lo] = segments;
         return is_global_ipv4(Ipv4Addr::from((u32::from(hi) << 16) | u32::from(lo)));
     }
+    // 6to4 2002::/16 carries the IPv4 relay target in bits 16..48.
+    if segments[0] == 0x2002 {
+        return is_global_ipv4(Ipv4Addr::from((u32::from(segments[1]) << 16) | u32::from(segments[2])));
+    }
     !(ip.is_unspecified()
         || ip.is_loopback()
         || ip.is_multicast()
         || (segments[0] & 0xfe00) == 0xfc00 // unique local
         || (segments[0] & 0xffc0) == 0xfe80 // link-local
+        || segments[..3] == [0x64, 0xff9b, 1] // local-use NAT64 64:ff9b:1::/48
         || (segments[0] == 0x2001 && segments[1] == 0x0db8) // documentation
+        || (segments[0] == 0x3fff && segments[1] < 0x1000) // documentation 3fff::/20
+        || segments[..3] == [0x2001, 0x0002, 0] // benchmarking 2001:2::/48
         || segments[..4] == [0x100, 0, 0, 0]) // discard-only
 }
 
@@ -415,6 +422,11 @@ mod test {
             "[::ffff:7f00:1]",
             "[::ffff:a9fe:a9fe]",
             "[64:ff9b::a00:1]",
+            "[64:ff9b:1::a00:1]",
+            "[2001:2::1]",
+            "[3fff::1]",
+            "[2002:a00:1::1]",
+            "[2002:7f00:1::1]",
         ] {
             let config = NameServerConfig::from_str(&format!("udp:{target}:53")).unwrap();
             assert!(!config.is_global(), "{target} must not be global");
@@ -429,6 +441,9 @@ mod test {
             "[2001:4860:4860::8888]",
             "[::ffff:808:808]",
             "[64:ff9b::808:808]",
+            "[2002:808:808::1]",
+            "[3ffe:1000::1]",
+            "[3fff:1000::1]",
         ] {
             let config = NameServerConfig::from_str(&format!("udp:{target}:53")).unwrap();
             assert!(config.is_global(), "{target} must be global");
