@@ -72,6 +72,16 @@ mod tests {
         assert_eq!(body, b"012345678");
     }
 
+    // A streamed body has no size hint, so content_length() is None and only the chunk cap applies.
+    #[tokio::test]
+    async fn chunked_body_over_limit_fails() {
+        let chunks: Vec<std::result::Result<&'static [u8], std::io::Error>> = vec![Ok(b"01234"), Ok(b"56789")];
+        let body = reqwest::Body::wrap_stream(futures::stream::iter(chunks));
+        let res = reqwest::Response::from(http::Response::new(body));
+        assert_eq!(res.content_length(), None);
+        assert!(read_text_capped(res, 9).await.is_err());
+    }
+
     #[tokio::test]
     async fn body_over_limit_fails() {
         let err = read_text_capped(response("0123456789"), 9).await.unwrap_err();

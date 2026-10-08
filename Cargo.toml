@@ -76,6 +76,8 @@ clap_complete = "4"
 
 [dev-dependencies]
 http = "1"
+# stream: lets tests build a response body without a size hint, i.e. a chunked one.
+reqwest = { version = "0.13.4", default-features = false, features = ["stream"] }
 tracing-log = "0.2"
 tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"] }
 lit = "1"
