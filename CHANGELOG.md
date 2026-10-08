@@ -1,5 +1,39 @@
 # Changelog
 
+## v0.12.0 - unreleased
+
+### Security
+
+- Move to hickory 0.26.3 — clears RUSTSEC-2026-0118 (NSEC3 closest-encloser validation loop) and RUSTSEC-2026-0119 (O(n²) name compression). reqwest moves to 0.13.4+, so no hickory 0.25 copy remains
+- Update rustls (RUSTSEC-2026-0285), h2 (RUSTSEC-2026-0258), quinn-proto (RUSTSEC-2026-0185), crossbeam-epoch (RUSTSEC-2026-0204), anyhow (RUSTSEC-2026-0190) and ratatui/lru (RUSTSEC-2026-0253)
+- The resolver no longer answers from the local hosts file; it reported the host's own `/etc/hosts` entries as the queried nameserver's answer
+- New opt-in `ResolverGroupBuilder::deny_non_global(true)` refuses nameservers that are not public targets (loopback, private, link-local incl. cloud metadata, CGNAT, ULA, v4-mapped/NAT64 forms of those, port 0) before any query; `NameServerConfig::is_global()` exposes the same check
+- `zone::parse_str` refuses `$INCLUDE`, which read arbitrary files of the host; `zone::parse` still follows includes relative to the zone file
+- HTTP bodies (whois, public-dns list, crt.sh) are capped while reading; chunked responses were read into memory in full before the size check
+- A concurrency limit of 0 no longer hangs a lookup forever
+- Raw queries (`trace`, `dnssec`, `check`) use a connected socket and accept only a response that repeats the query's ID and question; a single spoofed datagram aborted a hop before
+- `trace` and `dnssec` follow at most 32 servers and resolve at most 8 glue-less NS names per referral; `trace` stops at referrals that do not lead closer to the queried name
+- `check` probes (AXFR, open resolver, delegation, DNSKEY) go only to public nameserver addresses
+- The CLI escapes control characters and bidi overrides in DNS data; a TXT record could write the clipboard via OSC 52
+
+### Breaking
+
+- `mhost::Name` and `mhost::IntoName` are mhost's own types instead of hickory's re-exports; `Name` keeps `to_ascii`, `to_utf8`, `FromStr`, `Display`, case-insensitive `Eq`/`Ord`/`Hash` and serializes as before. Parse errors are `mhost::NameError`
+- The `From` conversions between mhost types and hickory types, `SVCB::from_hickory_svcb`, and the modules `resolver::raw` and `resolver::delegation` are no longer public. Convert a `RecordType` to another library's type through its wire code: `u16::from(record_type)`
+- New `Error::NameServerNotGlobal` variant
+- Requires Rust 1.88 (hickory 0.26)
+
+### Fixed
+
+- DoT and DoH lookups work: no root certificates were loaded, so every encrypted lookup failed with `UnknownIssuer`
+- The TTL lint judges each record by its highest TTL across resolvers and lists it once; cached, counting-down copies made it warn and flap between runs
+- The DNSSEC lint no longer warns about absent RRSIGs, which stub lookups cannot see on hickory 0.26; `check` fetches the DNSKEY signatures with DO set, so the RRSIG checks run on them
+
+### Added
+
+- `From<RecordType> for u16`, the record type's wire code
+- `SvcParam` is exported next to `SVCB`
+
 ## v0.11.4 - 2026-05-01
 
 ### Security
