@@ -80,11 +80,29 @@ pub fn parse<P: AsRef<Path>>(path: P, origin: Option<Name>) -> crate::Result<Zon
         reason: e.to_string(),
     })?;
 
-    parse_str(&content, Some(path), origin)
+    parse_zone(&content, Some(path), origin)
 }
 
 /// Parse a BIND zone file from a string.
+///
+/// `$INCLUDE` is refused: zone text from a string may come from anyone, and an include would
+/// read files of the host. Use [`parse`] for a zone file on disk that includes others.
 pub fn parse_str(content: &str, path: Option<&Path>, origin: Option<Name>) -> crate::Result<Zone> {
+    let has_include = content.lines().any(|line| {
+        let line = line.trim_start();
+        line.len() >= 8 && line.is_char_boundary(8) && line[..8].eq_ignore_ascii_case("$INCLUDE")
+    });
+    if has_include {
+        return Err(crate::Error::ZoneFileError {
+            path: path.map(|p| p.display().to_string()).unwrap_or_default(),
+            reason: "$INCLUDE is not allowed in zone text".to_string(),
+        });
+    }
+
+    parse_zone(content, path, origin)
+}
+
+fn parse_zone(content: &str, path: Option<&Path>, origin: Option<Name>) -> crate::Result<Zone> {
     let path_buf = path.map(|p| p.to_path_buf());
     let parser = Parser::new(content, path_buf, origin.map(|o| o.as_proto().clone()));
     let (proto_origin, record_sets) = parser.parse().map_err(|e| crate::Error::ZoneFileError {
@@ -129,6 +147,31 @@ pub fn parse_str(content: &str, path: Option<&Path>, origin: Option<Name>) -> cr
 mod tests {
     use super::*;
     use std::net::{Ipv4Addr, Ipv6Addr};
+
+    // Zone text from a string may come from anyone; $INCLUDE would read files of the host.
+    #[test]
+    fn parse_str_rejects_include() {
+        for directive in ["$INCLUDE /etc/hosts", "  $include /dev/zero example.com."] {
+            let zone = format!("$ORIGIN example.com.\n{directive}\n@ 3600 IN A 192.0.2.1\n");
+            let err = parse_str(&zone, None, None).unwrap_err();
+            assert!(err.to_string().contains("$INCLUDE"), "{err}");
+        }
+    }
+
+    #[test]
+    fn parse_follows_include_relative_to_the_zone_file() {
+        let dir = std::env::temp_dir().join(format!("mhost-zone-include-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("hosts.inc"), "www 3600 IN A 192.0.2.2\n").unwrap();
+        std::fs::write(
+            dir.join("example.com.zone"),
+            "$ORIGIN example.com.\n@ 3600 IN A 192.0.2.1\n$INCLUDE hosts.inc\n",
+        )
+        .unwrap();
+        let zone = parse(dir.join("example.com.zone"), None).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(zone.records().len(), 2);
+    }
 
     const MINIMAL_ZONE: &str = r#"
 $ORIGIN example.com.
