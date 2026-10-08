@@ -386,7 +386,7 @@ async fn sliding_window_lookups(
     max_concurrent: usize,
 ) -> Lookups {
     let results: Vec<_> = stream::iter(futures)
-        .buffer_unordered(max_concurrent)
+        .buffer_unordered(max_concurrent.max(1))
         .collect::<Vec<_>>()
         .await;
 
@@ -429,7 +429,7 @@ impl ResolverOpts {
         let mut resolver_opts = hickory_resolver::config::ResolverOpts::default();
         resolver_opts.attempts = opts.retries;
         resolver_opts.ndots = opts.ndots;
-        resolver_opts.num_concurrent_reqs = opts.max_concurrent_requests;
+        resolver_opts.num_concurrent_reqs = opts.max_concurrent_requests.max(1);
         resolver_opts.preserve_intermediates = opts.preserve_intermediates;
         resolver_opts.timeout = opts.timeout;
         // Answers come from the nameserver, never from the local hosts file; with the default
@@ -477,6 +477,23 @@ mod tests {
     use hickory_resolver::config::ResolveHosts;
 
     // mhost reports what a nameserver answers; the local hosts file must never stand in for it.
+    #[tokio::test]
+    async fn sliding_window_with_zero_limit_completes() {
+        let futures: Vec<_> = (0..3).map(|_| async { Ok(Lookups::empty()) }).collect();
+        tokio::time::timeout(Duration::from_secs(1), sliding_window_lookups(futures, 0))
+            .await
+            .expect("window with limit 0 must complete");
+    }
+
+    #[test]
+    fn resolver_opts_zero_concurrency_runs_as_one() {
+        let opts = ResolverOpts {
+            max_concurrent_requests: 0,
+            ..Default::default()
+        };
+        assert_eq!(opts.to_proto().num_concurrent_reqs, 1);
+    }
+
     #[test]
     fn resolver_opts_never_consult_hosts_file() {
         let opts = ResolverOpts::default().to_proto();

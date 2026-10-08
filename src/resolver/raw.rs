@@ -178,7 +178,10 @@ pub async fn parallel_raw_queries(
         }
     });
 
-    stream::iter(futures).buffer_unordered(max_concurrent).collect().await
+    stream::iter(futures)
+        .buffer_unordered(max_concurrent.max(1))
+        .collect()
+        .await
 }
 
 /// Send a non-recursive DNS query with the DNSSEC OK (DO) bit set, requesting
@@ -216,7 +219,10 @@ pub async fn parallel_raw_dnssec_queries(
         }
     });
 
-    stream::iter(futures).buffer_unordered(max_concurrent).collect().await
+    stream::iter(futures)
+        .buffer_unordered(max_concurrent.max(1))
+        .collect()
+        .await
 }
 
 fn build_query_message(name: &Name, record_type: RecordType) -> Message {

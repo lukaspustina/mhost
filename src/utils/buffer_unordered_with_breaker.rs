@@ -64,7 +64,8 @@ where
         BufferUnorderedWithBreaker {
             stream: stream.fuse(),
             in_progress_queue: FuturesUnordered::new(),
-            max: n,
+            // A limit of 0 would never poll a future and never finish.
+            max: n.max(1),
             breaker,
             abort: false,
         }
@@ -192,6 +193,21 @@ mod tests {
             .await;
 
         assert_eq!(items, vec![42]);
+    }
+
+    // A limit of 0 would never poll a future and never finish; it runs as 1.
+    #[tokio::test]
+    async fn zero_limit_still_completes() {
+        let futures: Vec<_> = (0..3).map(|i| async move { i }).collect();
+        let items: Vec<_> = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            stream::iter(futures)
+                .buffered_unordered_with_breaker(0, Box::new(|_| false))
+                .collect::<Vec<_>>(),
+        )
+        .await
+        .expect("stream with limit 0 must complete");
+        assert_eq!(items.len(), 3);
     }
 
     #[tokio::test]
