@@ -22,7 +22,7 @@ use std::time::{Duration, Instant};
 use chrono::{DateTime, Utc};
 use futures::stream::{self, StreamExt};
 use futures::Future;
-use hickory_resolver::net::NetError;
+use hickory_resolver::net::{DnsError, NetError};
 use serde::{Deserialize, Serialize};
 use tokio::task;
 use tracing::{debug, field, info, instrument, trace, Span};
@@ -657,26 +657,59 @@ impl IntoLookup for std::result::Result<hickory_resolver::lookup::Lookup, NetErr
     fn into_lookup(self, start_time: Instant) -> LookupResult {
         match self {
             Ok(lookup) => {
-                let records: Vec<Record> = lookup.answers().iter().map(Record::from).collect();
+                let others = lookup.authorities().iter().chain(lookup.additionals());
+                let records = select_records(lookup.query(), lookup.answers().iter(), others);
                 LookupResult::Response(Response {
                     records,
                     response_time: Instant::now() - start_time,
                     valid_until: instant_to_utc(lookup.valid_until()),
                 })
             }
-            Err(err) => {
-                // In hickory 0.25, NoRecordsFound is detected via helper method
-                if err.is_no_records_found() {
-                    LookupResult::NxDomain(NxDomain {
+            Err(NetError::Dns(DnsError::NoRecordsFound(no_records))) => {
+                let authorities = no_records.authorities.iter().flat_map(|records| records.iter());
+                let glue = no_records
+                    .ns
+                    .iter()
+                    .flat_map(|ns| ns.iter())
+                    .flat_map(|ns| ns.glue.iter());
+                let records = select_records(&no_records.query, std::iter::empty(), authorities.chain(glue));
+                match records.iter().map(|r| r.ttl()).min() {
+                    Some(ttl) => LookupResult::Response(Response {
+                        records,
                         response_time: Instant::now() - start_time,
-                    })
-                } else {
-                    let err = Error::from(err);
-                    LookupResult::Error(err)
+                        valid_until: Utc::now() + chrono::Duration::seconds(i64::from(ttl)),
+                    }),
+                    None => LookupResult::NxDomain(NxDomain {
+                        response_time: Instant::now() - start_time,
+                    }),
                 }
             }
+            // hickory 0.25 folded every error rcode into NoRecordsFound; 0.26 reports them as
+            // DnsError::ResponseCode. Both stay Nx so the classification does not change.
+            Err(NetError::Dns(DnsError::ResponseCode(_))) => LookupResult::NxDomain(NxDomain {
+                response_time: Instant::now() - start_time,
+            }),
+            Err(err) => LookupResult::Error(Error::from(err)),
         }
     }
+}
+
+/// Selects a lookup's records the way hickory 0.25 did: every answer, plus records from the
+/// authority and additional sections that match the query name and type, plus the glue addresses
+/// of an NS query. hickory 0.26 keeps only the answer section and reports a referral as
+/// NoRecordsFound, which would drop delegation NS records and glue.
+fn select_records<'a>(
+    query: &hickory_resolver::proto::op::Query,
+    answers: impl Iterator<Item = &'a hickory_resolver::proto::rr::Record>,
+    others: impl Iterator<Item = &'a hickory_resolver::proto::rr::Record>,
+) -> Vec<Record> {
+    let query_type = query.query_type();
+    let matches = |r: &&hickory_resolver::proto::rr::Record| {
+        let record_type = r.record_type();
+        ((query_type.is_any() || query_type == record_type) && r.name == *query.name())
+            || (query_type.is_ns() && record_type.is_ip_addr())
+    };
+    answers.chain(others.filter(matches)).map(Record::from).collect()
 }
 
 fn instant_to_utc(valid_until: Instant) -> DateTime<Utc> {
@@ -697,6 +730,90 @@ mod tests {
     use crate::resources::rdata::{MX, TXT};
     use crate::resources::{RData, Record, RecordType};
     use std::net::Ipv4Addr;
+
+    // hickory 0.25 reported every error rcode as NoRecordsFound, which mhost has always shown as Nx;
+    // hickory 0.26 reports them as DnsError::ResponseCode. The classification must not change with it.
+    #[test]
+    fn error_rcode_into_lookup_is_nxdomain() {
+        use hickory_resolver::net::{DnsError, NetError};
+        use hickory_resolver::proto::op::ResponseCode;
+
+        for code in [ResponseCode::ServFail, ResponseCode::Refused, ResponseCode::NotImp] {
+            let result: std::result::Result<hickory_resolver::lookup::Lookup, NetError> =
+                Err(NetError::Dns(DnsError::ResponseCode(code)));
+            assert!(
+                matches!(result.into_lookup(Instant::now()), LookupResult::NxDomain(_)),
+                "{code:?} must stay Nx"
+            );
+        }
+    }
+
+    fn proto_ns(zone: &str, target: &str) -> hickory_resolver::proto::rr::Record {
+        use hickory_resolver::proto::rr::{rdata, Name, RData as ProtoRData, Record as ProtoRecord};
+        ProtoRecord::from_rdata(
+            Name::from_ascii(zone).unwrap(),
+            172800,
+            ProtoRData::NS(rdata::NS(Name::from_ascii(target).unwrap())),
+        )
+    }
+
+    fn proto_a(name: &str, ip: Ipv4Addr) -> hickory_resolver::proto::rr::Record {
+        use hickory_resolver::proto::rr::{rdata, Name, RData as ProtoRData, Record as ProtoRecord};
+        ProtoRecord::from_rdata(Name::from_ascii(name).unwrap(), 172800, ProtoRData::A(rdata::A(ip)))
+    }
+
+    // A parent-zone server answers an NS query with a referral: NS in authority, glue in additional.
+    // hickory 0.25 returned those records; 0.26 reports NoRecordsFound carrying them.
+    #[test]
+    fn referral_into_lookup_keeps_delegation_ns_and_glue() {
+        use hickory_resolver::net::{DnsError, ForwardNSData, NetError, NoRecords};
+        use hickory_resolver::proto::op::{Query, ResponseCode};
+        use hickory_resolver::proto::rr::{Name, RecordType as ProtoRecordType};
+
+        let query = Query::query(Name::from_ascii("example.com.").unwrap(), ProtoRecordType::NS);
+        let ns = proto_ns("example.com.", "a.iana-servers.net.");
+        let glue = proto_a("a.iana-servers.net.", Ipv4Addr::new(192, 0, 2, 1));
+        let mut no_records = NoRecords::new(query, ResponseCode::NoError);
+        no_records.authorities = Some(vec![ns.clone()].into());
+        no_records.ns = Some(
+            vec![ForwardNSData {
+                ns,
+                glue: vec![glue].into(),
+            }]
+            .into(),
+        );
+        let result: std::result::Result<hickory_resolver::lookup::Lookup, NetError> =
+            Err(NetError::Dns(DnsError::NoRecordsFound(no_records)));
+
+        let LookupResult::Response(response) = result.into_lookup(Instant::now()) else {
+            panic!("referral must yield a response");
+        };
+        let types: Vec<RecordType> = response.records().iter().map(|r| r.record_type()).collect();
+        assert_eq!(types, vec![RecordType::NS, RecordType::A]);
+    }
+
+    #[test]
+    fn ns_answer_into_lookup_keeps_glue_from_additional() {
+        use hickory_resolver::proto::op::Query;
+        use hickory_resolver::proto::rr::{Name, RecordType as ProtoRecordType};
+
+        let query = Query::query(Name::from_ascii("example.com.").unwrap(), ProtoRecordType::NS);
+        let mut lookup = hickory_resolver::lookup::Lookup::new_with_max_ttl(
+            query,
+            [proto_ns("example.com.", "a.iana-servers.net.")],
+        );
+        lookup.extend_additionals([
+            proto_a("a.iana-servers.net.", Ipv4Addr::new(192, 0, 2, 1)),
+            proto_ns("other.example.", "ns.other.example."),
+        ]);
+        let result: std::result::Result<_, hickory_resolver::net::NetError> = Ok(lookup);
+
+        let LookupResult::Response(response) = result.into_lookup(Instant::now()) else {
+            panic!("answer must yield a response");
+        };
+        let types: Vec<RecordType> = response.records().iter().map(|r| r.record_type()).collect();
+        assert_eq!(types, vec![RecordType::NS, RecordType::A]);
+    }
 
     fn make_test_lookup(query_name: &str, record_type: RecordType, ns: &str, result: LookupResult) -> Lookup {
         Lookup {
