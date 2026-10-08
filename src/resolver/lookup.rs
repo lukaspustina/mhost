@@ -450,6 +450,22 @@ impl Lookup {
     }
 }
 
+#[cfg(feature = "app-cli")]
+impl Lookup {
+    /// Wraps records obtained outside a [`Resolver`] lookup, e.g. a raw DNSSEC query.
+    pub(crate) fn from_records(query: UniQuery, name_server: Arc<NameServerConfig>, records: Vec<Record>) -> Self {
+        Lookup {
+            query,
+            name_server,
+            result: LookupResult::Response(Response {
+                records,
+                response_time: Duration::ZERO,
+                valid_until: Utc::now(),
+            }),
+        }
+    }
+}
+
 #[cfg(test)]
 impl Lookup {
     pub fn new_for_test(query: UniQuery, name_server: Arc<NameServerConfig>, result: LookupResult) -> Self {

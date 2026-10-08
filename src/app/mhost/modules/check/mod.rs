@@ -47,7 +47,8 @@ pub async fn run(args: &ArgMatches, app_config: &AppConfig) -> Result<ExitStatus
         .await?
         .caa()?
         .ttl()?
-        .dnssec()?
+        .dnssec()
+        .await?
         .axfr()
         .await?
         .open_resolver()
