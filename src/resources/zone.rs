@@ -88,11 +88,10 @@ pub fn parse<P: AsRef<Path>>(path: P, origin: Option<Name>) -> crate::Result<Zon
 /// `$INCLUDE` is refused: zone text from a string may come from anyone, and an include would
 /// read files of the host. Use [`parse`] for a zone file on disk that includes others.
 pub fn parse_str(content: &str, path: Option<&Path>, origin: Option<Name>) -> crate::Result<Zone> {
-    let has_include = content.lines().any(|line| {
-        let line = line.trim_start();
-        line.len() >= 8 && line.is_char_boundary(8) && line[..8].eq_ignore_ascii_case("$INCLUDE")
-    });
-    if has_include {
+    // hickory's lexer takes `$INCLUDE` anywhere outside quotes, not only at the start of a line
+    // (`$TTL 3600 $INCLUDE /etc/passwd`); refusing every occurrence also refuses the rare TXT
+    // that spells it out, which is the safe side.
+    if content.to_ascii_uppercase().contains("$INCLUDE") {
         return Err(crate::Error::ZoneFileError {
             path: path.map(|p| p.display().to_string()).unwrap_or_default(),
             reason: "$INCLUDE is not allowed in zone text".to_string(),
@@ -151,7 +150,12 @@ mod tests {
     // Zone text from a string may come from anyone; $INCLUDE would read files of the host.
     #[test]
     fn parse_str_rejects_include() {
-        for directive in ["$INCLUDE /etc/hosts", "  $include /dev/zero example.com."] {
+        for directive in [
+            "$INCLUDE /etc/hosts",
+            "  $include /dev/zero example.com.",
+            "$TTL 3600 $INCLUDE /etc/hosts",
+            "$ORIGIN example.com. $INCLUDE /etc/hosts",
+        ] {
             let zone = format!("$ORIGIN example.com.\n{directive}\n@ 3600 IN A 192.0.2.1\n");
             let err = parse_str(&zone, None, None).unwrap_err();
             assert!(err.to_string().contains("$INCLUDE"), "{err}");
