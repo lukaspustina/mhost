@@ -8,6 +8,7 @@
 //! Supporting services to download name server lists and query WHOIS information for IP subnets.
 
 pub mod error;
+pub(crate) mod http;
 pub mod server_lists;
 pub mod whois;
 

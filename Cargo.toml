@@ -75,6 +75,7 @@ clap = { version = "4", default-features = false, features = ["suggestions"] }
 clap_complete = "4"
 
 [dev-dependencies]
+http = "1"
 tracing-log = "0.2"
 tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"] }
 lit = "1"
