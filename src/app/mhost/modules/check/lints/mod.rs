@@ -243,17 +243,19 @@ fn probe_targets(lookups: &Lookups, console: &crate::app::console::Console) -> V
     public
 }
 
-/// The unique A then AAAA addresses in `lookups`.
+/// The unique A then AAAA addresses in `lookups`, each family in address order so that probes go
+/// to the same servers on every run.
 fn unique_ips(lookups: &Lookups) -> Vec<std::net::IpAddr> {
     use crate::resolver::lookup::Uniquify;
-    let ipv4s = lookups.a().unique().to_owned().into_iter().map(std::net::IpAddr::from);
-    let ipv6s = lookups
-        .aaaa()
-        .unique()
-        .to_owned()
+    let mut ipv4s: Vec<_> = lookups.a().unique().to_owned().into_iter().collect();
+    ipv4s.sort();
+    let mut ipv6s: Vec<_> = lookups.aaaa().unique().to_owned().into_iter().collect();
+    ipv6s.sort();
+    ipv4s
         .into_iter()
-        .map(std::net::IpAddr::from);
-    ipv4s.chain(ipv6s).collect()
+        .map(std::net::IpAddr::from)
+        .chain(ipv6s.into_iter().map(std::net::IpAddr::from))
+        .collect()
 }
 
 pub struct LookupAllThereIs<'a> {
@@ -364,6 +366,40 @@ impl OutputCheckResults<'_> {
 mod tests {
     use super::*;
     use std::net::IpAddr;
+
+    #[test]
+    fn unique_ips_are_ordered() {
+        use crate::nameserver::NameServerConfig;
+        use crate::resolver::lookup::{Lookup, LookupResult, Response};
+        use crate::resolver::UniQuery;
+        use crate::resources::{RData, Record};
+        use std::net::Ipv4Addr;
+        use std::sync::Arc;
+        use std::time::Duration;
+
+        let records = [9u8, 3, 7, 1]
+            .iter()
+            .map(|i| {
+                Record::new_for_test(
+                    Name::from_ascii("ns.example.com.").unwrap(),
+                    RecordType::A,
+                    300,
+                    RData::A(Ipv4Addr::new(192, 0, 2, *i)),
+                )
+            })
+            .collect();
+        let lookup = Lookup::new_for_test(
+            UniQuery::new("ns.example.com.", RecordType::A).unwrap(),
+            Arc::new(NameServerConfig::udp((Ipv4Addr::new(192, 0, 2, 53), 53))),
+            LookupResult::Response(Response::new_for_test(records, Duration::from_millis(1))),
+        );
+        let ips = unique_ips(&Lookups::new(vec![lookup]));
+        let expected: Vec<IpAddr> = ["192.0.2.1", "192.0.2.3", "192.0.2.7", "192.0.2.9"]
+            .iter()
+            .map(|ip| ip.parse().unwrap())
+            .collect();
+        assert_eq!(ips, expected);
+    }
 
     #[test]
     fn public_ips_leaves_out_non_public_addresses() {

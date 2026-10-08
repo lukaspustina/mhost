@@ -94,12 +94,17 @@ impl<'a> DnssecCheck<'a> {
             .await
             {
                 Ok(response) => {
-                    let records: Vec<Record> = response
-                        .answers()
-                        .iter()
-                        .map(Record::from_proto)
-                        .filter(|r| r.record_type() == RecordType::RRSIG)
-                        .collect();
+                    let records = dnskey_signatures(&response);
+                    // A lame or refusing server answers without signatures; ask the next one
+                    // rather than judging the zone by its silence.
+                    if records.is_empty() {
+                        debug!(
+                            "No DNSKEY signatures from {} (rcode {:?})",
+                            server,
+                            response.response_code()
+                        );
+                        continue;
+                    }
                     info!("Received {} DNSKEY signatures from {}", records.len(), server);
                     let query = UniQuery::new(self.domain_name.clone(), RecordType::RRSIG)?;
                     let name_server = Arc::new(NameServerConfig::udp(server));
@@ -110,5 +115,29 @@ impl<'a> DnssecCheck<'a> {
         }
 
         Ok(Lookups::empty())
+    }
+}
+
+/// The RRSIG records in a DNSKEY response's answer section.
+fn dnskey_signatures(response: &raw::RawResponse) -> Vec<Record> {
+    response
+        .answers()
+        .iter()
+        .map(Record::from_proto)
+        .filter(|r| r.record_type() == RecordType::RRSIG)
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hickory_resolver::proto::op::{Message, MessageType, OpCode, ResponseCode};
+
+    #[test]
+    fn refusing_server_yields_no_signatures() {
+        let mut message = Message::new(1, MessageType::Response, OpCode::Query);
+        message.metadata.response_code = ResponseCode::Refused;
+        let response = raw::RawResponse::new_for_test(message, Duration::from_millis(1));
+        assert!(dnskey_signatures(&response).is_empty());
     }
 }
