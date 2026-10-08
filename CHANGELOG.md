@@ -4,7 +4,7 @@
 
 ### Added
 
-- `NxDomain::response_code()` tells a definite negative answer (`NXDomain`, or `NoError` for NODATA) from a failed lookup (`ServFail`, `Refused`, …); new `mhost::resolver::ResponseCode`, serialised as its mnemonic. The field is optional in JSON, so output from 0.12.0 still deserialises
+- `NxDomain::response_code()` and `NxDomain::is_definite()` tell a definite negative answer (NXDOMAIN, or NODATA) from a failed lookup (`ServFail`, `Refused`, …) and from a referral of a non-recursive server (`is_referral()`, rcode `NoError` without SOA); new `mhost::resolver::ResponseCode`, serialised as its mnemonic. The fields are optional in JSON, so output from 0.12.0 still deserialises
 
 ### Fixed
 

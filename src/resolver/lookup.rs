@@ -575,15 +575,18 @@ impl Response {
 
 /// A negative answer: no records for the query.
 ///
-/// Despite its name it covers more than NXDOMAIN; [`NxDomain::response_code`] tells them apart:
-/// `NXDomain` (the name does not exist) and `NoError` (NODATA: the name exists, the type does
-/// not) are definite answers, while `ServFail`, `Refused` and the other error codes mean the
-/// lookup failed and says nothing about the name.
+/// Despite its name it covers more than NXDOMAIN; [`NxDomain::is_definite`] tells a definite
+/// answer about the name — NXDOMAIN (it does not exist) or NODATA (it exists, the type does not)
+/// — from everything else: an error rcode such as `ServFail` or `Refused`, where the lookup
+/// failed, and a referral from a non-recursive server, which carries rcode `NoError` like NODATA
+/// but only points at other nameservers.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NxDomain {
     response_time: Duration,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     response_code: Option<ResponseCode>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    referral: bool,
 }
 
 impl NxDomain {
@@ -591,6 +594,22 @@ impl NxDomain {
     /// recorded.
     pub fn response_code(&self) -> Option<ResponseCode> {
         self.response_code
+    }
+
+    /// Whether the server answered with a referral — NS records in the authority section and no
+    /// SOA — instead of an answer about the name.
+    pub fn is_referral(&self) -> bool {
+        self.referral
+    }
+
+    /// Whether this is a definite answer about the name: NXDOMAIN, or NODATA (`NoError` that is
+    /// not a referral).
+    pub fn is_definite(&self) -> bool {
+        match self.response_code {
+            Some(ResponseCode::NXDomain) => true,
+            Some(ResponseCode::NoError) => !self.referral,
+            _ => false,
+        }
     }
 }
 
@@ -600,6 +619,7 @@ impl NxDomain {
         NxDomain {
             response_time,
             response_code: None,
+            referral: false,
         }
     }
 }
@@ -718,6 +738,7 @@ impl IntoLookup for std::result::Result<hickory_resolver::lookup::Lookup, NetErr
                     None => LookupResult::NxDomain(NxDomain {
                         response_time: Instant::now() - start_time,
                         response_code: Some(ResponseCode::from_proto(no_records.response_code)),
+                        referral: no_records.soa.is_none() && no_records.ns.is_some(),
                     }),
                 }
             }
@@ -726,6 +747,7 @@ impl IntoLookup for std::result::Result<hickory_resolver::lookup::Lookup, NetErr
             Err(NetError::Dns(DnsError::ResponseCode(code))) => LookupResult::NxDomain(NxDomain {
                 response_time: Instant::now() - start_time,
                 response_code: Some(ResponseCode::from_proto(code)),
+                referral: false,
             }),
             Err(err) => LookupResult::Error(Error::from_net(err)),
         }
@@ -818,12 +840,57 @@ mod tests {
         }
     }
 
+    // A referral (NOERROR, no answer, NS in authority) carries rcode NOERROR like NODATA but says
+    // nothing about the name; only NXDOMAIN and a real NODATA are definite.
+    #[test]
+    fn referral_is_not_a_definite_answer() {
+        use hickory_resolver::net::{DnsError, ForwardNSData, NoRecords};
+        use hickory_resolver::proto::op::{Query, ResponseCode as ProtoCode};
+        use hickory_resolver::proto::rr::{Name, RecordType as ProtoRecordType};
+
+        let query = Query::query(
+            Name::from_ascii("nonexistent.example.com.").unwrap(),
+            ProtoRecordType::A,
+        );
+        let ns = proto_ns("example.com.", "a.iana-servers.net.");
+        let glue = proto_a("a.iana-servers.net.", Ipv4Addr::new(192, 0, 2, 1));
+        let mut referral = NoRecords::new(query.clone(), ProtoCode::NoError);
+        referral.authorities = Some(vec![ns.clone()].into());
+        referral.ns = Some(
+            vec![ForwardNSData {
+                ns,
+                glue: vec![glue].into(),
+            }]
+            .into(),
+        );
+
+        let nx = |no_records| match Err(NetError::Dns(DnsError::NoRecordsFound(no_records))).into_lookup(Instant::now())
+        {
+            LookupResult::NxDomain(nx) => nx,
+            other => panic!("expected NxDomain, got {other:?}"),
+        };
+
+        let referral = nx(referral);
+        assert_eq!(referral.response_code(), Some(ResponseCode::NoError));
+        assert!(referral.is_referral());
+        assert!(!referral.is_definite());
+
+        let nodata = nx(NoRecords::new(query.clone(), ProtoCode::NoError));
+        assert!(!nodata.is_referral());
+        assert!(nodata.is_definite());
+
+        assert!(nx(NoRecords::new(query, ProtoCode::NXDomain)).is_definite());
+        let servfail = Err(NetError::Dns(DnsError::ResponseCode(ProtoCode::ServFail))).into_lookup(Instant::now());
+        assert!(matches!(servfail, LookupResult::NxDomain(ref nx) if !nx.is_definite()));
+    }
+
     #[cfg(feature = "serde_json")]
     #[test]
     fn nxdomain_response_code_serde() {
         let nx = NxDomain {
             response_time: Duration::from_millis(5),
             response_code: Some(ResponseCode::ServFail),
+            referral: false,
         };
         let json = serde_json::to_string(&nx).unwrap();
         assert!(json.contains(r#""response_code":"SERVFAIL""#), "{json}");
@@ -831,7 +898,12 @@ mod tests {
         // JSON written before the field existed still reads.
         let old: NxDomain = serde_json::from_str(r#"{"response_time":{"secs":0,"nanos":5000000}}"#).unwrap();
         assert_eq!(old.response_code(), None);
-        assert!(!serde_json::to_string(&old).unwrap().contains("response_code"));
+        assert!(!old.is_referral() && !old.is_definite());
+        let old_json = serde_json::to_string(&old).unwrap();
+        assert!(
+            !old_json.contains("response_code") && !old_json.contains("referral"),
+            "{old_json}"
+        );
     }
 
     fn proto_ns(zone: &str, target: &str) -> hickory_resolver::proto::rr::Record {
@@ -1001,6 +1073,7 @@ mod tests {
             LookupResult::NxDomain(NxDomain {
                 response_time: Duration::from_millis(30),
                 response_code: Some(ResponseCode::NXDomain),
+                referral: false,
             }),
         );
         let lookups = Lookups::new(vec![lookup]);
