@@ -77,21 +77,7 @@ impl<'a> OpenResolver<'a> {
             query,
             "Running lookups for NS server IP addresses for open resolver check."
         );
-        let ns_ips: Vec<std::net::IpAddr> = lookups
-            .a()
-            .unique()
-            .to_owned()
-            .into_iter()
-            .map(std::net::IpAddr::from)
-            .chain(
-                lookups
-                    .aaaa()
-                    .unique()
-                    .to_owned()
-                    .into_iter()
-                    .map(std::net::IpAddr::from),
-            )
-            .collect();
+        let ns_ips: Vec<std::net::IpAddr> = super::unique_ips(&lookups);
 
         if ns_ips.is_empty() {
             let results = vec![CheckResult::Warning(

@@ -120,21 +120,7 @@ impl<'a> Delegation<'a> {
             "Resolving parent NS IP addresses for delegation check."
         );
 
-        let parent_ns_ips: Vec<std::net::IpAddr> = ns_lookups
-            .a()
-            .unique()
-            .to_owned()
-            .into_iter()
-            .map(std::net::IpAddr::from)
-            .chain(
-                ns_lookups
-                    .aaaa()
-                    .unique()
-                    .to_owned()
-                    .into_iter()
-                    .map(std::net::IpAddr::from),
-            )
-            .collect();
+        let parent_ns_ips: Vec<std::net::IpAddr> = super::unique_ips(&ns_lookups);
 
         if parent_ns_ips.is_empty() {
             let results = vec![CheckResult::Warning(

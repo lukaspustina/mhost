@@ -223,6 +223,19 @@ impl Check {
     }
 }
 
+/// The unique A then AAAA addresses in `lookups`.
+fn unique_ips(lookups: &Lookups) -> Vec<std::net::IpAddr> {
+    use crate::resolver::lookup::Uniquify;
+    let ipv4s = lookups.a().unique().to_owned().into_iter().map(std::net::IpAddr::from);
+    let ipv6s = lookups
+        .aaaa()
+        .unique()
+        .to_owned()
+        .into_iter()
+        .map(std::net::IpAddr::from);
+    ipv4s.chain(ipv6s).collect()
+}
+
 pub struct LookupAllThereIs<'a> {
     env: Environment<'a, CheckConfig>,
     domain_name: Name,
