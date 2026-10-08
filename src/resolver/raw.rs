@@ -64,8 +64,8 @@ pub enum RawError {
     Decode(String),
     #[error("query timed out after {0:?}")]
     Timeout(Duration),
-    #[error("response ID mismatch (expected {expected}, got {got})")]
-    IdMismatch { expected: u16, got: u16 },
+    #[error("response does not answer the query")]
+    UnrelatedResponse,
 }
 
 pub type RawResult<T> = std::result::Result<T, RawError>;
@@ -246,9 +246,15 @@ fn build_query_message_opts(name: &Name, record_type: RecordType, dnssec_ok: boo
     msg
 }
 
+/// Whether `response` answers `query`: a response (QR set) with the query's ID and question.
+fn answers_query(query: &Message, response: &Message) -> bool {
+    response.metadata.message_type == MessageType::Response
+        && response.id == query.id
+        && response.queries == query.queries
+}
+
 async fn send_udp(server: SocketAddr, msg: &Message, timeout: Duration) -> RawResult<RawResponse> {
     let msg_bytes = msg.to_vec().map_err(|e| RawError::Decode(e.to_string()))?;
-    let expected_id = msg.id;
 
     let bind_addr: SocketAddr = if server.is_ipv6() {
         "[::]:0".parse().unwrap()
@@ -256,35 +262,37 @@ async fn send_udp(server: SocketAddr, msg: &Message, timeout: Duration) -> RawRe
         "0.0.0.0:0".parse().unwrap()
     };
     let socket = UdpSocket::bind(bind_addr).await?;
+    // A connected socket only receives datagrams from `server`.
+    socket.connect(server).await?;
 
     let start = Instant::now();
-    socket.send_to(&msg_bytes, server).await?;
+    let deadline = tokio::time::Instant::now() + timeout;
+    socket.send(&msg_bytes).await?;
 
+    // Unrelated or undecodable datagrams are dropped, not taken as the answer: a single spoofed
+    // packet must neither end the query nor stand in for the server's response.
     let mut buf = vec![0u8; 4096];
-    let len = match tokio::time::timeout(timeout, socket.recv(&mut buf)).await {
-        Ok(Ok(len)) => len,
-        Ok(Err(e)) => return Err(RawError::Io(e)),
-        Err(_) => return Err(RawError::Timeout(timeout)),
-    };
-    let latency = start.elapsed();
-
-    let response = Message::from_bytes(&buf[..len]).map_err(|e| RawError::Decode(e.to_string()))?;
-    if response.id != expected_id {
-        return Err(RawError::IdMismatch {
-            expected: expected_id,
-            got: response.id,
-        });
+    loop {
+        let len = match tokio::time::timeout_at(deadline, socket.recv(&mut buf)).await {
+            Ok(Ok(len)) => len,
+            Ok(Err(e)) => return Err(RawError::Io(e)),
+            Err(_) => return Err(RawError::Timeout(timeout)),
+        };
+        match Message::from_bytes(&buf[..len]) {
+            Ok(response) if answers_query(msg, &response) => {
+                return Ok(RawResponse {
+                    message: response,
+                    latency: start.elapsed(),
+                })
+            }
+            Ok(response) => debug!("Discarding unrelated response {} from {}", response.id, server),
+            Err(e) => debug!("Discarding undecodable datagram from {}: {}", server, e),
+        }
     }
-
-    Ok(RawResponse {
-        message: response,
-        latency,
-    })
 }
 
 async fn send_tcp(server: SocketAddr, msg: &Message, timeout: Duration) -> RawResult<RawResponse> {
     let msg_bytes = msg.to_vec().map_err(|e| RawError::Decode(e.to_string()))?;
-    let expected_id = msg.id;
 
     let start = Instant::now();
     let mut stream = match tokio::time::timeout(timeout, TcpStream::connect(server)).await {
@@ -325,11 +333,8 @@ async fn send_tcp(server: SocketAddr, msg: &Message, timeout: Duration) -> RawRe
     let latency = start.elapsed();
 
     let response = Message::from_bytes(&buf).map_err(|e| RawError::Decode(e.to_string()))?;
-    if response.id != expected_id {
-        return Err(RawError::IdMismatch {
-            expected: expected_id,
-            got: response.id,
-        });
+    if !answers_query(msg, &response) {
+        return Err(RawError::UnrelatedResponse);
     }
 
     Ok(RawResponse {
@@ -341,6 +346,36 @@ async fn send_tcp(server: SocketAddr, msg: &Message, timeout: Duration) -> RawRe
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn response_to(query: &Message) -> Message {
+        let mut response = Message::new(query.id, MessageType::Response, OpCode::Query);
+        response.add_queries(query.queries.clone());
+        response
+    }
+
+    #[test]
+    fn answers_query_accepts_matching_response() {
+        let query = build_query_message(&Name::from_ascii("example.com.").unwrap(), RecordType::NS);
+        assert!(answers_query(&query, &response_to(&query)));
+    }
+
+    #[test]
+    fn answers_query_rejects_unrelated_messages() {
+        let query = build_query_message(&Name::from_ascii("example.com.").unwrap(), RecordType::NS);
+
+        let mut other_id = response_to(&query);
+        other_id.metadata.id = query.id.wrapping_add(1);
+        assert!(!answers_query(&query, &other_id), "other ID");
+
+        let mut not_a_response = response_to(&query);
+        not_a_response.metadata.message_type = MessageType::Query;
+        assert!(!answers_query(&query, &not_a_response), "QR not set");
+
+        let other_question = build_query_message(&Name::from_ascii("example.net.").unwrap(), RecordType::NS);
+        let mut other_question = response_to(&other_question);
+        other_question.metadata.id = query.id;
+        assert!(!answers_query(&query, &other_question), "other question");
+    }
 
     #[test]
     fn build_query_message_sets_rd_false() {
