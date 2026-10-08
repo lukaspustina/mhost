@@ -432,6 +432,9 @@ impl ResolverOpts {
         resolver_opts.num_concurrent_reqs = opts.max_concurrent_requests;
         resolver_opts.preserve_intermediates = opts.preserve_intermediates;
         resolver_opts.timeout = opts.timeout;
+        // Answers come from the nameserver, never from the local hosts file; with the default
+        // (Auto) a lookup for a name in /etc/hosts returns the host's own entry instead.
+        resolver_opts.use_hosts_file = hickory_resolver::config::ResolveHosts::Never;
         resolver_opts
     }
 }
@@ -465,5 +468,18 @@ impl ResolverConfig {
         config.name_servers.push(rc.name_server_config.to_proto());
 
         config
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hickory_resolver::config::ResolveHosts;
+
+    // mhost reports what a nameserver answers; the local hosts file must never stand in for it.
+    #[test]
+    fn resolver_opts_never_consult_hosts_file() {
+        let opts = ResolverOpts::default().to_proto();
+        assert!(matches!(opts.use_hosts_file, ResolveHosts::Never));
     }
 }
