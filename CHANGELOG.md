@@ -7,7 +7,7 @@
 - Move to hickory 0.26.3 — clears RUSTSEC-2026-0118 (NSEC3 closest-encloser validation loop) and RUSTSEC-2026-0119 (O(n²) name compression). reqwest moves to 0.13.4+, so no hickory 0.25 copy remains
 - Update rustls (RUSTSEC-2026-0285), h2 (RUSTSEC-2026-0258), quinn-proto (RUSTSEC-2026-0185), crossbeam-epoch (RUSTSEC-2026-0204), anyhow (RUSTSEC-2026-0190) and ratatui/lru (RUSTSEC-2026-0253)
 - The resolver no longer answers from the local hosts file; it reported the host's own `/etc/hosts` entries as the queried nameserver's answer
-- New opt-in `ResolverGroupBuilder::deny_non_global(true)` refuses nameservers that are not public targets (loopback, private, link-local incl. cloud metadata, CGNAT, ULA, v4-mapped/NAT64 forms of those, port 0) before any query; `NameServerConfig::is_global()` exposes the same check
+- New opt-in `ResolverGroupBuilder::deny_non_global(true)` refuses nameservers that are not public targets (loopback, private, link-local incl. cloud metadata, CGNAT, ULA, every IPv6 range the IANA special-purpose registry marks as not globally reachable, v4-mapped/NAT64/6to4 forms of non-public IPv4, port 0) before any query; `NameServerConfig::is_global()` exposes the same check
 - `zone::parse_str` refuses `$INCLUDE`, which read arbitrary files of the host; `zone::parse` still follows includes relative to the zone file
 - HTTP bodies (whois, public-dns list, crt.sh) are capped while reading; chunked responses were read into memory in full before the size check
 - A concurrency limit of 0 no longer hangs a lookup forever
