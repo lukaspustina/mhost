@@ -124,3 +124,41 @@ MINOR | src/services/http.rs:28 | `read_text_capped` still has no test that fail
 ### Summary
 
 Before refutation 0/2/2, after refutation 0/2/2. verified 2, held 2. No principles declared: no roll call. All four findings fixed after 49b5998.
+
+## 2e1a6e4..2ad36c9
+
+### Reader
+
+COUNTS blockers=1 majors=0 minors=0
+LENSES Engineering, Testing
+BLOCKER | src/resolver/lookup.rs:720 | A referral (NOERROR, empty answer, NS in authority) becomes `NxDomain` with `response_code() == Some(NoError)`, which the new contract (lookup.rs:579, CHANGELOG) defines as NODATA — "the name exists", a definite answer; a consumer following the contract treats a referral as proof the name exists | Query a non-recursive server below a delegation, e.g. `mhost -s a.gtld-servers.net l nonexistent.example.com` (type A): NOERROR, no answers, `example.com. NS …` + glue. hickory 0.26 `DnsError::from_response` turns this into `NoRecordsFound(NoRecords{response_code: NoError, ns: Some(referral), soa: None})`; `select_records` keeps nothing (type A, glue names differ), so `into_lookup` returns `NxDomain{response_code: Some(NoError)}` — by the documented meaning "nonexistent.example.com exists, type A does not", which is false. `NoRecords.ns`/`.soa` would separate a referral from real NODATA but are not consulted.
+
+```quote src/resolver/lookup.rs:720
+                        response_code: Some(ResponseCode::from_proto(no_records.response_code)),
+```
+
+```quote src/resolver/lookup.rs:579
+/// `NXDomain` (the name does not exist) and `NoError` (NODATA: the name exists, the type does
+```
+
+### Refutation
+
+| Finding | Refuter | Confidence |
+|---|---|---|
+| BLOCKER lookup.rs:720 referral reported as NODATA | CONFIRMED (severity arguable: hits external library consumers, not the CLI) | 8 |
+
+### Calibration
+
+| Finding | Refuter answer | Confidence | Result | Command |
+|---|---|---|---|---|
+| lookup.rs:720 | CONFIRMED | 8 | held | `referral_is_not_a_definite_answer`: NoRecords{NoError, ns: Some, soa: None} → NxDomain{Some(NoError)}, no API to tell it from NODATA at 2ad36c9 |
+
+### Fixes
+
+| Finding | Commit |
+|---|---|
+| lookup.rs:720 | 979bee1 fix(resolver): do not take a referral for NODATA |
+
+### Summary
+
+Before refutation 1/0/0, after refutation 1/0/0. verified 1, held 1. No principles declared: no roll call. Fixed after 2ad36c9.
