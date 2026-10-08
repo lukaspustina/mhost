@@ -66,6 +66,7 @@ pub struct ResolverGroupBuilder {
     max_concurrent_servers: Option<usize>,
     limit: Option<usize>,
     mode: Option<Mode>,
+    deny_non_global: bool,
 }
 
 impl ResolverGroupBuilder {
@@ -81,6 +82,7 @@ impl ResolverGroupBuilder {
             max_concurrent_servers: None,
             limit: None,
             mode: None,
+            deny_non_global: false,
         }
     }
 
@@ -163,6 +165,14 @@ impl ResolverGroupBuilder {
 
     /// Set base per-resolver options. Individual overrides (e.g., [`timeout`](Self::timeout))
     /// are applied on top of these.
+    /// Refuses to build when any nameserver is not a public target, cf.
+    /// [`NameServerConfig::is_global`]. Off by default, so local resolvers keep working; turn it
+    /// on when the nameservers come from untrusted input.
+    pub fn deny_non_global(mut self, deny: bool) -> Self {
+        self.deny_non_global = deny;
+        self
+    }
+
     pub fn resolver_opts(mut self, opts: ResolverOpts) -> Self {
         self.resolver_opts = Some(opts);
         self
@@ -194,6 +204,14 @@ impl ResolverGroupBuilder {
                 NameServerSource::Custom(config) => {
                     configs.push(config);
                 }
+            }
+        }
+
+        if self.deny_non_global {
+            if let Some(config) = configs.iter().find(|config| !config.is_global()) {
+                return Err(crate::Error::NameServerNotGlobal {
+                    name_server: config.to_string(),
+                });
             }
         }
 
@@ -302,6 +320,47 @@ mod tests {
     async fn build_with_custom_nameserver() {
         let group = ResolverGroupBuilder::new()
             .nameserver(NameServerConfig::udp((Ipv4Addr::new(8, 8, 8, 8), 53)))
+            .build()
+            .await
+            .unwrap();
+        assert_eq!(group.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn deny_non_global_rejects_internal_nameserver() {
+        for config in [
+            NameServerConfig::udp((Ipv4Addr::new(127, 0, 0, 1), 53)),
+            NameServerConfig::tcp((Ipv4Addr::new(169, 254, 169, 254), 53)),
+            NameServerConfig::udp((Ipv4Addr::new(8, 8, 8, 8), 0)),
+        ] {
+            let result = ResolverGroupBuilder::new()
+                .nameserver(NameServerConfig::udp((Ipv4Addr::new(8, 8, 8, 8), 53)))
+                .nameserver(config.clone())
+                .deny_non_global(true)
+                .build()
+                .await;
+            assert!(
+                matches!(result, Err(crate::Error::NameServerNotGlobal { .. })),
+                "{config} must be refused"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn deny_non_global_accepts_global_nameserver() {
+        let group = ResolverGroupBuilder::new()
+            .nameserver(NameServerConfig::udp((Ipv4Addr::new(8, 8, 8, 8), 53)))
+            .deny_non_global(true)
+            .build()
+            .await
+            .unwrap();
+        assert_eq!(group.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn non_global_nameserver_allowed_by_default() {
+        let group = ResolverGroupBuilder::new()
+            .nameserver(NameServerConfig::udp((Ipv4Addr::new(127, 0, 0, 1), 53)))
             .build()
             .await
             .unwrap();

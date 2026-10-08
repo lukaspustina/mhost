@@ -17,7 +17,7 @@
 //! public DNS providers (Cloudflare, Google, Quad9, Mullvad, Wikimedia, DNS4EU).
 
 use std::fmt;
-use std::net::{IpAddr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use resolv_conf::ScopedIp;
 use serde::Serialize;
@@ -189,6 +189,15 @@ impl NameServerConfig {
         }
     }
 
+    /// Whether this nameserver is a public target: a globally routable address and a non-zero
+    /// port. False for loopback, private (RFC 1918, ULA), link-local (incl. cloud metadata at
+    /// 169.254.169.254), shared (CGNAT), documentation, benchmarking, multicast, broadcast,
+    /// reserved and unspecified addresses; v4-mapped and NAT64 addresses are judged by the
+    /// embedded IPv4 address.
+    pub fn is_global(&self) -> bool {
+        self.port() != 0 && is_global_ip(self.ip_addr())
+    }
+
     pub fn port(&self) -> u16 {
         match self {
             NameServerConfig::Udp { port, .. } | NameServerConfig::Tcp { port, .. } => *port,
@@ -335,12 +344,102 @@ impl NameServerConfig {
     }
 }
 
+fn is_global_ip(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(ip) => is_global_ipv4(ip),
+        IpAddr::V6(ip) => is_global_ipv6(ip),
+    }
+}
+
+fn is_global_ipv4(ip: Ipv4Addr) -> bool {
+    let [a, b, c, _] = ip.octets();
+    !(a == 0 // "this network", incl. unspecified
+        || ip.is_loopback()
+        || ip.is_private()
+        || ip.is_link_local()
+        || (a == 100 && (64..128).contains(&b)) // shared address space (CGNAT)
+        || (a == 192 && b == 0 && c == 0) // IETF protocol assignments
+        || ip.is_documentation()
+        || (a == 198 && (18..20).contains(&b)) // benchmarking
+        || ip.is_multicast()
+        || a >= 240) // reserved, incl. broadcast
+}
+
+fn is_global_ipv6(ip: Ipv6Addr) -> bool {
+    if let Some(v4) = ip.to_ipv4_mapped() {
+        return is_global_ipv4(v4);
+    }
+    let segments = ip.segments();
+    // NAT64 well-known prefix 64:ff9b::/96 carries the IPv4 target in its last 32 bits.
+    if segments[..6] == [0x64, 0xff9b, 0, 0, 0, 0] {
+        let [.., hi, lo] = segments;
+        return is_global_ipv4(Ipv4Addr::from((u32::from(hi) << 16) | u32::from(lo)));
+    }
+    !(ip.is_unspecified()
+        || ip.is_loopback()
+        || ip.is_multicast()
+        || (segments[0] & 0xfe00) == 0xfc00 // unique local
+        || (segments[0] & 0xffc0) == 0xfe80 // link-local
+        || (segments[0] == 0x2001 && segments[1] == 0x0db8) // documentation
+        || segments[..4] == [0x100, 0, 0, 0]) // discard-only
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
 
     use spectral::prelude::*;
     use std::net::{Ipv4Addr, Ipv6Addr};
+
+    #[test]
+    fn non_global_targets() {
+        for target in [
+            "127.0.0.1",
+            "10.1.2.3",
+            "172.16.0.1",
+            "192.168.1.1",
+            "169.254.169.254",
+            "100.64.0.1",
+            "0.0.0.0",
+            "255.255.255.255",
+            "224.0.0.251",
+            "192.0.2.1",
+            "198.18.0.1",
+            "240.0.0.1",
+            "[::1]",
+            "[::]",
+            "[fd00::1]",
+            "[fe80::1]",
+            "[ff02::fb]",
+            "[2001:db8::1]",
+            "[::ffff:7f00:1]",
+            "[::ffff:a9fe:a9fe]",
+            "[64:ff9b::a00:1]",
+        ] {
+            let config = NameServerConfig::from_str(&format!("udp:{target}:53")).unwrap();
+            assert!(!config.is_global(), "{target} must not be global");
+        }
+    }
+
+    #[test]
+    fn global_targets() {
+        for target in [
+            "8.8.8.8",
+            "1.1.1.1",
+            "[2001:4860:4860::8888]",
+            "[::ffff:808:808]",
+            "[64:ff9b::808:808]",
+        ] {
+            let config = NameServerConfig::from_str(&format!("udp:{target}:53")).unwrap();
+            assert!(config.is_global(), "{target} must be global");
+        }
+    }
+
+    #[test]
+    fn port_zero_is_not_global() {
+        let config = NameServerConfig::udp((Ipv4Addr::new(8, 8, 8, 8), 0));
+        assert!(!config.is_global());
+    }
 
     #[cfg(feature = "dot")]
     #[test]

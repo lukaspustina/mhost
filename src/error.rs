@@ -45,6 +45,8 @@ pub enum Error {
         #[from]
         source: serde_json::Error,
     },
+    #[error("nameserver {name_server} is not a public target")]
+    NameServerNotGlobal { name_server: String },
     #[error("failed to parse zone file '{path}': {reason}")]
     ZoneFileError { path: String, reason: String },
 }
