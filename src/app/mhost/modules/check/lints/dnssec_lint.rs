@@ -57,8 +57,18 @@ impl<'a> DnssecCheck<'a> {
         let results = if lookups.dnskey().is_empty() {
             check_dnssec(lookups)
         } else {
-            let rrsigs = self.dnskey_rrsigs().await?;
-            check_dnssec(&lookups.clone().merge(rrsigs))
+            match self.dnskey_rrsigs().await? {
+                Ok(rrsigs) => check_dnssec(&lookups.clone().merge(rrsigs)),
+                Err(reason) => {
+                    debug!("DNSKEY signatures not fetched: {}", reason);
+                    let mut results = check_dnssec(lookups);
+                    results.push(CheckResult::Warning(format!(
+                        "{}: cannot check DNSKEY signatures",
+                        reason
+                    )));
+                    results
+                }
+            }
         };
 
         print_check_results!(self, results, "No DNSSEC records found.");
@@ -68,7 +78,8 @@ impl<'a> DnssecCheck<'a> {
 
     /// Fetches the DNSKEY RRSIGs from the zone's own nameservers with DO set. Ordinary lookups
     /// cannot see them: the stub resolver strips RRSIGs unless the query sets DO.
-    async fn dnskey_rrsigs(&self) -> PartialResult<Lookups> {
+    /// `Err` carries the reason when the zone's nameservers have no public address to ask.
+    async fn dnskey_rrsigs(&self) -> PartialResult<std::result::Result<Lookups, String>> {
         let ns_names: Vec<Name> = self
             .check_results
             .lookups
@@ -78,13 +89,15 @@ impl<'a> DnssecCheck<'a> {
             .into_iter()
             .collect();
         let Ok(query) = MultiQuery::new(ns_names, vec![RecordType::A, RecordType::AAAA]) else {
-            return Ok(Lookups::empty());
+            return Ok(Ok(Lookups::empty()));
         };
         let ns_lookups: Lookups =
             intermediate_lookups!(self, query, "Resolving NS IP addresses for DNSKEY signatures.");
 
-        // Non-public addresses are reported by probe_targets and simply not asked here.
-        let targets = super::probe_targets(&ns_lookups, &self.env.console).unwrap_or_default();
+        let targets = match super::probe_targets(&ns_lookups, &self.env.console) {
+            Ok(targets) => targets,
+            Err(reason) => return Ok(Err(reason)),
+        };
         for ip in targets.into_iter().take(3) {
             let server = SocketAddr::new(ip, 53);
             match raw::raw_dnssec_query(
@@ -110,13 +123,17 @@ impl<'a> DnssecCheck<'a> {
                     info!("Received {} DNSKEY signatures from {}", records.len(), server);
                     let query = UniQuery::new(self.domain_name.clone(), RecordType::RRSIG)?;
                     let name_server = Arc::new(NameServerConfig::udp(server));
-                    return Ok(Lookups::new(vec![Lookup::from_records(query, name_server, records)]));
+                    return Ok(Ok(Lookups::new(vec![Lookup::from_records(
+                        query,
+                        name_server,
+                        records,
+                    )])));
                 }
                 Err(e) => debug!("DNSKEY query with DO failed against {}: {}", server, e),
             }
         }
 
-        Ok(Lookups::empty())
+        Ok(Ok(Lookups::empty()))
     }
 }
 
