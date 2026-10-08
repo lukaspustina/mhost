@@ -173,5 +173,6 @@ Releases are automated via GitHub Actions (`.github/workflows/release.yml`):
 2. Commit and tag: `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
 3. Push: `git push origin master --tags`
 4. Workflow builds .deb, .rpm, musl binary; creates GitHub Release; pushes Docker image (`lukaspustina/mhost`); dispatches to `lukaspustina/homebrew-mhost` tap.
+5. **crates.io is manual**: `cargo publish` from the tagged commit — no workflow does it. 0.11.4 was never published because of this; library consumers (netray) resolve from crates.io, not from the tag.
 
 **Secrets required**: `DOCKER_HUB_USERNAME`, `DOCKER_HUB_TOKEN`, `HOMEBREW_TAP_TOKEN` (fine-grained PAT with Contents write on tap repo).
