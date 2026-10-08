@@ -1,7 +1,9 @@
 use super::CheckResult;
 use crate::resolver::lookup::Uniquify;
 use crate::resolver::Lookups;
-use crate::resources::{Record, RecordType};
+use crate::resources::{RData, Record, RecordType};
+use crate::Name;
+use std::collections::hash_map::{Entry, HashMap};
 
 const MIN_TTL: u32 = 60;
 const MAX_NS_MX_TTL: u32 = 604_800; // 1 week
@@ -9,12 +11,36 @@ const MAX_SOA_MINIMUM: u32 = 86_400; // 1 day
 
 /// Run TTL sanity lint checks against the given lookups.
 pub fn check_ttl(lookups: &Lookups) -> Vec<CheckResult> {
-    let records: Vec<&Record> = lookups.records();
+    let records = max_ttl_per_record(&lookups.records());
     let mut results = Vec::new();
     check_low_ttls(&records, &mut results);
     check_high_ns_mx_ttls(&records, &mut results);
     check_soa_minimum_ttl(lookups, &mut results);
     results
+}
+
+/// One copy per record — same name, type and data — carrying the highest TTL seen, in first-seen
+/// order. Recursive resolvers return cached copies whose TTL counts down, and every queried
+/// resolver answers separately; the highest TTL is the closest to the authoritative one, and
+/// judging every copy would list a record once per resolver and flip between runs.
+fn max_ttl_per_record<'a>(records: &[&'a Record]) -> Vec<&'a Record> {
+    let mut index: HashMap<(&Name, RecordType, &RData), usize> = HashMap::new();
+    let mut unique: Vec<&Record> = Vec::new();
+    for record in records {
+        match index.entry((record.name(), record.record_type(), record.data())) {
+            Entry::Occupied(entry) => {
+                let kept = &mut unique[*entry.get()];
+                if record.ttl() > kept.ttl() {
+                    *kept = record;
+                }
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(unique.len());
+                unique.push(record);
+            }
+        }
+    }
+    unique
 }
 
 fn check_low_ttls(records: &[&Record], results: &mut Vec<CheckResult>) {
@@ -94,6 +120,49 @@ mod tests {
         check_high_ns_mx_ttls(&records, &mut results);
         assert_eq!(results.len(), 1);
         assert!(matches!(&results[0], CheckResult::Ok(_)));
+    }
+
+    fn a_record(ttl: u32) -> Record {
+        Record::new_for_test(
+            crate::Name::from_ascii("example.com.").unwrap(),
+            RecordType::A,
+            ttl,
+            crate::resources::RData::A(std::net::Ipv4Addr::new(192, 0, 2, 1)),
+        )
+    }
+
+    // A resolver's cached copy counts its TTL down; another resolver may hold a fresh one.
+    #[test]
+    fn low_ttl_judged_by_highest_copy() {
+        let (cached, fresh) = (a_record(34), a_record(3600));
+        let records = max_ttl_per_record(&[&cached, &fresh]);
+        let mut results = Vec::new();
+        check_low_ttls(&records, &mut results);
+        assert!(matches!(&results[0], CheckResult::Ok(_)), "{results:?}");
+    }
+
+    #[test]
+    fn low_ttl_record_listed_once() {
+        let (first, second) = (a_record(34), a_record(34));
+        let records = max_ttl_per_record(&[&first, &second]);
+        let mut results = Vec::new();
+        check_low_ttls(&records, &mut results);
+        let CheckResult::Warning(msg) = &results[0] else {
+            panic!("expected a warning, got {results:?}");
+        };
+        assert_eq!(msg.matches("example.com.").count(), 1, "{msg}");
+    }
+
+    #[test]
+    fn distinct_records_are_kept_apart() {
+        let other = Record::new_for_test(
+            crate::Name::from_ascii("example.com.").unwrap(),
+            RecordType::A,
+            34,
+            crate::resources::RData::A(std::net::Ipv4Addr::new(192, 0, 2, 2)),
+        );
+        let first = a_record(3600);
+        assert_eq!(max_ttl_per_record(&[&first, &other]).len(), 2);
     }
 
     #[test]
