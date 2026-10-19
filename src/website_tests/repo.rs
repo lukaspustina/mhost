@@ -112,7 +112,8 @@ fn cargo_include_list_is_anchored_at_the_crate_root() {
             "/LICENSE-MIT",
             "/CHANGELOG.md",
             "**/*.rs",
-            "/Cargo.toml"
+            "/Cargo.toml",
+            "!/src/website_tests/*.rs"
         ]
     );
 }

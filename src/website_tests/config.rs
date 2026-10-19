@@ -44,3 +44,12 @@ fn site_url_is_unchanged() {
         "url must stay https://mhost.pustina.de"
     );
 }
+
+// Docusaurus 3.10 renders an empty blog list page even without posts; the site never had a blog.
+#[test]
+fn blog_plugin_is_disabled() {
+    assert!(
+        normalized_config().contains("blog:false,"),
+        "the preset must set blog: false"
+    );
+}

@@ -69,8 +69,9 @@ serves that build, the repository `lukaspustina/mhost.pustina.de` is archived wi
    script; `website/package-lock.json` is regenerated and committed.
 3. `website/.nvmrc` contains `24`.
 4. `website/docusaurus.config.js` sets `projectName: 'mhost'` and
-   `editUrl: 'https://github.com/lukaspustina/mhost/edit/master/website/'`; `url` stays
-   `https://mhost.pustina.de`.
+   `editUrl: 'https://github.com/lukaspustina/mhost/edit/master/website/'`, and disables the
+   classic preset's blog (`blog: false`) so the routes stay the four doc pages and the home page;
+   `url` stays `https://mhost.pustina.de`.
 5. `website/README.md` names Docusaurus 3, the `just site-*` recipes and the deploy workflow, and
    contains no manual deploy instruction (`npm run deploy`, `USE_SSH`, `gh-pages`).
 6. `.gitignore` ignores `website/node_modules/`, `website/build/` and `website/.docusaurus/`.
@@ -85,9 +86,12 @@ serves that build, the repository `lukaspustina/mhost.pustina.de` is archived wi
 10. `.github/workflows/ci.yml` ignores pushes and pull requests that change only `website/**`
     (`paths-ignore`); a change touching any other path still runs it, and its tag filter stays.
 11. `release.yml` is unchanged; `Cargo.toml` `include` anchors every entry but `**/*.rs` at the
-    crate root (`/README.md`, `/LICENSE-APACHE`, `/LICENSE-MIT`, `/CHANGELOG.md`, `/Cargo.toml`), and
-    `cargo package --list --allow-dirty` lists no path under `website/`, with or without
-    `website/node_modules` present.
+    crate root (`/README.md`, `/LICENSE-APACHE`, `/LICENSE-MIT`, `/CHANGELOG.md`, `/Cargo.toml`) and
+    excludes `!/src/website_tests/*.rs`; `cargo package --list --allow-dirty` lists the same files
+    as on the merge base, so nothing under `website/` or `src/website_tests/`, with or without
+    `website/node_modules` present. The site checks compile only in a repository checkout
+    (`build.rs` sets `cfg(mhost_repo)` when a `justfile` sits beside `Cargo.toml`), so the
+    published crate's tests still build.
 12. With approval, `lukaspustina/mhost.pustina.de` gets one README commit pointing to
     `https://github.com/lukaspustina/mhost/tree/master/website`, pushed to `master`.
 13. With approval, Pages of `lukaspustina/mhost.pustina.de` is switched off before Pages of
@@ -181,6 +185,11 @@ GIVEN the cutover WHEN `dig +short CNAME mhost.pustina.de` runs THEN it answers 
 - Anchoring `Cargo.toml` `include` over keeping it unchanged or renaming `website/README.md`: crates.io
   is published from a local checkout, where `website/node_modules` would enter the crate
   (operator, 2026-10-19; amends Requirement 11).
+- `blog: false` over keeping the copied preset untouched: Docusaurus 3.10 renders an empty `/blog`
+  page the old site never had (Phase 1 review, 2026-10-19; amends Requirement 4).
+- Site checks as library tests excluded from the crate and compiled under `cfg(mhost_repo)` over
+  shipping them: the published crate has no `website/`, so they would fail there (Phase 1 review,
+  2026-10-19; amends Requirement 11).
 - `site-install`/`site-build`/`site-serve` over `website-*`: short, grouped in `just --list`, no
   clash with the existing `docs` recipe (operator, 2026-10-19).
 
