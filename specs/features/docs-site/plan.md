@@ -17,3 +17,14 @@ G1 first: every other group needs `website/`. G2–G5 touch one file each. G6 an
 - **G5** — `justfile`: `# --- website ---` section before `# --- project-specific ---` with `site-install` (`npm ci` in `website/`), `site-build`, `site-serve`; no existing recipe changes.
 - **G6** — no change; `cargo package --list --allow-dirty | grep '^website/'` empty.
 - **G7** — no change; `just site-install && just site-build` exits 0, `website/build/index.html` exists, `git status --porcelain` clean under the ignored dirs.
+
+## Phase 2 — Deploy workflow
+
+### Groups
+
+G1: C1, C3, C4, C5 · G2: C2, C6, C7 · C8 is a guard, no change. G1 and G2 share no file.
+
+### Plan
+
+- **G1** — `.github/workflows/website.yml` (new): `on: push: tags: ['v*']` and `workflow_dispatch`; `permissions` `contents: read`, `pages: write`, `id-token: write`; `concurrency: { group: pages, cancel-in-progress: false }`; job `build`: checkout, `actions/setup-node` with `node-version-file: website/.nvmrc` and npm cache on `website/package-lock.json`, `npm ci` and `npm run build` with `working-directory: website`, `actions/upload-pages-artifact` with `path: website/build`; job `deploy` (needs build, environment `github-pages`): `actions/deploy-pages`. Style of the existing workflows (yamllint header, `---`).
+- **G2** — `.github/workflows/ci.yml`: `paths-ignore: ['website/**']` under `push` and `pull_request`; branches and the `!v*` tag filter unchanged.

@@ -8,9 +8,13 @@ on:
       - 'master'
     tags:
       - '!v*'
+    paths-ignore:
+      - 'website/**'
   pull_request:
     branches:
       - 'master'
+    paths-ignore:
+      - 'website/**'
 
 jobs:
   check-linux:

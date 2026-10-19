@@ -68,3 +68,40 @@ package list identical to master
 ```
 
 `just site-install` needs `npm_config_cache` pointed at a writable directory inside this sandbox (`~/.npm` holds root-owned files); outside it the recipe runs as written.
+
+## Phase 2 — Deploy workflow
+
+### Criteria
+
+| id | criterion | status | test file |
+|---|---|---|---|
+| C1 | R9: website.yml on v* tags and workflow_dispatch only; setup-node from website/.nvmrc, npm ci and build in website/, upload-pages-artifact of website/build, deploy-pages; permissions contents read, pages write, id-token write; non-cancelling concurrency | green | src/website_tests/workflows.rs |
+| C2 | R10: ci.yml ignores pushes and pull requests that change only website/**; other paths still run it; tag filter stays | green | src/website_tests/workflows.rs |
+| C3 | S: website.yml `on:` is exactly push.tags ['v*'] and workflow_dispatch; no branches, no pull_request | green | src/website_tests/workflows.rs |
+| C4 | S: setup-node reads website/.nvmrc; uploaded path is website/build | green | src/website_tests/workflows.rs |
+| C5 | S: website.yml concurrency has cancel-in-progress false | green | src/website_tests/workflows.rs |
+| C6 | S: ci.yml push and pull_request both carry paths-ignore ['website/**']; push tag filter !v* still present | green | src/website_tests/workflows.rs |
+| C7 | S: a commit touching website/ and src/ still runs ci.yml — asserted as paths-ignore holding only website/**, which GitHub applies only when every changed path matches | green | src/website_tests/workflows.rs |
+| C8 | S: release.yml unchanged against the merge base — a guard, true before the phase | already_implemented | src/website_tests/workflows.rs |
+
+### Runs
+
+| group | coder runs | green by | tokens | seconds |
+|---|---|---|---|---|
+| G1 | 1 | sonnet | 30489 | 21 |
+| G2 | 1 | sonnet | 25714 | 13 |
+
+The planner was not spawned: two groups, two files, no shared code. G1 picked action majors from memory, one behind each; the orchestrator raised them to the current tags read with `git ls-remote` (checkout v7, setup-node v7, configure-pages v6, upload-pages-artifact v5, deploy-pages v5).
+
+### Review
+
+| class | finding | outcome |
+|---|---|---|
+| AMENDMENT | Phase 3 never adds a `v*` tag rule to the `github-pages` environment; its default rule admits only the default branch, so `deploy` is rejected on every release tag; no Phase 3 scenario covers the tag path. affected_phase: 3, repaired_in_phase: no | halts the block with `amendment-forward` |
+| DEFERRED | A `v*` tag pushed after Phases 1–2 reach master but before Phase 3 enables Pages fails at Configure Pages (Pages answers 404) | cutover ordering: Phase 3 runs before the next release |
+| DEFERRED | `paths-ignore` lets a website-only push or PR skip CI, while CI's `cargo test --lib` compiles the `website_tests`; a website-only breakage surfaces on the next push touching `src/` | the local gate still runs them |
+| NIT | With a path filter, a push that changes no files no longer starts CI | listed |
+
+### Behavioural verification
+
+skipped: a workflow runs only on GitHub; nothing here executes it (no `actionlint`, no `act`). The structure is asserted by `website_tests::workflows`, the action tags were read with `git ls-remote`, and the reviewer ran `npm ci --dry-run` offline against the lockfile.
