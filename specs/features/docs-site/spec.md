@@ -96,7 +96,8 @@ serves that build, the repository `lukaspustina/mhost.pustina.de` is archived wi
     `https://github.com/lukaspustina/mhost/tree/master/website`, pushed to `master`.
 13. With approval, Pages of `lukaspustina/mhost.pustina.de` is switched off before Pages of
     `lukaspustina/mhost` is set to `build_type: workflow` with custom domain `mhost.pustina.de` and
-    HTTPS enforced.
+    HTTPS enforced, and its `github-pages` environment gets a deployment policy for tags `v*`
+    (`type: tag`) beside the default-branch rule.
 14. After a `workflow_dispatch` run of `website.yml` on `master`, `https://mhost.pustina.de/` and
     `https://mhost.pustina.de/docs/installation/` return 200, and the docs page links its edit URL into
     `lukaspustina/mhost/edit/master/website/`.
@@ -156,6 +157,7 @@ Pages off, new Pages on (`build_type: workflow`, custom domain, HTTPS), `workflo
 GIVEN the old repository WHEN `gh api repos/lukaspustina/mhost.pustina.de/readme` is read THEN its content links `lukaspustina/mhost/tree/master/website`.
 GIVEN the cutover WHEN `gh api repos/lukaspustina/mhost.pustina.de/pages` runs THEN it answers 404.
 GIVEN the cutover WHEN `gh api repos/lukaspustina/mhost/pages` runs THEN `build_type` is `workflow`, `cname` is `mhost.pustina.de` and `https_enforced` is `true`.
+GIVEN the cutover WHEN `gh api repos/lukaspustina/mhost/environments/github-pages/deployment-branch-policies` runs THEN it lists a policy `v*` of type `tag`.
 GIVEN a successful dispatch run WHEN `curl -sI https://mhost.pustina.de/` and `/docs/installation/` run THEN both return 200, and the docs page contains `lukaspustina/mhost/edit/master/website/`.
 GIVEN the live check has not passed WHEN the archive step is reached THEN the repository is not archived.
 GIVEN the live check passed WHEN `gh api repos/lukaspustina/mhost.pustina.de` runs THEN `archived` is `true`.
@@ -190,6 +192,11 @@ GIVEN the cutover WHEN `dig +short CNAME mhost.pustina.de` runs THEN it answers 
 - Site checks as library tests excluded from the crate and compiled under `cfg(mhost_repo)` over
   shipping them: the published crate has no `website/`, so they would fail there (Phase 1 review,
   2026-10-19; amends Requirement 11).
+- A `v*` tag deployment policy on `github-pages` over leaving Phase 3 unchanged: GitHub creates the
+  environment with a default-branch rule only, so `deploy-pages` would reject every release tag
+  (Phase 2 review; operator, 2026-10-19; amends Requirement 13).
+- Every Phase 3 step against GitHub run by Claude, each behind its own approval prompt, over the
+  operator running prepared commands (operator, 2026-10-19).
 - `site-install`/`site-build`/`site-serve` over `website-*`: short, grouped in `just --list`, no
   clash with the existing `docs` recipe (operator, 2026-10-19).
 
