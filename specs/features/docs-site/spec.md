@@ -1,6 +1,6 @@
 # Spec: docs-site
 
-Status: Draft
+Status: Ready for Implementation
 Created: 2026-10-19
 
 ## Goal
