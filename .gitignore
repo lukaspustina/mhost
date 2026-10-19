@@ -4,3 +4,8 @@
 
 # cargo mutants writes its report here; adlc mutate runs it.
 mutants.out*/
+
+# The documentation site (website/) installs and builds here.
+website/node_modules/
+website/build/
+website/.docusaurus/

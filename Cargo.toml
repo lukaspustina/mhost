@@ -11,12 +11,13 @@ license = "MIT OR Apache-2.0"
 categories = ["command-line-utilities", "network-programming"]
 keywords = ["dns", "dns-lookup", "dig", "networking", "dns-client"]
 include = [
-  "README.md",
-  "LICENSE-APACHE",
-  "LICENSE-MIT",
-  "CHANGELOG.md",
+  "/README.md",
+  "/LICENSE-APACHE",
+  "/LICENSE-MIT",
+  "/CHANGELOG.md",
   "**/*.rs",
-  "Cargo.toml",
+  "/Cargo.toml",
+  "!/src/website_tests/*.rs",
 ]
 build = "build.rs"
 

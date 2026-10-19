@@ -123,6 +123,20 @@ deny:
 semver-check:
     {{cargo}} semver-checks check-release
 
+# --- website -----------------------------------------------------------------
+
+# Install the documentation site's dependencies from its lockfile.
+site-install:
+    cd website && npm ci
+
+# Build the documentation site into website/build.
+site-build:
+    cd website && npm run build
+
+# Serve the built documentation site locally.
+site-serve:
+    cd website && npm run serve
+
 # --- project-specific --------------------------------------------------------
 
 # Fuzz tests. FUZZ_TIME=seconds, default 600.

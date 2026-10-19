@@ -1,0 +1,194 @@
+/**
+ * CSS files with the .module.css suffix will be treated as CSS modules
+ * and scoped locally.
+ */
+
+/* ---------- Hero ---------- */
+.heroBanner {
+  padding: 5rem 0 4rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    135deg,
+    var(--hero-gradient-start) 0%,
+    var(--hero-gradient-end) 100%
+  );
+  color: #f1f5f9;
+}
+
+.heroTitle {
+  font-size: 3.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  animation: fadeInUp 0.6s ease-out both;
+}
+
+.heroSubtitle {
+  font-size: 1.25rem;
+  opacity: 0.85;
+  max-width: 600px;
+  margin: 0 auto 2rem;
+  animation: fadeInUp 0.6s ease-out 0.1s both;
+}
+
+@media screen and (max-width: 966px) {
+  .heroBanner {
+    padding: 3rem 1.5rem 2.5rem;
+  }
+  .heroTitle {
+    font-size: 2.4rem;
+  }
+}
+
+/* ---------- CTA Buttons ---------- */
+.buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  animation: fadeInUp 0.6s ease-out 0.2s both;
+}
+
+.ctaPrimary {
+  background: var(--accent-orange) !important;
+  border-color: var(--accent-orange) !important;
+  color: #fff !important;
+  font-weight: 600;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.ctaPrimary:hover {
+  background: var(--accent-orange-hover) !important;
+  border-color: var(--accent-orange-hover) !important;
+  transform: translateY(-1px);
+  color: #fff !important;
+}
+
+.ctaSecondary {
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  color: #f1f5f9 !important;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.ctaSecondary:hover {
+  border-color: rgba(255, 255, 255, 0.8) !important;
+  color: #fff !important;
+  transform: translateY(-1px);
+}
+
+/* ---------- Terminal frame ---------- */
+.terminalFrame {
+  max-width: 680px;
+  margin: 3rem auto 0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: fadeInUp 0.6s ease-out 0.35s both;
+}
+
+.terminalBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: var(--terminal-bar);
+}
+
+.terminalDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.terminalDotRed {
+  composes: terminalDot;
+  background: #ef4444;
+}
+
+.terminalDotYellow {
+  composes: terminalDot;
+  background: #eab308;
+}
+
+.terminalDotGreen {
+  composes: terminalDot;
+  background: #22c55e;
+}
+
+.terminalTitle {
+  flex: 1;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  font-family: ui-monospace, monospace;
+  margin-right: 42px; /* offset for the 3 dots so title is visually centered */
+}
+
+.terminalBody {
+  background: var(--terminal-body-bg);
+  padding: 0;
+  line-height: 0;
+}
+
+.terminalBody img {
+  width: 100%;
+  display: block;
+}
+
+/* ---------- Features ---------- */
+.features {
+  display: flex;
+  align-items: center;
+  padding: 3rem 0;
+  width: 100%;
+}
+
+.featureCard {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 2rem 1.5rem;
+  height: 100%;
+  box-shadow: 0 2px 8px var(--card-shadow);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  animation: fadeInUp 0.5s ease-out both;
+}
+
+.featureCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px var(--card-shadow);
+}
+
+/* staggered animation delays */
+.featureDelay0 { animation-delay: 0.1s; }
+.featureDelay1 { animation-delay: 0.2s; }
+.featureDelay2 { animation-delay: 0.3s; }
+.featureDelay3 { animation-delay: 0.4s; }
+.featureDelay4 { animation-delay: 0.5s; }
+.featureDelay5 { animation-delay: 0.6s; }
+
+.featureImage {
+  height: 80px;
+  width: 80px;
+  /* CSS filter to shift the slate #607088 icons toward teal */
+  filter: sepia(0.3) hue-rotate(130deg) saturate(1.4) brightness(0.95);
+  transition: transform 0.25s ease;
+}
+
+.featureCard:hover .featureImage {
+  transform: scale(1.1);
+}
+
+.featureTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 1rem 0 0.5rem;
+}
+
+.featureDescription {
+  font-size: 0.95rem;
+  color: var(--ifm-color-emphasis-700);
+  line-height: 1.6;
+}

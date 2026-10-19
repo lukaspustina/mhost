@@ -96,7 +96,7 @@ pub mod services;
 pub mod statistics;
 pub mod system_config;
 pub mod utils;
-#[cfg(all(test, feature = "app-lib"))]
+#[cfg(all(test, feature = "app-lib", mhost_repo))]
 mod website_tests;
 
 pub use error::Error;

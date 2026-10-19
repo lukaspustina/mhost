@@ -25,6 +25,13 @@ fn main() {
     };
     fs::create_dir_all(&output_dir).expect("failed to create output directory");
 
+    // The website checks (src/website_tests/) read the repository around the crate; a packaged
+    // crate has neither them nor the justfile, so they compile only in a repository checkout.
+    println!("cargo::rustc-check-cfg=cfg(mhost_repo)");
+    if fs::metadata("justfile").is_ok() {
+        println!("cargo::rustc-cfg=mhost_repo");
+    }
+
     // Create Shell completions
     let mut cmd = cli_parser::create_parser();
     clap_complete::generate_to(Shell::Bash, &mut cmd, "mhost", &output_dir)
