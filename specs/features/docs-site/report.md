@@ -13,16 +13,16 @@
 | C5 | R5: website/README.md names Docusaurus 3, just site-* recipes and the deploy workflow; no manual deploy instruction | green | src/website_tests/readme.rs |
 | C6 | R6: .gitignore ignores website/node_modules/, build/, .docusaurus/ | green | src/website_tests/repo.rs |
 | C7 | R7: justfile has site-install, site-build, site-serve; adlc-verify unchanged | green | src/website_tests/repo.rs |
-| C8 | R8: just site-install && just site-build exits 0 | test-unwritable (npm ci needs the network, the gate runs offline; checked under Behavioural verification) | — |
+| C8 | R8: just site-install && just site-build exits 0 — npm ci needs the network and the gate runs offline; checked under Behavioural verification | test-unwritable | — |
 | C9 | R11 (amended): release.yml unchanged; Cargo.toml include anchored; cargo package lists nothing under website/ | green | src/website_tests/repo.rs |
 | C10 | S: docs/ of the copy equals the source's docs/ | green | src/website_tests/copy.rs |
 | C11 | S: website/Makefile does not exist | green | src/website_tests/copy.rs |
 | C12 | S: no dependency version starts with ^ or ~; Docusaurus 3.x, React 19.x | green | src/website_tests/package.rs |
 | C13 | S: no deploy script; build, start, serve remain | green | src/website_tests/package.rs |
 | C14 | S: README has no npm run deploy, USE_SSH, gh-pages | green | src/website_tests/readme.rs |
-| C15 | S: clean checkout, site-install + site-build → exit 0, website/build/index.html exists | test-unwritable (as C8) | — |
+| C15 | S: clean checkout, site-install + site-build → exit 0, website/build/index.html exists — as C8 | test-unwritable | — |
 | C16 | S: after a build, git status lists nothing under the ignored website dirs | green | src/website_tests/repo.rs |
-| C17 | S: just --show adlc-verify equals the recipe before this block | already_implemented (guard) | src/website_tests/repo.rs |
+| C17 | S: just --show adlc-verify equals the recipe before this block — a guard, true before the phase | already_implemented | src/website_tests/repo.rs |
 | C18 | S: cargo package --list has no path under website/ | green | src/website_tests/repo.rs |
 
 Test layout: the checks are library tests under `src/website_tests/` (gated on `app-lib`), since `just adlc-verify` runs only `cargo test --lib` and `--doc`. One writer per test file rather than per criterion, so parallel writers never shared a file.
