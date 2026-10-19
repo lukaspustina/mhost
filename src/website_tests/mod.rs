@@ -6,3 +6,4 @@ mod copy;
 mod package;
 mod readme;
 mod repo;
+mod workflows;
