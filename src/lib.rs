@@ -96,6 +96,8 @@ pub mod services;
 pub mod statistics;
 pub mod system_config;
 pub mod utils;
+#[cfg(all(test, feature = "app-lib"))]
+mod website_tests;
 
 pub use error::Error;
 pub use ipnetwork::IpNetwork;
