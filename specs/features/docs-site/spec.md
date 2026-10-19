@@ -36,7 +36,9 @@ serves that build, the repository `lukaspustina/mhost.pustina.de` is archived wi
 - `docs/` of this repository holds ADRs, `records.md`, `verify.sdd.md` — the site does not go there
   (intent).
 - `Cargo.toml` `include` is a whitelist (`README.md`, licences, `CHANGELOG.md`, `**/*.rs`,
-  `Cargo.toml`): `website/` stays out of the crate as long as it holds no `.rs` file.
+  `Cargo.toml`) read with gitignore semantics: an unanchored `README.md` matches at any depth, so
+  `cargo package` took `website/README.md` and, after a local `npm ci`, 1127 files from
+  `website/node_modules` (found while building Phase 1).
 - `.github/workflows/ci.yml` runs on push to `master` (tags `!v*`) and on pull requests to `master`;
   `.github/workflows/release.yml` runs on tags `v*`. No workflow touches Pages today.
 - `adlc.toml` `[exceptions] no-ci`: the gate is `just adlc-verify` locally; the Pages workflow is a
@@ -82,8 +84,10 @@ serves that build, the repository `lukaspustina/mhost.pustina.de` is archived wi
    `id-token: write` and a `concurrency` group that does not cancel a running deploy.
 10. `.github/workflows/ci.yml` ignores pushes and pull requests that change only `website/**`
     (`paths-ignore`); a change touching any other path still runs it, and its tag filter stays.
-11. `release.yml` and `Cargo.toml` are unchanged; `cargo package --list --allow-dirty` lists no
-    path under `website/`.
+11. `release.yml` is unchanged; `Cargo.toml` `include` anchors every entry but `**/*.rs` at the
+    crate root (`/README.md`, `/LICENSE-APACHE`, `/LICENSE-MIT`, `/CHANGELOG.md`, `/Cargo.toml`), and
+    `cargo package --list --allow-dirty` lists no path under `website/`, with or without
+    `website/node_modules` present.
 12. With approval, `lukaspustina/mhost.pustina.de` gets one README commit pointing to
     `https://github.com/lukaspustina/mhost/tree/master/website`, pushed to `master`.
 13. With approval, Pages of `lukaspustina/mhost.pustina.de` is switched off before Pages of
@@ -174,6 +178,9 @@ GIVEN the cutover WHEN `dig +short CNAME mhost.pustina.de` runs THEN it answers 
 - The project's own domains (`mhost.pustina.de`, `github.com/lukaspustina/*`) exempt from
   `CLAUDE.md:12` over rewriting them: they are configuration and identity, not example data; new
   example text still uses example.com (operator, 2026-10-19).
+- Anchoring `Cargo.toml` `include` over keeping it unchanged or renaming `website/README.md`: crates.io
+  is published from a local checkout, where `website/node_modules` would enter the crate
+  (operator, 2026-10-19; amends Requirement 11).
 - `site-install`/`site-build`/`site-serve` over `website-*`: short, grouped in `just --list`, no
   clash with the existing `docs` recipe (operator, 2026-10-19).
 

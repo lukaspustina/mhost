@@ -93,7 +93,9 @@ fn justfile_gate_recipes_are_unchanged() {
 }
 
 #[test]
-fn cargo_include_list_is_unchanged() {
+// Cargo reads `include` like .gitignore: an unanchored `README.md` also matches
+// `website/README.md` and every README, LICENSE and CHANGELOG in `website/node_modules`.
+fn cargo_include_list_is_anchored_at_the_crate_root() {
     let cargo = read("Cargo.toml");
     let start = cargo.find("include = [").expect("Cargo.toml has no include list") + "include = [".len();
     let end = start + cargo[start..].find(']').expect("include list not closed");
@@ -105,12 +107,12 @@ fn cargo_include_list_is_unchanged() {
     assert_eq!(
         items,
         [
-            "README.md",
-            "LICENSE-APACHE",
-            "LICENSE-MIT",
-            "CHANGELOG.md",
+            "/README.md",
+            "/LICENSE-APACHE",
+            "/LICENSE-MIT",
+            "/CHANGELOG.md",
             "**/*.rs",
-            "Cargo.toml"
+            "/Cargo.toml"
         ]
     );
 }
