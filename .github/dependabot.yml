@@ -11,3 +11,8 @@ updates:
     directory: "/fuzz" # Location of package manifests
     schedule:
       interval: "daily"
+
+  - package-ecosystem: "npm" # The documentation site; its fixes arrive with Docusaurus releases
+    directory: "/website"
+    schedule:
+      interval: "weekly"
