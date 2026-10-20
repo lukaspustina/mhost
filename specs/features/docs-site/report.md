@@ -166,3 +166,10 @@ $ dig +short CNAME mhost.pustina.de @1.1.1.1   (before and after)
 ```
 
 The tag path (a `v*` push deploying) is configured but not yet exercised; the next release is its first run.
+
+### Checks to build
+
+- `src/website_tests/package.rs`: `dependency_versions_are_exact_pins` accepts `*` and `3.x`; require an exact `MAJOR.MINOR.PATCH` per dependency.
+- `src/website_tests/workflows.rs`: tie `working-directory: website` to the `npm ci` and `npm run build` steps instead of any line in the file.
+- adlc (`internal/next/spec.go`): a criterion status cell outside the closed set (`test-unwritable (…)`) silently leaves the phase open; `adlc next` should name the row.
+- The `website/node_modules` check is in `specs/solutions/2026-10-20-crate-include-matches-at-any-depth.md`.

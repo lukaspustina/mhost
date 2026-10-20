@@ -1,7 +1,8 @@
 # Spec: docs-site
 
-Status: Ready for Implementation
+Status: Done
 Created: 2026-10-19
+Finished: 2026-10-20
 
 ## Goal
 
@@ -47,8 +48,8 @@ serves that build, the repository `lukaspustina/mhost.pustina.de` is archived wi
   through `just` (`CLAUDE.md`, Build & Test). The copied pages keep their existing examples and new
   text follows the rule (`intent.md`, Constraints). The project's own domains are exempt (Decision
   log).
-- The old site's Pages is switched off first so the custom domain can move (`intent.md`, Proposed
-  outcome). Assumed from GitHub's Pages documentation, not verified in this sandbox: with
+- The old site's custom domain is released first so it can move (`intent.md`, Proposed outcome;
+  the intent said "Pages switched off", which GitHub refuses for legacy Pages, Requirement 13). Assumed from GitHub's Pages documentation, not verified in this sandbox: with
   `build_type: workflow` the custom domain is set in the Pages settings and a `CNAME` file in the
   artifact is not read, and a custom domain is bound to one repository at a time. `static/CNAME`
   is copied anyway (Requirement 1) and is harmless.
@@ -150,8 +151,8 @@ GIVEN `release.yml` WHEN diffed against the merge base THEN it is unchanged.
 **Requirements:** 12, 13, 14, 15, 16
 
 Operator-approved steps against GitHub, in this order: README pointer in the old repository, old
-Pages off, new Pages on (`build_type: workflow`, custom domain, HTTPS), `workflow_dispatch` of
-`website.yml`, live check, archive. Requires Phases 1–2 merged to `master` and pushed.
+custom domain removed, new Pages on (`build_type: workflow`, custom domain, HTTPS), `v*` tag rule on
+`github-pages`, `workflow_dispatch` of `website.yml`, live check, archive. Requires Phases 1–2 merged to `master` and pushed.
 
 ### Test Scenarios
 
