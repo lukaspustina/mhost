@@ -105,3 +105,24 @@ The planner was not spawned: two groups, two files, no shared code. G1 picked ac
 ### Behavioural verification
 
 skipped: a workflow runs only on GitHub; nothing here executes it (no `actionlint`, no `act`). The structure is asserted by `website_tests::workflows`, the action tags were read with `git ls-remote`, and the reviewer ran `npm ci --dry-run` offline against the lockfile.
+
+## Phase 3 — Cutover
+
+### Criteria
+
+Every criterion is a live check against GitHub, HTTPS or DNS; the gate runs offline, so none is a test in the suite. Each is checked under Behavioural verification with its command and output.
+
+| id | criterion | status | test file |
+|---|---|---|---|
+| C1 | R12: the old repository gets one README commit pointing to mhost/tree/master/website, pushed to master | open | — |
+| C2 | R13: old Pages off before new Pages on (build_type workflow, cname mhost.pustina.de, HTTPS enforced); github-pages gets a v* tag policy | open | — |
+| C3 | R14: after a workflow_dispatch run on master, / and /docs/installation/ return 200 and the docs page links mhost/edit/master/website/ | open | — |
+| C4 | R15: the old repository is archived only after R14 holds | open | — |
+| C5 | R16: the DNS CNAME of mhost.pustina.de is unchanged | open | — |
+| C6 | S: the old repository's README links lukaspustina/mhost/tree/master/website | open | — |
+| C7 | S: GET repos/lukaspustina/mhost.pustina.de/pages answers 404 | open | — |
+| C8 | S: GET repos/lukaspustina/mhost/pages has build_type workflow, cname mhost.pustina.de, https_enforced true | open | — |
+| C9 | S: github-pages deployment-branch-policies list v* of type tag | open | — |
+| C10 | S: curl / and /docs/installation/ return 200; the page contains lukaspustina/mhost/edit/master/website/ | open | — |
+| C11 | S: before the live check passes the repository is not archived; after it, archived is true | open | — |
+| C12 | S: dig +short CNAME mhost.pustina.de answers lukaspustina.github.io. | open | — |
