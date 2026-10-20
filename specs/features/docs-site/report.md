@@ -173,3 +173,7 @@ The tag path (a `v*` push deploying) is configured but not yet exercised; the ne
 - `src/website_tests/workflows.rs`: tie `working-directory: website` to the `npm ci` and `npm run build` steps instead of any line in the file.
 - adlc (`internal/next/spec.go`): a criterion status cell outside the closed set (`test-unwritable (…)`) silently leaves the phase open; `adlc next` should name the row.
 - The `website/node_modules` check is in `specs/solutions/2026-10-20-crate-include-matches-at-any-depth.md`.
+
+### After the finish (2026-10-20)
+
+The legacy copy left under lukaspustina.github.io/mhost.pustina.de rendered broken (built for `baseUrl: '/'`). With the operator's approval the old repository was unarchived, its `gh-pages` branch deleted (its Pages then answers 404), its README corrected (202fcd6) and the repository archived again. This supersedes the Out of scope line that the `gh-pages` branch stays; it held only built output, the sources are in its `master` history and in `website/`.
