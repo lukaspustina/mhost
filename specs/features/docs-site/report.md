@@ -114,15 +114,62 @@ Every criterion is a live check against GitHub, HTTPS or DNS; the gate runs offl
 
 | id | criterion | status | test file |
 |---|---|---|---|
-| C1 | R12: the old repository gets one README commit pointing to mhost/tree/master/website, pushed to master | open | — |
-| C2 | R13: old Pages off before new Pages on (build_type workflow, cname mhost.pustina.de, HTTPS enforced); github-pages gets a v* tag policy | open | — |
-| C3 | R14: after a workflow_dispatch run on master, / and /docs/installation/ return 200 and the docs page links mhost/edit/master/website/ | open | — |
-| C4 | R15: the old repository is archived only after R14 holds | open | — |
-| C5 | R16: the DNS CNAME of mhost.pustina.de is unchanged | open | — |
-| C6 | S: the old repository's README links lukaspustina/mhost/tree/master/website | open | — |
-| C7 | S: GET repos/lukaspustina/mhost.pustina.de/pages answers 404 | open | — |
-| C8 | S: GET repos/lukaspustina/mhost/pages has build_type workflow, cname mhost.pustina.de, https_enforced true | open | — |
-| C9 | S: github-pages deployment-branch-policies list v* of type tag | open | — |
-| C10 | S: curl / and /docs/installation/ return 200; the page contains lukaspustina/mhost/edit/master/website/ | open | — |
-| C11 | S: before the live check passes the repository is not archived; after it, archived is true | open | — |
-| C12 | S: dig +short CNAME mhost.pustina.de answers lukaspustina.github.io. | open | — |
+| C1 | R12: the old repository gets one README commit pointing to mhost/tree/master/website, pushed to master | test-unwritable | — |
+| C2 | R13 (amended): old custom domain removed before new Pages on (build_type workflow, cname mhost.pustina.de, HTTPS enforced); github-pages gets a v* tag policy | test-unwritable | — |
+| C3 | R14: after a workflow_dispatch run on master, / and /docs/installation/ return 200 and the docs page links mhost/edit/master/website/ | test-unwritable | — |
+| C4 | R15: the old repository is archived only after R14 holds | test-unwritable | — |
+| C5 | R16: the DNS CNAME of mhost.pustina.de is unchanged | test-unwritable | — |
+| C6 | S: the old repository's README links lukaspustina/mhost/tree/master/website | test-unwritable | — |
+| C7 | S (amended): GET repos/lukaspustina/mhost.pustina.de/pages has cname null | test-unwritable | — |
+| C8 | S: GET repos/lukaspustina/mhost/pages has build_type workflow, cname mhost.pustina.de, https_enforced true | test-unwritable | — |
+| C9 | S: github-pages deployment-branch-policies list v* of type tag | test-unwritable | — |
+| C10 | S: curl / and /docs/installation/ return 200; the page contains lukaspustina/mhost/edit/master/website/ | test-unwritable | — |
+| C11 | S: before the live check passes the repository is not archived; after it, archived is true | test-unwritable | — |
+| C12 | S: dig +short CNAME mhost.pustina.de answers lukaspustina.github.io. | test-unwritable | — |
+
+Before the cutover, the operator had origin/master fast-forwarded to 290a106 (Phases 1–2), since `workflow_dispatch` and the `github-pages` rule act on the default branch only. The pre-push gate required a recorded review: the block review of 7424160..290a106 ran first (0/0/5, `review.md`). The gate also refuses a dirty tree, and `review.md` stays uncommitted for finish, so it was set aside for the receipt and restored.
+
+Amendment during the phase: `DELETE repos/lukaspustina/mhost.pustina.de/pages` answered 422 "Deactivating GitHub pages for this repository is not allowed." The operator chose to remove the custom domain instead; Requirement 13 and its scenario were amended. The old build stays reachable under lukaspustina.github.io/mhost.pustina.de in the archived repository.
+
+### Runs
+
+No coder: every step is a GitHub setting, push or check, run by the orchestrator behind its own approval.
+
+### Review
+
+skipped: no production file changed in this phase; the block review covers 7424160..290a106.
+
+### Behavioural verification
+
+```
+$ git push origin 290a106:refs/heads/master
+   7424160..290a106  290a106 -> master
+$ (old repo) git commit README.md && git push origin master
+   ccc96d5..eebbbb6  master -> master            # README links lukaspustina/mhost/tree/master/website
+$ gh api -X DELETE repos/lukaspustina/mhost.pustina.de/pages
+   422 Deactivating GitHub pages for this repository is not allowed.
+$ gh api -X PUT repos/lukaspustina/mhost.pustina.de/pages  (cname null)
+   {"build_type":"legacy","cname":null,"https_enforced":true}
+$ gh api -X POST repos/lukaspustina/mhost/pages -f build_type=workflow; PUT cname=mhost.pustina.de
+   {"build_type":"workflow","cname":"mhost.pustina.de","https_enforced":true,"https_certificate":{"state":"approved"}}
+$ gh api repos/lukaspustina/mhost/environments/github-pages/deployment-branch-policies
+   before: [{"name":"master","type":"branch"}]
+   after POST name=v* type=tag: [{"name":"master","type":"branch"},{"name":"v*","type":"tag"}]
+$ gh workflow run website.yml --ref master   -> run 39372917264 on 290a106: Build site ✓, Deploy to GitHub Pages ✓
+$ curl -s -o /dev/null -w '%{http_code}' https://mhost.pustina.de{/,/docs/,/docs/installation/,/blog}
+   200 200 200 404
+$ curl -s https://mhost.pustina.de/docs/installation/ | grep -o 'lukaspustina/mhost/edit/master/website/docs/installation.md'
+   lukaspustina/mhost/edit/master/website/docs/installation.md
+$ gh api repos/lukaspustina/mhost.pustina.de --jq .archived   -> false; PATCH archived=true -> true
+$ dig +short CNAME mhost.pustina.de @1.1.1.1   (before and after)
+   lukaspustina.github.io.
+```
+
+The tag path (a `v*` push deploying) is configured but not yet exercised; the next release is its first run.
+
+### Checks to build
+
+- `src/website_tests/package.rs`: `dependency_versions_are_exact_pins` accepts `*` and `3.x`; require an exact `MAJOR.MINOR.PATCH` per dependency.
+- `src/website_tests/workflows.rs`: tie `working-directory: website` to the `npm ci` and `npm run build` steps instead of any line in the file.
+- adlc (`internal/next/spec.go`): a criterion status cell outside the closed set (`test-unwritable (…)`) silently leaves the phase open; `adlc next` should name the row.
+- The `website/node_modules` check is in `specs/solutions/2026-10-20-crate-include-matches-at-any-depth.md`.

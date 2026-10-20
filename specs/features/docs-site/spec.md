@@ -1,7 +1,8 @@
 # Spec: docs-site
 
-Status: Ready for Implementation
+Status: Done
 Created: 2026-10-19
+Finished: 2026-10-20
 
 ## Goal
 
@@ -47,8 +48,8 @@ serves that build, the repository `lukaspustina/mhost.pustina.de` is archived wi
   through `just` (`CLAUDE.md`, Build & Test). The copied pages keep their existing examples and new
   text follows the rule (`intent.md`, Constraints). The project's own domains are exempt (Decision
   log).
-- The old site's Pages is switched off first so the custom domain can move (`intent.md`, Proposed
-  outcome). Assumed from GitHub's Pages documentation, not verified in this sandbox: with
+- The old site's custom domain is released first so it can move (`intent.md`, Proposed outcome;
+  the intent said "Pages switched off", which GitHub refuses for legacy Pages, Requirement 13). Assumed from GitHub's Pages documentation, not verified in this sandbox: with
   `build_type: workflow` the custom domain is set in the Pages settings and a `CNAME` file in the
   artifact is not read, and a custom domain is bound to one repository at a time. `static/CNAME`
   is copied anyway (Requirement 1) and is harmless.
@@ -94,7 +95,8 @@ serves that build, the repository `lukaspustina/mhost.pustina.de` is archived wi
     published crate's tests still build.
 12. With approval, `lukaspustina/mhost.pustina.de` gets one README commit pointing to
     `https://github.com/lukaspustina/mhost/tree/master/website`, pushed to `master`.
-13. With approval, Pages of `lukaspustina/mhost.pustina.de` is switched off before Pages of
+13. With approval, the custom domain is removed from the Pages of `lukaspustina/mhost.pustina.de`
+    (`cname: null`; GitHub refuses to deactivate its legacy `gh-pages` Pages) before Pages of
     `lukaspustina/mhost` is set to `build_type: workflow` with custom domain `mhost.pustina.de` and
     HTTPS enforced, and its `github-pages` environment gets a deployment policy for tags `v*`
     (`type: tag`) beside the default-branch rule.
@@ -149,13 +151,13 @@ GIVEN `release.yml` WHEN diffed against the merge base THEN it is unchanged.
 **Requirements:** 12, 13, 14, 15, 16
 
 Operator-approved steps against GitHub, in this order: README pointer in the old repository, old
-Pages off, new Pages on (`build_type: workflow`, custom domain, HTTPS), `workflow_dispatch` of
-`website.yml`, live check, archive. Requires Phases 1–2 merged to `master` and pushed.
+custom domain removed, new Pages on (`build_type: workflow`, custom domain, HTTPS), `v*` tag rule on
+`github-pages`, `workflow_dispatch` of `website.yml`, live check, archive. Requires Phases 1–2 merged to `master` and pushed.
 
 ### Test Scenarios
 
 GIVEN the old repository WHEN `gh api repos/lukaspustina/mhost.pustina.de/readme` is read THEN its content links `lukaspustina/mhost/tree/master/website`.
-GIVEN the cutover WHEN `gh api repos/lukaspustina/mhost.pustina.de/pages` runs THEN it answers 404.
+GIVEN the cutover WHEN `gh api repos/lukaspustina/mhost.pustina.de/pages` runs THEN `cname` is null.
 GIVEN the cutover WHEN `gh api repos/lukaspustina/mhost/pages` runs THEN `build_type` is `workflow`, `cname` is `mhost.pustina.de` and `https_enforced` is `true`.
 GIVEN the cutover WHEN `gh api repos/lukaspustina/mhost/environments/github-pages/deployment-branch-policies` runs THEN it lists a policy `v*` of type `tag`.
 GIVEN a successful dispatch run WHEN `curl -sI https://mhost.pustina.de/` and `/docs/installation/` run THEN both return 200, and the docs page contains `lukaspustina/mhost/edit/master/website/`.
@@ -197,6 +199,9 @@ GIVEN the cutover WHEN `dig +short CNAME mhost.pustina.de` runs THEN it answers 
   (Phase 2 review; operator, 2026-10-19; amends Requirement 13).
 - Every Phase 3 step against GitHub run by Claude, each behind its own approval prompt, over the
   operator running prepared commands (operator, 2026-10-19).
+- Removing the old site's custom domain over deleting its `gh-pages` branch: the API answers 422
+  to deactivating legacy Pages, and the branch stays as the archived record (operator, 2026-10-20;
+  amends Requirement 13).
 - `site-install`/`site-build`/`site-serve` over `website-*`: short, grouped in `just --list`, no
   clash with the existing `docs` recipe (operator, 2026-10-19).
 
