@@ -19,11 +19,14 @@ and a receipt alone. Four verbs keep a work block inside that gate.
 A feature's documents live in `specs/features/<name>/`: `intent.md` (optional), `spec.md`, `plan.md`, and
 what its work leaves, `report.md` and `review.md`.
 
+A branch carries one feature with all its phases, and `adlc next` reports `complete` only
+after the last phase is built, reviewed and finished.
+
 A fresh checkout runs `just adlc-setup` first: it installs the pinned tools the contract calls.
 
-Two commands answer where a work block stands: `adlc next` names the step that is due (implement,
-verify, review, finish), `adlc explain <term>` defines any word the tool prints. The skill
-`/adlc-process:cycle` runs those steps one after another until a decision halts it.
+Two commands answer where a work block stands: `adlc explain <term>` defines any word the tool
+prints, and `adlc next` names the due step (spec, implement, verify, review, finish), which the skill
+`/adlc-process:cycle` runs until a decision halts it; `adlc feature finish` lands a `feature/<name>` branch.
 
 Every command exits 0 verified, 1 refuted, 2 could not check. A 2 is never turned into a 0.
 <!-- adlc:end -->
