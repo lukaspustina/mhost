@@ -22,6 +22,14 @@
       "Glob",
       "Grep",
       "Task"
+    ],
+    "deny": [
+      "Workflow",
+      "ScheduleWakeup",
+      "SendFeedback",
+      "ReportFindings",
+      "Artifact"
     ]
-  }
+  },
+  "disableClaudeAiConnectors": true
 }
