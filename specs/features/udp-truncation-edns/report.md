@@ -111,3 +111,7 @@ $ ./target/debug/mhost --no-color --show-errors --timeout 2 -S -s udp:127.0.0.1:
 ▸ Received 0 responses with 0 RR [], 0 Nx, 1 Err [1 TO, 0 QR, 0 SF, 0 O] in (min -, max -) ms from 0 servers within 2003 ms of total run time.
  ∙ request timed out (1 times)
 ```
+
+### Checks to build
+
+- `cargo fmt --check` over the test files staged in a failing-tests commit (`ADLC-Baseline`), in the pre-commit hook or `adlc check`: writer output here needed a later format-only test commit (`01fa327`).
