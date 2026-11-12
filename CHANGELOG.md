@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Global flag `--no-tcp-fallback` keeps `udp:` nameservers on UDP alone, for diagnosing truncation; library field `ResolverOpts::tcp_fallback` (default `true`) — a new public field, so struct literals of `ResolverOpts` need it or `..Default::default()`
+
+### Fixed
+
+- Lookups over UDP whose answer comes back truncated (TC) are retried over TCP to the same nameserver, as RFC 2181 §9 and RFC 7766 ask; before, they failed with `response was truncated; TCP already tried or no other transport available`, for example `TXT microsoft.com.` through the system resolver (#797)
+
 ## v0.12.1 - 2026-10-08
 
 ### Added
