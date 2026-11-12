@@ -11,6 +11,7 @@ use std::collections::{HashMap, HashSet};
 use std::net::{IpAddr, SocketAddr};
 use std::time::{Duration, Instant};
 
+use hickory_resolver::proto::op::ResponseCode;
 use hickory_resolver::proto::rr::{Name, RData, RecordType as HickoryRecordType};
 use serde::Serialize;
 use tracing::{debug, info, warn};
@@ -34,6 +35,9 @@ pub struct DelegationLevel {
     pub rrsigs: Vec<RRSIG>,
     pub findings: Vec<Finding>,
     pub status: Severity,
+    /// The DNSKEY answers were truncated with TCP fallback disabled: the key set is missing, not empty.
+    #[serde(skip)]
+    pub dnskeys_unknown: bool,
 }
 
 /// The complete DNSSEC trust chain from root to the target zone.
@@ -76,20 +80,48 @@ fn warn_truncated(results: &[RawQueryResult], name: &Name, record_type: HickoryR
     }
 }
 
+/// A response is usable when it is NOERROR and carries data of the queried type; errors,
+/// REFUSED/SERVFAIL and NODATA answers from lame servers tell nothing about the data.
+fn is_usable(rqr: &RawQueryResult, record_type: HickoryRecordType) -> bool {
+    match &rqr.result {
+        Ok(response) => {
+            response.response_code() == ResponseCode::NoError
+                && response
+                    .answers()
+                    .iter()
+                    .chain(response.authority())
+                    .any(|record| record.record_type() == record_type)
+        }
+        Err(_) => false,
+    }
+}
+
 /// True if no server returned a usable response and at least one answer was truncated
 /// while TCP fallback is disabled: the data is missing, not absent.
-fn all_truncated(results: &[RawQueryResult]) -> bool {
-    results.iter().all(|r| r.result.is_err())
+fn all_truncated(results: &[RawQueryResult], record_type: HickoryRecordType) -> bool {
+    !results.iter().any(|r| is_usable(r, record_type))
         && results
             .iter()
             .any(|r| matches!(r.result, Err(raw::RawError::Truncated { .. })))
 }
 
+const TRUNCATED_MARKER: &str = "was truncated and TCP fallback is disabled";
+
 fn truncated_finding(record_type: HickoryRecordType, name: &Name, consequence: &str) -> Finding {
     Finding::warning(format!(
-        "{} answer for {} was truncated and TCP fallback is disabled: {}",
-        record_type, name, consequence
+        "{} answer for {} {}: {}",
+        record_type, name, TRUNCATED_MARKER, consequence
     ))
+}
+
+/// True for the findings `truncated_finding` creates.
+pub fn is_truncated_finding(finding: &Finding) -> bool {
+    finding.message.contains(TRUNCATED_MARKER)
+}
+
+/// The zone below the one at index `i`, if the walk covers it: zones past `walk_len` are cut.
+fn walked_child_zone(zones: &[String], i: usize, walk_len: usize) -> Option<&String> {
+    zones[..walk_len].get(i + 1)
 }
 
 /// Extract NS server names and glue IPs from NS query results.
@@ -179,7 +211,7 @@ where
             break;
         }
 
-        let child_zone = zones.get(i + 1);
+        let child_zone = walked_child_zone(&zones, i, walk_len);
         let server_addrs: Vec<SocketAddr> = current_servers.iter().map(|(a, _)| *a).collect();
 
         info!(
@@ -248,7 +280,7 @@ where
             .map(|d| d.as_secs() as u32)
             .unwrap_or(0);
 
-        let dnskey_truncated = all_truncated(&dnskey_results);
+        let dnskey_truncated = all_truncated(&dnskey_results, HickoryRecordType::DNSKEY);
         let mut findings = Vec::new();
         if dnskey_truncated {
             findings.push(truncated_finding(
@@ -300,6 +332,7 @@ where
             rrsigs,
             findings,
             status,
+            dnskeys_unknown: dnskey_truncated,
         };
         levels.push(level);
 
@@ -362,14 +395,14 @@ where
             // so we check both sections.
             let mut ns_servers = extract_ns_servers(&ns_results);
             let mut truncated_findings = Vec::new();
-            if all_truncated(&ds_results) {
+            if all_truncated(&ds_results, HickoryRecordType::DS) {
                 truncated_findings.push(truncated_finding(
                     HickoryRecordType::DS,
                     &hickory_child,
                     "the DS records for the child zone are unknown",
                 ));
             }
-            if ns_servers.is_empty() && all_truncated(&ns_results) {
+            if ns_servers.is_empty() && all_truncated(&ns_results, HickoryRecordType::NS) {
                 truncated_findings.push(truncated_finding(
                     HickoryRecordType::NS,
                     &hickory_child,
@@ -449,21 +482,132 @@ mod tests {
         })
     }
 
+    fn response(
+        rcode: ResponseCode,
+        answer: Option<RData>,
+        authority: Option<RData>,
+    ) -> raw::RawResult<raw::RawResponse> {
+        use hickory_resolver::proto::rr::Record as ProtoRecord;
+
+        let mut msg = hickory_resolver::proto::op::Message::query();
+        msg.metadata.response_code = rcode;
+        let name = Name::from_ascii("example.com.").unwrap();
+        if let Some(data) = answer {
+            msg.add_answer(ProtoRecord::from_rdata(name.clone(), 300, data));
+        }
+        if let Some(data) = authority {
+            msg.add_authority(ProtoRecord::from_rdata(name, 300, data));
+        }
+        Ok(raw::RawResponse::new_for_test(msg, Duration::from_millis(1)))
+    }
+
+    fn ns_data() -> RData {
+        RData::NS(hickory_resolver::proto::rr::rdata::NS(
+            Name::from_ascii("ns.example.com.").unwrap(),
+        ))
+    }
+
+    fn a_data() -> RData {
+        RData::A(hickory_resolver::proto::rr::rdata::A::new(192, 0, 2, 1))
+    }
+
     #[test]
     fn all_truncated_requires_a_truncation_and_no_usable_response() {
         let timeout = || Err(raw::RawError::Timeout(Duration::from_secs(1)));
-        let ok = || {
-            Ok(raw::RawResponse::new_for_test(
-                hickory_resolver::proto::op::Message::query(),
-                Duration::from_millis(1),
-            ))
-        };
+        let ns = HickoryRecordType::NS;
 
-        assert!(all_truncated(&[rqr(truncated()), rqr(truncated())]));
-        assert!(all_truncated(&[rqr(truncated()), rqr(timeout())]));
-        assert!(!all_truncated(&[]));
-        assert!(!all_truncated(&[rqr(timeout())]));
-        assert!(!all_truncated(&[rqr(truncated()), rqr(ok())]));
+        assert!(all_truncated(&[rqr(truncated()), rqr(truncated())], ns));
+        assert!(all_truncated(&[rqr(truncated()), rqr(timeout())], ns));
+        assert!(!all_truncated(&[], ns));
+        assert!(!all_truncated(&[rqr(timeout())], ns));
+    }
+
+    #[test]
+    fn all_truncated_ignores_lame_responses_without_data() {
+        let ns = HickoryRecordType::NS;
+        let ds = HickoryRecordType::DS;
+        let a = HickoryRecordType::A;
+
+        // truncated + REFUSED on the NS query
+        assert!(all_truncated(
+            &[rqr(truncated()), rqr(response(ResponseCode::Refused, None, None))],
+            ns
+        ));
+        // truncated + NODATA NOERROR
+        assert!(all_truncated(
+            &[rqr(truncated()), rqr(response(ResponseCode::NoError, None, None))],
+            ns
+        ));
+        // truncated + SERVFAIL on DS
+        assert!(all_truncated(
+            &[rqr(truncated()), rqr(response(ResponseCode::ServFail, None, None))],
+            ds
+        ));
+        // an error rcode with data is still unusable
+        assert!(all_truncated(
+            &[
+                rqr(truncated()),
+                rqr(response(ResponseCode::ServFail, Some(a_data()), None))
+            ],
+            a
+        ));
+        // no truncation: nothing to report
+        assert!(!all_truncated(&[rqr(response(ResponseCode::Refused, None, None))], ns));
+    }
+
+    #[test]
+    fn all_truncated_is_false_when_a_server_returned_data() {
+        let ns = HickoryRecordType::NS;
+        let a = HickoryRecordType::A;
+
+        assert!(!all_truncated(
+            &[
+                rqr(truncated()),
+                rqr(response(ResponseCode::NoError, None, Some(ns_data())))
+            ],
+            ns
+        ));
+        assert!(!all_truncated(
+            &[
+                rqr(truncated()),
+                rqr(response(ResponseCode::NoError, Some(a_data()), None))
+            ],
+            a
+        ));
+        // data of another type is not data for the queried type
+        assert!(all_truncated(
+            &[
+                rqr(truncated()),
+                rqr(response(ResponseCode::NoError, Some(a_data()), None))
+            ],
+            ns
+        ));
+    }
+
+    #[test]
+    fn walked_child_zone_stops_at_the_hop_cut() {
+        let zones = split_domain_labels("www.example.com");
+        assert_eq!(walked_child_zone(&zones, 0, 4).map(String::as_str), Some("com."));
+        assert_eq!(
+            walked_child_zone(&zones, 2, 4).map(String::as_str),
+            Some("www.example.com.")
+        );
+        assert_eq!(walked_child_zone(&zones, 3, 4), None);
+        // --max-hops cuts the walk before the child zones
+        assert_eq!(walked_child_zone(&zones, 0, 1), None);
+        assert_eq!(walked_child_zone(&zones, 1, 2), None);
+        assert_eq!(walked_child_zone(&zones, 0, 2).map(String::as_str), Some("com."));
+    }
+
+    #[test]
+    fn is_truncated_finding_matches_only_truncation_findings() {
+        let name = Name::from_ascii("example.com.").unwrap();
+        assert!(is_truncated_finding(&truncated_finding(
+            HickoryRecordType::DS,
+            &name,
+            "unknown"
+        )));
+        assert!(!is_truncated_finding(&Finding::warning("weak algorithm")));
     }
 
     #[test]
@@ -485,6 +629,7 @@ mod tests {
             rrsigs: Vec::new(),
             findings: vec![Finding::ok("test")],
             status: Severity::Ok,
+            dnskeys_unknown: false,
         };
         assert_eq!(level.status, Severity::Ok);
         assert_eq!(level.findings.len(), 1);
@@ -501,6 +646,7 @@ mod tests {
                 rrsigs: Vec::new(),
                 findings: Vec::new(),
                 status: Severity::Ok,
+                dnskeys_unknown: false,
             }],
             total_time: Duration::from_millis(145),
             status: Severity::Ok,
@@ -525,6 +671,7 @@ mod tests {
                     rrsigs: Vec::new(),
                     findings: Vec::new(),
                     status: Severity::Ok,
+                    dnskeys_unknown: false,
                 },
                 DelegationLevel {
                     zone_name: "com.".to_string(),
@@ -533,6 +680,7 @@ mod tests {
                     rrsigs: Vec::new(),
                     findings: vec![Finding::warning("weak algo")],
                     status: Severity::Warning,
+                    dnskeys_unknown: false,
                 },
             ],
             total_time: Duration::from_millis(100),
