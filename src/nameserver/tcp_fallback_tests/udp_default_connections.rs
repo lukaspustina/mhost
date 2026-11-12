@@ -3,10 +3,9 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use hickory_resolver::config::ProtocolConfig;
 
 use crate::nameserver::NameServerConfig;
-use crate::resolver::ResolverOpts;
 
 #[test]
-fn udp_nameserver_default_gets_udp_then_tcp_on_its_port() {
+fn udp_nameserver_gets_only_udp_on_its_port() {
     // (config, expected ip, expected port)
     let cases: Vec<(NameServerConfig, IpAddr, u16)> = vec![
         (
@@ -27,19 +26,14 @@ fn udp_nameserver_default_gets_udp_then_tcp_on_its_port() {
     ];
 
     for (config, ip, port) in cases {
-        let proto = config.to_proto(ResolverOpts::default().tcp_fallback);
+        let proto = config.to_proto();
 
         assert_eq!(proto.ip, ip);
-        assert_eq!(proto.connections.len(), 2, "connections for {ip}:{port}");
+        assert_eq!(proto.connections.len(), 1, "connections for {ip}:{port}");
         assert!(
             matches!(proto.connections[0].protocol, ProtocolConfig::Udp),
-            "first connection for {ip}:{port} must be UDP"
+            "the only connection for {ip}:{port} must be UDP"
         );
         assert_eq!(proto.connections[0].port, port);
-        assert!(
-            matches!(proto.connections[1].protocol, ProtocolConfig::Tcp),
-            "second connection for {ip}:{port} must be TCP"
-        );
-        assert_eq!(proto.connections[1].port, port);
     }
 }

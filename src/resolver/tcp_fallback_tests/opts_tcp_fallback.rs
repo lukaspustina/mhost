@@ -9,28 +9,29 @@ fn udp_ns() -> NameServerConfig {
     NameServerConfig::udp("127.0.0.1:5353".parse::<SocketAddr>().unwrap())
 }
 
-// `tcp_fallback` is on by default: a `udp:` nameserver gets a UDP and a TCP connection.
+// `tcp_fallback` is on by default; the hickory nameserver of a `udp:` config carries UDP only,
+// the TCP retry lives in a separate resolver.
 #[test]
-fn default_opts_hand_udp_and_tcp_to_hickory() {
+fn default_opts_hand_udp_only_to_hickory() {
     let opts = ResolverOpts::default();
     assert!(opts.tcp_fallback);
 
-    let proto = udp_ns().to_proto(opts.tcp_fallback);
+    let proto = udp_ns().to_proto();
 
-    assert_eq!(proto.connections.len(), 2);
+    assert_eq!(proto.connections.len(), 1);
     assert!(matches!(proto.connections[0].protocol, ProtocolConfig::Udp));
-    assert!(matches!(proto.connections[1].protocol, ProtocolConfig::Tcp));
 }
 
-// With `tcp_fallback: false` a `udp:` nameserver is handed over with its UDP connection only.
+// The hickory connections of a `udp:` config do not depend on the flag.
 #[test]
 fn disabled_tcp_fallback_hands_udp_only_to_hickory() {
     let opts = ResolverOpts {
         tcp_fallback: false,
         ..Default::default()
     };
+    assert!(!opts.tcp_fallback);
 
-    let proto = udp_ns().to_proto(opts.tcp_fallback);
+    let proto = udp_ns().to_proto();
 
     assert_eq!(proto.connections.len(), 1);
     assert!(matches!(proto.connections[0].protocol, ProtocolConfig::Udp));

@@ -24,22 +24,13 @@ fn stream_configs_keep_exactly_one_connection_of_their_own_protocol() {
     }));
 
     for (name, config, is_own_protocol) in cases {
-        for tcp_fallback in [true, false] {
-            let proto = config.to_proto(tcp_fallback);
-            assert_eq!(
-                proto.connections.len(),
-                1,
-                "{name} with tcp_fallback={tcp_fallback} must keep exactly one connection"
-            );
-            let connection = &proto.connections[0];
-            assert!(
-                is_own_protocol(&connection.protocol),
-                "{name} with tcp_fallback={tcp_fallback} must keep its own protocol"
-            );
-            assert_eq!(
-                connection.port, 5353,
-                "{name} with tcp_fallback={tcp_fallback} must keep the config's port"
-            );
-        }
+        let proto = config.to_proto();
+        assert_eq!(proto.connections.len(), 1, "{name} must keep exactly one connection");
+        let connection = &proto.connections[0];
+        assert!(
+            is_own_protocol(&connection.protocol),
+            "{name} must keep its own protocol"
+        );
+        assert_eq!(connection.port, 5353, "{name} must keep the config's port");
     }
 }
