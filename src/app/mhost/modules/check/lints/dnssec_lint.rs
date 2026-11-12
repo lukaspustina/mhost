@@ -9,7 +9,8 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
+use tracing_futures::Instrument;
 
 use crate::app::modules::check::config::CheckConfig;
 use crate::app::modules::check::lints::axfr::Axfr;
@@ -99,12 +100,21 @@ impl<'a> DnssecCheck<'a> {
             Err(reason) => return Ok(Err(reason)),
         };
         let domain = self.domain_name.as_proto().clone();
+        let tcp_fallback = self.env.app_config.tcp_fallback;
         let signed = first_signed(&targets, |server| {
             let domain = domain.clone();
             async move {
-                raw::raw_dnssec_query(server, &domain, RecordType::DNSKEY.to_proto(), Duration::from_secs(5)).await
+                raw::raw_dnssec_query(
+                    server,
+                    &domain,
+                    RecordType::DNSKEY.to_proto(),
+                    Duration::from_secs(5),
+                    tcp_fallback,
+                )
+                .await
             }
         })
+        .instrument(tracing::warn_span!("dnskey_rrsigs", name = %domain))
         .await;
         if let Some((server, records)) = signed {
             let query = UniQuery::new(self.domain_name.clone(), RecordType::RRSIG)?;
@@ -143,6 +153,9 @@ where
                 }
                 info!("Received {} DNSKEY signatures from {}", records.len(), server);
                 return Some((server, records));
+            }
+            Err(e @ raw::RawError::Truncated { .. }) => {
+                warn!("DNSKEY query with DO against {} failed: {}", server, e)
             }
             Err(e) => debug!("DNSKEY query with DO failed against {}: {}", server, e),
         }

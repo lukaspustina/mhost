@@ -168,6 +168,7 @@ impl<'a> TraceRun<'a> {
                 hickory_rt,
                 timeout,
                 self.env.app_config.max_concurrent_servers,
+                self.env.app_config.tcp_fallback,
             )
             .await;
 

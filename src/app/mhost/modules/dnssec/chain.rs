@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 use std::net::{IpAddr, SocketAddr};
 use std::time::{Duration, Instant};
 
-use hickory_resolver::proto::rr::{RData, RecordType as HickoryRecordType};
+use hickory_resolver::proto::rr::{Name, RData, RecordType as HickoryRecordType};
 use serde::Serialize;
 use tracing::{debug, info, warn};
 
@@ -65,6 +65,15 @@ pub fn split_domain_labels(domain: &str) -> Vec<String> {
         zones.push(zone);
     }
     zones
+}
+
+/// Warn about every server whose answer was truncated while TCP fallback is disabled.
+fn warn_truncated(results: &[RawQueryResult], name: &Name, record_type: HickoryRecordType) {
+    for rqr in results {
+        if let Err(e @ raw::RawError::Truncated { server }) = &rqr.result {
+            warn!("{} query for {} against {} failed: {}", record_type, name, server, e);
+        }
+    }
 }
 
 /// Extract NS server names and glue IPs from NS query results.
@@ -179,8 +188,10 @@ where
             hickory_resolver::proto::rr::RecordType::DNSKEY,
             timeout,
             max_concurrent,
+            app_config.tcp_fallback,
         )
         .await;
+        warn_truncated(&dnskey_results, &hickory_zone, HickoryRecordType::DNSKEY);
 
         // Extract DNSKEY and RRSIG records from answers
         let mut dnskeys = Vec::new();
@@ -288,8 +299,10 @@ where
                 hickory_resolver::proto::rr::RecordType::DS,
                 timeout,
                 max_concurrent,
+                app_config.tcp_fallback,
             )
             .await;
+            warn_truncated(&ds_results, &hickory_child, HickoryRecordType::DS);
 
             // Query NS for child zone (to get referral for next level)
             let ns_results = raw::parallel_raw_queries(
@@ -298,8 +311,10 @@ where
                 hickory_resolver::proto::rr::RecordType::NS,
                 timeout,
                 max_concurrent,
+                app_config.tcp_fallback,
             )
             .await;
+            warn_truncated(&ns_results, &hickory_child, HickoryRecordType::NS);
 
             // Extract DS records
             ds_from_parent = Vec::new();
