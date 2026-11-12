@@ -1,0 +1,14 @@
+pub(crate) mod fake_ns;
+mod large_answer_over_tcp;
+mod no_fallback_keeps_truncation;
+mod no_retry_resolver_without_fallback;
+mod opts_default;
+mod opts_tcp_fallback;
+mod retry_once_per_lookup;
+mod tcp_retry_failure_is_not_timeout;
+mod tcp_retry_refused;
+mod tcp_retry_resolver;
+mod tcp_retry_timeout;
+mod truncated_udp_falls_back;
+mod udp_answer_needs_no_tcp;
+mod udp_stays_after_timeout;

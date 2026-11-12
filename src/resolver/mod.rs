@@ -17,6 +17,7 @@
 //! provides typed accessors (`.a()`, `.mx()`, `.txt()`, etc.) and deduplication via
 //! the [`Uniquify`](lookup::Uniquify) trait.
 
+use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
@@ -24,6 +25,7 @@ use std::time::Duration;
 use futures::future::join_all;
 use futures::stream::{self, StreamExt};
 use futures::Future;
+use hickory_resolver::net::NetError;
 use rand::seq::IndexedRandom;
 use tokio::task;
 use tracing::{debug, instrument};
@@ -91,6 +93,8 @@ pub struct ResolverOpts {
     pub timeout: Duration,
     pub abort_on_error: bool,
     pub abort_on_timeout: bool,
+    /// Retry truncated UDP answers over TCP on the same nameserver.
+    pub tcp_fallback: bool,
 }
 
 impl ResolverOpts {
@@ -119,6 +123,7 @@ impl Default for ResolverOpts {
             timeout: Duration::from_secs(5),
             abort_on_error: true,
             abort_on_timeout: true,
+            tcp_fallback: true,
         }
     }
 }
@@ -165,8 +170,51 @@ impl IntoIterator for ResolverConfigGroup {
 #[derive(Debug, Clone)]
 pub struct Resolver {
     pub(crate) inner: Arc<hickory_resolver::TokioResolver>,
+    pub(crate) tcp_retry: Option<Arc<hickory_resolver::TokioResolver>>,
     pub(crate) opts: Arc<ResolverOpts>,
     pub(crate) name_server: Arc<NameServerConfig>,
+}
+
+fn build_proto(
+    config: &ResolverConfig,
+    opts: hickory_resolver::config::ResolverOpts,
+) -> std::result::Result<hickory_resolver::TokioResolver, NetError> {
+    hickory_resolver::Resolver::builder_with_config(
+        config.to_proto(),
+        hickory_resolver::net::runtime::TokioRuntimeProvider::default(),
+    )
+    .with_options(opts)
+    .build()
+}
+
+/// A TCP resolver for the same address and port, used to retry truncated UDP answers. It does
+/// not cache: a repeated truncated lookup must reach the nameserver again, as its UDP leg does.
+fn tcp_retry_resolver(
+    name_server: &NameServerConfig,
+    opts: &ResolverOpts,
+) -> std::result::Result<Option<hickory_resolver::TokioResolver>, NetError> {
+    if !matches!(name_server, NameServerConfig::Udp { .. }) || !opts.tcp_fallback {
+        return Ok(None);
+    }
+    let tcp = NameServerConfig::tcp(SocketAddr::new(name_server.ip_addr(), name_server.port()));
+    let mut tr_opts = opts.to_proto();
+    tr_opts.cache_size = 0;
+    build_proto(&ResolverConfig::new(tcp), tr_opts).map(Some)
+}
+
+/// Builds the resolver for the configured nameserver and, for UDP with fallback, its TCP retry
+/// resolver. Retries of the UDP resolver are driven by `single_lookup`, which must not repeat a
+/// truncated query over UDP, so hickory gets none.
+fn build_resolvers(
+    config: &ResolverConfig,
+    opts: &ResolverOpts,
+) -> std::result::Result<(hickory_resolver::TokioResolver, Option<hickory_resolver::TokioResolver>), NetError> {
+    let tcp_retry = tcp_retry_resolver(&config.name_server_config, opts)?;
+    let mut tr_opts = opts.to_proto();
+    if tcp_retry.is_some() {
+        tr_opts.attempts = 0;
+    }
+    Ok((build_proto(config, tr_opts)?, tcp_retry))
 }
 
 impl Resolver {
@@ -176,18 +224,11 @@ impl Resolver {
     #[instrument(name =  "create resolver", level = "info", skip(config, opts), fields(server = %config.name_server_config))]
     pub async fn new(config: ResolverConfig, opts: ResolverOpts) -> ResolverResult<Self> {
         let name_server = config.name_server_config.clone();
-        let tr_opts = opts.to_proto();
-        let tr_config = config.to_proto();
-        let tr_resolver = hickory_resolver::Resolver::builder_with_config(
-            tr_config,
-            hickory_resolver::net::runtime::TokioRuntimeProvider::default(),
-        )
-        .with_options(tr_opts)
-        .build()
-        .map_err(Error::from_net)?;
+        let (tr_resolver, tcp_retry) = build_resolvers(&config, &opts).map_err(Error::from_net)?;
 
         Ok(Resolver {
             inner: Arc::new(tr_resolver),
+            tcp_retry: tcp_retry.map(Arc::new),
             opts: Arc::new(opts),
             name_server: Arc::new(name_server),
         })
@@ -445,18 +486,11 @@ impl ResolverOpts {
 impl Resolver {
     pub fn new_for_test(opts: ResolverOpts, name_server: NameServerConfig) -> Self {
         let config = ResolverConfig::new(name_server.clone());
-        let tr_opts = opts.to_proto();
-        let tr_config = config.to_proto();
-        let tr_resolver = hickory_resolver::Resolver::builder_with_config(
-            tr_config,
-            hickory_resolver::net::runtime::TokioRuntimeProvider::default(),
-        )
-        .with_options(tr_opts)
-        .build()
-        .expect("resolver for test");
+        let (tr_resolver, tcp_retry) = build_resolvers(&config, &opts).expect("resolver for test");
 
         Resolver {
             inner: Arc::new(tr_resolver),
+            tcp_retry: tcp_retry.map(Arc::new),
             opts: Arc::new(opts),
             name_server: Arc::new(name_server),
         }
@@ -502,3 +536,6 @@ mod tests {
         assert!(matches!(opts.use_hosts_file, ResolveHosts::Never));
     }
 }
+
+#[cfg(test)]
+pub(crate) mod tcp_fallback_tests;

@@ -327,21 +327,28 @@ impl From<resolv_conf::Config> for NameServerConfigGroup {
 }
 
 impl NameServerConfig {
+    /// Converts to the hickory nameserver config.
+    ///
+    /// Each nameserver gets exactly one connection of its own protocol.
     pub(crate) fn to_proto(&self) -> hickory_resolver::config::NameServerConfig {
         let config = self;
         use hickory_resolver::config::{ConnectionConfig, ProtocolConfig};
-        let mut connection = match &config {
-            NameServerConfig::Udp { .. } => ConnectionConfig::new(ProtocolConfig::Udp),
-            NameServerConfig::Tcp { .. } => ConnectionConfig::new(ProtocolConfig::Tcp),
+        let mut connections = match &config {
+            NameServerConfig::Udp { .. } => vec![ConnectionConfig::new(ProtocolConfig::Udp)],
+            NameServerConfig::Tcp { .. } => vec![ConnectionConfig::new(ProtocolConfig::Tcp)],
             #[cfg(feature = "dot")]
-            NameServerConfig::Tls { tls_auth_name, .. } => ConnectionConfig::tls(tls_auth_name.as_str().into()),
+            NameServerConfig::Tls { tls_auth_name, .. } => {
+                vec![ConnectionConfig::tls(tls_auth_name.as_str().into())]
+            }
             #[cfg(feature = "doh")]
             NameServerConfig::Https { tls_auth_name, .. } => {
-                ConnectionConfig::https(tls_auth_name.as_str().into(), None)
+                vec![ConnectionConfig::https(tls_auth_name.as_str().into(), None)]
             }
         };
-        connection.port = config.port();
-        hickory_resolver::config::NameServerConfig::new(config.ip_addr(), true, vec![connection])
+        for connection in &mut connections {
+            connection.port = config.port();
+        }
+        hickory_resolver::config::NameServerConfig::new(config.ip_addr(), true, connections)
     }
 }
 
@@ -526,3 +533,6 @@ mod test {
         assert!(nsc.ip_addr().is_ipv6());
     }
 }
+
+#[cfg(test)]
+mod tcp_fallback_tests;

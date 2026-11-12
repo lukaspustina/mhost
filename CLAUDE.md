@@ -33,6 +33,9 @@ design, error layers, common API patterns, network-test history and the release 
 - hickory 0.26 semantics relied on (`resolver/lookup.rs` `IntoLookup`): answers plus matching
   authority/additional and NS glue; error rcodes reported as Nx; unrequested DNSSEC records are
   stripped unless DO is set — fetch RRSIGs with `raw::raw_dnssec_query`.
+- A `udp:` nameserver stays UDP-only in hickory; truncated answers retry once over
+  `Resolver::tcp_retry` (`single_lookup`). Never add a TCP `ConnectionConfig`: hickory then drops
+  UDP after one timeout.
 - Untrusted input: CLI-printed DNS data goes through `app::common::records::term_safe`; `check`
   probes only global nameserver addresses (`nameserver::is_global_ip`);
   `ResolverGroupBuilder::deny_non_global` guards consumers taking nameservers from callers.
@@ -46,6 +49,8 @@ design, error layers, common API patterns, network-test history and the release 
   makes the local hooks the gate. `just --list` for the rest.
 - `cargo test --lib` is not network-free: `just test-offline` skips the seven network tests.
   `just test` adds lit CLI tests querying `8.8.8.8`; they may fail on DNS timeouts.
+- Fake-nameserver tests (`src/resolver/tcp_fallback_tests/fake_ns.rs`) bind loopback UDP/TCP
+  sockets; run cargo outside a sandbox that forbids local binding.
 - A new rdata type or `RecordType` variant gets unit tests in its module (constructor/accessor
   round-trips, enum conversions) and is added to `FromStr`, `all()` and
   `from_str_all_standard_types`; `RData` accessor tests in `src/resources/rdata/mod.rs` cover it.

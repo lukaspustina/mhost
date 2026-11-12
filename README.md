@@ -611,6 +611,7 @@ Concurrency & resilience:
       --max-concurrent-requests <N> Max concurrent requests per server [default: 5] (1-50)
       --retries <N>                 Retries per server [default: 0] (0-10)
       --timeout <SECS>              Response timeout [default: 5] (1-300)
+      --no-tcp-fallback             Do not retry truncated UDP answers over TCP
       --continue-on-error           Continue on server errors
       --continue-on-timeout         Continue on server timeouts
       --wait-multiple-responses     Wait for additional responses until timeout

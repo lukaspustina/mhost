@@ -30,6 +30,7 @@ pub struct AppConfig {
     pub expects_multiple_responses: bool,
     pub abort_on_error: bool,
     pub abort_on_timeout: bool,
+    pub tcp_fallback: bool,
     pub resolv_conf_path: String,
     pub ndots: u8,
     pub search_domain: Option<String>,
@@ -87,6 +88,7 @@ impl TryFrom<&ArgMatches> for AppConfig {
             expects_multiple_responses: args.get_flag("wait-multiple-responses"),
             abort_on_error: !(args.get_flag("continue-on-error") || args.get_flag("continue-on-all-errors")),
             abort_on_timeout: !(args.get_flag("continue-on-timeout") || args.get_flag("continue-on-all-errors")),
+            tcp_fallback: !args.get_flag("no-tcp-fallback"),
             resolv_conf_path: args
                 .get_one::<String>("resolv-conf")
                 .map(|s| s.as_str())
@@ -164,6 +166,7 @@ mod tests {
             expects_multiple_responses: false,
             abort_on_error: true,
             abort_on_timeout: true,
+            tcp_fallback: true,
             resolv_conf_path: "/etc/resolv.conf".to_string(),
             ndots: 1,
             search_domain: None,

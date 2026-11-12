@@ -227,6 +227,7 @@ pub fn load_resolver_opts(config: &AppConfig) -> Result<ResolverOpts> {
         retries: config.retries,
         max_concurrent_requests: config.max_concurrent_requests,
         abort_on_timeout: config.abort_on_timeout,
+        tcp_fallback: config.tcp_fallback,
     };
     let opts = if config.use_system_resolv_opt {
         let sys_opts = ResolverOpts::from_system_config_path(&config.resolv_conf_path)

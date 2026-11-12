@@ -662,11 +662,39 @@ async fn single_lookup(resolver: Resolver, query: UniQuery) -> Lookup {
     let start_time = Instant::now();
 
     debug!("Sending lookup request");
-    let result = resolver
-        .inner
-        .lookup(q.name.as_proto().clone(), q.record_type.to_proto())
-        .await
-        .into_lookup(start_time);
+    let mut retries = if resolver.tcp_retry.is_some() {
+        resolver.opts.retries
+    } else {
+        0
+    };
+    let udp_result = loop {
+        let result = resolver
+            .inner
+            .lookup(q.name.as_proto().clone(), q.record_type.to_proto())
+            .await;
+        match result {
+            Err(NetError::Truncated | NetError::NoConnections | NetError::Dns(DnsError::NoRecordsFound(_)))
+            | Err(NetError::Dns(DnsError::DnssecBogus)) => break result,
+            Err(_) if retries > 0 => retries -= 1,
+            _ => break result,
+        }
+    };
+    let result = match (udp_result, &resolver.tcp_retry) {
+        (Err(NetError::Truncated), Some(tcp)) => {
+            debug!("UDP answer truncated, retrying over TCP");
+            match tcp
+                .lookup(q.name.as_proto().clone(), q.record_type.to_proto())
+                .await
+                .into_lookup(start_time)
+            {
+                LookupResult::Error(e) => LookupResult::Error(Error::ResolveError {
+                    reason: format!("response was truncated; TCP retry failed: {e}"),
+                }),
+                other => other,
+            }
+        }
+        (udp_result, _) => udp_result.into_lookup(start_time),
+    };
 
     info!(
         "Received {}, response time = {:?}",
