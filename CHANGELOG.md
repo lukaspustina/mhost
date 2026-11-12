@@ -8,7 +8,7 @@
 
 ### Fixed
 
-- Lookups over UDP whose answer comes back truncated (TC) are retried over TCP to the same nameserver, as RFC 2181 §9 and RFC 7766 ask; before, they failed with `response was truncated; TCP already tried or no other transport available`, for example `TXT microsoft.com.` through the system resolver (#797)
+- Lookups over UDP whose answer comes back truncated (TC) are retried once over TCP to the same nameserver, as RFC 2181 §9 and RFC 7766 ask; before, they failed with `response was truncated; TCP already tried or no other transport available`, for example `TXT microsoft.com.` through the system resolver (#797). Every query still starts over UDP, and a failed TCP retry is reported as `response was truncated; TCP retry failed: <reason>` (counted as an other error, not a timeout)
 
 ## v0.12.1 - 2026-10-08
 
