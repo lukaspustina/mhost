@@ -502,3 +502,6 @@ mod tests {
         assert!(matches!(opts.use_hosts_file, ResolveHosts::Never));
     }
 }
+
+#[cfg(test)]
+pub(crate) mod tcp_fallback_tests;

@@ -526,3 +526,6 @@ mod test {
         assert!(nsc.ip_addr().is_ipv6());
     }
 }
+
+#[cfg(test)]
+mod tcp_fallback_tests;

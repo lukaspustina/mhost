@@ -36,3 +36,6 @@ pub enum ExitStatus {
     /// A module could not proceed because of invalid preconditions of the succeeding step.
     Abort = 12,
 }
+
+#[cfg(test)]
+mod tcp_fallback_tests;
