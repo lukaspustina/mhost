@@ -8,4 +8,8 @@ ignore = [
     { id = "RUSTSEC-2021-0139", reason = "unmaintained, dev-only via lit" },
     { id = "RUSTSEC-2024-0375", reason = "unmaintained, dev-only via lit" },
     { id = "RUSTSEC-2018-0015", reason = "unmaintained, dev-only via lit" },
+    # pin-utils comes in through hyper (reqwest); no upgrade exists, hyper has to drop it.
+    { id = "RUSTSEC-2026-0441", reason = "unmaintained, transitive via hyper, no upgrade available" },
+    # tokio unsound for AsyncFd constructors; mhost never uses AsyncFd, no patched release yet.
+    { id = "RUSTSEC-2026-0386", reason = "AsyncFd I/O safety, unused here, no patched tokio yet" },
 ]
