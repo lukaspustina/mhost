@@ -42,7 +42,12 @@ impl fmt::Display for Estimation {
 impl Estimate for Resolver {
     fn estimate(&self, query: &MultiQuery) -> Estimation {
         let min_lookups = query.names.len() * query.record_types.len();
-        let max_lookups = query.names.len() * query.record_types.len() * (1 + self.opts.retries);
+        // Upper bound without CNAME chasing: up to `1 + retries` UDP attempts, then, if a TCP retry
+        // resolver is set, up to `1 + retries` TCP attempts of that resolver.
+        let mut max_lookups = query.names.len() * query.record_types.len() * (1 + self.opts.retries);
+        if self.tcp_retry.is_some() {
+            max_lookups *= 2;
+        }
 
         Estimation {
             min_requests: min_lookups,

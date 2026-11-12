@@ -70,7 +70,7 @@ without the flag they still complete the answer over TCP.
 3. A resolver without a `tcp_retry` resolver (a `tcp:`, `tls:` or `https:` nameserver, or any
    resolver built with `tcp_fallback` off) keeps `max_requests = names * record_types * (1 + retries)`.
 4. `ResolverGroup` estimates keep their aggregation rules (`Mode::Multi` sum with `limit`,
-   `Mode::Uni` first resolver) over the per-resolver values of 1–3.
+   `Mode::Uni` first resolver) over the per-resolver values of 1–3. A `Mode::Uni` estimate reflects only the first resolver, so a mixed-protocol Uni group whose first resolver has no `tcp_retry` may undercount the TCP retry of a `udp:` resolver picked at random (amendment from the phase 1 reading).
 5. Every lit test whose estimate line comes from a `udp:` nameserver matches the request count with
    `Sending [[.+]] request[[s*]] to`, which accepts both "N request(s)" and "between {min} and {max}
    requests"; `tests/lit/lookup-dot-doh-example.com.output` keeps its fixed count (agent default, confirmed by operator, 2026-11-12).
