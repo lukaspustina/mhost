@@ -7,7 +7,9 @@ fn tcp_fallback_for(args: &[&str]) -> bool {
         .try_get_matches_from(args)
         .expect("CLI arguments must parse");
     let config = AppConfig::try_from(&matches).expect("AppConfig must build");
-    load_resolver_opts(&config).expect("resolver opts must load").tcp_fallback
+    load_resolver_opts(&config)
+        .expect("resolver opts must load")
+        .tcp_fallback
 }
 
 #[test]

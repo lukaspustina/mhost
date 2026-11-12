@@ -29,10 +29,6 @@ async fn disabled_tcp_fallback_keeps_truncation_error_and_opens_no_tcp_connectio
 
     let lookup = lookups.iter().next().expect("one lookup");
     let err = lookup.result().err().expect("lookup is an error");
-    assert!(
-        err.to_string().contains("response was truncated"),
-        "got {}",
-        err
-    );
+    assert!(err.to_string().contains("response was truncated"), "got {}", err);
     assert_eq!(ns.tcp_connections(), 0);
 }

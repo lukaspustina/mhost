@@ -11,23 +11,17 @@ fn addr() -> SocketAddr {
 #[test]
 fn stream_configs_keep_exactly_one_connection_of_their_own_protocol() {
     type Check = fn(&ProtocolConfig) -> bool;
-    let mut cases: Vec<(&str, NameServerConfig, Check)> = vec![(
-        "tcp",
-        NameServerConfig::tcp(addr()),
-        |p| matches!(p, ProtocolConfig::Tcp),
-    )];
+    let mut cases: Vec<(&str, NameServerConfig, Check)> = vec![("tcp", NameServerConfig::tcp(addr()), |p| {
+        matches!(p, ProtocolConfig::Tcp)
+    })];
     #[cfg(feature = "dot")]
-    cases.push((
-        "tls",
-        NameServerConfig::tls(addr(), "dns.example.com"),
-        |p| matches!(p, ProtocolConfig::Tls { .. }),
-    ));
+    cases.push(("tls", NameServerConfig::tls(addr(), "dns.example.com"), |p| {
+        matches!(p, ProtocolConfig::Tls { .. })
+    }));
     #[cfg(feature = "doh")]
-    cases.push((
-        "https",
-        NameServerConfig::https(addr(), "dns.example.com"),
-        |p| matches!(p, ProtocolConfig::Https { .. }),
-    ));
+    cases.push(("https", NameServerConfig::https(addr(), "dns.example.com"), |p| {
+        matches!(p, ProtocolConfig::Https { .. })
+    }));
 
     for (name, config, is_own_protocol) in cases {
         for tcp_fallback in [true, false] {

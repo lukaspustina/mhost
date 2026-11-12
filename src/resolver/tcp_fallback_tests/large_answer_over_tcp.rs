@@ -10,7 +10,9 @@ use super::fake_ns::FakeNs;
 // the UDP path truncates must arrive complete over TCP with default options, without error.
 #[tokio::test]
 async fn large_truncated_txt_answer_arrives_complete_over_tcp() {
-    let expected: Vec<String> = (0..62).map(|i| format!("v=spf1 record-{i:02} {}", "x".repeat(53))).collect();
+    let expected: Vec<String> = (0..62)
+        .map(|i| format!("v=spf1 record-{i:02} {}", "x".repeat(53)))
+        .collect();
     assert!(expected.iter().all(|t| t.len() == 70));
     let ns = FakeNs::start(true, expected.clone()).await;
 

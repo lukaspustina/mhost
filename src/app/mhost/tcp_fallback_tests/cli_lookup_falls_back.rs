@@ -14,7 +14,9 @@ async fn cli_udp_lookup_of_truncated_txt_returns_records_without_error() {
         .expect("CLI arguments must parse");
     let config = AppConfig::try_from(&matches).expect("AppConfig must build");
 
-    let resolver = AppResolver::create_resolvers(&config).await.expect("resolvers must build");
+    let resolver = AppResolver::create_resolvers(&config)
+        .await
+        .expect("resolvers must build");
     let query = MultiQuery::single("example.com.", RecordType::TXT).expect("query must build");
     let lookups = resolver.lookup(query).await.expect("lookup must complete");
 
@@ -27,7 +29,11 @@ async fn cli_udp_lookup_of_truncated_txt_returns_records_without_error() {
     let mut texts: Vec<String> = lookups
         .txt()
         .iter()
-        .map(|t| t.iter().map(|b| String::from_utf8_lossy(b).into_owned()).collect::<String>())
+        .map(|t| {
+            t.iter()
+                .map(|b| String::from_utf8_lossy(b).into_owned())
+                .collect::<String>()
+        })
         .collect();
     texts.sort();
     assert_eq!(texts, vec!["one", "three", "two"]);
