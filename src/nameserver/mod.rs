@@ -329,17 +329,11 @@ impl From<resolv_conf::Config> for NameServerConfigGroup {
 impl NameServerConfig {
     /// Converts to the hickory nameserver config.
     ///
-    /// A UDP nameserver gets a TCP connection on the same port after the UDP one when
-    /// `tcp_fallback` is set, so truncated UDP answers are retried over TCP. TCP, TLS and HTTPS
-    /// nameservers keep exactly one connection of their own protocol.
-    pub(crate) fn to_proto(&self, tcp_fallback: bool) -> hickory_resolver::config::NameServerConfig {
+    /// Each nameserver gets exactly one connection of its own protocol.
+    pub(crate) fn to_proto(&self) -> hickory_resolver::config::NameServerConfig {
         let config = self;
         use hickory_resolver::config::{ConnectionConfig, ProtocolConfig};
         let mut connections = match &config {
-            NameServerConfig::Udp { .. } if tcp_fallback => vec![
-                ConnectionConfig::new(ProtocolConfig::Udp),
-                ConnectionConfig::new(ProtocolConfig::Tcp),
-            ],
             NameServerConfig::Udp { .. } => vec![ConnectionConfig::new(ProtocolConfig::Udp)],
             NameServerConfig::Tcp { .. } => vec![ConnectionConfig::new(ProtocolConfig::Tcp)],
             #[cfg(feature = "dot")]

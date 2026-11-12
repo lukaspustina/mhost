@@ -54,3 +54,60 @@ $ ./target/debug/mhost --help | rg -A1 no-tcp-fallback
 
 Note: the coder's `cargo fmt` reformatted five committed test files; they were restored from HEAD
 and their formatting lands in a separate test commit with `ADLC-Test-Change` trailers.
+
+## Phase 2 — mhost retries truncated UDP answers over its own TCP resolver
+
+### Criteria
+
+| id | criterion | status | test file |
+|---|---|---|---|
+| C1 | R6: udp: config UDP-only in hickory; with tcp_fallback a TCP-only resolver for same IP/port retries a truncated lookup once; every query starts over UDP | green | `src/resolver/tcp_fallback_tests/retry_once_per_lookup.rs` |
+| C2 | R7: failed TCP retry → `ResolveError` text starting `response was truncated; TCP retry failed: ` + TCP error; counts as other, not timeout | green | `src/resolver/tcp_fallback_tests/tcp_retry_failure_is_not_timeout.rs` |
+| C3 | R8: tcp_fallback off, or tcp:/tls:/https: → no TCP-only resolver; truncated answer ends in today's error | green | `src/resolver/tcp_fallback_tests/no_retry_resolver_without_fallback.rs` |
+| C4 | udp config converted, fallback on or off → connections [Udp 5353] only | green | `src/nameserver/tcp_fallback_tests/*.rs, src/resolver/tcp_fallback_tests/opts_tcp_fallback.rs` |
+| C5 | Resolver for udp: with fallback on holds a TCP-only resolver; off or tcp: config → none | green | `src/resolver/tcp_fallback_tests/tcp_retry_resolver.rs` |
+| C6 | fake ns: TXT truncated, A drop dropped, others answered over UDP; TCP answers all → TCP saw exactly one query (TXT), A after answered over UDP | green | `src/resolver/tcp_fallback_tests/udp_stays_after_timeout.rs` |
+| C7 | fake ns: UDP truncates, TCP accepts never answers, timeout 1 s → ResolveError starting `response was truncated; TCP retry failed: request timed out`, not Timeout | green | `src/resolver/tcp_fallback_tests/tcp_retry_timeout.rs` |
+| C8 | fake ns: UDP truncates, no TCP listener → error starting `response was truncated; TCP retry failed: ` | green | `src/resolver/tcp_fallback_tests/tcp_retry_refused.rs` |
+| C9 | Phase 1 fake-ns scenarios still pass against Phase 2 | green | `Phase 1 fake-ns tests (truncated_udp_falls_back, large_answer_over_tcp, udp_answer_needs_no_tcp, no_fallback_keeps_truncation)` |
+| C10 | network loop with/without `--no-tcp-fallback` (behavioural check) | green | `src/app/mhost/tcp_fallback_tests/cli_lookup_falls_back.rs, cli_no_fallback.rs` |
+
+### Runs
+
+| group | coder runs | green by | tokens | seconds |
+|---|---|---|---|---|
+| G1 (C1–C10) | 3 | stuck → green after a test fix | 65709 | 166 |
+
+The coder ended red on one test (`tcp_retry_failure_is_not_timeout`) whose setup was wrong: it left
+`abort_on_error` at its default `true`, so the breaker stopped on the (correct) non-timeout error,
+and its fake ns had no TXT records for the second lookup. Both fixed in the test (`a43d6be`,
+`ADLC-Test-Change`); production code unchanged after that, suite green twice.
+
+Coder deviations from the plan, kept: the UDP resolver runs with hickory `attempts = 0` when a TCP
+retry resolver exists and `single_lookup` does the UDP retries itself, skipping `Truncated`
+(hickory's `RetryDnsHandle` would resend a truncated query over UDP); the TCP retry resolver has
+`cache_size = 0`.
+
+### Reader
+
+none: review reads this range
+
+### Behavioural verification
+
+```
+$ ./target/debug/mhost --no-color --show-errors -S -s udp:8.8.8.8 lookup -t TXT microsoft.com.
+▸ Received 1 responses with 62 RR [62 TXT], 0 Nx, 0 Err in (min 38, max 38) ms from 1 server within 39 ms of total run time.
+✓ No errors occurred.
+
+$ ./target/debug/mhost --no-color --show-errors --no-tcp-fallback -S -s udp:8.8.8.8 lookup -t TXT microsoft.com.
+▸ Received 0 responses with 0 RR [], 0 Nx, 1 Err [0 TO, 0 QR, 0 SF, 1 O] in (min -, max -) ms from 0 servers within 9 ms of total run time.
+ ∙ resolver error: response was truncated; TCP already tried or no other transport available (1 times)
+
+$ ./target/debug/mhost --no-color --show-errors lookup -t TXT microsoft.com.   (system resolvers)
+▸ Received 2 responses with 124 RR [124 TXT], 0 Nx, 0 Err in (min 10, max 31) ms from 2 servers within 32 ms of total run time.
+✓ No errors occurred.
+
+$ ./target/debug/mhost --no-color --show-errors --timeout 2 -S -s udp:127.0.0.1:5399 lookup -t TXT example.com.   (no server: plain timeout, no truncation text)
+▸ Received 0 responses with 0 RR [], 0 Nx, 1 Err [1 TO, 0 QR, 0 SF, 0 O] in (min -, max -) ms from 0 servers within 2003 ms of total run time.
+ ∙ request timed out (1 times)
+```
