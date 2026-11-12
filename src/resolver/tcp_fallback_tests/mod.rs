@@ -1,3 +1,7 @@
+mod estimate_counts_tcp_retry;
+mod estimate_group_counts_tcp_retry;
+mod estimate_min_unchanged;
+mod estimate_without_tcp_retry;
 pub(crate) mod fake_ns;
 mod large_answer_over_tcp;
 mod no_fallback_keeps_truncation;
