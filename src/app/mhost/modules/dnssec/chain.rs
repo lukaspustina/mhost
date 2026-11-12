@@ -76,6 +76,22 @@ fn warn_truncated(results: &[RawQueryResult], name: &Name, record_type: HickoryR
     }
 }
 
+/// True if no server returned a usable response and at least one answer was truncated
+/// while TCP fallback is disabled: the data is missing, not absent.
+fn all_truncated(results: &[RawQueryResult]) -> bool {
+    results.iter().all(|r| r.result.is_err())
+        && results
+            .iter()
+            .any(|r| matches!(r.result, Err(raw::RawError::Truncated { .. })))
+}
+
+fn truncated_finding(record_type: HickoryRecordType, name: &Name, consequence: &str) -> Finding {
+    Finding::warning(format!(
+        "{} answer for {} was truncated and TCP fallback is disabled: {}",
+        record_type, name, consequence
+    ))
+}
+
 /// Extract NS server names and glue IPs from NS query results.
 ///
 /// Handles both referral-style responses (AA=0, NS in authority) and authoritative
@@ -232,17 +248,26 @@ where
             .map(|d| d.as_secs() as u32)
             .unwrap_or(0);
 
+        let dnskey_truncated = all_truncated(&dnskey_results);
         let mut findings = Vec::new();
-        if !dnskeys.is_empty() {
-            findings.extend(dnssec_validation::validate_ksk_present(&dnskey_refs));
+        if dnskey_truncated {
+            findings.push(truncated_finding(
+                HickoryRecordType::DNSKEY,
+                &hickory_zone,
+                "DNSKEY validation skipped",
+            ));
+        } else {
+            if !dnskeys.is_empty() {
+                findings.extend(dnssec_validation::validate_ksk_present(&dnskey_refs));
+            }
+            if !ds_from_parent.is_empty() {
+                findings.extend(dnssec_validation::validate_ds_dnskey_binding(&ds_refs, &dnskey_refs));
+            }
+            findings.extend(dnssec_validation::validate_rrsig_dnskey_binding(
+                &rrsig_refs,
+                &dnskey_refs,
+            ));
         }
-        if !ds_from_parent.is_empty() {
-            findings.extend(dnssec_validation::validate_ds_dnskey_binding(&ds_refs, &dnskey_refs));
-        }
-        findings.extend(dnssec_validation::validate_rrsig_dnskey_binding(
-            &rrsig_refs,
-            &dnskey_refs,
-        ));
         findings.extend(dnssec_validation::validate_rrsig_expiration(&rrsig_refs, now));
 
         let mut algos = HashSet::new();
@@ -257,7 +282,7 @@ where
         }
 
         // Handle unsigned zone
-        if dnskeys.is_empty() && rrsigs.is_empty() && i > 0 {
+        if dnskeys.is_empty() && rrsigs.is_empty() && i > 0 && !dnskey_truncated {
             findings.push(Finding::warning(format!(
                 "Zone {} has no DNSKEY records: not DNSSEC-signed",
                 zone
@@ -336,6 +361,27 @@ where
             // (AA=1, NS in answers) rather than referrals (AA=0, NS in authority),
             // so we check both sections.
             let mut ns_servers = extract_ns_servers(&ns_results);
+            let mut truncated_findings = Vec::new();
+            if all_truncated(&ds_results) {
+                truncated_findings.push(truncated_finding(
+                    HickoryRecordType::DS,
+                    &hickory_child,
+                    "the DS records for the child zone are unknown",
+                ));
+            }
+            if ns_servers.is_empty() && all_truncated(&ns_results) {
+                truncated_findings.push(truncated_finding(
+                    HickoryRecordType::NS,
+                    &hickory_child,
+                    &format!("the walk stopped because the referral for {} was truncated", child),
+                ));
+            }
+            if let Some(level) = levels.last_mut() {
+                for finding in truncated_findings {
+                    level.status = Severity::worst(&level.status, &finding.severity);
+                    level.findings.push(finding);
+                }
+            }
             if !ns_servers.is_empty() {
                 resolver::resolve_missing_glue(app_config, &mut ns_servers).await;
                 current_servers =
@@ -388,6 +434,46 @@ mod tests {
     fn split_domain_labels_tld() {
         let labels = split_domain_labels("com");
         assert_eq!(labels, vec![".", "com."]);
+    }
+
+    fn rqr(result: raw::RawResult<raw::RawResponse>) -> RawQueryResult {
+        RawQueryResult {
+            server: "192.0.2.1:53".parse().unwrap(),
+            result,
+        }
+    }
+
+    fn truncated() -> raw::RawResult<raw::RawResponse> {
+        Err(raw::RawError::Truncated {
+            server: "192.0.2.1:53".parse().unwrap(),
+        })
+    }
+
+    #[test]
+    fn all_truncated_requires_a_truncation_and_no_usable_response() {
+        let timeout = || Err(raw::RawError::Timeout(Duration::from_secs(1)));
+        let ok = || {
+            Ok(raw::RawResponse::new_for_test(
+                hickory_resolver::proto::op::Message::query(),
+                Duration::from_millis(1),
+            ))
+        };
+
+        assert!(all_truncated(&[rqr(truncated()), rqr(truncated())]));
+        assert!(all_truncated(&[rqr(truncated()), rqr(timeout())]));
+        assert!(!all_truncated(&[]));
+        assert!(!all_truncated(&[rqr(timeout())]));
+        assert!(!all_truncated(&[rqr(truncated()), rqr(ok())]));
+    }
+
+    #[test]
+    fn truncated_finding_names_record_type_and_disabled_fallback() {
+        let name = Name::from_ascii("example.com.").unwrap();
+        let finding = truncated_finding(HickoryRecordType::DNSKEY, &name, "skipped");
+        assert_eq!(finding.severity, Severity::Warning);
+        assert!(finding.message.contains("DNSKEY"));
+        assert!(finding.message.contains("truncated"));
+        assert!(finding.message.contains("TCP fallback is disabled"));
     }
 
     #[test]
