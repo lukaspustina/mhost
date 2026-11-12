@@ -1,6 +1,6 @@
 # Spec: TCP fallback for truncated UDP answers
 
-Status: Draft
+Status: Ready for Implementation
 Created: 2026-11-12
 
 ## Goal
@@ -53,7 +53,7 @@ DNS implementations support TCP). For diagnosis, the global flag `--no-tcp-fallb
    UDP first, TCP second. UDP stays the transport of every query; TCP is used only after a
    truncated response (agent default, confirmed by operator, 2026-11-12).
 3. `tcp:`, `tls:` and `https:` nameserver configs keep exactly one connection of their own
-   protocol: no UDP is added to them (agent default, pending confirmation).
+   protocol: no UDP is added to them (agent default, confirmed by operator, 2026-11-12).
 4. `ResolverOpts` carries a public `tcp_fallback: bool`, `true` in `Default`; with `false` a
    `udp:` nameserver is handed to hickory with its UDP connection only, as before this fix
    (operator, 2026-11-12).
@@ -96,8 +96,8 @@ GIVEN network access WHEN the loop command runs with `--no-tcp-fallback` added b
 - Fix in mhost's config over a mapping change: hypothesis 3 refuted mhost's error mapping as the cause; the error is hickory's `NetError::Truncated`.
 - No EDNS change: hypothesis 1 refuted missing EDNS; hickory 0.26 sends EDNS with 1232 bytes by default.
 - UDP and TCP on the same server over a separate TCP resolver: hickory's pool retries the same server with UDP disabled, so the TCP connection must sit on that server's config (hypothesis 4, held).
-- Offline fake-server test over a lit test against a public resolver: deterministic, no real domain in test data, runs under `just adlc-verify` (agent default, pending confirmation).
-- Non-goals 1-3 name no defect (agent default, pending confirmation).
+- Offline fake-server test over a lit test against a public resolver: deterministic, no real domain in test data, runs under `just adlc-verify` (agent default, confirmed by operator, 2026-11-12).
+- Non-goals 1-3 name no defect (agent default, confirmed by operator, 2026-11-12).
 - RFC-conforming TCP fallback as default with a global opt-out over UDP+TCP always: the operator diagnoses UDP-only behaviour and must be able to force it (operator, 2026-11-12).
 - Global flag `--no-tcp-fallback` over a per-nameserver parameter or both: covers system and predefined nameservers, matches the existing global resolver flags (operator, 2026-11-12).
 - EDNS switches deferred to a later feature over adding them here: the fix does not need them, hickory already sends 1232 bytes (operator, 2026-11-12).
