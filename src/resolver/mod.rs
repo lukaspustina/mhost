@@ -91,6 +91,8 @@ pub struct ResolverOpts {
     pub timeout: Duration,
     pub abort_on_error: bool,
     pub abort_on_timeout: bool,
+    /// Retry truncated UDP answers over TCP on the same nameserver.
+    pub tcp_fallback: bool,
 }
 
 impl ResolverOpts {
@@ -119,6 +121,7 @@ impl Default for ResolverOpts {
             timeout: Duration::from_secs(5),
             abort_on_error: true,
             abort_on_timeout: true,
+            tcp_fallback: true,
         }
     }
 }
@@ -177,7 +180,7 @@ impl Resolver {
     pub async fn new(config: ResolverConfig, opts: ResolverOpts) -> ResolverResult<Self> {
         let name_server = config.name_server_config.clone();
         let tr_opts = opts.to_proto();
-        let tr_config = config.to_proto();
+        let tr_config = config.to_proto(opts.tcp_fallback);
         let tr_resolver = hickory_resolver::Resolver::builder_with_config(
             tr_config,
             hickory_resolver::net::runtime::TokioRuntimeProvider::default(),
@@ -446,7 +449,7 @@ impl Resolver {
     pub fn new_for_test(opts: ResolverOpts, name_server: NameServerConfig) -> Self {
         let config = ResolverConfig::new(name_server.clone());
         let tr_opts = opts.to_proto();
-        let tr_config = config.to_proto();
+        let tr_config = config.to_proto(opts.tcp_fallback);
         let tr_resolver = hickory_resolver::Resolver::builder_with_config(
             tr_config,
             hickory_resolver::net::runtime::TokioRuntimeProvider::default(),
@@ -464,10 +467,10 @@ impl Resolver {
 }
 
 impl ResolverConfig {
-    pub(crate) fn to_proto(&self) -> hickory_resolver::config::ResolverConfig {
+    pub(crate) fn to_proto(&self, tcp_fallback: bool) -> hickory_resolver::config::ResolverConfig {
         let rc = self;
         let mut config = hickory_resolver::config::ResolverConfig::default();
-        config.name_servers.push(rc.name_server_config.to_proto());
+        config.name_servers.push(rc.name_server_config.to_proto(tcp_fallback));
 
         config
     }

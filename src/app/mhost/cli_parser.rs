@@ -222,6 +222,13 @@ Examples:
                 .help("Sets timeout in seconds for responses"),
         )
         .arg(
+            Arg::new("no-tcp-fallback")
+                .long("no-tcp-fallback")
+                .action(ArgAction::SetTrue)
+                .global(true)
+                .help("Does not retry truncated UDP answers over TCP"),
+        )
+        .arg(
             Arg::new("resolvers-mode")
                 .short('m')
                 .long("resolvers-mode")

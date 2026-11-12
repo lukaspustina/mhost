@@ -327,21 +327,34 @@ impl From<resolv_conf::Config> for NameServerConfigGroup {
 }
 
 impl NameServerConfig {
-    pub(crate) fn to_proto(&self) -> hickory_resolver::config::NameServerConfig {
+    /// Converts to the hickory nameserver config.
+    ///
+    /// A UDP nameserver gets a TCP connection on the same port after the UDP one when
+    /// `tcp_fallback` is set, so truncated UDP answers are retried over TCP. TCP, TLS and HTTPS
+    /// nameservers keep exactly one connection of their own protocol.
+    pub(crate) fn to_proto(&self, tcp_fallback: bool) -> hickory_resolver::config::NameServerConfig {
         let config = self;
         use hickory_resolver::config::{ConnectionConfig, ProtocolConfig};
-        let mut connection = match &config {
-            NameServerConfig::Udp { .. } => ConnectionConfig::new(ProtocolConfig::Udp),
-            NameServerConfig::Tcp { .. } => ConnectionConfig::new(ProtocolConfig::Tcp),
+        let mut connections = match &config {
+            NameServerConfig::Udp { .. } if tcp_fallback => vec![
+                ConnectionConfig::new(ProtocolConfig::Udp),
+                ConnectionConfig::new(ProtocolConfig::Tcp),
+            ],
+            NameServerConfig::Udp { .. } => vec![ConnectionConfig::new(ProtocolConfig::Udp)],
+            NameServerConfig::Tcp { .. } => vec![ConnectionConfig::new(ProtocolConfig::Tcp)],
             #[cfg(feature = "dot")]
-            NameServerConfig::Tls { tls_auth_name, .. } => ConnectionConfig::tls(tls_auth_name.as_str().into()),
+            NameServerConfig::Tls { tls_auth_name, .. } => {
+                vec![ConnectionConfig::tls(tls_auth_name.as_str().into())]
+            }
             #[cfg(feature = "doh")]
             NameServerConfig::Https { tls_auth_name, .. } => {
-                ConnectionConfig::https(tls_auth_name.as_str().into(), None)
+                vec![ConnectionConfig::https(tls_auth_name.as_str().into(), None)]
             }
         };
-        connection.port = config.port();
-        hickory_resolver::config::NameServerConfig::new(config.ip_addr(), true, vec![connection])
+        for connection in &mut connections {
+            connection.port = config.port();
+        }
+        hickory_resolver::config::NameServerConfig::new(config.ip_addr(), true, connections)
     }
 }
 
