@@ -1,6 +1,6 @@
 # Spec: tcp-fallback-followups
 
-Status: Draft
+Status: Ready for Implementation
 Created: 2026-11-12
 
 ## Goal
