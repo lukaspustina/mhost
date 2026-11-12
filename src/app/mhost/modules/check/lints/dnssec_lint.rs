@@ -206,6 +206,50 @@ mod tests {
         assert_eq!(records.len(), 1);
     }
 
+    /// Collects `(level, rendered fields)` of every event emitted while it is the default subscriber.
+    #[derive(Clone, Default)]
+    struct Capture(Arc<std::sync::Mutex<Vec<(tracing::Level, String)>>>);
+
+    struct Fields(String);
+
+    impl tracing::field::Visit for Fields {
+        fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+            self.0.push_str(&format!("{}={:?} ", field.name(), value));
+        }
+    }
+
+    impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for Capture {
+        fn on_event(&self, event: &tracing::Event<'_>, _ctx: tracing_subscriber::layer::Context<'_, S>) {
+            let mut fields = Fields(String::new());
+            event.record(&mut fields);
+            self.0.lock().unwrap().push((*event.metadata().level(), fields.0));
+        }
+    }
+
+    #[tokio::test]
+    async fn truncated_response_is_logged_at_warn_with_server() {
+        use tracing_subscriber::layer::SubscriberExt;
+
+        let capture = Capture::default();
+        let _guard = tracing::subscriber::set_default(tracing_subscriber::registry().with(capture.clone()));
+        let targets: Vec<std::net::IpAddr> = vec!["192.0.2.1".parse().unwrap()];
+
+        let signed = first_signed(
+            &targets,
+            |server| async move { Err(raw::RawError::Truncated { server }) },
+        )
+        .await;
+
+        assert!(signed.is_none());
+        let events = capture.0.lock().unwrap();
+        assert!(
+            events.iter().any(|(level, text)| *level == tracing::Level::WARN
+                && text.contains("truncated")
+                && text.contains("192.0.2.1")),
+            "expected a warn event naming the server and the truncation, got {events:?}"
+        );
+    }
+
     fn targets_first() -> std::net::IpAddr {
         "192.0.2.1".parse().unwrap()
     }
