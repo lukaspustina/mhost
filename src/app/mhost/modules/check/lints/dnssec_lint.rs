@@ -9,7 +9,8 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
+use tracing_futures::Instrument;
 
 use crate::app::modules::check::config::CheckConfig;
 use crate::app::modules::check::lints::axfr::Axfr;
@@ -99,12 +100,21 @@ impl<'a> DnssecCheck<'a> {
             Err(reason) => return Ok(Err(reason)),
         };
         let domain = self.domain_name.as_proto().clone();
+        let tcp_fallback = self.env.app_config.tcp_fallback;
         let signed = first_signed(&targets, |server| {
             let domain = domain.clone();
             async move {
-                raw::raw_dnssec_query(server, &domain, RecordType::DNSKEY.to_proto(), Duration::from_secs(5)).await
+                raw::raw_dnssec_query(
+                    server,
+                    &domain,
+                    RecordType::DNSKEY.to_proto(),
+                    Duration::from_secs(5),
+                    tcp_fallback,
+                )
+                .await
             }
         })
+        .instrument(tracing::warn_span!("dnskey_rrsigs", name = %domain))
         .await;
         if let Some((server, records)) = signed {
             let query = UniQuery::new(self.domain_name.clone(), RecordType::RRSIG)?;
@@ -143,6 +153,9 @@ where
                 }
                 info!("Received {} DNSKEY signatures from {}", records.len(), server);
                 return Some((server, records));
+            }
+            Err(e @ raw::RawError::Truncated { .. }) => {
+                warn!("DNSKEY query with DO against {} failed: {}", server, e)
             }
             Err(e) => debug!("DNSKEY query with DO failed against {}: {}", server, e),
         }
@@ -204,6 +217,50 @@ mod tests {
         .expect("the second server answers with signatures");
         assert_eq!(server.ip(), "192.0.2.2".parse::<std::net::IpAddr>().unwrap());
         assert_eq!(records.len(), 1);
+    }
+
+    /// Collects `(level, rendered fields)` of every event emitted while it is the default subscriber.
+    #[derive(Clone, Default)]
+    struct Capture(Arc<std::sync::Mutex<Vec<(tracing::Level, String)>>>);
+
+    struct Fields(String);
+
+    impl tracing::field::Visit for Fields {
+        fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+            self.0.push_str(&format!("{}={:?} ", field.name(), value));
+        }
+    }
+
+    impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for Capture {
+        fn on_event(&self, event: &tracing::Event<'_>, _ctx: tracing_subscriber::layer::Context<'_, S>) {
+            let mut fields = Fields(String::new());
+            event.record(&mut fields);
+            self.0.lock().unwrap().push((*event.metadata().level(), fields.0));
+        }
+    }
+
+    #[tokio::test]
+    async fn truncated_response_is_logged_at_warn_with_server() {
+        use tracing_subscriber::layer::SubscriberExt;
+
+        let capture = Capture::default();
+        let _guard = tracing::subscriber::set_default(tracing_subscriber::registry().with(capture.clone()));
+        let targets: Vec<std::net::IpAddr> = vec!["192.0.2.1".parse().unwrap()];
+
+        let signed = first_signed(
+            &targets,
+            |server| async move { Err(raw::RawError::Truncated { server }) },
+        )
+        .await;
+
+        assert!(signed.is_none());
+        let events = capture.0.lock().unwrap();
+        assert!(
+            events.iter().any(|(level, text)| *level == tracing::Level::WARN
+                && text.contains("truncated")
+                && text.contains("192.0.2.1")),
+            "expected a warn event naming the server and the truncation, got {events:?}"
+        );
     }
 
     fn targets_first() -> std::net::IpAddr {

@@ -9,6 +9,8 @@
 ### Fixed
 
 - Lookups over UDP whose answer comes back truncated (TC) are retried once over TCP to the same nameserver, as RFC 2181 §9 and RFC 7766 ask; before, they failed with `response was truncated; TCP already tried or no other transport available`, for example `TXT microsoft.com.` through the system resolver (#797). Every query still starts over UDP, and a failed TCP retry is reported as `response was truncated; TCP retry failed: <reason>` (counted as an other error, not a timeout)
+- The request estimate (`Sending … requests`) counts that TCP retry: for a `udp:` nameserver with TCP fallback on, the maximum is now twice `1 + retries` per name and record type, so the line reads `between N and 2N requests`; `tcp:`, `tls:` and `https:` nameservers and `--no-tcp-fallback` runs keep the old count
+- `--no-tcp-fallback` now also covers `trace`, `dnssec` and the DNSSEC lint of `check`: a truncated UDP answer is reported as `response from <server> was truncated and TCP fallback is disabled` (an error line in `trace`, a warning in `dnssec` and `check`) instead of being retried over TCP
 
 ## v0.12.1 - 2026-10-08
 

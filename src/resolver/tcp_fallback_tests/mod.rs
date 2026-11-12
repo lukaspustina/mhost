@@ -1,9 +1,18 @@
+mod estimate_counts_tcp_retry;
+mod estimate_group_counts_tcp_retry;
+mod estimate_min_unchanged;
+mod estimate_without_tcp_retry;
 pub(crate) mod fake_ns;
 mod large_answer_over_tcp;
 mod no_fallback_keeps_truncation;
 mod no_retry_resolver_without_fallback;
 mod opts_default;
 mod opts_tcp_fallback;
+mod parallel_raw_queries_no_fallback_reports_truncation;
+mod raw_complete_udp_answer_needs_no_tcp;
+mod raw_dnssec_query_no_fallback_reports_truncation;
+mod raw_query_no_fallback_reports_truncation;
+mod raw_truncated_falls_back_over_tcp;
 mod retry_once_per_lookup;
 mod tcp_retry_failure_is_not_timeout;
 mod tcp_retry_refused;

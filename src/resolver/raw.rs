@@ -9,6 +9,7 @@
 //!
 //! Used by the trace command to perform iterative DNS resolution, querying
 //! nameservers directly without recursion and inspecting authority/additional sections.
+//! A truncated UDP answer is retried over TCP when `tcp_fallback` is set.
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::time::{Duration, Instant};
@@ -66,6 +67,8 @@ pub enum RawError {
     Timeout(Duration),
     #[error("response does not answer the query")]
     UnrelatedResponse,
+    #[error("response from {server} was truncated and TCP fallback is disabled")]
+    Truncated { server: SocketAddr },
 }
 
 pub type RawResult<T> = std::result::Result<T, RawError>;
@@ -143,17 +146,21 @@ pub struct RawQueryResult {
     pub result: RawResult<RawResponse>,
 }
 
-/// Send a non-recursive DNS query to a single server over UDP, with automatic TCP fallback
-/// on truncation.
+/// Send a non-recursive DNS query to a single server over UDP; a truncated answer is retried
+/// over TCP when `tcp_fallback` is set, otherwise it is `RawError::Truncated`.
 pub async fn raw_query(
     server: SocketAddr,
     name: &Name,
     record_type: RecordType,
     timeout: Duration,
+    tcp_fallback: bool,
 ) -> RawResult<RawResponse> {
     let msg = build_query_message(name, record_type);
     let response = send_udp(server, &msg, timeout).await?;
     if response.is_truncated() {
+        if !tcp_fallback {
+            return Err(RawError::Truncated { server });
+        }
         debug!("UDP response from {} truncated, retrying over TCP", server);
         let msg = build_query_message(name, record_type);
         send_tcp(server, &msg, timeout).await
@@ -169,11 +176,12 @@ pub async fn parallel_raw_queries(
     record_type: RecordType,
     timeout: Duration,
     max_concurrent: usize,
+    tcp_fallback: bool,
 ) -> Vec<RawQueryResult> {
     let futures = servers.iter().map(|&server| {
         let name = name.clone();
         async move {
-            let result = raw_query(server, &name, record_type, timeout).await;
+            let result = raw_query(server, &name, record_type, timeout, tcp_fallback).await;
             RawQueryResult { server, result }
         }
     });
@@ -185,16 +193,21 @@ pub async fn parallel_raw_queries(
 }
 
 /// Send a non-recursive DNS query with the DNSSEC OK (DO) bit set, requesting
-/// RRSIG and other DNSSEC records in responses.
+/// RRSIG and other DNSSEC records in responses. A truncated answer is retried over TCP when
+/// `tcp_fallback` is set, otherwise it is `RawError::Truncated`.
 pub async fn raw_dnssec_query(
     server: SocketAddr,
     name: &Name,
     record_type: RecordType,
     timeout: Duration,
+    tcp_fallback: bool,
 ) -> RawResult<RawResponse> {
     let msg = build_dnssec_query_message(name, record_type);
     let response = send_udp(server, &msg, timeout).await?;
     if response.is_truncated() {
+        if !tcp_fallback {
+            return Err(RawError::Truncated { server });
+        }
         debug!("UDP DNSSEC response from {} truncated, retrying over TCP", server);
         let msg = build_dnssec_query_message(name, record_type);
         send_tcp(server, &msg, timeout).await
@@ -210,11 +223,12 @@ pub async fn parallel_raw_dnssec_queries(
     record_type: RecordType,
     timeout: Duration,
     max_concurrent: usize,
+    tcp_fallback: bool,
 ) -> Vec<RawQueryResult> {
     let futures = servers.iter().map(|&server| {
         let name = name.clone();
         async move {
-            let result = raw_dnssec_query(server, &name, record_type, timeout).await;
+            let result = raw_dnssec_query(server, &name, record_type, timeout, tcp_fallback).await;
             RawQueryResult { server, result }
         }
     });

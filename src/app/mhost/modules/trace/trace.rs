@@ -168,6 +168,7 @@ impl<'a> TraceRun<'a> {
                 hickory_rt,
                 timeout,
                 self.env.app_config.max_concurrent_servers,
+                self.env.app_config.tcp_fallback,
             )
             .await;
 
@@ -1420,5 +1421,44 @@ mod tests {
         // (no errors, so no individual server lines)
         assert!(!output.contains("198.41.0.4"));
         assert!(!output.contains("170.247.170.2"));
+    }
+
+    #[test]
+    fn summary_output_truncated_error_names_truncation() {
+        let server = addr(Ipv4Addr::new(10, 0, 0, 1));
+
+        for (show_all_servers, line_marker) in [(false, "): "), (true, "Error: ")] {
+            let results = vec![RawQueryResult {
+                server,
+                result: Err(raw::RawError::Truncated { server }),
+            }];
+            let names = make_server_names(&[server], &[Some("ns1.example.com.".to_string())]);
+            let (server_results, _, is_final) = process_hop_results(&results, &names, RecordType::A);
+
+            let trace = TraceResults {
+                domain_name: "example.com".to_string(),
+                record_type: RecordType::A,
+                hops: vec![TraceHop {
+                    level: 1,
+                    zone_name: ".".to_string(),
+                    servers_queried: 1,
+                    server_results,
+                    referral_groups: Vec::new(),
+                    is_final,
+                }],
+                total_time: Duration::from_secs(1),
+                show_all_servers,
+            };
+            let mut buf = Vec::new();
+            trace.output(&mut buf, &SummaryOptions::default()).unwrap();
+            let output = String::from_utf8(buf).unwrap();
+
+            let line = output
+                .lines()
+                .find(|l| l.contains("10.0.0.1") && l.contains("(ns1.example.com.)"))
+                .unwrap_or_else(|| panic!("no server line (show_all={show_all_servers}): {output}"));
+            assert!(line.contains(line_marker), "show_all={show_all_servers}: {line}");
+            assert!(line.contains("truncated"), "show_all={show_all_servers}: {line}");
+        }
     }
 }

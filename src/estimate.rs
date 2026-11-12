@@ -42,7 +42,12 @@ impl fmt::Display for Estimation {
 impl Estimate for Resolver {
     fn estimate(&self, query: &MultiQuery) -> Estimation {
         let min_lookups = query.names.len() * query.record_types.len();
-        let max_lookups = query.names.len() * query.record_types.len() * (1 + self.opts.retries);
+        // Upper bound without CNAME chasing: up to `1 + retries` UDP attempts, then, if a TCP retry
+        // resolver is set, up to `1 + retries` TCP attempts of that resolver.
+        let mut max_lookups = query.names.len() * query.record_types.len() * (1 + self.opts.retries);
+        if self.tcp_retry.is_some() {
+            max_lookups *= 2;
+        }
 
         Estimation {
             min_requests: min_lookups,
@@ -126,7 +131,7 @@ mod tests {
         let est = resolver.estimate(&query);
 
         assert_eq!(est.min_requests, 6);
-        assert_eq!(est.max_requests, 6);
+        assert_eq!(est.max_requests, 12); // 6 * 2 (UDP + TCP retry)
     }
 
     #[test]
@@ -136,7 +141,7 @@ mod tests {
         let est = resolver.estimate(&query);
 
         assert_eq!(est.min_requests, 2);
-        assert_eq!(est.max_requests, 6); // 2 * (1 + 2)
+        assert_eq!(est.max_requests, 12); // 2 * 2 * (1 + 2)
     }
 
     #[test]
@@ -153,9 +158,9 @@ mod tests {
         let query = MultiQuery::single("example.com.", RecordType::A).unwrap();
         let est = group.estimate(&query);
 
-        // 3 resolvers, each estimates min=1, max=1 (0 retries)
+        // 3 resolvers, each estimates min=1, max=2 (0 retries, UDP + TCP retry)
         assert_eq!(est.min_requests, 3);
-        assert_eq!(est.max_requests, 3);
+        assert_eq!(est.max_requests, 6);
     }
 
     #[test]
@@ -174,7 +179,7 @@ mod tests {
 
         // Only 2 resolvers counted due to limit
         assert_eq!(est.min_requests, 2);
-        assert_eq!(est.max_requests, 2);
+        assert_eq!(est.max_requests, 4);
     }
 
     #[test]
@@ -193,6 +198,6 @@ mod tests {
 
         // Uni mode uses first resolver's estimate only
         assert_eq!(est.min_requests, 1);
-        assert_eq!(est.max_requests, 2); // 1 * (1 + 1)
+        assert_eq!(est.max_requests, 4); // 1 * 2 * (1 + 1)
     }
 }

@@ -18,6 +18,7 @@ use yansi::Paint;
 use chain::{DelegationLevel, TrustChain};
 use config::DnssecConfig;
 
+use crate::app::common::records::term_safe;
 use crate::app::modules::{AppModule, Environment, PartialResult, PartialResultExt, RunInfo};
 use crate::app::output::styles as output_styles;
 use crate::app::output::summary::{SummaryFormatter, SummaryOptions};
@@ -103,14 +104,7 @@ impl<'a> DnssecRun<'a> {
                     for i in already..levels.len() - 1 {
                         let level = &levels[i];
                         let next = &levels[i + 1];
-                        let _ = write_level(
-                            &mut stdout,
-                            level,
-                            Some(&next.ds_records),
-                            Some(&next.dnskeys),
-                            false,
-                            &opts,
-                        );
+                        let _ = write_level(&mut stdout, level, Some(next), false, &opts);
                     }
                     rendered_count.set(levels.len() - 1);
                 }
@@ -134,10 +128,8 @@ impl<'a> DnssecRun<'a> {
             if already < trust_chain.levels.len() {
                 for i in already..trust_chain.levels.len() {
                     let level = &trust_chain.levels[i];
-                    let next_ds = trust_chain.levels.get(i + 1).map(|l| &l.ds_records);
-                    let next_dnskeys = trust_chain.levels.get(i + 1).map(|l| &l.dnskeys);
                     let is_last = i + 1 == trust_chain.levels.len();
-                    let _ = write_level(&mut stdout, level, next_ds, next_dnskeys, is_last, &opts);
+                    let _ = write_level(&mut stdout, level, trust_chain.levels.get(i + 1), is_last, &opts);
                 }
             }
             let _ = write_footer(&mut stdout, &trust_chain);
@@ -214,10 +206,8 @@ impl SummaryFormatter for TrustChain {
         write_header(writer, &self.domain_name)?;
 
         for (i, level) in self.levels.iter().enumerate() {
-            let next_ds = self.levels.get(i + 1).map(|l| &l.ds_records);
-            let next_dnskeys = self.levels.get(i + 1).map(|l| &l.dnskeys);
             let is_last = i + 1 == self.levels.len();
-            write_level(writer, level, next_ds, next_dnskeys, is_last, opts)?;
+            write_level(writer, level, self.levels.get(i + 1), is_last, opts)?;
         }
 
         write_footer(writer, self)?;
@@ -238,8 +228,7 @@ fn write_header<W: Write>(writer: &mut W, domain_name: &str) -> crate::Result<()
 fn write_level<W: Write>(
     writer: &mut W,
     level: &DelegationLevel,
-    next_ds: Option<&Vec<crate::resources::rdata::DS>>,
-    next_dnskeys: Option<&Vec<crate::resources::rdata::DNSKEY>>,
+    next: Option<&DelegationLevel>,
     is_last: bool,
     _opts: &SummaryOptions,
 ) -> crate::Result<()> {
@@ -257,6 +246,10 @@ fn write_level<W: Write>(
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs() as u32)
         .unwrap_or(0);
+
+    let next_ds = next.map(|l| &l.ds_records);
+    let next_dnskeys = next.map(|l| &l.dnskeys);
+    let child_keys_unknown = next.is_some_and(|l| l.dnskeys_unknown);
 
     let has_ds_link = next_ds.is_some_and(|ds| !ds.is_empty());
     let total_items = level.dnskeys.len() + level.rrsigs.len();
@@ -350,7 +343,12 @@ fn write_level<W: Write>(
                     tree_ds_prefix()
                 };
 
-                let binding = dnssec_validation::classify_ds_binding(ds, &child_dnskey_refs);
+                // A truncated DNSKEY answer leaves the child key set unknown: the DS cannot be judged
+                let binding = if child_keys_unknown {
+                    dnssec_validation::Finding::warning("child DNSKEY set unknown: answer truncated")
+                } else {
+                    dnssec_validation::classify_ds_binding(ds, &child_dnskey_refs)
+                };
 
                 // Show what the DS links to for chain-of-trust visibility
                 let link_info = if binding.severity == Severity::Ok {
@@ -384,6 +382,14 @@ fn write_level<W: Write>(
                 )?;
             }
         }
+    }
+
+    for finding in level.findings.iter().filter(|f| chain::is_truncated_finding(f)) {
+        writeln!(
+            writer,
+            "    {}",
+            term_safe(&finding.message).paint(output_styles::ATTENTION)
+        )?;
     }
 
     Ok(())
@@ -530,6 +536,7 @@ mod tests {
                 rrsigs: Vec::new(),
                 findings: vec![Finding::ok("test")],
                 status: Severity::Ok,
+                dnskeys_unknown: false,
             }],
             total_time: Duration::from_millis(50),
             status: Severity::Ok,
@@ -557,6 +564,7 @@ mod tests {
                 rrsigs: Vec::new(),
                 findings: vec![Finding::failed("broken chain")],
                 status: Severity::Failed,
+                dnskeys_unknown: false,
             }],
             total_time: Duration::from_millis(100),
             status: Severity::Failed,
@@ -582,6 +590,7 @@ mod tests {
                     rrsigs: Vec::new(),
                     findings: Vec::new(),
                     status: Severity::Ok,
+                    dnskeys_unknown: false,
                 },
                 DelegationLevel {
                     zone_name: "example.".to_string(),
@@ -590,6 +599,7 @@ mod tests {
                     rrsigs: Vec::new(),
                     findings: vec![Finding::warning("not DNSSEC-signed")],
                     status: Severity::Warning,
+                    dnskeys_unknown: false,
                 },
             ],
             total_time: Duration::from_millis(75),
@@ -603,5 +613,93 @@ mod tests {
 
         assert!(output.contains("warnings"));
         assert!(output.contains("2 levels"));
+    }
+
+    #[test]
+    fn summary_output_truncated_dnskeys_do_not_break_the_chain() {
+        use crate::resources::rdata::{DigestType, DnssecAlgorithm, DS};
+
+        let parent = DelegationLevel {
+            zone_name: "com.".to_string(),
+            dnskeys: Vec::new(),
+            ds_records: Vec::new(),
+            rrsigs: Vec::new(),
+            findings: Vec::new(),
+            status: Severity::Ok,
+            dnskeys_unknown: false,
+        };
+        let child = DelegationLevel {
+            zone_name: "example.com.".to_string(),
+            dnskeys: Vec::new(),
+            ds_records: vec![DS::new(
+                20326,
+                DnssecAlgorithm::EcdsaP256Sha256,
+                DigestType::Sha256,
+                "digest".to_string(),
+            )],
+            rrsigs: Vec::new(),
+            findings: vec![Finding::warning(
+                "DNSKEY answer for example.com. was truncated and TCP fallback is disabled: DNSKEY validation skipped",
+            )],
+            status: Severity::Warning,
+            dnskeys_unknown: true,
+        };
+        let chain = TrustChain {
+            domain_name: "example.com".to_string(),
+            levels: vec![parent, child],
+            total_time: Duration::from_millis(10),
+            status: Severity::Warning,
+        };
+
+        let mut buf = Vec::new();
+        chain.output(&mut buf, &SummaryOptions::default()).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+
+        assert!(!output.contains("no matching DNSKEY"));
+        assert!(!output.contains("broken"));
+        assert!(output.contains("child DNSKEY set unknown"));
+        assert!(output.contains("TCP fallback is disabled"));
+        assert!(output.contains("warnings"));
+    }
+
+    #[test]
+    fn summary_output_missing_child_dnskeys_still_break_the_chain() {
+        use crate::resources::rdata::{DigestType, DnssecAlgorithm, DS};
+
+        let parent = DelegationLevel {
+            zone_name: "com.".to_string(),
+            dnskeys: Vec::new(),
+            ds_records: Vec::new(),
+            rrsigs: Vec::new(),
+            findings: Vec::new(),
+            status: Severity::Ok,
+            dnskeys_unknown: false,
+        };
+        let child = DelegationLevel {
+            zone_name: "example.com.".to_string(),
+            dnskeys: Vec::new(),
+            ds_records: vec![DS::new(
+                20326,
+                DnssecAlgorithm::EcdsaP256Sha256,
+                DigestType::Sha256,
+                "digest".to_string(),
+            )],
+            rrsigs: Vec::new(),
+            findings: Vec::new(),
+            status: Severity::Failed,
+            dnskeys_unknown: false,
+        };
+        let chain = TrustChain {
+            domain_name: "example.com".to_string(),
+            levels: vec![parent, child],
+            total_time: Duration::from_millis(10),
+            status: Severity::Failed,
+        };
+
+        let mut buf = Vec::new();
+        chain.output(&mut buf, &SummaryOptions::default()).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+
+        assert!(output.contains("no matching DNSKEY"));
     }
 }

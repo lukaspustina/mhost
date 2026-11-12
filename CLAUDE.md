@@ -33,6 +33,8 @@ design, error layers, common API patterns, network-test history and the release 
 - hickory 0.26 semantics relied on (`resolver/lookup.rs` `IntoLookup`): answers plus matching
   authority/additional and NS glue; error rcodes reported as Nx; unrequested DNSSEC records are
   stripped unless DO is set — fetch RRSIGs with `raw::raw_dnssec_query`.
+- A raw query result is usable only when `Ok`, NOERROR and carrying the queried type: a lame
+  server's REFUSED/SERVFAIL arrives as `Ok`, so never classify by `is_err()` alone.
 - A `udp:` nameserver stays UDP-only in hickory; truncated answers retry once over
   `Resolver::tcp_retry` (`single_lookup`). Never add a TCP `ConnectionConfig`: hickory then drops
   UDP after one timeout.
