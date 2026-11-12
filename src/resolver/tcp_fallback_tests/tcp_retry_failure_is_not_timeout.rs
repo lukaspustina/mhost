@@ -15,6 +15,7 @@ use super::fake_ns::{FakeNs, TcpMode, UdpBehavior};
 async fn failed_tcp_retry_is_other_error_and_does_not_trip_timeout_breaker() {
     let ns = FakeNs::builder()
         .udp_for("example.com.", UdpBehavior::Truncate)
+        .txt_records(vec!["v=spf1 -all".to_string()])
         .tcp(TcpMode::Silent)
         .start()
         .await;
@@ -23,6 +24,8 @@ async fn failed_tcp_retry_is_other_error_and_does_not_trip_timeout_breaker() {
         timeout: Duration::from_secs(1),
         retries: 0,
         abort_on_timeout: true,
+        // Only the timeout breaker is under test; abort_on_error would stop on any error.
+        abort_on_error: false,
         max_concurrent_requests: 1,
         tcp_fallback: true,
         ..Default::default()
