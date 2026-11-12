@@ -1,6 +1,6 @@
 # Spec: TCP fallback for truncated UDP answers
 
-Status: Draft
+Status: Ready for Implementation
 Created: 2026-11-12
 
 ## Goal
@@ -76,10 +76,10 @@ DNS implementations support TCP). For diagnosis, the global flag `--no-tcp-fallb
 7. When that TCP retry fails, the lookup's error is `Error::ResolveError` whose text starts with
    `response was truncated; TCP retry failed: ` followed by the TCP error's text (for example
    `request timed out`). It counts as an other error, not as a timeout, so abort-on-timeout does not
-   fire on it (review F2; agent default, pending confirmation).
+   fire on it (review F2; agent default, confirmed by operator, 2026-11-12).
 8. With `tcp_fallback` off, or for `tcp:`, `tls:` and `https:` nameservers, no TCP-only resolver
-   exists; a truncated UDP answer ends in today's truncation error (agent default, pending
-   confirmation).
+   exists; a truncated UDP answer ends in today's truncation error (agent default, confirmed by
+   operator, 2026-11-12).
 
 ## Phases
 
@@ -144,7 +144,7 @@ GIVEN network access WHEN the loop command of requirement 1 runs, with and witho
 - Global flag `--no-tcp-fallback` over a per-nameserver parameter or both: covers system and predefined nameservers, matches the existing global resolver flags (operator, 2026-11-12).
 - EDNS switches deferred to a later feature over adding them here: the fix does not need them, hickory already sends 1232 bytes (operator, 2026-11-12).
 - TCP retry in mhost through a separate TCP-only hickory resolver over UDP+TCP on one hickory nameserver: review F1 (UDP abandoned after one UDP timeout) and F2 (truncation error replaced by the TCP error) are hickory pool behaviour that mhost cannot change (operator, 2026-11-12).
-- A failed TCP retry as `ResolveError` with a fixed text prefix over a new `Error` variant: no public enum change, and the text keeps both causes visible (agent default, pending confirmation).
+- A failed TCP retry as `ResolveError` with a fixed text prefix over a new `Error` variant: no public enum change, and the text keeps both causes visible (agent default, confirmed by operator, 2026-11-12).
 
 ## Open decisions
 
