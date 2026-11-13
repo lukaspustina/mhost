@@ -256,6 +256,50 @@ mod test {
     use std::net::{Ipv4Addr, Ipv6Addr};
     use std::str::FromStr;
 
+    // Nameserver specs come from the command line and from files: whatever they hold, parsing
+    // returns, it never panics. Seeded, so a failure reproduces.
+    #[test]
+    fn from_str_does_not_panic_on_token_soup() {
+        use rand::rngs::StdRng;
+        use rand::{Rng, SeedableRng};
+
+        const TOKENS: &[&str] = &[
+            "udp",
+            "tcp",
+            "tls",
+            "https",
+            "8.8.8.8",
+            "[::1]",
+            "::1",
+            "dns.google",
+            ":",
+            "53",
+            "99999",
+            "-1",
+            ",",
+            "=",
+            "tls_auth_name",
+            "name",
+            "\"",
+            "@",
+            "/",
+            "[",
+            "]",
+            "",
+            "é",
+            "\u{0}",
+            "256.256.256.256",
+        ];
+        let mut rng = StdRng::seed_from_u64(0x5EED);
+        for _ in 0..5000 {
+            let n = rng.random_range(1..12);
+            let text = (0..n)
+                .map(|_| TOKENS[rng.random_range(0..TOKENS.len())])
+                .collect::<String>();
+            let _ = NameServerConfig::from_str(&text);
+        }
+    }
+
     #[tokio::test]
     async fn ipv4_8_8_8_8() {
         crate::utils::tests::logging::init();
