@@ -147,6 +147,61 @@ mod tests {
     use super::*;
     use std::net::{Ipv4Addr, Ipv6Addr};
 
+    // Zone text may come from anyone: whatever it holds, parsing returns, it never panics.
+    // Seeded, so a failure reproduces.
+    #[test]
+    fn parse_str_does_not_panic_on_token_soup() {
+        use rand::rngs::StdRng;
+        use rand::{Rng, SeedableRng};
+
+        const TOKENS: &[&str] = &[
+            "$ORIGIN",
+            "$TTL",
+            "$GENERATE",
+            "example.com.",
+            "@",
+            "IN",
+            "A",
+            "AAAA",
+            "MX",
+            "TXT",
+            "SOA",
+            "NS",
+            "CNAME",
+            "SRV",
+            "1.2.3.4",
+            "::1",
+            "\"",
+            "\"txt\"",
+            "(",
+            ")",
+            ";",
+            "\n",
+            "\t",
+            "3600",
+            "-1",
+            "999999999999",
+            "\\",
+            "\\065",
+            "a.b.c.",
+            "*",
+            "*.example.com.",
+            "\u{0}",
+            "é",
+            ".",
+            "..",
+        ];
+        let mut rng = StdRng::seed_from_u64(0x5EED);
+        for _ in 0..5000 {
+            let n = rng.random_range(1..40);
+            let text = (0..n)
+                .map(|_| TOKENS[rng.random_range(0..TOKENS.len())])
+                .collect::<Vec<_>>()
+                .join(" ");
+            let _ = parse_str(&text, None, None);
+        }
+    }
+
     // Zone text from a string may come from anyone; $INCLUDE would read files of the host.
     #[test]
     fn parse_str_rejects_include() {
