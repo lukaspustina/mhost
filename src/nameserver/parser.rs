@@ -355,6 +355,7 @@ mod test {
     }
 
     #[tokio::test]
+    #[ignore = "needs network"]
     async fn dns_google() {
         crate::utils::tests::logging::init();
         let resolvers = ResolverGroup::from_system_config(Default::default())
@@ -372,6 +373,7 @@ mod test {
 
     #[cfg(feature = "dot")]
     #[tokio::test]
+    #[ignore = "needs network"]
     async fn tls_cloudflare_dns_com_tls_auth_name() {
         crate::utils::tests::logging::init();
         let resolvers = ResolverGroup::from_system_config(Default::default())
