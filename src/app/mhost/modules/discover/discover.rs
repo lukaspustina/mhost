@@ -405,10 +405,11 @@ pub struct WildcardCheck<'a> {
 
 impl<'a> WildcardCheck<'a> {
     pub async fn check_wildcard_resolution(self) -> PartialResult<AxfrAttempt<'a>> {
-        let rnd_names =
-            WildcardCheck::rnd_names(self.env.mod_config.rnd_names_number, self.env.mod_config.rnd_names_len)
-                .into_iter()
-                .map(|x| Name::from_str(&x).unwrap().append_domain(&self.domain_name).unwrap()); // Safe unwraps, we constructed the names
+        let rnd_names = WildcardCheck::probe_names(
+            self.env.mod_config.rnd_names_number,
+            self.env.mod_config.rnd_names_len,
+            &self.domain_name,
+        )?;
         let query = MultiQuery::new(rnd_names, vec![RecordType::A, RecordType::AAAA])?;
 
         self.env
@@ -436,6 +437,24 @@ impl<'a> WildcardCheck<'a> {
 
     pub fn rnd_names(number: usize, len: usize) -> Vec<String> {
         crate::app::common::discover::rnd_names(number, len)
+    }
+
+    /// Random names below `domain`. Fails instead of panicking when a name is too long: a label
+    /// holds at most 63 octets and a whole name at most 255, and `domain` comes from the caller.
+    fn probe_names(number: usize, len: usize, domain: &Name) -> Result<Vec<Name>> {
+        WildcardCheck::rnd_names(number, len)
+            .into_iter()
+            .map(|x| {
+                Name::from_str(&x).and_then(|n| n.append_domain(domain)).map_err(|e| {
+                    anyhow!(
+                        "cannot build a wildcard probe name of {} characters below '{}': {}",
+                        len,
+                        domain,
+                        e
+                    )
+                })
+            })
+            .collect()
     }
 }
 
@@ -1153,3 +1172,33 @@ impl OutputDiscoverResult<'_> {
 // ---------------------------------------------------------------------------
 // Re-export for backward compatibility (used by mdive)
 pub use crate::app::common::discover::filter_wildcard_responses;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn probe_names_are_built_below_the_domain() {
+        let domain = Name::from_str("example.com.").unwrap();
+
+        let names = WildcardCheck::probe_names(3, 32, &domain).unwrap();
+
+        assert_eq!(names.len(), 3);
+        assert!(names.iter().all(|n| n.to_string().ends_with(".example.com.")));
+    }
+
+    #[test]
+    fn probe_names_refuse_a_label_over_63_octets() {
+        let domain = Name::from_str("example.com.").unwrap();
+
+        assert!(WildcardCheck::probe_names(1, 64, &domain).is_err());
+    }
+
+    #[test]
+    fn probe_names_refuse_a_name_over_255_octets() {
+        let long = format!("{0}.{0}.{0}.{0}.", "a".repeat(60));
+        let domain = Name::from_str(&long).unwrap();
+
+        assert!(WildcardCheck::probe_names(1, 32, &domain).is_err());
+    }
+}

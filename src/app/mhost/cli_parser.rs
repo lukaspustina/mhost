@@ -605,7 +605,7 @@ fn discover_subcommand() -> Command {
                 .long("rnd-names-len")
                 .value_name("LEN")
                 .default_value("32")
-                .value_parser(usize_range(8, 128))
+                .value_parser(usize_range(8, 63))
                 .help("Sets length of random domain names to generate for wildcard resolution check"),
         )
         .arg(
