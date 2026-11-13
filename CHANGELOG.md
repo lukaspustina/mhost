@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased
+## v0.13.0 - 2026-11-13
+
+### Security
+
+- Update rustls to 0.23.46 (RUSTSEC-2026-0346, -0347, -0348, -0349), rustls-webpki to 0.103.16 (RUSTSEC-2026-0382), webpki-roots and webpki-root-certs to 1.0.12 (RUSTSEC-2026-0381, -0383) and rustix to 1.1.6 (RUSTSEC-2026-0486)
+- Accepted without a patch: pin-utils (RUSTSEC-2026-0441, transitive via hyper, unmaintained) and tokio `AsyncFd` (RUSTSEC-2026-0386, unused here); both are documented in `deny.toml` and `.cargo/audit.toml`
 
 ### Added
 
