@@ -78,17 +78,7 @@ fn justfile_gate_recipes_are_unchanged() {
     );
     assert_eq!(
         recipe(&justfile, "test-offline:").unwrap(),
-        vec![
-            "test-offline:",
-            "    {{cargo}} test --lib {{all_features}} -- \\",
-            "        --skip services::whois::service::tests::geo_location \\",
-            "        --skip services::whois::service::tests::network_info \\",
-            "        --skip services::whois::service::tests::whois \\",
-            "        --skip services::whois::tests::test_1_1_1_1 \\",
-            "        --skip services::whois::tests::test_5x_1_1_1_1 \\",
-            "        --skip nameserver::parser::test::dns_google \\",
-            "        --skip nameserver::parser::test::tls_cloudflare_dns_com_tls_auth_name",
-        ]
+        vec!["test-offline:", "    {{cargo}} test --lib {{all_features}}"]
     );
 }
 

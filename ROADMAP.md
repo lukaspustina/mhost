@@ -1,6 +1,6 @@
 # mhost — Roadmap
 
-## What's been done (v0.11.2)
+## What's been done (v0.13.0)
 
 <details>
 <summary>Commands</summary>
@@ -38,6 +38,8 @@
 - HTTP response size limits enforce post-read body length checks (chunked encoding bypass fix)
 - Range validation on all CLI numeric parameters including hidden `--max-worker-threads`
 - Distinct ASCII-mode prefixes for attention (`!`) vs error (`x`)
+- hickory 0.26 resolver (Rust 1.88+); opt-in `ResolverGroupBuilder::deny_non_global` for consumers taking nameservers from callers
+- Truncated UDP answers retry once over TCP; `--no-tcp-fallback` turns that off for diagnosing truncation
 </details>
 
 <details>
