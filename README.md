@@ -679,7 +679,7 @@ mhost d [OPTIONS] <DOMAIN>
       --no-ct-logs                 Skip Certificate Transparency queries
       --depth <N>                  Recursive discovery depth [default: 0] (0-3)
       --rnd-names-number <N>       Random names for wildcard check [default: 3] (1-20)
-      --rnd-names-len <N>          Random name length [default: 32] (8-128)
+      --rnd-names-len <N>          Random name length [default: 32] (8-63)
   -p, --show-partial-results       Show results incrementally
 ```
 

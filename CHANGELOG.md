@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `discover --rnd-names-len` accepted 64 to 128, but a DNS label holds at most 63 octets, so the wildcard check panicked; the range is now 8 to 63, and a probe name that is still too long below a very long domain is reported as an error instead of a panic
+
 ## v0.13.0 - 2026-11-13
 
 ### Security
