@@ -49,7 +49,8 @@ design, error layers, common API patterns, network-test history and the release 
 
 - `just adlc-verify` is the gate (fmt-check, clippy, offline lib + doc tests); `[exceptions] no-ci`
   makes the local hooks the gate. `just --list` for the rest.
-- `cargo test --lib` is not network-free: `just test-offline` skips the seven network tests.
+- Seven lib tests need the network and carry `#[ignore = "needs network"]`: `just test-lib` and the
+  cron workflow run them (`--include-ignored`), `just test-offline` and `ci.yml` do not.
   `just test` adds lit CLI tests querying `8.8.8.8`; they may fail on DNS timeouts.
 - Fake-nameserver tests (`src/resolver/tcp_fallback_tests/fake_ns.rs`) bind loopback UDP/TCP
   sockets; run cargo outside a sandbox that forbids local binding.
