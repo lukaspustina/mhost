@@ -119,14 +119,11 @@ assets = [
     ["README.md", "usr/share/doc/mhost/README", "644"],
 ]
 
-[package.metadata.rpm]
-package = "mhost"
-
-[package.metadata.rpm.cargo]
-buildflags = ["--release", "--features", "app-cli"]
-
-[package.metadata.rpm.targets]
-mhost = { path = "/usr/bin/mhost" }
+# cargo-generate-rpm writes the rpm without rpmbuild; build first: cargo build --release --features app-cli
+[package.metadata.generate-rpm]
+assets = [
+    { source = "target/release/mhost", dest = "/usr/bin/mhost", mode = "755" },
+]
 
 # Line tables keep backtraces and panics readable; full debug info (the default) makes every worktree's target/ several times larger.
 [profile.dev]
