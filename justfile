@@ -95,7 +95,7 @@ build-release:
 
 # Install mhost and mdive locally.
 install:
-    {{cargo}} install {{all_features}} --path .
+    {{cargo}} install --locked {{all_features}} --path .
 
 clean:
     {{cargo}} clean
