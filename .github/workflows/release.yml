@@ -13,7 +13,8 @@ permissions:
 jobs:
   release:
     name: Create Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    # ubuntu-latest is Ubuntu 26 (rpm 6.0.1), which cargo-rpm cannot parse
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
