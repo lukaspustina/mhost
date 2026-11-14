@@ -28,7 +28,7 @@ const IDENTICAL: &[(&str, usize, u64)] = &[
     ("babel.config.js", 89, 0x0f1d6763d600f4dd),
     ("docs/about.md", 5116, 0x34e8908d58b61dd0),
     ("docs/attributions_images.md", 1420, 0xfb99841f2a87c6b7),
-    ("docs/installation.md", 929, 0xb8eea64b2d2e4cdf),
+    ("docs/installation.md", 956, 0x0905_78ad_0892_f1ab),
     ("docs/usage_examples.md", 10269, 0x673e3dd07af2c383),
     ("sidebars.js", 264, 0xee9d9317e14db13c),
     ("src/css/custom.css", 3976, 0x301a774bf46f5647),
