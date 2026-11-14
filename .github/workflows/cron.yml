@@ -48,3 +48,18 @@ jobs:
       - uses: rustsec/audit-check@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  # The release job builds these on a pinned runner; this one runs on ubuntu-latest, so a runner
+  # change that breaks the packaging tools shows up here, not on the next tag.
+  packages:
+    name: Packages (deb, rpm) on Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust Toolchain
+        run: rustup toolchain install
+      - run: cargo install --locked cargo-deb cargo-generate-rpm
+      - run: cargo deb
+      - run: |
+          cargo build --release --features app-cli
+          cargo generate-rpm
