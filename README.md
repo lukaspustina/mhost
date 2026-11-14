@@ -457,6 +457,8 @@ cargo install --features app mhost       # CLI only
 cargo install --features tui mhost       # CLI + interactive TUI (mdive)
 ```
 
+Building from crates.io or from source needs Rust 1.88 or newer.
+
 ### From Source
 
 ```sh
