@@ -434,7 +434,6 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    #[ignore = "needs network"]
     async fn geo_location() {
         crate::utils::tests::logging::init();
         let client = RipeStatsClient::new(Default::default());
@@ -446,7 +445,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "needs network"]
     async fn network_info() {
         crate::utils::tests::logging::init();
         let client = RipeStatsClient::new(Default::default());
@@ -458,7 +456,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "needs network"]
     async fn whois() {
         crate::utils::tests::logging::init();
         let opts = RipeStatsClientOpts::new(Duration::from_secs(10));

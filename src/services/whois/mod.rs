@@ -459,7 +459,6 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    #[ignore = "needs network"]
     async fn test_1_1_1_1() {
         crate::utils::tests::logging::init();
         let whois = WhoisClient::default();
@@ -478,7 +477,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "needs network"]
     async fn test_5x_1_1_1_1() {
         crate::utils::tests::logging::init();
         let opts = WhoisClientOpts {
