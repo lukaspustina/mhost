@@ -166,6 +166,6 @@ fn ci_workflow_ignores_website_paths_and_keeps_its_filters() {
 #[test]
 fn release_workflow_is_unchanged() {
     let bytes = read(".github/workflows/release.yml").into_bytes();
-    assert_eq!(bytes.len(), 2921, "release.yml length changed");
-    assert_eq!(fnv1a64(&bytes), 0xc597_0199_8bbc_1699, "release.yml content changed");
+    assert_eq!(bytes.len(), 3015, "release.yml length changed");
+    assert_eq!(fnv1a64(&bytes), 0x53dc_59bf_0a8b_fe1e, "release.yml content changed");
 }

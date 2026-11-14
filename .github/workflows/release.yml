@@ -14,12 +14,12 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-24.04
-    # ubuntu-latest is Ubuntu 26 (rpm 6.0.1), which cargo-rpm cannot parse
+    # Pinned: the nightly packages job in cron.yml builds deb and rpm on ubuntu-latest; unpin once it is green.
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Install jq
-        run: sudo apt-get install -y jq rpm
+        run: sudo apt-get install -y jq
       # rustup installs the toolchain rust-toolchain.toml pins; the musl target must be added to
       # that one, not to whatever stable an action would install.
       - name: Install Rust Toolchain
@@ -30,13 +30,15 @@ jobs:
         run: sudo apt-get install -y musl-tools
       - name: Install Cargo Deb
         run: cargo install cargo-deb
-      - name: Install Cargo Rpm
-        run: cargo install cargo-rpm
+      - name: Install Cargo Generate Rpm
+        run: cargo install --locked cargo-generate-rpm
 
       - name: Build Debian Package
         run: cargo deb
       - name: Build Rpm Package
-        run: cargo rpm build
+        run: |
+          cargo build --release --features app-cli
+          cargo generate-rpm
       - name: Build Static Linux Binary
         run: cargo build --target x86_64-unknown-linux-musl --release --features app
 
@@ -51,7 +53,7 @@ jobs:
           echo "=== Debian packages ==="
           ls -la ./target/debian/*.deb
           echo "=== RPM packages ==="
-          ls -la ./target/release/rpmbuild/RPMS/x86_64/*.rpm
+          ls -la ./target/generate-rpm/*.rpm
           echo "=== Static binary ==="
           ls -la ./target/x86_64-unknown-linux-musl/release/mhost
 
@@ -61,7 +63,7 @@ jobs:
           generate_release_notes: true
           files: |
             ./target/debian/*.deb
-            ./target/release/rpmbuild/RPMS/x86_64/*.rpm
+            ./target/generate-rpm/*.rpm
             ./target/x86_64-unknown-linux-musl/release/mhost
 
       - name: Login to DockerHub
