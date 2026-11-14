@@ -25,6 +25,16 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo check
 
+  # Cargo.toml declares rust-version 1.88; --locked keeps Cargo.lock's pins (uuid is held at
+  # 1.26.1, newer releases need Rust 1.89). +1.88 beats rust-toolchain.toml's pin.
+  msrv:
+    name: MSRV (Rust 1.88)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88
+      - run: cargo +1.88 check --locked --all-targets --all-features
+
   check-macos:
     name: Check on macOS
     runs-on: macos-latest
