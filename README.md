@@ -50,8 +50,8 @@ Most DNS tools do one thing. `dig` does lookups. `subfinder` discovers subdomain
 ```sh
 # Install (pick one)
 brew install lukaspustina/mhost/mhost          # macOS
-cargo install --features app mhost             # Rust toolchain (CLI only)
-cargo install --features tui mhost             # Rust toolchain (CLI + TUI)
+cargo install --locked --features app mhost             # Rust toolchain (CLI only)
+cargo install --locked --features tui mhost             # Rust toolchain (CLI + TUI)
 docker run lukaspustina/mhost:latest mhost l github.com   # Try without installing
 
 # Look up github.com using your system nameservers
@@ -453,9 +453,11 @@ rpm -i mhost.rpm
 ### Cargo (Rust developers)
 
 ```sh
-cargo install --features app mhost       # CLI only
-cargo install --features tui mhost       # CLI + interactive TUI (mdive)
+cargo install --locked --features app mhost       # CLI only
+cargo install --locked --features tui mhost       # CLI + interactive TUI (mdive)
 ```
+
+Building from crates.io or from source needs Rust 1.88 or newer; pass `--locked` so Cargo uses the pinned dependency versions (a fresh resolution may pick releases that need a newer Rust).
 
 ### From Source
 
@@ -463,7 +465,7 @@ cargo install --features tui mhost       # CLI + interactive TUI (mdive)
 git clone https://github.com/lukaspustina/mhost
 cd mhost
 just install                             # CLI + TUI (all features)
-cargo install --features tui --path .    # CLI + TUI
+cargo install --locked --features tui --path .    # CLI + TUI
 ```
 
 ---

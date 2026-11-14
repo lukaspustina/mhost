@@ -44,16 +44,24 @@ lint: clippy fmt-check
 
 # The library tests that need no network — what the gate runs.
 #
-# The seven network tests (five whois tests calling stat.ripe.net over HTTPS, two
-# parser tests resolving dns.google / tls.cloudflare-dns.com through the host's
-# resolver) carry `#[ignore = "needs network"]`, so a plain `cargo test --lib`
-# skips them too; `just test-lib` runs them via `--include-ignored`.
+# Skipped: the five whois tests that call stat.ripe.net over HTTPS and the two
+# parser tests that resolve dns.google / tls.cloudflare-dns.com through the
+# host's resolver. Everything else runs, the offline whois parser tests
+# included; the seven are reachable via `just test-lib`. `--skip` matches
+# substrings, so each name is spelled out.
 test-offline:
-    {{cargo}} test --lib {{all_features}}
+    {{cargo}} test --lib {{all_features}} -- \
+        --skip services::whois::service::tests::geo_location \
+        --skip services::whois::service::tests::network_info \
+        --skip services::whois::service::tests::whois \
+        --skip services::whois::tests::test_1_1_1_1 \
+        --skip services::whois::tests::test_5x_1_1_1_1 \
+        --skip nameserver::parser::test::dns_google \
+        --skip nameserver::parser::test::tls_cloudflare_dns_com_tls_auth_name
 
 # Every library test, network ones included.
 test-lib:
-    {{cargo}} test --lib {{all_features}} -- --include-ignored
+    {{cargo}} test --lib {{all_features}}
 
 # Doc tests.
 test-doc:
@@ -87,7 +95,7 @@ build-release:
 
 # Install mhost and mdive locally.
 install:
-    {{cargo}} install {{all_features}} --path .
+    {{cargo}} install --locked {{all_features}} --path .
 
 clean:
     {{cargo}} clean

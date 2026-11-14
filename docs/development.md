@@ -71,11 +71,10 @@ The codebase uses a layered error strategy:
 
 ## Network tests
 
-- Seven lib tests talk to the network — five whois tests calling `stat.ripe.net`, and two parser
-  tests resolving `dns.google` and `tls.cloudflare-dns.com` through the host's resolver — and all
-  seven were failing on 2026-08-19. They carry `#[ignore = "needs network"]`, so `cargo test --lib`,
-  `just test-offline` and `ci.yml` skip them; `just test-lib` and the cron workflow run them with
-  `--include-ignored`. A new network test gets the same attribute.
+- **`cargo test --lib` is NOT network-free**, despite what the old Makefile claimed: seven of
+  its tests talk to the network, and all seven were failing on 2026-08-19 — five whois tests
+  calling `stat.ripe.net`, and two parser tests resolving `dns.google` and `tls.cloudflare-dns.com`
+  through the host's resolver. `just test-offline` names and skips exactly those.
 
 ## Release process
 

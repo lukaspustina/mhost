@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased
+## v0.13.1 - 2026-11-14
+
+### Changed
+
+- `rust-version = "1.88"` is declared in `Cargo.toml`, the floor hickory 0.26 sets; `cargo +1.88 check` passes. `Cargo.lock` holds `uuid` at 1.26.1, because newer releases need Rust 1.89
+- The `cargo install` commands in the README and `just install` pass `--locked`: without it Cargo ignores `Cargo.lock` and may pick dependency releases that need a newer Rust than 1.88
+- Dependencies updated (tokio 1.54, mio 1.2, socket2 0.6.5, among others); no unaddressed advisory is open
 
 ### Fixed
 
