@@ -127,3 +127,7 @@ buildflags = ["--release", "--features", "app-cli"]
 
 [package.metadata.rpm.targets]
 mhost = { path = "/usr/bin/mhost" }
+
+# Line tables keep backtraces and panics readable; full debug info (the default) makes every worktree's target/ several times larger.
+[profile.dev]
+debug = "line-tables-only"
