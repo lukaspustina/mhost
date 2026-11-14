@@ -38,8 +38,8 @@ rpm -i mhost.rpm
 ## Cargo (Rust developers)
 
 ```sh
-cargo install --features app mhost       # CLI only
-cargo install --features tui mhost       # CLI + interactive TUI (mdive)
+cargo install --locked --features app mhost       # CLI only
+cargo install --locked --features tui mhost       # CLI + interactive TUI (mdive)
 ```
 
 ## From Source
@@ -48,5 +48,5 @@ cargo install --features tui mhost       # CLI + interactive TUI (mdive)
 git clone https://github.com/lukaspustina/mhost
 cd mhost
 make install                             # CLI only
-cargo install --features tui --path .    # CLI + TUI
+cargo install --locked --features tui --path .    # CLI + TUI
 ```
